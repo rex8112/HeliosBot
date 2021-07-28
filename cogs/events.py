@@ -33,11 +33,11 @@ class Events(commands.Cog):
             embed = discord.Embed(title="Unknown Error Detected", colour=discord.Colour.red(), description='**Error Details**```{}: {}```'.format(type(error).__name__, str(error)))
             embed.set_footer(text='I have already notified the programmer.')
             owner_embed = discord.Embed(title='Error In Command: {}'.format(ctx.command.name), colour=discord.Colour.red(), description='```{}: {}```'.format(type(error).__name__, str(error)))
-            owner_embed.set_author(name=str(ctx.author), icon_url=ctx.author.avatar_url)
+            owner_embed.set_author(name=str(ctx.author), icon_url=ctx.author.avatar.url)
             owner = self.bot.get_user(self.bot.owner_id)
             if ctx.author != owner and owner:
                 await owner.send(embed=owner_embed)
-        embed.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
+        embed.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar.url)
         await ctx.send(embed=embed)
 
 def setup(bot):

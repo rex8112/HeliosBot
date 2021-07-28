@@ -439,7 +439,7 @@ class Gacha(commands.Cog):
                     colour=discord.Colour.green(),
                     description='Their card is now available to be found.'
                 )
-                embed.set_thumbnail(url=hero.member.avatar_url)
+                embed.set_thumbnail(url=hero.member.avatar.url)
                 embed.set_footer(text=hero.username)
                 if hero.guild.system_channel:
                     await hero.guild.system_channel.send(embed=embed)
@@ -529,7 +529,7 @@ class Gacha(commands.Cog):
                     description=value,
                     colour=theme.ranks[card.hero.stars-1].colour
                 )
-                embed.set_thumbnail(url=card.hero.member.avatar_url)
+                embed.set_thumbnail(url=card.hero.member.avatar.url)
                 await ctx.send(embed=embed)
                 await asyncio.sleep(1)
         else:
@@ -608,7 +608,7 @@ class Gacha(commands.Cog):
                     description=value
                 )
                 if card.hero.member:
-                    embed.set_thumbnail(url=card.hero.member.avatar_url)
+                    embed.set_thumbnail(url=card.hero.member.avatar.url)
                 await main_message.edit(embed=embed)
                 cards = deck.get_upgradable()
                 await asyncio.sleep(1)
@@ -737,7 +737,7 @@ class Gacha(commands.Cog):
                     colour=discord.Colour.green(),
                     description='Their card is now available to be found.'
                 )
-                embed.set_thumbnail(url=hero.member.avatar_url)
+                embed.set_thumbnail(url=hero.member.avatar.url)
                 embed.set_footer(text=hero.username)
                 hero.active = True
                 hero.save()
@@ -764,7 +764,7 @@ class Gacha(commands.Cog):
                     title=f'{hero.name} {change} to {hero.stars} stars!',
                     colour=discord.Colour.orange()
                 )
-                embed.set_thumbnail(url=hero.member.avatar_url)
+                embed.set_thumbnail(url=hero.member.avatar.url)
                 embed.set_footer(text='Card quantities affected accordingly.')
                 if hero.guild.system_channel:
                     await hero.guild.system_channel.send(embed=embed)
@@ -805,7 +805,7 @@ class Gacha(commands.Cog):
                     colour=discord.Colour.green(),
                     description='Their card is now available to be found.'
                 )
-                embed.set_thumbnail(url=h.member.avatar_url)
+                embed.set_thumbnail(url=h.member.avatar.url)
                 embed.set_footer(text=h.username)
                 if h.guild.system_channel:
                     await h.guild.system_channel.send(embed=embed)
