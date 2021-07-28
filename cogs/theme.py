@@ -1,4 +1,5 @@
 import asyncio
+import json
 import discord
 
 from discord.ext import tasks, commands
@@ -70,6 +71,37 @@ class GuildTheme:
             if not member.bot:
                 bot_only = False
         return bot_only
+
+
+class Rank:
+    def __init__(self, theme: GuildTheme, role: discord.Role = None, json_data: str = None) -> None:
+        self.theme = theme
+        self.guild = theme.guild
+        self.max_members = 0
+        if role is not None:
+            self._load_role(role)
+        elif json_data is not None:
+            self._load_json(json_data)
+            self._load_role(self.guild.get_role(self.id))
+
+    def _load_role(self, role: discord.Role):
+        if role is None:
+            raise discord.NotFound('Role not found')
+        self.role = role
+        self.id = role.id
+        self.name = role.name
+        self.members = role.members
+
+    def _load_json(self, json_to_load: str):
+        data = json.loads(json_to_load)
+        self.id = data['id']
+        self.max_members = data['max']
+
+    def serialize(self):
+        return {
+            'id': self.id,
+            'max': self.max_members
+        }
 
 
 class Theme(commands.Cog):
