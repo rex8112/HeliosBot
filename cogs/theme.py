@@ -1,10 +1,21 @@
 import asyncio
+import datetime
 import json
 import discord
 
 from discord.ext import tasks, commands
 
 from tools.database import db
+
+def serialize(obj):
+    try:
+        return obj.serialize()
+    except AttributeError:
+        pass
+    if isinstance(obj, (discord.User, discord.Member, discord.Guild, discord.TextChannel)):
+        return obj.id
+    elif isinstance(obj, datetime.datetime):
+        return obj.isoformat()
 
 class GuildTheme:
     def __init__(self, guild: discord.Guild):
@@ -25,18 +36,22 @@ class GuildTheme:
         self.theme_name = data['themeName']
         self.guild_name = data['guildName']
         self.ranks = []
-        raw_ranks = data['ranks']
-        if raw_ranks:
-            ranks = [int(x) for x in raw_ranks.split(',')]
-            for r in ranks:
-                rank = self.guild.get_role(r)
+        try:
+            raw_ranks = json.loads(data['ranks'])
+            for r in raw_ranks:
+                rank = Rank(self, json_data=r)
                 self.ranks.append(rank)
-        else:
-            self.ranks = []
+        except json.JSONDecodeError:
+            raw_ranks = data['ranks']
+            if raw_ranks:
+                ranks = [int(x) for x in raw_ranks.split(',')]
+                for r in ranks:
+                    rank = Rank(self, role = self.guild.get_role(r))
+                    self.ranks.append(rank)
         return True
 
     def save(self):
-        ranks = ','.join(str(x.id) for x in self.ranks)
+        ranks = json.dumps(self.ranks, default=serialize)
         db.set_theme(
             self.guild.id,
             themeName = self.theme_name,
@@ -51,30 +66,35 @@ class GuildTheme:
         self.ranks = []
 
     def add_rank(self, role: discord.Role, index=-1):
+        rank = Rank(self, role=role)
         if index > -1:
-            self.ranks.insert(index, role)
+            self.ranks.insert(index, rank)
         else:
-            self.ranks.append(role)
+            self.ranks.append(rank)
 
     def del_rank(self, index: int):
         return self.ranks.pop(index)
 
     def get_current_rank_index(self, member: discord.Member):
         r = member.roles
-        for i, rank in enumerate(self.ranks):
+        for i, rank in enumerate(x.role for x in self.ranks):
             if rank in r:
                 return i
 
     def is_bot_only(self, rank: discord.Role) -> bool:
         bot_only = True
-        for member in rank.members:
-            if not member.bot:
-                bot_only = False
+        if len(rank.members) > 0:
+            for member in rank.members:
+                if not member.bot:
+                    bot_only = False
+                    break
+        else:
+            bot_only = False
         return bot_only
 
 
 class Rank:
-    def __init__(self, theme: GuildTheme, role: discord.Role = None, json_data: str = None) -> None:
+    def __init__(self, theme: GuildTheme, role: discord.Role = None, json_data: dict = None) -> None:
         self.theme = theme
         self.guild = theme.guild
         self.max_members = 0
@@ -84,6 +104,17 @@ class Rank:
             self._load_json(json_data)
             self._load_role(self.guild.get_role(self.id))
 
+    def __str__(self):
+        return self.name
+
+    def __eq__(self, o: object) -> bool:
+        if isinstance(o, self.__class__):
+            return self.id == o.id
+        elif isinstance(o, discord.Role):
+            return self.role == o
+        else:
+            NotImplemented
+
     def _load_role(self, role: discord.Role):
         if role is None:
             raise discord.NotFound('Role not found')
@@ -92,8 +123,8 @@ class Rank:
         self.name = role.name
         self.members = role.members
 
-    def _load_json(self, json_to_load: str):
-        data = json.loads(json_to_load)
+    def _load_json(self, json_to_load: dict):
+        data = json_to_load
         self.id = data['id']
         self.max_members = data['max']
 
@@ -164,7 +195,7 @@ class Theme(commands.Cog):
 
         if author > mem + amount or ctx.author.guild_permissions.administrator:
             if mem < len(theme.ranks) - amount:
-                if theme.is_bot_only(theme.ranks[mem+amount]):
+                if theme.is_bot_only(theme.ranks[mem+amount]) and not member.bot:
                     embed = discord.Embed(
                         title='This rank is bot only!',
                         colour=discord.Colour.red(),
@@ -263,6 +294,28 @@ class Theme(commands.Cog):
         for i, r in enumerate(theme.ranks):
             await r.edit(name=new_ranks[i])
         theme.save()
+
+    #Set max_members in every rank in the theme
+    @commands.command()
+    @commands.has_guild_permissions(administrator=True)
+    async def set_max_members(self, ctx):
+        theme = GuildTheme(ctx.guild)
+        for r in theme.ranks:
+            if r == theme.ranks[0]:
+                continue
+            embed = discord.Embed(
+                title=f'Set max members for {r.name}: {r.max_members}',
+                colour=discord.Colour.orange()
+            )
+            await ctx.send(embed=embed)
+            try:
+                response = await self.bot.wait_for('message', timeout=30.0, check=lambda message: message.author.id == ctx.author.id and message.channel.id == ctx.channel.id)
+            except asyncio.TimeoutError:
+                return
+            r.max_members = int(response.content)
+            await response.add_reaction('✅')
+        theme.save()
+
 
     @commands.Cog.listener()
     async def on_member_join(self, member):
