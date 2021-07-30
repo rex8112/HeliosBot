@@ -849,7 +849,7 @@ class Gacha(commands.Cog):
             return
         self.started = True
         self.competitive_ranks.start()
-        await asyncio.sleep(30)
+        await asyncio.sleep(60)
         new_heroes = []
         for guild in self.bot.guilds:
             for member in guild.members:
