@@ -669,7 +669,7 @@ class Gacha(commands.Cog):
     async def rarest(self, ctx):
         """Get the top 10 rarest cards."""
         heroes = Hero.list_from_guild(self.bot, ctx.guild)
-        filtered_heroes = filter(lambda x: x.active or x.stars > 1, heroes)
+        filtered_heroes = filter(lambda x: x.stars > 1, heroes)
         sorted_heroes = sorted(filtered_heroes, key=lambda x: x.total)
         string = ''
         if len(sorted_heroes) > 10:
