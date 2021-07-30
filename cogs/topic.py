@@ -275,12 +275,12 @@ class Topic(commands.Cog):
             for topic in topics:
                 if topic.archive:
                     continue
-                now = datetime.datetime.now()
+                now = discord.utils.utcnow()
                 if topic.removal_date:
                     if now >= topic.removal_date:
                         await topic.archive_channel()
                 else:
-                    time = datetime.datetime.now()
+                    time = discord.utils.utcnow()
                     try:
                         async for last_message in topic.channel.history(limit=1):
                             time = last_message.created_at
