@@ -653,19 +653,30 @@ class Gacha(commands.Cog):
         data = db.get_deck(guildID=ctx.guild.id)
         theme = GuildTheme(ctx.guild)
         embeds: List[discord.Embed] = []
-        position = 1
         reversed_ranks = list(reversed(theme.ranks))
+        before_rank = 0
         for rank in reversed_ranks:
+            position = 1
             if theme.is_bot_only(rank):
                 continue
             string = ''
             sorted_decks = sorted([Deck(self.bot, member=x) for x in rank.members], key=lambda x: x.total_points, reverse=True)
             for deck in sorted_decks[:5]:
                 if deck.member == ctx.author:
-                    string += f'**{position}. {deck.member.mention}: {deck.total_points} Points**\n'
+                    string += f'**{before_rank + position}. {deck.member.mention}: {deck.total_points} Points**\n'
                 else:
-                    string += f'{position}. {deck.member.mention}: {deck.total_points} Points\n'
+                    string += f'{before_rank + position}. {deck.member.mention}: {deck.total_points} Points\n'
                 position += 1
+            if len(sorted_decks) > 5:
+                position = len(sorted_decks)
+                deck = sorted_decks[-1]
+                if deck.member == ctx.author:
+                    string += f'...\n**{before_rank + position}. {deck.member.mention}: {deck.total_points} Points**\n'
+                else:
+                    string += f'...\n{before_rank + position}. {deck.member.mention}: {deck.total_points} Points\n'
+            else:
+                position -= 1
+            before_rank += position
             embed = discord.Embed(
                 title=f'{rank.name}',
                 colour=rank.role.colour,
@@ -816,9 +827,10 @@ class Gacha(commands.Cog):
             if zeros > 1:
                 print(f'{guild.name} has more than 1 zero max ranks.')
                 continue
-            print([x.name for x in filled_ranks])
+            #print([x.name for x in filled_ranks])
             decks = Deck.get_all_in_guild(self.bot, guild)
-            sorted_decks = sorted(decks, key=lambda x: x.get_total_points(), reverse=True)
+            filtered_decks = filter(lambda x: x.member is not None, decks)
+            sorted_decks = sorted(filtered_decks, key=lambda x: x.get_total_points(), reverse=True)
             for i, deck in enumerate(sorted_decks):
                 try:
                     if deck.member.bot:
