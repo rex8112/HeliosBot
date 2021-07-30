@@ -816,11 +816,14 @@ class Gacha(commands.Cog):
             if zeros > 1:
                 print(f'{guild.name} has more than 1 zero max ranks.')
                 continue
-            print([x.name for x in filled_ranks])
+            #print([x.name for x in filled_ranks])
             decks = Deck.get_all_in_guild(self.bot, guild)
             sorted_decks = sorted(decks, key=lambda x: x.get_total_points(), reverse=True)
             for i, deck in enumerate(sorted_decks):
-                if deck.member.bot:
+                try:
+                    if deck.member.bot:
+                        continue
+                except AttributeError:
                     continue
                 if i > len(filled_ranks) - 1:
                     await theme.set_member_rank(deck.member, theme.ranks[0].role)
