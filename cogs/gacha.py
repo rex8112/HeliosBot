@@ -824,6 +824,8 @@ class Gacha(commands.Cog):
                     continue
                 if i > len(filled_ranks) - 1:
                     await theme.set_member_rank(deck.member, theme.ranks[0].role)
+                elif deck.total_points == 0:
+                    await theme.set_member_rank(deck.member, theme.ranks[0].role)
                 else:
                     await theme.set_member_rank(deck.member, filled_ranks[i].role)
 
