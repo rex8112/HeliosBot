@@ -833,6 +833,8 @@ class Gacha(commands.Cog):
         if self.started:
             return
         self.started = True
+        self.competitive_ranks.start()
+        await asyncio.sleep(30)
         new_heroes = []
         for guild in self.bot.guilds:
             for member in guild.members:
@@ -869,7 +871,6 @@ class Gacha(commands.Cog):
                 embed.set_footer(text=h.username)
                 if h.guild.system_channel:
                     await h.guild.system_channel.send(embed=embed)
-        self.competitive_ranks.start()
         self.hero_check.start()
         self.voice_points.start()
 
