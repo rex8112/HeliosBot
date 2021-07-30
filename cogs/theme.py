@@ -75,11 +75,14 @@ class GuildTheme:
     def del_rank(self, index: int):
         return self.ranks.pop(index)
 
-    def get_current_rank_index(self, member: discord.Member):
+    def get_current_rank_index(self, member: discord.Member) -> int:
         r = member.roles
         for i, rank in enumerate(x.role for x in self.ranks):
             if rank in r:
                 return i
+
+    def get_current_rank(self, member: discord.Member):
+        return self.ranks[self.get_current_rank_index(member)]
 
     def is_bot_only(self, rank: discord.Role) -> bool:
         bot_only = True
@@ -91,6 +94,12 @@ class GuildTheme:
         else:
             bot_only = False
         return bot_only
+
+    async def set_member_rank(self, member: discord.Member, rank: discord.Role):
+        current_rank = self.get_current_rank(member)
+        if current_rank.role != rank:
+            await member.remove_roles(current_rank.role)
+            await member.add_roles(rank)
 
 
 class Rank:
