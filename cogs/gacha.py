@@ -7,7 +7,7 @@ import numpy
 
 from discord.ext import commands, tasks
 from tools.database import db
-from .theme import GuildTheme
+from .theme import GuildTheme, Rank
 
 class Hero:
     """A class that handles the specifics of a card.
@@ -769,6 +769,30 @@ class Gacha(commands.Cog):
                 if hero.guild.system_channel:
                     await hero.guild.system_channel.send(embed=embed)
 
+    @tasks.loop(minutes=30)
+    async def competitive_ranks(self):
+        guilds = self.bot.guilds
+        for guild in guilds:
+            theme = GuildTheme(guild)
+            sorted_ranks = reversed(theme.ranks)
+            filled_ranks = []
+            zeros = 0
+            for rank in sorted_ranks:
+                if rank.max_members == 0:
+                    zeros += 1
+                filled_ranks += [rank for _ in range(rank.max_members)]
+            if zeros > 1:
+                print(f'{guild.name} has more than 1 zero max ranks.')
+                continue
+            print([x.name for x in filled_ranks])
+            decks = Deck.get_all_in_guild(self.bot, guild)
+            sorted_decks = sorted(decks, key=lambda x: x.get_total_points(), reverse=True)
+            for i, deck in enumerate(sorted_decks):
+                if i > len(filled_ranks) - 1:
+                    await theme.set_member_rank(deck.member, theme.ranks[0].role)
+                else:
+                    await theme.set_member_rank(deck.member, filled_ranks[i].role)
+
     async def start_up(self):
         if self.started:
             return
@@ -809,6 +833,7 @@ class Gacha(commands.Cog):
                 embed.set_footer(text=h.username)
                 if h.guild.system_channel:
                     await h.guild.system_channel.send(embed=embed)
+        self.competitive_ranks.start()
         self.hero_check.start()
         self.voice_points.start()
 
