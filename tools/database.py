@@ -15,7 +15,7 @@ class Database:
 
     def init_db(self):
         with self.db:
-            self.db.execute("""CREATE TABLE IF NOT EXISTS _database( version TEXT NOT NULL DEFAULT "1.0.0")""")
+            self.db.execute("""CREATE TABLE IF NOT EXISTS _database( version TEXT NOT NULL DEFAULT "2.1.0")""")
             self.db.execute("""CREATE TABLE IF NOT EXISTS servers( id INTEGER UNIQUE NOT NULL, name TEXT, topicCategory INTEGER, quotesChannel INTEGER, startingRole INTEGER, archiveCategory INTEGER)""")
             self.db.execute("""CREATE TABLE IF NOT EXISTS topicChannels( guildID INTEGER NOT NULL, channelID INTEGER UNIQUE NOT NULL, name TEXT, description TEXT, creatorID INTEGER NOT NULL, tier INTEGER NOT NULL DEFAULT 1, pendingRemovalDate timestamp, pinned INTEGER DEFAULT 0, archive INTEGER DEFAULT 0)""")
             self.db.execute("""CREATE TABLE IF NOT EXISTS banned(id INTEGER NOT NULL, name TEXT)""")
