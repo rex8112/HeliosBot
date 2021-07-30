@@ -1,8 +1,10 @@
 import asyncio
 import datetime
+from typing import List
 import discord
 import random
 import math
+from discord import colour
 import numpy
 
 from discord.ext import commands, tasks
@@ -644,11 +646,33 @@ class Gacha(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    @commands.command()
+    @commands.command(aliases=['lb'])
     @commands.guild_only()
     async def leaderboard(self, ctx):
         """A leaderboard of total points earned."""
         data = db.get_deck(guildID=ctx.guild.id)
+        theme = GuildTheme(ctx.guild)
+        embeds: List[discord.Embed] = []
+        position = 1
+        reversed_ranks = list(reversed(theme.ranks))
+        for rank in reversed_ranks:
+            if theme.is_bot_only(rank):
+                continue
+            string = ''
+            sorted_decks = sorted([Deck(self.bot, member=x) for x in rank.members], key=lambda x: x.total_points, reverse=True)
+            for deck in sorted_decks[:5]:
+                if deck.member == ctx.author:
+                    string += f'**{position}. {deck.member.mention}: {deck.total_points} Points**\n'
+                else:
+                    string += f'{position}. {deck.member.mention}: {deck.total_points} Points\n'
+                position += 1
+            embed = discord.Embed(
+                title=f'{rank.name}',
+                colour=rank.role.colour,
+                description=string)
+            embeds.append(embed)
+        await ctx.send(embeds=embeds[:10])
+        return
         sorted_data = sorted(data, key=lambda x: int(x['totalPoints']), reverse=True)
         string = ''
         for i, d in enumerate(sorted_data[:10], start=1):
@@ -784,6 +808,8 @@ class Gacha(commands.Cog):
             filled_ranks = []
             zeros = 0
             for rank in sorted_ranks:
+                if theme.is_bot_only(rank):
+                    continue
                 if rank.max_members == 0:
                     zeros += 1
                 filled_ranks += [rank for _ in range(rank.max_members)]
@@ -794,6 +820,8 @@ class Gacha(commands.Cog):
             decks = Deck.get_all_in_guild(self.bot, guild)
             sorted_decks = sorted(decks, key=lambda x: x.get_total_points(), reverse=True)
             for i, deck in enumerate(sorted_decks):
+                if deck.member.bot:
+                    continue
                 if i > len(filled_ranks) - 1:
                     await theme.set_member_rank(deck.member, theme.ranks[0].role)
                 else:
