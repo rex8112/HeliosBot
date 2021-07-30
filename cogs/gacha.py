@@ -488,7 +488,7 @@ class Gacha(commands.Cog):
         """Open a new pack of cards."""
         embed = discord.Embed(
             title='Sorry!',
-            description='The bot is under going some heavy changes, to maintain the rarity of cards, packs are temporarily unavailable!',
+            description='The bot is under going some heavy changes that could break role positions, to maintain the rarity of cards, packs are temporarily unavailable!',
             colour=discord.Colour.red())
         await ctx.send(embed=embed)
         return
