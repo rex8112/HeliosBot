@@ -330,7 +330,12 @@ class Theme(commands.Cog):
     async def on_member_join(self, member):
         theme = GuildTheme(member.guild)
         if theme.ranks:
-            await member.add_roles(theme.ranks[0])
+            if member.bot:
+                for r in theme.ranks:
+                    if theme.is_bot_only(r.role):
+                        await member.add_roles(r.role)
+                        return
+            await member.add_roles(theme.ranks[0].role)
 
     @commands.Cog.listener()
     async def on_ready(self):
