@@ -195,8 +195,8 @@ class Theme(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    @commands.command()
-    @commands.has_guild_permissions(manage_roles=True)
+    #@commands.command()
+    #@commands.has_guild_permissions(manage_roles=True)
     async def promote(self, ctx, member: discord.Member, amount = 1):
         theme = GuildTheme(ctx.guild)
         author = theme.get_current_rank_index(ctx.author)
@@ -230,8 +230,8 @@ class Theme(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @commands.command()
-    @commands.has_guild_permissions(manage_roles=True)
+    #@commands.command()
+    #@commands.has_guild_permissions(manage_roles=True)
     async def demote(self, ctx, member: discord.Member, amount = 1):
         theme = GuildTheme(ctx.guild)
         author = theme.get_current_rank_index(ctx.author)
