@@ -79,11 +79,15 @@ class TopicChannel:
 
     @classmethod
     def from_data(cls, bot, data):
+        date = data['pendingRemovalDate']
+        if date:
+            date = date.replace(tzinfo=datetime.timezone.utc)
+            
         return cls(
             bot,
             channel=bot.get_channel(data['channelID']),
             created_by=bot.get_user(data['creatorID']),
-            removal_date=data['pendingRemovalDate'],
+            removal_date=date,
             tier=data['tier'],
             pinned=bool(data['pinned']),
             archive=bool(data['archive']),
@@ -390,7 +394,7 @@ class Topic(commands.Cog):
             for topic in topics:
                 if topic.guild == ctx.guild:
                     topic.delete_channel()
-            db.update_server(ctx.guild, category.id)
+            db.update_server(ctx.guild, category.id, server_data['quotesChannel'], server_data['archiveCategory'])
             if auto_add:
                 for channel in category.channels:
                     db.add_topic(ctx.guild.id, channel.id, ctx.author.id)
