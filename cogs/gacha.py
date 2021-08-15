@@ -486,12 +486,6 @@ class Gacha(commands.Cog):
     @commands.guild_only()
     async def open(self, ctx):
         """Open a new pack of cards."""
-        embed = discord.Embed(
-            title='Sorry!',
-            description='The bot is under going some heavy changes that could break role positions, to maintain the rarity of cards, packs are temporarily unavailable!',
-            colour=discord.Colour.red())
-        await ctx.send(embed=embed)
-        return
         theme = GuildTheme(ctx.guild)
         deck = Deck(self.bot, member=ctx.author)
         cost = Gacha.COST_PER_PACK
