@@ -132,6 +132,8 @@ class Rank:
         self.name = role.name
         self.members = role.members
         self.edit = role.edit
+        self.colour = role.colour
+        self.color = role.color
 
     def _load_json(self, json_to_load: dict):
         data = json_to_load
