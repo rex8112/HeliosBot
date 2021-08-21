@@ -1,3 +1,4 @@
+import sys
 import discord
 
 from discord.ext import commands
@@ -18,8 +19,8 @@ startup_extensions = [
 intents = discord.Intents.default()
 intents.members = True
 activity = discord.Activity(
-    name='-help',
-    type=discord.ActivityType.listening
+    name='for pings',
+    type=discord.ActivityType.watching
 )
 bot = commands.Bot(
         description='A bot designed for Fun Within The Sun',
@@ -41,6 +42,13 @@ async def on_ready():
         if not db.check_server(guild):
             print('Newly Created')
         print('---------')
+
+@bot.command()
+@commands.is_owner()
+async def shutdown(ctx):
+    await ctx.send('Shutting Down')
+    await bot.close()
+    sys.exit(0)
 
 @bot.event
 async def on_guild_join(guild):
