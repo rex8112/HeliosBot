@@ -5,6 +5,7 @@ from discord.ext import tasks, commands
 from discord.ext.commands.errors import MemberNotFound
 from discordtools import WaitFor
 from tools.database import db
+from views.confirmation import ConfirmationView
 from sqlite3 import IntegrityError
 
 class VoiceChannel:
@@ -158,6 +159,29 @@ class Voice(commands.Cog):
     async def voice(self, ctx):
         """Use -help voice for more info."""
         pass
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.guild.me in message.mentions:
+            member = message.author
+            if member.voice:
+                vc = member.voice.channel
+                if vc:
+                    embed = discord.Embed(
+                        title=f'Mention Everyone in {vc.name}?',
+                        colour=discord.Colour.orange()
+                    )
+                    view = ConfirmationView()
+                    members_to_mention = vc.members
+                    q_message = await message.channel.send(embed=embed, view=view)
+                    confirmed = await view.wait_for_answer()
+                    if confirmed:
+                        await q_message.delete()
+                        await message.channel.send(
+                            f'{member.mention} pinged:\n' + ' '.join(e.mention for e in members_to_mention)
+                        )
+                    else:
+                        await q_message.delete()
 
     @voice.command()
     @commands.max_concurrency(1, per=commands.BucketType.channel)
