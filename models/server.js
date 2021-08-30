@@ -1,4 +1,5 @@
 const { Server: ServerDB } = require('../tools/database');
+const { TopicChannel } = require('./topicChannel');
 
 class Server {
     constructor(client, guild) {
@@ -9,36 +10,44 @@ class Server {
         this.startingRole = null;
         this.quotesChannel = null;
         this.archiveCategory = null;
+        this.topics = new Map();
     }
 
     async load() {
         const data = await ServerDB.findOne({ where: { guildId: this.guild.id } });
         if (data) {
-            const topicCategoryId = data.topicCategoryId;
-            const startingRoleId = data.startingRoleId;
-            const quotesChannelId = data.quotesChannelId;
-            const archiveCategoryId = data.archiveCategoryId;
+            const topicCategoryId = data.get('topicCategoryId');
+            const startingRoleId = data.get('startingRoleId');
+            const quotesChannelId = data.get('quotesChannelId');
+            const archiveCategoryId = data.get('archiveCategoryId');
 
             if (topicCategoryId) {
-                this.topicCategory = this.guild.channels.get(topicCategoryId);
+                this.topicCategory = this.guild.channels.cache.get(topicCategoryId);
             } else {
                 this.topicCategory = null;
             }
             if (startingRoleId) {
-                this.startingRole = this.guild.roles.get(startingRoleId);
+                this.startingRole = this.guild.roles.cache.get(startingRoleId);
             } else {
                 this.startingRole = null;
             }
             if (quotesChannelId) {
-                this.quotesChannel = this.guild.channels.get(quotesChannelId);
+                this.quotesChannel = this.guild.channels.cache.get(quotesChannelId);
             } else {
                 this.quotesChannel = null;
             }
             if (archiveCategoryId) {
-                this.archiveCategory = this.guild.channels.get(archiveCategoryId);
+                this.archiveCategory = this.guild.channels.cache.get(archiveCategoryId);
             } else {
                 this.archiveCategory = null;
             }
+            const promises = await TopicChannel.getAllInGuild(this);
+            Promise.all(promises)
+                .then((topics) => {
+                    for (const topic of topics) {
+                        this.topics.set(topic.channel.id, topic);
+                    }
+                });
         } else {
             this.name = this.guild.name;
             this.topicCategory = null;
@@ -65,6 +74,16 @@ class Server {
                 guildId: this.guild.id,
             },
         });
+    }
+
+    async newTopicChannel(name, description, creator) {
+        const channel = await this.guild.channels.create(name, {
+            parent: this.topicCategory,
+        });
+        const topicChannel = new TopicChannel(this, channel);
+        await topicChannel.new(name, description, creator);
+        this.topics.set(channel.id, topicChannel);
+        return topicChannel;
     }
 }
 
