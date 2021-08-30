@@ -2,7 +2,7 @@ const fs = require('fs');
 const { Client, Collection, Intents } = require('discord.js');
 const { token } = require('./config.json');
 
-const client = new Client({ intents: [Intents.FLAGS.GUILDS] });
+const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES] });
 
 client.commands = new Collection();
 client.servers = new Collection();
@@ -37,5 +37,15 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
     }
 });
+
+setInterval(() => {
+    try {
+        for (const server of client.servers.values()) {
+            server.checkTopicChannels();
+        }
+    } catch (error) {
+        console.error(error);
+    }
+}, 1 * 60 * 1000);
 
 client.login(token);

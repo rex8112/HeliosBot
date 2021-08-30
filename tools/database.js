@@ -8,7 +8,7 @@ const sequelize = new Sequelize(databaseName, databaseUser, databasePassword, {
     dialectOptions: {
         bigNumberStrings: true,
     },
-    // logging: false,
+    logging: false,
 });
 
 const Server = sequelize.define('server', {

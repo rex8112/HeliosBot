@@ -76,6 +76,15 @@ class Server {
         });
     }
 
+    async sortTopicChannels() {
+        const arr = Array.from(this.topics.values());
+        arr.sort((a, b) => { return a.compareToTopic(b); });
+        for (let i = 0; i < arr.length; i++) {
+            const topic = arr[i];
+            await topic.channel.edit({ position: i });
+        }
+    }
+
     async newTopicChannel(name, description, creator) {
         const channel = await this.guild.channels.create(name, {
             parent: this.topicCategory,
@@ -83,7 +92,15 @@ class Server {
         const topicChannel = new TopicChannel(this, channel);
         await topicChannel.new(name, description, creator);
         this.topics.set(channel.id, topicChannel);
+        this.sortTopicChannels();
         return topicChannel;
+    }
+
+    async checkTopicChannels() {
+        for (const topicChannel of this.topics.values()) {
+            await topicChannel.checkArchive();
+            await topicChannel.checkIdle();
+        }
     }
 }
 

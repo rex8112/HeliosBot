@@ -23,6 +23,7 @@ class TopicChannel {
                     .setLabel('Save')
                     .setStyle('PRIMARY'),
             );
+        TopicChannel.prototype.toString = () => { return this.name; };
     }
 
     findChannel(id) {
@@ -43,7 +44,7 @@ class TopicChannel {
     TierToDate(tier) {
         const MilisecondsInDay = 60 * 60 * 24 * 1000;
         const durations = [
-            MilisecondsInDay / 4,
+            MilisecondsInDay,
             MilisecondsInDay * 7,
             MilisecondsInDay * 14,
             MilisecondsInDay * 30,
@@ -58,7 +59,7 @@ class TopicChannel {
             .setTitle('📝New Topic')
             .setDescription(`${creator} has created a new topic.`);
 
-        this.name = name.replace('_n_shit', '');
+        this.name = name.replace('_n_shit', '').replace(' ', '_').lowerCase();
         this.description = description;
         this.tier = 1;
         this.creatorId = creator.user.id;
@@ -72,7 +73,7 @@ class TopicChannel {
             tier: this.tier,
             creatorId: creator.id,
         });
-        await this.channel.edit(
+        this.channel.edit(
             {
                 name: `${this.name}_n_shit`,
                 topic: this.description,
@@ -144,7 +145,7 @@ class TopicChannel {
             .addField('Archive Time', `${time(this.pendingRemovalDate)}`);
         await this.save();
         await this.channel.send({ embeds: [queueEmbed], components: [this.saveRow] });
-        await this.channel.edit({ name: `🛑${this.channel.name}` });
+        this.channel.edit({ name: `🛑${this.channel.name}` }, 'Channel was idle');
     }
 
     async archive() {
@@ -154,9 +155,8 @@ class TopicChannel {
             .setDescription('Topic will remain in stasis until further notice.');
 
         this.channel.edit({
-            parent: this.server.archivedCategory ? this.server.archivedCategory : this.server.topicCategory,
-            name: `📕${this.channel.name}`,
-        });
+            parent: this.server.archiveCategory ? this.server.archiveCategory : this.server.topicCategory,
+        }, 'Channel archived');
         this.archived = true;
         this.pendingRemovalDate = null;
         await this.save();
@@ -178,15 +178,14 @@ class TopicChannel {
         if (this.pendingRemovalDate) {
             this.channel.edit({
                 name: this.channel.name.replace('🛑', ''),
-            });
+            }, 'Channel saved');
             this.pendingRemovalDate = null;
             embed = abortedEmbed;
         }
         if (this.archived) {
             this.channel.edit({
                 parent: this.server.topicCategory,
-                name: this.channel.name.replace('📕', ''),
-            });
+            }, 'Channel saved');
             this.archived = false;
             embed = unarchiveEmbed;
         }
@@ -198,14 +197,34 @@ class TopicChannel {
     }
 
     async checkIdle() {
-        const idle = this.channel.lastMessage.createdAt < this.calculateAFKDate();
-        if (idle) {
-            this.queueArchive();
+        const lastMessage = await this.channel.messages.fetch(this.channel.lastMessageId);
+        const idle = lastMessage.createdAt < this.calculateAFKDate();
+        if (idle && !this.archived && !this.pendingRemovalDate) {
+            await this.queueArchive();
+        }
+    }
+
+    async checkArchive() {
+        if (this.pendingRemovalDate && this.pendingRemovalDate < Date.now()) {
+            await this.archive();
         }
     }
 
     isOwner(member) {
         return member.id === this.creatorId;
+    }
+
+    compareToTopic(topic) {
+        if (this.pinned && !topic.pinned) {
+            return -1;
+        } else if (!this.pinned && topic.pinned) {
+            return 1;
+        }
+        if (this.name > topic.name) {
+            return 1;
+        } else {
+            return -1;
+        }
     }
 
     static async getAllInGuild(server) {
