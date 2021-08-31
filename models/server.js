@@ -1,7 +1,13 @@
 const { Server: ServerDB } = require('../tools/database');
 const { TopicChannel } = require('./topicChannel');
+const { Theme } = require('./theme');
+const { Client, Guild } = require('discord.js');
 
 class Server {
+    /**
+     * @param {Client} client
+     * @param {Guild} guild
+     */
     constructor(client, guild) {
         this.client = client;
         this.guild = guild;
@@ -11,6 +17,7 @@ class Server {
         this.quotesChannel = null;
         this.archiveCategory = null;
         this.topics = new Map();
+        this.theme = null;
     }
 
     async load() {
@@ -48,6 +55,7 @@ class Server {
                         this.topics.set(topic.channel.id, topic);
                     }
                 });
+            this.theme = await new Theme(this).load();
         } else {
             this.name = this.guild.name;
             this.topicCategory = null;

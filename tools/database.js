@@ -7,6 +7,7 @@ const sequelize = new Sequelize(databaseName, databaseUser, databasePassword, {
     dialect: 'mariadb',
     dialectOptions: {
         bigNumberStrings: true,
+        autoJsonMap: false,
     },
     logging: false,
 });
@@ -71,8 +72,31 @@ const Topic = sequelize.define('topic', {
     },
 }, { timestamps: false });
 
+const Theme = sequelize.define('theme', {
+    guildId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+    },
+    themeName: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: '',
+    },
+    guildName: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: '',
+    },
+    ranks: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [],
+    },
+}, { timestamps: false });
+
 module.exports = {
     Topic,
     Server,
+    Theme,
     sequelize,
 };
