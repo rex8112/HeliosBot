@@ -2,7 +2,7 @@ const fs = require('fs');
 const { Client, Collection, Intents } = require('discord.js');
 const { token } = require('./config.json');
 
-const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES] });
+const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_VOICE_STATES] });
 
 client.commands = new Collection();
 client.servers = new Collection();
@@ -46,6 +46,6 @@ setInterval(() => {
     } catch (error) {
         console.error(error);
     }
-}, 1 * 60 * 1000);
+}, 5 * 60 * 1000);
 
 client.login(token);

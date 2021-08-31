@@ -98,8 +98,12 @@ class Server {
 
     async checkTopicChannels() {
         for (const topicChannel of this.topics.values()) {
-            await topicChannel.checkArchive();
-            await topicChannel.checkIdle();
+            try {
+                await topicChannel.checkArchive();
+                await topicChannel.checkIdle();
+            } catch (err) {
+                console.log(err);
+            }
         }
     }
 }
