@@ -1,6 +1,7 @@
 const { Server: ServerDB } = require('../tools/database');
 const { TopicChannel } = require('./topicChannel');
 const { Theme } = require('./theme');
+const { Deck } = require('./deck');
 const { Client, Guild } = require('discord.js');
 
 class Server {
@@ -17,8 +18,13 @@ class Server {
         this.quotesChannel = null;
         this.archiveCategory = null;
         this.topics = new Map();
+        this.decks = new Map();
         this.theme = null;
     }
+
+    static POINTS_PER_MESSAGE = 2;
+    static POINTS_PER_MINUTE = 1;
+
 
     async load() {
         const data = await ServerDB.findOne({ where: { guildId: this.guild.id } });
@@ -48,20 +54,28 @@ class Server {
             } else {
                 this.archiveCategory = null;
             }
-            const promises = await TopicChannel.getAllInGuild(this);
-            Promise.all(promises)
+            const topicPromises = await TopicChannel.getAllInGuild(this);
+            Promise.all(topicPromises)
                 .then((topics) => {
                     for (const topic of topics) {
                         this.topics.set(topic.channel.id, topic);
                     }
                 });
             this.theme = await new Theme(this).load();
+            const deckPromises = await Deck.getAllFromGuild(this);
+            Promise.all(deckPromises)
+                .then((decks) => {
+                    for (const deck of decks) {
+                        this.decks.set(deck.member.id, deck);
+                    }
+                });
         } else {
             this.name = this.guild.name;
             this.topicCategory = null;
             this.startingRole = null;
             this.quotesChannel = null;
             this.archiveCategory = null;
+            this.theme = await new Theme(this).load();
             ServerDB.create({
                 guildId: this.guild.id,
                 name: this.name,
@@ -104,11 +118,39 @@ class Server {
         return topicChannel;
     }
 
+    async newDeck(member) {
+        const deck = new Deck(this, member).load();
+        this.decks.set(member.id, deck);
+        return deck;
+    }
+
     async checkTopicChannels() {
         for (const topicChannel of this.topics.values()) {
             try {
                 await topicChannel.checkArchive();
                 await topicChannel.checkIdle();
+            } catch (err) {
+                console.log(err);
+            }
+        }
+    }
+
+    async checkVoiceChannels(points) {
+        for (const channel of this.guild.channels.cache.map(c => c).filter(c => c.isVoice())) {
+            try {
+                for (const member of channel.members.values()) {
+                    const deck = this.decks.get(member.id);
+                    let pointsToAdd = points;
+                    if (channel.members.size <= 1) {
+                        pointsToAdd = Math.floor(points / 2);
+                    }
+                    if (deck) {
+                        deck.addPoints(pointsToAdd);
+                    } else {
+                        const newDeck = await this.newDeck(member);
+                        newDeck.addPoints(pointsToAdd);
+                    }
+                }
             } catch (err) {
                 console.log(err);
             }

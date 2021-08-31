@@ -34,6 +34,7 @@ const Server = sequelize.define('server', {
         type: DataTypes.BIGINT,
     },
 }, { timestamps: false });
+Server.sync();
 
 const Topic = sequelize.define('topic', {
     guildId: {
@@ -71,6 +72,7 @@ const Topic = sequelize.define('topic', {
         defaultValue: false,
     },
 }, { timestamps: false });
+Topic.sync();
 
 const Theme = sequelize.define('theme', {
     guildId: {
@@ -93,10 +95,39 @@ const Theme = sequelize.define('theme', {
         defaultValue: [],
     },
 }, { timestamps: false });
+Theme.sync();
+
+const Deck = sequelize.define('deck', {
+    guildId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+    },
+    userId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+    },
+    cards: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [],
+    },
+    totalPoints: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+    },
+    spentPoints: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+    },
+}, { timestamps: false });
+Deck.sync();
 
 module.exports = {
     Topic,
     Server,
     Theme,
+    Deck,
     sequelize,
 };

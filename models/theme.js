@@ -23,11 +23,13 @@ class Theme {
     }
 
     async insert() {
-        return ThemeDB.create(this.toJSON());
+        await ThemeDB.create(this.toJSON());
+        return this;
     }
 
     async save() {
-        return ThemeDB.update(this.toJSON(), { where: { guildId: this.guild.id } });
+        await ThemeDB.update(this.toJSON(), { where: { guildId: this.guild.id } });
+        return this;
     }
 
     async load() {

@@ -1,8 +1,9 @@
 const fs = require('fs');
 const { Client, Collection, Intents } = require('discord.js');
 const { token } = require('./config.json');
+const { Server } = require('./models/server');
 
-const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_VOICE_STATES] });
+const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_VOICE_STATES, Intents.FLAGS.GUILD_MEMBERS] });
 
 client.commands = new Collection();
 client.servers = new Collection();
@@ -47,5 +48,15 @@ setInterval(() => {
         console.error(error);
     }
 }, 5 * 60 * 1000);
+
+setInterval(() => {
+    try {
+        for (const server of client.servers.values()) {
+            server.checkVoiceChannels(Server.POINTS_PER_MINUTE * 2);
+        }
+    } catch (error) {
+        console.error(error);
+    }
+}, 2 * 60 * 1000);
 
 client.login(token);
