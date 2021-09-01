@@ -62,13 +62,10 @@ class Server {
                     }
                 });
             this.theme = await new Theme(this).load();
-            const deckPromises = await Deck.getAllFromGuild(this);
-            Promise.all(deckPromises)
-                .then((decks) => {
-                    for (const deck of decks) {
-                        this.decks.set(deck.member.id, deck);
-                    }
-                });
+            for (const member of (await this.guild.members.fetch()).values()) {
+                if (member.user.bot) continue;
+                await this.newDeck(member);
+            }
         } else {
             this.name = this.guild.name;
             this.topicCategory = null;
@@ -119,9 +116,20 @@ class Server {
     }
 
     async newDeck(member) {
-        const deck = new Deck(this, member).load();
+        if (this.decks.has(member.id)) return this.decks.get(member.id);
+        const deck = await new Deck(this, member).load();
         this.decks.set(member.id, deck);
         return deck;
+    }
+
+    getDeck(member) {
+        return this.decks.get(member.id);
+    }
+
+    async getSortedDecks() {
+        const arr = Array.from(this.decks.values());
+        arr.sort((a, b) => { return a.compareToDeck(b); });
+        return arr;
     }
 
     async checkTopicChannels() {
@@ -154,6 +162,30 @@ class Server {
             } catch (err) {
                 console.log(err);
             }
+        }
+    }
+
+    async checkCompetitiveRanking() {
+        await this.guild.roles.fetch();
+        const arr = Array.from(this.decks.values());
+        const rankFillArray = [];
+        for (let i = 0; i < this.theme.ranks.length; i++) {
+            const rank = this.theme.ranks[i];
+            if (!rank.isBotOnly()) {
+                for (let j = 0; j < rank.maxMembers; j++) {
+                    rankFillArray.push(rank);
+                }
+            }
+        }
+        arr.sort((a, b) => { return b.compareToDeck(a); });
+        for (let i = 0; i < arr.length; i++) {
+            const deck = arr[i];
+            const member = deck.member;
+            let rank = rankFillArray[i];
+            if (rank === undefined) {
+                rank = this.theme.ranks[this.theme.ranks.length - 1];
+            }
+            await this.theme.setMemberRank(member, rank);
         }
     }
 }

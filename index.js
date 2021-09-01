@@ -43,11 +43,12 @@ setInterval(() => {
     try {
         for (const server of client.servers.values()) {
             server.checkTopicChannels();
+            server.checkCompetitiveRanking();
         }
     } catch (error) {
         console.error(error);
     }
-}, 5 * 60 * 1000);
+}, 1 * 60 * 1000);
 
 setInterval(() => {
     try {

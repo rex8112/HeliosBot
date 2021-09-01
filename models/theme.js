@@ -72,6 +72,37 @@ class Theme {
         this.save();
     }
 
+    getCurrentRankIndex(member) {
+        const roles = Array.from(member.roles.cache.values());
+        roles.sort((a, b) => b.position - a.position);
+        for (const rank of roles) {
+            const themeRank = this.getRank(rank);
+            if (themeRank) return this.ranks.indexOf(themeRank);
+        }
+        return undefined;
+    }
+
+    getCurrentRank(member) {
+        const index = this.getCurrentRankIndex(member);
+        if (index === undefined) return undefined;
+        return this.ranks[index];
+    }
+
+    async deleteAllButRank(member, rank) {
+        for (const role of member.roles.cache.values()) {
+            const themeRank = this.getRank(role);
+            if (themeRank && themeRank !== rank) {
+                await themeRank.removeMember(member);
+            }
+        }
+    }
+
+    async setMemberRank(member, rank) {
+        await this.deleteAllButRank(member, rank);
+        await rank.addMember(member);
+        return true;
+    }
+
     async setGuildName(name) {
         this.guildName = name;
         this.guild.edit({ name: name });
@@ -103,6 +134,27 @@ class Rank {
         const rank = new Rank(theme, theme.guild.roles.cache.get(json.role));
         rank.maxMembers = json.maxMembers;
         return rank;
+    }
+
+    async removeMember(member) {
+        if (this.role.members.has(member.id)) {
+            await member.roles.remove(this.role);
+        }
+    }
+
+    async addMember(member) {
+        if (!this.role.members.has(member.id)) {
+            await member.roles.add(this.role);
+        }
+    }
+
+    isBotOnly() {
+        let result = false;
+        for (const member of this.role.members.values()) {
+            result = true;
+            if (!member.user.bot) return false;
+        }
+        return result;
     }
 }
 

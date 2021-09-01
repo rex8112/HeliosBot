@@ -38,7 +38,7 @@ class Deck {
             this.totalPoints = deck.totalPoints;
             this.spentPoints = deck.spentPoints;
         } else {
-            await this.insert();
+            this.insert();
         }
         return this;
     }
@@ -73,6 +73,10 @@ class Deck {
             }
         }
         return decks;
+    }
+
+    compareToDeck(deck) {
+        return this.totalPoints - deck.totalPoints;
     }
 }
 

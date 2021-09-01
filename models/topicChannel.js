@@ -197,10 +197,15 @@ class TopicChannel {
     }
 
     async checkIdle() {
-        const lastMessage = await this.channel.messages.fetch(this.channel.lastMessageId);
-        const idle = lastMessage.createdAt < this.calculateAFKDate();
-        if (idle && !this.archived && !this.pendingRemovalDate) {
-            await this.queueArchive();
+        try {
+            const lastMessage = await this.channel.messages.fetch(this.channel.lastMessageId);
+            const idle = lastMessage.createdAt < this.calculateAFKDate();
+            if (idle && !this.archived && !this.pendingRemovalDate) {
+                await this.queueArchive();
+            }
+        } catch (e) {
+            this.channel.send('JavaScript is gay so I am putting this here to fix it.');
+            console.error(`${this.channel.id}|${this.channel.lastMessageId}: ${e}`);
         }
     }
 
