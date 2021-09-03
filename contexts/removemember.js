@@ -2,7 +2,6 @@ module.exports = {
     data: {
         type: 2,
         name: 'Remove from Voice',
-        default_permission: false,
     },
     async execute(interaction) {
         const server = interaction.client.servers.get(interaction.guild.id);

@@ -32,10 +32,6 @@ class Voice {
         } else {
             this.textChannel = null;
         }
-
-        const contextNames = [...this.guild.client.contexts.keys()];
-        this.contexts = this.guild.commands.cache.filter(c => contextNames.includes(c.name));
-        this.contexts = this.contexts.concat(this.guild.client.application.commands.cache.filter(c => contextNames.includes(c.name)));
     }
 
     static MINUTES = 10;
@@ -103,16 +99,6 @@ class Voice {
         this.creationTimestamp = voiceChannel.createdTimestamp;
         this.loaded = true;
 
-        for (const context of this.contexts.values()) {
-            context.permissions.add({ permissions: [
-                {
-                    id: this.creator.id,
-                    type: 'USER',
-                    permission: true,
-                },
-            ] });
-        }
-
         // Send welcome message
         const memberString = [...this.members.keys()].map(id => userMention(id)).join('\n');
         const embed = new MessageEmbed()
@@ -124,6 +110,7 @@ class Voice {
         this.welcomeMessage = await this.textChannel.send({ embeds: [embed] });
         await this.welcomeMessage.pin();
         await VoiceDB.create(this.toJSON());
+        this.getVoiceTemplate().save();
     }
 
     async save() {
@@ -171,9 +158,6 @@ class Voice {
 
     async delete() {
         await VoiceDB.destroy({ where: { creatorId: this.creator.id } });
-        for (const context of this.contexts.values()) {
-            context.permissions.remove({ users: this.creator.id });
-        }
         if (this.voiceChannel) await this.voiceChannel.delete();
         if (this.textChannel) await this.textChannel.delete();
     }
@@ -191,7 +175,6 @@ class Voice {
         await this.voiceChannel.permissionOverwrites.set(overwrites);
         await this.textChannel.permissionOverwrites.set(overwrites);
         this.members.set(member.id, member);
-        await this.save();
         if (this.welcomeMessage) {
             const embed = this.welcomeMessage.embeds[0];
             const listField = embed.fields.find(f => f.name === 'Allowed People' || f.name === 'Blocked People');
@@ -199,6 +182,8 @@ class Voice {
             listField.value = memberString;
             await this.welcomeMessage.edit({ embeds: [embed] });
         }
+        await this.save();
+        this.getVoiceTemplate().save();
         return true;
     }
 
@@ -216,6 +201,7 @@ class Voice {
             await this.welcomeMessage.edit({ embeds: [embed] });
         }
         await this.save();
+        this.getVoiceTemplate().save();
         return true;
     }
 

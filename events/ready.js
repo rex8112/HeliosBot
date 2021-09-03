@@ -8,6 +8,7 @@ module.exports = {
         console.log(`Ready! Logged in as ${client.user.tag}`);
         await sequelize.sync();
         console.log('Database synced');
+        await client.application.commands.fetch();
         for (const guild of client.guilds.cache.values()) {
             const server = await new Server(client, guild).load();
             client.servers.set(guild.id, server);

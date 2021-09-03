@@ -2,7 +2,6 @@ module.exports = {
     data: {
         type: 2,
         name: 'Add to Voice',
-        default_permission: false,
     },
     async execute(interaction) {
         const server = interaction.client.servers.get(interaction.guild.id);
