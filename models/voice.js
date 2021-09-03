@@ -265,4 +265,5 @@ class VoiceLast {
 
 module.exports = {
     Voice,
+    VoiceLast,
 };

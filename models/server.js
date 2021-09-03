@@ -222,8 +222,9 @@ class Server {
         }
     }
 
-    async newVoiceChannel(name, creator, whitelist, nsfw) {
+    async newVoiceChannel(name, creator, whitelist, nsfw, members = new Map()) {
         const voice = new Voice(this);
+        voice.members = members;
         await voice.build(name, creator, whitelist, nsfw);
         this.privateVoiceChannels.set(voice.textChannelId, voice);
         return voice;
