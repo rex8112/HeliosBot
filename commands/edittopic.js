@@ -29,7 +29,7 @@ module.exports = {
         const server = interaction.client.servers.get(interaction.guild.id);
         const topic = server.topics.get(interaction.channel.id);
         if (!interaction.member.permissions.has([Permissions.FLAGS.MANAGE_CHANNELS]) && !topic.isOwner(interaction.member)) {
-            return interaction.reply('You do not have permission to edit the topic.');
+            return interaction.reply({ content: 'You do not have permission to edit the topic.', ephemeral: true });
         }
         if (interaction.options.getSubcommand() === 'delete') {
             await interaction.deferReply({ ephemeral: true });

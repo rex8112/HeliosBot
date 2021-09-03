@@ -16,7 +16,7 @@ module.exports = {
                 .setDescription('The role that users will be given when they join the server.')),
     async execute(interaction) {
         if (!interaction.member.permissions.has([Permissions.FLAGS.MANAGE_CHANNELS])) {
-            return interaction.reply('You do not have permission to edit the server.');
+            return interaction.reply({ content: 'You do not have permission to edit the server.', ephemeral: true });
         }
         const server = interaction.client.servers.get(interaction.guild.id);
         const topicCategory = interaction.options.getChannel('topiccategory');

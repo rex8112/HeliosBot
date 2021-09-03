@@ -228,6 +228,24 @@ class Server {
         this.privateVoiceChannels.set(voice.textChannelId, voice);
         return voice;
     }
+
+    async showArchive(member) {
+        const channel = this.archiveCategory;
+        if (channel) {
+            await channel.permissionOverwrites.create(member.id, { 'VIEW_CHANNEL': true }, { type: 1 });
+            return true;
+        }
+        return false;
+    }
+
+    async hideArchive(member) {
+        const channel = this.archiveCategory;
+        if (channel) {
+            await channel.permissionOverwrites.delete(member.id);
+            return true;
+        }
+        return false;
+    }
 }
 
 module.exports = { Server };
