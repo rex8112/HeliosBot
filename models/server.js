@@ -2,6 +2,7 @@ const { Server: ServerDB } = require('../tools/database');
 const { TopicChannel } = require('./topicChannel');
 const { Theme } = require('./theme');
 const { Deck } = require('./deck');
+const { Voice } = require('./voice');
 const { Client, Guild } = require('discord.js');
 
 class Server {
@@ -17,9 +18,12 @@ class Server {
         this.startingRole = null;
         this.quotesChannel = null;
         this.archiveCategory = null;
+        this.privateCategory = null;
+        this.getPrivateCategory();
         this.topics = new Map();
         this.decks = new Map();
         this.theme = null;
+        this.privateVoiceChannels = new Map();
     }
 
     static POINTS_PER_MESSAGE = 2;
@@ -66,6 +70,16 @@ class Server {
                 if (member.user.bot) continue;
                 await this.newDeck(member);
             }
+            await this.guild.commands.fetch();
+            if (this.privateCategory) {
+                for (const id of this.privateCategory.children.filter((c) => c.isVoice()).keys()) {
+                    const voiceChannel = new Voice(this, id);
+                    await voiceChannel.load();
+                    if (voiceChannel.loaded) {
+                        this.privateVoiceChannels.set(voiceChannel.textChannelId, voiceChannel);
+                    }
+                }
+            }
         } else {
             this.name = this.guild.name;
             this.topicCategory = null;
@@ -73,10 +87,11 @@ class Server {
             this.quotesChannel = null;
             this.archiveCategory = null;
             this.theme = await new Theme(this).load();
-            ServerDB.create({
+            await ServerDB.create({
                 guildId: this.guild.id,
                 name: this.name,
             });
+            this.load();
         }
         return this;
     }
@@ -113,6 +128,12 @@ class Server {
         this.topics.set(channel.id, topicChannel);
         this.sortTopicChannels();
         return topicChannel;
+    }
+
+    getPrivateCategory() {
+        return this.privateCategory = this.guild.channels.cache.find((channel) => {
+            return channel.type === 'GUILD_CATEGORY' && channel.name === 'Private Channels';
+        });
     }
 
     async newDeck(member) {
@@ -165,6 +186,18 @@ class Server {
         }
     }
 
+    async checkPrivateVoiceChannels() {
+        for (const channel of this.privateVoiceChannels.values()) {
+            try {
+                if (await channel.checkDelete()) {
+                    this.privateVoiceChannels.delete(channel.textChannelId);
+                }
+            } catch (err) {
+                console.log(err);
+            }
+        }
+    }
+
     async checkCompetitiveRanking() {
         await this.guild.roles.fetch();
         const arr = Array.from(this.decks.values());
@@ -187,6 +220,13 @@ class Server {
             }
             await this.theme.setMemberRank(member, rank);
         }
+    }
+
+    async newVoiceChannel(name, creator, whitelist, nsfw) {
+        const voice = new Voice(this);
+        await voice.build(name, creator, whitelist, nsfw);
+        this.privateVoiceChannels.set(voice.textChannelId, voice);
+        return voice;
     }
 }
 

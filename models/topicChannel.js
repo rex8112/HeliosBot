@@ -59,7 +59,7 @@ class TopicChannel {
             .setTitle('📝New Topic')
             .setDescription(`${creator} has created a new topic.`);
 
-        this.name = name.replace('_n_shit', '').replace(' ', '_').lowerCase();
+        this.name = name.replace('_n_shit', '').replace(' ', '_').toLowerCase();
         this.description = description;
         this.tier = 1;
         this.creatorId = creator.user.id;

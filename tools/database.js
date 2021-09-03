@@ -124,10 +124,66 @@ const Deck = sequelize.define('deck', {
 }, { timestamps: false });
 Deck.sync();
 
+const Voice = sequelize.define('voice', {
+    creatorId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+        unique: true,
+    },
+    voiceId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+        unique: true,
+    },
+    textId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+        unique: true,
+    },
+    whitelist: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+    },
+    welcomeId: {
+        type: DataTypes.BIGINT,
+        allowNull: true,
+    },
+    members: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [],
+    },
+}, { timestamps: false });
+
+const VoiceTemplate = sequelize.define('voiceTemplate', {
+    creatorId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+        unique: true,
+    },
+    name: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
+    whitelist: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+    },
+    members: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [],
+    },
+}, { timestamps: false });
+
 module.exports = {
     Topic,
     Server,
     Theme,
     Deck,
+    Voice,
+    VoiceTemplate,
     sequelize,
 };
