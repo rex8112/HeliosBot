@@ -210,6 +210,9 @@ class Server {
                 }
             }
         }
+        if (rankFillArray.length <= 0) {
+            return;
+        }
         arr.sort((a, b) => { return b.compareToDeck(a); });
         for (let i = 0; i < arr.length; i++) {
             const deck = arr[i];
