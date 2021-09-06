@@ -70,7 +70,7 @@ class Server {
                 if (member.user.bot) continue;
                 await this.newDeck(member);
             }
-            await this.guild.commands.fetch();
+            // await this.guild.commands.fetch();
             if (this.privateCategory) {
                 for (const id of this.privateCategory.children.filter((c) => c.isVoice()).keys()) {
                     const voiceChannel = new Voice(this, id);
