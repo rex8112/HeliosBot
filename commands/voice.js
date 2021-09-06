@@ -41,6 +41,7 @@ module.exports = {
                 .setDescription('Delete your voice channel')),
     async execute(interaction) {
         const server = interaction.client.servers.get(interaction.guild.id);
+        if (!server.privateCategory) return interaction.reply({ content: 'This Discord needs a "Private Channels" Category first', ephemeral: true });
         if (interaction.options.getSubcommand() === 'new') {
             const name = interaction.options.getString('name');
             const typeString = interaction.options.getString('type');

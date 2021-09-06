@@ -16,7 +16,14 @@ module.exports = {
                 .setDescription('The role that users will be given when they join the server.'))
         .addChannelOption(option =>
             option.setName('quoteschannel')
-                .setDescription('The channel that quotes will be posted in.')),
+                .setDescription('The channel that quotes will be posted in.'))
+        .addStringOption(option =>
+            option.setName('clear')
+                .setDescription('Unsets one of the previous options.')
+                .addChoice('Topic Category', 'topiccategory')
+                .addChoice('Archive Category', 'archivecategory')
+                .addChoice('Starting Role', 'startingrole')
+                .addChoice('Quotes Channel', 'quoteschannel')),
     async execute(interaction) {
         if (!interaction.member.permissions.has([Permissions.FLAGS.MANAGE_CHANNELS])) {
             return interaction.reply({ content: 'You do not have permission to edit the server.', ephemeral: true });
@@ -26,6 +33,7 @@ module.exports = {
         const archiveCategory = interaction.options.getChannel('archivecategory');
         const startingRole = interaction.options.getRole('startingrole');
         const quotesChannel = interaction.options.getChannel('quoteschannel');
+        const clearString = interaction.options.getString('clear');
 
         if (topicCategory && topicCategory instanceof CategoryChannel) {
             server.topicCategory = topicCategory;
@@ -38,6 +46,22 @@ module.exports = {
         }
         if (quotesChannel && !(quotesChannel instanceof CategoryChannel)) {
             server.quotesChannel = quotesChannel;
+        }
+        if (clearString) {
+            switch (clearString) {
+            case 'topiccategory':
+                server.topicCategory = null;
+                break;
+            case 'archivecategory':
+                server.archiveCategory = null;
+                break;
+            case 'startingrole':
+                server.startingRole = null;
+                break;
+            case 'quoteschannel':
+                server.quotesChannel = null;
+                break;
+            }
         }
 
         await server.save();

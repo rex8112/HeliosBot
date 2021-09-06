@@ -21,6 +21,8 @@ module.exports = {
                 .setDescription('The speaker of the quote to search for.')
                 .setRequired(false)),
     async execute(interaction) {
+        const server = interaction.client.servers.get(interaction.guild.id);
+        if (!server.quotesChannel) return interaction.reply({ content: 'Quotes are currently disabled on this server.', ephemeral: true });
         const id = interaction.options.getString('id');
         const poster = interaction.options.getMember('poster');
         const speaker = interaction.options.getMember('speaker');

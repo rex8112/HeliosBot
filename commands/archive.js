@@ -13,6 +13,7 @@ module.exports = {
                 .addChoice('Hide', 'hide')),
     async execute(interaction) {
         const server = interaction.client.servers.get(interaction.guild.id);
+        if (!server.archiveCategory) return interaction.reply({ content: 'There is no archive category.', ephemeral: true });
         if (interaction.options.getString('option') === 'show') {
             if (await server.showArchive(interaction.member)) {
                 interaction.reply({ content: 'The archive category has been shown.', ephemeral: true });
