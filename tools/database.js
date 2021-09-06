@@ -178,6 +178,28 @@ const VoiceTemplate = sequelize.define('voiceTemplate', {
     },
 }, { timestamps: false });
 
+const Quote = sequelize.define('quote', {
+    authorId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+    },
+    content: {
+        type: DataTypes.TEXT,
+    },
+    imageLink: {
+        type: DataTypes.STRING,
+    },
+    jumpLink: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
+    speakerIds: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [],
+    },
+}, { timestamps: false });
+
 module.exports = {
     Topic,
     Server,
@@ -185,5 +207,6 @@ module.exports = {
     Deck,
     Voice,
     VoiceTemplate,
+    Quote,
     sequelize,
 };

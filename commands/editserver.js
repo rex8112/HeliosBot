@@ -13,7 +13,10 @@ module.exports = {
                 .setDescription('The category that topics will be archived.'))
         .addRoleOption(option =>
             option.setName('startingrole')
-                .setDescription('The role that users will be given when they join the server.')),
+                .setDescription('The role that users will be given when they join the server.'))
+        .addChannelOption(option =>
+            option.setName('quoteschannel')
+                .setDescription('The channel that quotes will be posted in.')),
     async execute(interaction) {
         if (!interaction.member.permissions.has([Permissions.FLAGS.MANAGE_CHANNELS])) {
             return interaction.reply({ content: 'You do not have permission to edit the server.', ephemeral: true });
@@ -22,6 +25,7 @@ module.exports = {
         const topicCategory = interaction.options.getChannel('topiccategory');
         const archiveCategory = interaction.options.getChannel('archivecategory');
         const startingRole = interaction.options.getRole('startingrole');
+        const quotesChannel = interaction.options.getChannel('quoteschannel');
 
         if (topicCategory && topicCategory instanceof CategoryChannel) {
             server.topicCategory = topicCategory;
@@ -31,6 +35,9 @@ module.exports = {
         }
         if (startingRole) {
             server.startingRole = startingRole;
+        }
+        if (quotesChannel && !(quotesChannel instanceof CategoryChannel)) {
+            server.quotesChannel = quotesChannel;
         }
 
         await server.save();
