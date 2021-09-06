@@ -24,7 +24,7 @@ module.exports = {
         const id = interaction.options.getString('id');
         const poster = interaction.options.getMember('poster');
         const speaker = interaction.options.getMember('speaker');
-        const quote = await Quote.getQuote(poster, speaker, id);
+        const quote = await Quote.getQuote(poster?.id, speaker?.id, id);
         if (quote) {
             return interaction.reply({ embeds: [await quote.toEmbed(interaction.client)] });
         }

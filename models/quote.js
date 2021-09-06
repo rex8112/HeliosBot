@@ -42,7 +42,7 @@ class Quote {
         }
         const embed = new MessageEmbed()
             .setColor('ORANGE')
-            .setTitle(`Submitted by ${author}`)
+            .setTitle(`${this.id}. Submitted by ${author}`)
             .setDescription(`${this.content || ''}\n\n[Jump Link](${this.jumpLink})`)
             .setImage(this.imageLink)
             .setFooter(speakers.join(', '));
