@@ -156,6 +156,7 @@ class TopicChannel {
 
         this.channel.edit({
             parent: this.server.archiveCategory ? this.server.archiveCategory : this.server.topicCategory,
+            lockPermissions: true,
         }, 'Channel archived');
         this.archived = true;
         this.pendingRemovalDate = null;
@@ -185,6 +186,7 @@ class TopicChannel {
         if (this.archived) {
             this.channel.edit({
                 parent: this.server.topicCategory,
+                lockPermissions: true,
             }, 'Channel saved');
             this.archived = false;
             embed = unarchiveEmbed;
