@@ -7,11 +7,11 @@ const bjRow = new MessageActionRow()
     .addComponents(
         new MessageButton()
             .setCustomId('bjHit')
-            .setText('Hit')
+            .setLabel('Hit')
             .setStyle('SUCCESS'),
         new MessageButton()
             .setCustomId('bjStay')
-            .setText('Stay')
+            .setLabel('Stay')
             .setStyle('DANGER'),
     );
 
@@ -39,7 +39,7 @@ module.exports = {
             .addComponents(
                 new MessageButton()
                     .setCustomId('bjJoin')
-                    .setText('Join')
+                    .setLabel('Join')
                     .setStyle('PRIMARY'),
             );
         const embed = new MessageEmbed()
@@ -84,8 +84,10 @@ module.exports = {
             .setColor('ORANGE')
             .setTitle('Blackjack')
             .setDescription('Dealers Cards: ?, ?\nDealers Points: ?');
+        // Create Dealer Hand
         const dealerHand = new Hand();
         deck.addHand(dealerHand);
+        // Shuffle and deal cards
         deck.shuffle();
         deck.deal(2);
         for (const [player, hand] of players.values()) {
@@ -94,31 +96,40 @@ module.exports = {
                 busted.set(player.id, [player, hand]);
                 players.delete(player.id);
             }
-            bjEmbed.addField(`${player.displayName} ${busted.has(player.id) ? 'Busted' : ''}`, `${hand.cards.map(c => c.toString()).join(', ')}\nPoints: ${score}`);
+            bjEmbed.addField(`${player.displayName} ${busted.has(player.id) ? '(Busted)' : ''}`, `${hand.cards.map(c => c.toString()).join(', ')}\nPoints: ${score}`);
         }
+        // Loop until all players have busted or stayed
         while (players.size > 0) {
             const currentTurn = players.first().value[0].id;
             setCurrentTurn(bjEmbed, currentTurn);
             await message.edit({ embeds: [bjEmbed], components: [bjRow] });
             try {
+                // Wait for a player to hit or stay
                 const buttonInteraction = await message.awaitMessageComponent({ filter: inter => {
                     return inter.user.id === currentTurn;
                 }, componentType: 'BUTTON', time: SECONDS_TO_PLAY * 1000 });
+                // Get the player's hand and embed field
                 const { player, hand } = players.get(currentTurn);
                 const field = bjEmbed.fields.find(f => f.name.includes(player.displayName));
                 if (buttonInteraction.customId === 'bjStay') {
+                    // If the player stays, remove them from the players list
                     stayed.set(currentTurn, players.get(currentTurn));
                     players.delete(currentTurn);
+                    field.name += ' (Stayed)';
                 } else if (buttonInteraction.customId === 'bjHit') {
+                    // If the player hits, deal them a card
                     hand.add(deck.draw());
                     const score = HandFinders.getBlackJackScore(hand.cards);
                     if (score > 21) {
+                        // If the player busts, remove them from the players list
                         busted.set(currentTurn, players.get(currentTurn));
                         players.delete(currentTurn);
                     }
+                    // Update the player's hand in the field
                     field.value = `${hand.cards.map(c => c.toString()).join(', ')}\nPoints: ${score}`;
                 }
             } catch (e) {
+                // If the player doesn't respond, force them to stay
                 const { player, hand } = players.get(currentTurn);
                 stayed.set(player.id, [player, hand]);
                 players.delete(player.id);
