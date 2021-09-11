@@ -98,7 +98,7 @@ module.exports = {
                 busted.set(player.id, [player, hand]);
                 players.delete(player.id);
             }
-            bjEmbed.addField(`${player.displayName} ${busted.has(player.id) ? '(Busted)' : ''}`, `${hand.cards.map(c => c.toShortString()).join(', ')}\nPoints: ${score}`);
+            bjEmbed.addField(`${player.displayName} ${busted.has(player.id) ? '(Busted)' : ''}`, `${hand.cards.map(c => c.toShortString()).join(', ')}\nPoints: ${score}`, true);
         }
         // Loop until all players have busted or stayed
         while (players.size > 0) {
@@ -171,6 +171,7 @@ module.exports = {
             // Update the embed
             bjEmbed.description = `Dealer Cards: ${dealerHand.cards.map(c => c.toShortString()).join(', ')}\nDealer Points: ${dealerScore}`;
         }
+        bjEmbed.fields.pop();
         await message.edit({ embeds: [bjEmbed], components: [] });
     },
 };
