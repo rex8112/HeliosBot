@@ -34,6 +34,8 @@ module.exports = {
         const players = new Collection();
         const stayed = new Collection();
         const busted = new Collection();
+        const winners = new Collection();
+        const tied = new Collection();
         players.set(interaction.member.id, [interaction.member, new Hand()]);
         const row = new MessageActionRow()
             .addComponents(
@@ -137,6 +139,37 @@ module.exports = {
                 players.delete(player.id);
                 console.log(e);
             }
+        }
+        bjEmbed.description = 'Revealing Dealers Cards...';
+        await message.edit({ embeds: [bjEmbed], components: [] });
+        await wait(3000);
+        // Dealers turn
+        let dealerScore = HandFinders.getBlackJackScore(dealerHand.cards);
+        while (dealerScore < 17) {
+            dealerHand.add(deck.draw());
+            dealerScore = HandFinders.getBlackJackScore(dealerHand.cards);
+        }
+        // Check if the dealer busted
+        if (dealerScore > 21) {
+            bjEmbed.description = `Dealer Busted!\n${dealerHand.cards.map(c => c.toShortString()).join(', ')}\nPoints: ${dealerScore}`;
+            for (const [player, hand] of stayed.values()) {
+                winners.set(player.id, [player, hand]);
+            }
+        } else {
+            // Check if the dealer has a higher score than the players
+            for (const [player, hand] of stayed.values()) {
+                const field = bjEmbed.fields.find(f => f.name.includes(player.displayName));
+                const playerScore = HandFinders.getBlackJackScore(hand.cards);
+                if (dealerScore < playerScore) {
+                    winners.set(player.id, [player, hand]);
+                    field.name += ' (Winner)';
+                } else if (dealerScore === playerScore) {
+                    tied.set(player.id, [player, hand]);
+                    field.name += ' (Tied)';
+                }
+            }
+            // Update the embed
+            bjEmbed.description = `Dealer Cards: ${dealerHand.cards.map(c => c.toShortString()).join(', ')}\nDealer Points: ${dealerScore}`;
         }
         await message.edit({ embeds: [bjEmbed], components: [] });
     },
