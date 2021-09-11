@@ -34,7 +34,7 @@ module.exports = {
         const players = new Collection();
         const stayed = new Collection();
         const busted = new Collection();
-        players.set(interaction.author.id, [interaction.author, new Hand()]);
+        players.set(interaction.member.id, [interaction.member, new Hand()]);
         const row = new MessageActionRow()
             .addComponents(
                 new MessageButton()
@@ -44,15 +44,14 @@ module.exports = {
             );
         const embed = new MessageEmbed()
             .setColor('ORANGE')
-            .setTitle('Blackjack')
-            .setDescription('Welcome to Blackjack!\n\n' +
-                'The goal of the game is to get as close to 21 as possible without going over. ' +
+            .setTitle('Welcome to Blackjack!')
+            .setDescription('The goal of the game is to get as close to 21 as possible without going over. ' +
                 'Beat the dealer to win.\n\n' +
                 `This game can be played with 4 players at a time. You have ${SECONDS_TO_JOIN} seconds to join. If the host hits join then the game begins immediately.`);
-        const message = await interaction.reply({ embeds: [embed], components: [row] });
+        embed.addField('Players', userMention(players.firstKey()));
+        const message = await interaction.reply({ embeds: [embed], components: [row], fetchReply: true });
         const deck = new Deck();
-        deck.addHand(players.first().value[1]);
-        embed.addField('Players', userMention(players.first().key));
+        deck.addHand(players.first()[1]);
         // Allow up to 4 people to join.
         for (let i = 0; i < 3; i++) {
             try {
@@ -76,6 +75,7 @@ module.exports = {
                 embed.fields[0].value += `\n${userMention(joinInteraction.user.id)}`;
                 await joinInteraction.update({ embeds: [embed], components: [row] });
             } catch (e) {
+                console.log(e);
                 break;
             }
         }
@@ -96,11 +96,11 @@ module.exports = {
                 busted.set(player.id, [player, hand]);
                 players.delete(player.id);
             }
-            bjEmbed.addField(`${player.displayName} ${busted.has(player.id) ? '(Busted)' : ''}`, `${hand.cards.map(c => c.toString()).join(', ')}\nPoints: ${score}`);
+            bjEmbed.addField(`${player.displayName} ${busted.has(player.id) ? '(Busted)' : ''}`, `${hand.cards.map(c => c.toShortString()).join(', ')}\nPoints: ${score}`);
         }
         // Loop until all players have busted or stayed
         while (players.size > 0) {
-            const currentTurn = players.first().value[0].id;
+            const currentTurn = players.first()[0].id;
             setCurrentTurn(bjEmbed, currentTurn);
             await message.edit({ embeds: [bjEmbed], components: [bjRow] });
             try {
@@ -108,8 +108,9 @@ module.exports = {
                 const buttonInteraction = await message.awaitMessageComponent({ filter: inter => {
                     return inter.user.id === currentTurn;
                 }, componentType: 'BUTTON', time: SECONDS_TO_PLAY * 1000 });
+                await buttonInteraction.deferUpdate();
                 // Get the player's hand and embed field
-                const { player, hand } = players.get(currentTurn);
+                const [ player, hand ] = players.get(currentTurn);
                 const field = bjEmbed.fields.find(f => f.name.includes(player.displayName));
                 if (buttonInteraction.customId === 'bjStay') {
                     // If the player stays, remove them from the players list
@@ -124,13 +125,14 @@ module.exports = {
                         // If the player busts, remove them from the players list
                         busted.set(currentTurn, players.get(currentTurn));
                         players.delete(currentTurn);
+                        field.name += ' (Busted)';
                     }
                     // Update the player's hand in the field
-                    field.value = `${hand.cards.map(c => c.toString()).join(', ')}\nPoints: ${score}`;
+                    field.value = `${hand.cards.map(c => c.toShortString()).join(', ')}\nPoints: ${score}`;
                 }
             } catch (e) {
                 // If the player doesn't respond, force them to stay
-                const { player, hand } = players.get(currentTurn);
+                const [ player, hand ] = players.get(currentTurn);
                 stayed.set(player.id, [player, hand]);
                 players.delete(player.id);
                 console.log(e);

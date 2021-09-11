@@ -56,6 +56,10 @@ class Card {
     toString() {
         return `${this.rank} of ${this.suit}`;
     }
+
+    toShortString() {
+        return `${this.rank}${this.suitIcon}`;
+    }
 }
 
 class Deck {
@@ -93,7 +97,7 @@ class Deck {
         for (let i = 0; i < numCards; i++) {
             cards.push(this.deck.pop());
         }
-        return cards;
+        return cards.length > 1 ? cards : cards[0];
     }
 
     deal(numCards) {
@@ -120,6 +124,10 @@ class Hand {
 
     add(card) {
         this.cards.push(card);
+    }
+
+    addMany(cards) {
+        this.cards.push(...cards);
     }
 
     toString() {
