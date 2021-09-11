@@ -174,10 +174,10 @@ class Server {
                         pointsToAdd = Math.floor(points / 2);
                     }
                     if (deck) {
-                        deck.addPoints(pointsToAdd);
+                        deck.addEarnedPoints(pointsToAdd);
                     } else {
                         const newDeck = await this.newDeck(member);
-                        newDeck.addPoints(pointsToAdd);
+                        newDeck.addEarnedPoints(pointsToAdd);
                     }
                 }
             } catch (err) {
