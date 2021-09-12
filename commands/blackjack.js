@@ -32,56 +32,103 @@ module.exports = {
     async execute(interaction) {
         const SECONDS_TO_JOIN = 30;
         const SECONDS_TO_PLAY = 10;
+        const server = interaction.client.servers.get(interaction.guild.id);
         const players = new Collection();
         const stayed = new Collection();
         const busted = new Collection();
         const winners = new Collection();
         const tied = new Collection();
+        const bets = new Collection();
         players.set(interaction.member.id, [interaction.member, new Hand()]);
         const row = new MessageActionRow()
             .addComponents(
                 new MessageButton()
-                    .setCustomId('bjJoin')
-                    .setLabel('Join')
-                    .setStyle('PRIMARY'),
+                    .setCustomId('bjStart')
+                    .setLabel('Start')
+                    .setStyle('SUCCESS')
+                    .setDisabled(true),
+            );
+        const row2 = new MessageActionRow()
+            .addComponents(
+                new MessageButton()
+                    .setCustomId('bjBet10')
+                    .setLabel('Bet 10')
+                    .setStyle('SECONDARY'),
+                new MessageButton()
+                    .setCustomId('bjBet100')
+                    .setLabel('Bet 100')
+                    .setStyle('SECONDARY'),
+                new MessageButton()
+                    .setCustomId('bjBet500')
+                    .setLabel('Bet 500')
+                    .setStyle('SECONDARY'),
+                new MessageButton()
+                    .setCustomId('bjBet1000')
+                    .setLabel('Bet 1,000')
+                    .setStyle('SECONDARY'),
+                new MessageButton()
+                    .setCustomId('bjBet10000')
+                    .setLabel('Bet 10,000')
+                    .setStyle('SECONDARY'),
             );
         const embed = new MessageEmbed()
             .setColor(COLOR.creation)
             .setTitle('Welcome to Blackjack!')
             .setDescription('The goal of the game is to get as close to 21 as possible without going over. ' +
                 'Beat the dealer to win.\n\n' +
-                `This game can be played with 4 players at a time. You have ${SECONDS_TO_JOIN} seconds to join. If the host hits join then the game begins immediately.`);
+                `This game can be played with 4 players at a time. You have ${SECONDS_TO_JOIN} seconds to join. If the host hits start then the game begins immediately.`);
         embed.addField('Players', userMention(players.firstKey()));
-        const message = await interaction.reply({ embeds: [embed], components: [row], fetchReply: true });
+        const message = await interaction.reply({ embeds: [embed], components: [row, row2], fetchReply: true });
         const deck = new Deck();
         deck.addHand(players.first()[1]);
+        let go = false;
         // Allow up to 4 people to join.
-        for (let i = 0; i < 3; i++) {
+        while (go === false) {
             try {
-                const joinInteraction = await message.awaitMessageComponent({ filter: inter => {
-                    return !players.has(inter.member.id) || inter.member.id === interaction.user.id;
-                },
-                componentType: 'BUTTON', time: SECONDS_TO_JOIN * 1000 });
-                if (joinInteraction.member.id === interaction.user.id) {
-                    embed.addField('Shuffling the Deck', 'The game will start shortly.');
-                    row.components[0].setDisabled(true);
-                    await joinInteraction.update({ embeds: [embed], components: [row] });
-                    break;
+                const joinInteraction = await message.awaitMessageComponent({ componentType: 'BUTTON', time: SECONDS_TO_JOIN * 1000 });
+                if (joinInteraction.customId === 'bjStart') {
+                    if (joinInteraction.member.id === interaction.user.id) {
+                        go = true;
+                    } else {
+                        joinInteraction.reply({ content: 'You are not the host', ephemeral: true });
+                    }
+                } else if (['bjBet10', 'bjBet100', 'bjBet500', 'bjBet1000', 'bjBet10000'].includes(joinInteraction.customId)) {
+                    if (!players.has(joinInteraction.member.id) && players.size < 4) {
+                        const hand = new Hand();
+                        players.set(joinInteraction.member.id, [joinInteraction.member, hand]);
+                        deck.addHand(hand);
+                    }
+                    if (server.bets && players.has(joinInteraction.member.id)) {
+                        const amt = parseInt(joinInteraction.customId.substr(5));
+                        if (server.getDeck(joinInteraction.member).points >= amt) {
+                            bets.set(joinInteraction.member.id, amt);
+                            if (joinInteraction.member.id === interaction.user.id) row.components[0].setDisabled(false);
+                        } else {
+                            await joinInteraction.reply({ content: 'You do not have enough points', ephemeral: true });
+                        }
+                    }
                 }
-                const hand = new Hand();
-                players.set(joinInteraction.member.id, [joinInteraction.member, hand]);
-                deck.addHand(hand);
-                if (i === 2) {
-                    row.components[0].setDisabled(true);
-                    embed.addField('Shuffling the Deck', 'The game will start shortly.');
+                if (players.size === 4) {
+                    go = true;
                 }
-                embed.fields[0].value += `\n${userMention(joinInteraction.user.id)}`;
-                await joinInteraction.update({ embeds: [embed], components: [row] });
+                embed.fields[0].value = players.map(([player, hand]) => { return `${player}: ${bets.get(player.id)}`; }).join('\n');
+                if (joinInteraction.replied) {
+                    await message.edit({ embeds: [embed], components: [row, row2] });
+                } else {
+                    await joinInteraction.update({ embeds: [embed], components: [row, row2] });
+                }
             } catch (e) {
                 console.log(e);
-                break;
+                if (bets.has(interaction.member.id)) {
+                    break;
+                } else {
+                    return message.edit({ content: 'They game was canceled because the host did not choose a bet.', embeds: [] });
+                }
             }
         }
+        embed.addField('Shuffling the Deck', 'The game will start shortly.');
+        row.components[0].setDisabled(true);
+        await message.edit({ embeds: [embed], components: [row] });
         // Create Dealer Hand
         const dealerHand = new Hand();
         deck.addHand(dealerHand);
@@ -157,6 +204,8 @@ module.exports = {
             bjEmbed.description = `Dealer Busted!\n${dealerHand.cards.map(c => c.toShortString()).join(', ')}\nPoints: ${dealerScore}`;
             for (const [player, hand] of stayed.values()) {
                 winners.set(player.id, [player, hand]);
+                const field = bjEmbed.fields.find(f => f.name.includes(player.displayName));
+                field.name += ' (Winner)';
             }
         } else {
             // Check if the dealer has a higher score than the players
@@ -164,11 +213,15 @@ module.exports = {
                 const field = bjEmbed.fields.find(f => f.name.includes(player.displayName));
                 const playerScore = HandFinders.getBlackJackScore(hand.cards);
                 if (dealerScore < playerScore) {
+                    players.delete(player.id);
                     winners.set(player.id, [player, hand]);
                     field.name += ' (Winner)';
                 } else if (dealerScore === playerScore) {
+                    players.delete(player.id);
                     tied.set(player.id, [player, hand]);
                     field.name += ' (Tied)';
+                } else {
+                    field.name += ' (Loser)';
                 }
             }
             // Update the embed
@@ -176,5 +229,33 @@ module.exports = {
         }
         bjEmbed.fields.pop();
         await message.edit({ embeds: [bjEmbed], components: [] });
+        await wait(3000);
+
+        const losers = busted.concat(players);
+        const winnerEmbed = new MessageEmbed()
+            .setColor(COLOR.blackjack)
+            .setTitle('Winnings')
+            .setDescription('Calculated winnings and loses.');
+        for (const [player, hand] of winners.values()) {
+            const bet = bets.get(player.id);
+            const winnings = bet * 2;
+            const pDeck = server.getDeck(player);
+            pDeck.addPoints(winnings);
+            winnerEmbed.addField(`${player.displayName}`, `Winnings: ${winnings}\nTotal Points: ${pDeck.points}`);
+        }
+        for (const [player, hand] of tied.values()) {
+            const bet = bets.get(player.id);
+            const winnings = bet;
+            const pDeck = server.getDeck(player);
+            winnerEmbed.addField(`${player.displayName}`, `Winnings: ${winnings}\nTotal Points: ${pDeck.points}`);
+        }
+        for (const [player, hand] of losers.values()) {
+            const bet = bets.get(player.id);
+            const loses = bet;
+            const pDeck = server.getDeck(player);
+            pDeck.spendPoints(loses);
+            winnerEmbed.addField(`${player.displayName}`, `Losings: ${loses}\nTotal Points: ${pDeck.points}`);
+        }
+        await message.edit({ embeds: [winnerEmbed], components: [] });
     },
 };

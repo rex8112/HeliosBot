@@ -24,6 +24,7 @@ class Server {
         this.decks = new Map();
         this.theme = null;
         this.privateVoiceChannels = new Map();
+        this.bets = true;
     }
 
     static POINTS_PER_MESSAGE = 2;
