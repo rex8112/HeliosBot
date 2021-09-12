@@ -138,6 +138,8 @@ module.exports = {
                 const [ player, hand ] = players.get(currentTurn);
                 stayed.set(player.id, [player, hand]);
                 players.delete(player.id);
+                const field = bjEmbed.fields.find(f => f.name.includes(player.displayName));
+                field.name += ' (Stayed)';
                 console.log(e);
             }
         }
