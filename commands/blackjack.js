@@ -1,6 +1,7 @@
 const { MessageActionRow, MessageButton, MessageEmbed, Collection } = require('discord.js');
 const { SlashCommandBuilder, userMention } = require('@discordjs/builders');
 const { Deck, Hand, HandFinders } = require('../models/playingCards');
+const { COLOR } = require('../models/colors');
 
 const wait = require('util').promisify(setTimeout);
 const bjRow = new MessageActionRow()
@@ -45,7 +46,7 @@ module.exports = {
                     .setStyle('PRIMARY'),
             );
         const embed = new MessageEmbed()
-            .setColor('ORANGE')
+            .setColor(COLOR.creation)
             .setTitle('Welcome to Blackjack!')
             .setDescription('The goal of the game is to get as close to 21 as possible without going over. ' +
                 'Beat the dealer to win.\n\n' +
@@ -89,7 +90,7 @@ module.exports = {
         deck.deal(2);
         await wait(3000);
         const bjEmbed = new MessageEmbed()
-            .setColor('ORANGE')
+            .setColor(COLOR.blackjack)
             .setTitle('Blackjack')
             .setDescription(`Dealers Cards: ${dealerHand.cards[0].toShortString()}, ?\nDealers Points: ${HandFinders.getBlackJackValue(dealerHand.cards[0])}`);
         for (const [player, hand] of players.values()) {
