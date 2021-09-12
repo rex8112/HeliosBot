@@ -46,7 +46,6 @@ client.on('interactionCreate', async interaction => {
             await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
         } catch (e) {
             console.error(e);
-            await interaction.channel.send({ content: 'There was an error while executing this command!', ephemeral: true });
         }
     }
 });
