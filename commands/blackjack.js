@@ -81,17 +81,17 @@ module.exports = {
                 break;
             }
         }
-        await wait(3000);
-        const bjEmbed = new MessageEmbed()
-            .setColor('ORANGE')
-            .setTitle('Blackjack')
-            .setDescription('Dealers Cards: ?, ?\nDealers Points: ?');
         // Create Dealer Hand
         const dealerHand = new Hand();
         deck.addHand(dealerHand);
         // Shuffle and deal cards
         deck.shuffle();
         deck.deal(2);
+        await wait(3000);
+        const bjEmbed = new MessageEmbed()
+            .setColor('ORANGE')
+            .setTitle('Blackjack')
+            .setDescription(`Dealers Cards: ${dealerHand.cards[0].toShortString()}, ?\nDealers Points: ${HandFinders.getBlackJackValue(dealerHand.cards[0])}`);
         for (const [player, hand] of players.values()) {
             const score = HandFinders.getBlackJackScore(hand.cards);
             if (score > 21) {
