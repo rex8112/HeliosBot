@@ -69,6 +69,9 @@ class Server {
             for (const member of (await this.guild.members.fetch()).values()) {
                 if (member.user.bot) continue;
                 await this.newDeck(member);
+                if (member.roles.cache.size === 1) {
+                    member.roles.add(this.startingRole);
+                }
             }
             // await this.guild.commands.fetch();
             if (this.privateCategory) {
