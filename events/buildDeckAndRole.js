@@ -4,7 +4,7 @@ module.exports = {
         const server = member.client.servers.get(member.guild.id);
         if (!member.user.bot) server.newDeck(member);
         if (server.startingRole) {
-            member.addRole(server.startingRole);
+            member.roles.add(server.startingRole);
         }
     },
 };
