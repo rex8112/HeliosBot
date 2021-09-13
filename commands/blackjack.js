@@ -231,7 +231,7 @@ module.exports = {
         await message.edit({ embeds: [bjEmbed], components: [] });
         await wait(3000);
 
-        const losers = busted.concat(players);
+        const losers = busted.concat(stayed);
         const winnerEmbed = new MessageEmbed()
             .setColor(COLOR.blackjack)
             .setTitle('Winnings')
@@ -256,6 +256,6 @@ module.exports = {
             pDeck.spendPoints(loses);
             winnerEmbed.addField(`${player.displayName}`, `Losings: ${loses}\nTotal Points: ${pDeck.points}`);
         }
-        await message.edit({ embeds: [winnerEmbed], components: [] });
+        await message.edit({ embeds: [bjEmbed, winnerEmbed], components: [] });
     },
 };
