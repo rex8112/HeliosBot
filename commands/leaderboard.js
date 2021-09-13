@@ -13,7 +13,7 @@ module.exports = {
         const server = interaction.client.servers.get(interaction.guild.id);
         const ranks = server.theme.ranks;
         if (ranks.length === 0) {
-            return interaction.reply({ content: 'No ranks are set up and I do not currently support the leaderboard without them.', ephemeral: true });
+            return interaction.editReply({ content: 'No ranks are set up and I do not currently support the leaderboard without them.', ephemeral: true });
         }
         const embeds = [];
         let position = 1;
