@@ -31,7 +31,7 @@ module.exports = {
         .setDescription('Play some blackjack!'),
     async execute(interaction) {
         const SECONDS_TO_JOIN = 30;
-        const SECONDS_TO_PLAY = 10;
+        const SECONDS_TO_PLAY = 20;
         const server = interaction.client.servers.get(interaction.guild.id);
         const players = new Collection();
         const stayed = new Collection();
@@ -111,7 +111,7 @@ module.exports = {
                 if (players.size === 4) {
                     go = true;
                 }
-                embed.fields[0].value = players.map(([player, hand]) => { return `${player}: ${bets.get(player.id)}`; }).join('\n');
+                embed.fields[0].value = players.map((player) => { return `${player[0]}: ${bets.get(player[0].id)}`; }).join('\n');
                 if (joinInteraction.replied) {
                     await message.edit({ embeds: [embed], components: [row, row2] });
                 } else {
@@ -139,7 +139,8 @@ module.exports = {
         const bjEmbed = new MessageEmbed()
             .setColor(COLOR.blackjack)
             .setTitle('Blackjack')
-            .setDescription(`Dealers Cards: ${dealerHand.cards[0].toShortString()}, ?\nDealers Points: ${HandFinders.getBlackJackValue(dealerHand.cards[0])}`);
+            .setDescription(`Dealers Cards: ${dealerHand.cards[0].toShortString()}, ?\nDealers Points: ${HandFinders.getBlackJackValue(dealerHand.cards[0])}`)
+            .setFooter(`If you do not play for ${SECONDS_TO_PLAY} seconds, you will be forced to Stay.`);
         for (const [player, hand] of players.values()) {
             const score = HandFinders.getBlackJackScore(hand.cards);
             if (score > 21) {
@@ -234,28 +235,28 @@ module.exports = {
 
         const losers = busted;
         const winnerEmbed = new MessageEmbed()
-            .setColor(COLOR.blackjack)
+            .setColor(COLOR.result)
             .setTitle('Winnings')
             .setDescription('Calculated winnings and loses.');
-        for (const [player, hand] of winners.values()) {
-            const bet = bets.get(player.id);
+        for (const player of winners.values()) {
+            const bet = bets.get(player[0].id);
             const winnings = bet * 2;
-            const pDeck = server.getDeck(player);
+            const pDeck = server.getDeck(player[0]);
             pDeck.addPoints(winnings);
-            winnerEmbed.addField(`${player.displayName}`, `Winnings: ${winnings}\nTotal Points: ${pDeck.points}`);
+            winnerEmbed.addField(`${player[0].displayName}`, `Winnings: ${winnings}\nTotal Points: ${pDeck.points}`);
         }
-        for (const [player, hand] of tied.values()) {
-            const bet = bets.get(player.id);
+        for (const player of tied.values()) {
+            const bet = bets.get(player[0].id);
             const winnings = bet;
-            const pDeck = server.getDeck(player);
-            winnerEmbed.addField(`${player.displayName}`, `Winnings: ${winnings}\nTotal Points: ${pDeck.points}`);
+            const pDeck = server.getDeck(player[0]);
+            winnerEmbed.addField(`${player[0].displayName}`, `Winnings: ${winnings}\nTotal Points: ${pDeck.points}`);
         }
-        for (const [player, hand] of losers.values()) {
-            const bet = bets.get(player.id);
+        for (const player of losers.values()) {
+            const bet = bets.get(player[0].id);
             const loses = bet;
-            const pDeck = server.getDeck(player);
+            const pDeck = server.getDeck(player[0]);
             pDeck.spendPoints(loses);
-            winnerEmbed.addField(`${player.displayName}`, `Losings: ${loses}\nTotal Points: ${pDeck.points}`);
+            winnerEmbed.addField(`${player[0].displayName}`, `Losings: ${loses}\nTotal Points: ${pDeck.points}`);
         }
         await message.edit({ embeds: [bjEmbed, winnerEmbed], components: [] });
     },
