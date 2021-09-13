@@ -12,7 +12,7 @@ module.exports = {
         const embed = new MessageEmbed()
             .setColor(COLOR.points)
             .setTitle(`${interaction.member.displayName}'s Points`)
-            .setDescription(`You have:\n**${deck.points}** Total Points\n\n**${deck.earnedPoints}** Activity Points`);
+            .setDescription(`You have:\n**${deck.points.toLocaleString()}** Total Points\n\n**${deck.earnedPoints.toLocaleString()}** Activity Points`);
 
         return interaction.reply({ embeds: [embed], ephemeral: true });
     },

@@ -25,7 +25,7 @@ module.exports = {
             for (let i = 0; i < decks.length; i++) {
                 let add = false;
                 const deck = decks[i];
-                let stringToAdd = `${position}. ${userMention(deck.member.id)}: ${deck.earnedPoints} Earned Points`;
+                let stringToAdd = `${position}. ${userMention(deck.member.id)}: ${deck.earnedPoints.toLocaleString()} Activity Points`;
                 if (i < 5) add = true;
                 if (deck.member.id === interaction.member.id) {
                     stringToAdd = bold(stringToAdd);
