@@ -221,6 +221,7 @@ module.exports = {
                     tied.set(player.id, [player, hand]);
                     field.name += ' (Tied)';
                 } else {
+                    busted.set(player.id, [player, hand]);
                     field.name += ' (Loser)';
                 }
             }
@@ -231,7 +232,7 @@ module.exports = {
         await message.edit({ embeds: [bjEmbed], components: [] });
         await wait(3000);
 
-        const losers = busted.concat(stayed);
+        const losers = busted;
         const winnerEmbed = new MessageEmbed()
             .setColor(COLOR.blackjack)
             .setTitle('Winnings')
