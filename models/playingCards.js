@@ -289,6 +289,8 @@ class HandFinders {
     static getBlackJackScore(cards) {
         let score = 0;
         let elevens = 0;
+        let ones = 0;
+        const totalScore = () => score + elevens * 11 + ones * 1;
         for (const card of cards) {
             const tmp = HandFinders.getBlackJackValue(card);
             if (tmp === 11) {
@@ -297,14 +299,11 @@ class HandFinders {
                 score += tmp;
             }
         }
-        for (let i = 0; i < elevens; i++) {
-            if (score + 11 <= 21) {
-                score += 11;
-            } else {
-                score += 1;
-            }
+        while (totalScore() > 21 && elevens > 0) {
+            elevens -= 1;
+            ones += 1;
         }
-        return score;
+        return totalScore();
     }
 
 }
