@@ -200,6 +200,75 @@ const Quote = sequelize.define('quote', {
     },
 }, { timestamps: false });
 
+const Casino = sequelize.define('casino', {
+    guildId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+        unique: true,
+    },
+    channels: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [],
+    },
+});
+
+const Table = sequelize.define('table', {
+    guildId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+    },
+    channelId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+    },
+    messages: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [],
+    },
+    players: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [],
+    },
+    bets: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [],
+    },
+    state: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'inactive',
+    },
+});
+
+const Player = sequelize.define('player', {
+    guildId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+    },
+    userId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+    },
+    balance: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+    },
+    hand: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [],
+    },
+    table: {
+        type: DataTypes.BIGINT,
+    },
+});
+
+
 module.exports = {
     Topic,
     Server,
@@ -208,5 +277,8 @@ module.exports = {
     Voice,
     VoiceTemplate,
     Quote,
+    Casino,
+    Table,
+    Player,
     sequelize,
 };
