@@ -1,4 +1,5 @@
 const { Server: ServerDB } = require('../tools/database');
+const { Casino } = require('./casino/casino');
 const { TopicChannel } = require('./topicChannel');
 const { Theme } = require('./theme');
 const { Deck } = require('./deck');
@@ -25,6 +26,7 @@ class Server {
         this.theme = null;
         this.privateVoiceChannels = new Map();
         this.bets = true;
+        this.casino = null;
     }
 
     static POINTS_PER_MESSAGE = 2;
@@ -84,6 +86,7 @@ class Server {
                     }
                 }
             }
+            this.casino = new Casino(this).load();
         } else {
             this.name = this.guild.name;
             this.topicCategory = null;

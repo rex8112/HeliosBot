@@ -17,12 +17,25 @@ class Casino {
         return tables;
     }
 
+    async load() {
+        // TODO: Load casino from database
+        return this;
+    }
+
+    async save() {
+        // TODO: Save casino to database
+    }
+
     toJSON() {
         return {
             guildId: this.id,
             players: this.players,
             channels: this.channels,
         };
+    }
+
+    handleInteraction(interaction) {
+        // TODO: Handle interaction
     }
 
     // Add a new channel to the casino
@@ -57,3 +70,7 @@ class CasinoChannel {
         };
     }
 }
+
+module.exports = {
+    Casino,
+};
