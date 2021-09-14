@@ -13,6 +13,7 @@ class Server {
     constructor(client, guild) {
         this.client = client;
         this.guild = guild;
+        this.id = guild.id;
         this.name = this.guild.name;
         this.topicCategory = null;
         this.startingRole = null;
@@ -70,7 +71,7 @@ class Server {
             for (const member of (await this.guild.members.fetch()).values()) {
                 if (member.user.bot) continue;
                 await this.newDeck(member);
-                if (member.roles.cache.size === 1) {
+                if (member.roles.cache.size === 1 && this.startingRole) {
                     member.roles.add(this.startingRole);
                 }
             }
