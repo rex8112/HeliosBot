@@ -89,7 +89,7 @@ class Server {
                     }
                 }
             }
-            this.casino = new Casino(this).load();
+            this.casino = await new Casino(this).load();
         } else {
             this.name = this.guild.name;
             this.topicCategory = null;
