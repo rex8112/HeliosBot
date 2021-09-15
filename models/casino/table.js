@@ -2,13 +2,15 @@ const { Collection, MessageEmbed, MessageActionRow, MessageButton } = require('d
 const { userMention } = require('@discordjs/builders');
 const { Deck } = require('../playingCards');
 const { COLOR } = require('../colors');
+const { Table: TableDB } = require('../../tools/database');
 
 class Table {
     constructor(casino, message) {
         this.casino = casino;
         this.id = message.id;
         this.channel = message.channel;
-        this.messages = [message];
+        this.message = message;
+        this.messages = [];
 
         this.gameId = 'Invalid';
         this.name = 'Invalid Table';
@@ -18,7 +20,7 @@ class Table {
         this.winners = new Collection();
         this.losers = new Collection();
         this.bets = new Collection();
-        this.state = Table.STATES.Inactive;
+        this.state = Table.STATES.Unloaded;
         this.deck = new Deck();
 
         this.minBet = 0;
@@ -30,18 +32,83 @@ class Table {
     get joinable() { return this.state === Table.STATES.Lobby && this.players.size < this.maxPlayers; }
 
     static STATES = {
+        Unloaded: 'unloaded',
+        Paused: 'paused',
         Inactive: 'inactive',
         Lobby: 'lobby',
     }
 
+    static async create(casino, channel) {
+        const message = await channel.send('Creating table...');
+        const table = new Table(casino, message);
+        await table.save();
+        await table.updateMessage();
+        return table;
+    }
+
+    async save() {
+        await TableDB.upsert(this.toJSON(), { where: { messageId: this.id } });
+    }
+
+    async load(data = null) {
+        if (!data) {
+            data = await TableDB.findOne({ where: { messageId: this.id } });
+        }
+        if (data) {
+            if (data.gameId != this.gameId) return this;
+            // Get messages
+            this.message = await this.channel.messages.fetch(data.messageId);
+            for (const message in data.messages) {
+                const m = await this.channel.messages.fetch(message);
+                if (this.messages.includes(m)) continue;
+                this.messages.push(m);
+            }
+            // Get players
+            for (const player in data.players) {
+                const p = this.casino.getPlayer(player);
+                if (this.players.includes(p)) continue;
+                this.players.set(p.id, p);
+            }
+            // Get bets
+            this.bets = new Collection(data.bets);
+            // Get state
+            this.state = data.state;
+            // Get settings
+            this.minBet = data.settings.minBet;
+            this.maxBet = data.settings.maxBet;
+            this.maxPlayers = data.settings.maxPlayers;
+            this.minPlayers = data.settings.minPlayers;
+        }
+        return this;
+    }
+
+    async refresh() {
+        const oldState = this.state;
+        this.state = Table.STATES.Paused;
+        await this.message.delete('Refreshing Table');
+        this.message = await this.channel.send('Refreshing Table...');
+        this.id = this.message.id;
+        this.state = oldState;
+        await this.updateMessage();
+        return this.id;
+    }
+
     toJSON() {
         return {
-            channelId: this.id,
+            channelId: this.channel.id,
             casinoId: this.casino.id,
+            messageId: this.id,
+            gameId: this.gameId,
             messages: this.messages.map(m => m.id),
             players:this.players,
             bets: this.bets,
             state: this.state,
+            settings: {
+                minBet: this.minBet,
+                maxBet: this.maxBet,
+                maxPlayers: this.maxPlayers,
+                minPlayers: this.minPlayers,
+            },
         };
     }
 
@@ -95,3 +162,7 @@ class Table {
         await message.edit({ embeds, components });
     }
 }
+
+module.exports = {
+    Table,
+};
