@@ -222,6 +222,15 @@ const Table = sequelize.define('table', {
         type: DataTypes.BIGINT,
         allowNull: false,
     },
+    messageId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+        unique: true,
+    },
+    gameId: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
     messages: {
         type: DataTypes.JSON,
         allowNull: false,
@@ -235,12 +244,17 @@ const Table = sequelize.define('table', {
     bets: {
         type: DataTypes.JSON,
         allowNull: false,
-        defaultValue: [],
+        defaultValue: {},
     },
     state: {
         type: DataTypes.STRING,
         allowNull: false,
         defaultValue: 'inactive',
+    },
+    settings: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: {},
     },
 });
 
