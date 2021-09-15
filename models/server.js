@@ -6,6 +6,8 @@ const { Deck } = require('./deck');
 const { Voice } = require('./voice');
 const { Client, Guild } = require('discord.js');
 
+const wait = require('util').promisify(setTimeout);
+
 class Server {
     /**
      * @param {Client} client
@@ -123,6 +125,7 @@ class Server {
         for (let i = 0; i < arr.length; i++) {
             const topic = arr[i];
             await topic.channel.edit({ position: i });
+            await wait(1000);
         }
     }
 
