@@ -16,6 +16,7 @@ class Server {
     constructor(client, guild) {
         this.client = client;
         this.guild = guild;
+        this.id = guild.id;
         this.name = this.guild.name;
         this.topicCategory = null;
         this.startingRole = null;
