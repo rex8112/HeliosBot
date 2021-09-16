@@ -14,7 +14,15 @@ module.exports = {
                     option
                         .setName('channel')
                         .setDescription('The channel to add')
-                        .setRequired(true))),
+                        .setRequired(true)))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('addtable')
+                .setDescription('Add a table to the casino. TESTING'))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('refresh')
+                .setDescription('Refresh the casino')),
     rolePermissions: [Permissions.FLAGS.MANAGE_GUILD],
     async execute(interaction) {
         const server = interaction.client.servers.get(interaction.guild.id);
@@ -24,6 +32,14 @@ module.exports = {
             const channel = interaction.options.getChannel('channel');
             await casino.addChannel(channel);
             return interaction.reply({ content: `Added ${channel.name} to the casino`, ephemeral: true });
+        } else if (interaction.options.getSubcommand() === 'addtable') {
+            await interaction.deferReply({ ephemeral: true });
+            await casino.channels.get(interaction.channel.id).createTable('Testing');
+            return interaction.editReply({ content: 'Added a table', ephemeral: true });
+        } else if (interaction.options.getSubcommand() === 'refresh') {
+            await interaction.deferReply({ ephemeral: true });
+            await casino.refreshChannels();
+            return interaction.editReply({ content: 'Casino Refreshed', ephemeral: true });
         }
     },
 };
