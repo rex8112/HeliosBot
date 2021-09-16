@@ -137,7 +137,7 @@ class Table {
             .setDescription(this.description)
             .setFooter(`Table ID: ${this.id}`)
             .addField('Players', playerString ? playerString : 'None', true)
-            .addField('Technical Info', `Max Players: **${this.maxPlayers}\nMinimum Players: **${this.minPlayers}` +
+            .addField('Technical Info', `Max Players: **${this.maxPlayers}**\nMinimum Players: **${this.minPlayers}**` +
             `\n\nMaximum Bet: **${this.maxBet}**\nMinimum Bet: **${this.minBet}**`, true);
         return [embed];
     }
@@ -163,8 +163,8 @@ class Table {
     async updateMessage() {
         const embeds = this.getLobbyEmbeds();
         const components = this.getLobbyComponents();
-        const message = this.messages[0];
-        await message.edit({ embeds, components });
+        const message = this.message;
+        await message.edit({ content: null, embeds, components });
     }
 }
 
