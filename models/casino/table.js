@@ -46,8 +46,11 @@ class Table {
         return table;
     }
 
-    async save() {
-        await TableDB.upsert(this.toJSON(), { where: { messageId: this.id } });
+    async save(oldId = null) {
+        if (oldId) {
+            await TableDB.update({ messageId: this.id }, { where: { messageId: oldId } });
+        }
+        await TableDB.upsert(this.toJSON());
     }
 
     async load(data = null) {
@@ -84,19 +87,21 @@ class Table {
 
     async refresh() {
         const oldState = this.state;
+        const oldId = this.id;
         this.state = Table.STATES.Paused;
         await this.message.delete('Refreshing Table');
         this.message = await this.channel.send('Refreshing Table...');
         this.id = this.message.id;
         this.state = oldState;
         await this.updateMessage();
+        this.save(oldId);
         return this.id;
     }
 
     toJSON() {
         return {
             channelId: this.channel.id,
-            casinoId: this.casino.id,
+            guildId: this.casino.id,
             messageId: this.id,
             gameId: this.gameId,
             messages: this.messages.map(m => m.id),
