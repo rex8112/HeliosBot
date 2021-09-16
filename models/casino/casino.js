@@ -3,6 +3,8 @@ const { Casino: CasinoDB, Table: TableDB } = require('../../tools/database');
 const { Player } = require('./player');
 const { Table } = require('./table');
 
+const wait = require('util').promisify(setTimeout);
+
 class Casino {
     constructor(server) {
         this.server = server;
@@ -64,8 +66,15 @@ class Casino {
         };
     }
 
-    handleInteraction(interaction) {
+    async handleInteraction(interaction) {
         // TODO: Handle interaction
+        console.log('Interaction Recieved');
+        if (interaction.customId.includes('Table')) {
+            const table = this.channels.get(interaction.channelId).tables.get(interaction.message.id);
+            if (table) {
+                await table.handleInteraction(interaction);
+            }
+        }
     }
 
     // Add a new channel to the casino

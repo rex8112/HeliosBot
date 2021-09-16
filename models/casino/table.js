@@ -38,6 +38,17 @@ class Table {
         Lobby: 'lobby',
     }
 
+    static TABLES = new Map();
+
+    /**
+     * @param {string} id
+     * @returns {Table}
+     * @static
+     */
+    static getTable(id) {
+        return Table.TABLES.get(id) ?? Table;
+    }
+
     static async create(casino, channel) {
         const message = await channel.send('Creating table...');
         const table = new Table(casino, message);
@@ -158,6 +169,10 @@ class Table {
             );
         components.push(row);
         return components;
+    }
+
+    async handleInteraction(interaction) {
+        console.log(`${this.id} Recieved Interaction`);
     }
 
     async updateMessage() {
