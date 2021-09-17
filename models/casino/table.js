@@ -21,6 +21,7 @@ class Table {
         this.losers = new Collection();
         this.bets = new Collection();
         this.state = Table.STATES.Unloaded;
+        this.paused = false;
         this.deck = new Deck();
 
         this.minBet = 0;
@@ -29,13 +30,18 @@ class Table {
         this.minPlayers = 0;
     }
 
-    get joinable() { return this.state === Table.STATES.Lobby && this.players.size < this.maxPlayers; }
+    get Joinable() { return this.state === Table.STATES.Lobby && this.players.size < this.maxPlayers; }
+    get Playable() { return this.state === Table.STATES.Lobby && this.players.size >= this.minPlayers; }
+    get Bettable() { return this.state === Table.STATES.Betting; }
+
+    get State() { return this.paused ? Table.STATES.Paused : this.state; }
 
     static STATES = {
         Unloaded: 'unloaded',
         Paused: 'paused',
         Inactive: 'inactive',
         Lobby: 'lobby',
+        Betting: 'betting',
     }
 
     static TABLES = new Map();
@@ -140,20 +146,32 @@ class Table {
         return this;
     }
 
-    getLobbyEmbeds() {
+    getEmbeds() {
         const playerString = this.players.map(p => userMention(p.id)).join('\n');
-        const embed = new MessageEmbed()
-            .setColor(COLOR.creation)
-            .setTitle(`Lobby for ${this.name}`)
-            .setDescription(this.description)
-            .setFooter(`Table ID: ${this.id}`)
-            .addField('Players', playerString ? playerString : 'None', true)
-            .addField('Technical Info', `Max Players: **${this.maxPlayers}**\nMinimum Players: **${this.minPlayers}**` +
-            `\n\nMaximum Bet: **${this.maxBet}**\nMinimum Bet: **${this.minBet}**`, true);
-        return [embed];
+        const embeds = [];
+        if (this.state === Table.STATES.Lobby) {
+            const embed = new MessageEmbed()
+                .setColor(COLOR.creation)
+                .setTitle(`Lobby for ${this.name}`)
+                .setDescription(this.description)
+                .setFooter(`Table ID: ${this.id}`)
+                .addField('Players', playerString ? playerString : 'None', true)
+                .addField('Technical Info', `Max Players: **${this.maxPlayers}**\nMinimum Players: **${this.minPlayers}**` +
+                `\n\nMaximum Bet: **${this.maxBet}**\nMinimum Bet: **${this.minBet}**`, true);
+            embeds.push(embed);
+        } else if (this.Paused) {
+            const embed = new MessageEmbed()
+                .setColor(COLOR.creation)
+                .setTitle(`${this.name} Paused`)
+                .setDescription('The game is currently paused.')
+                .setFooter(`Table ID: ${this.id}`)
+                .addField('Players', playerString ? playerString : 'None', true);
+            embeds.push(embed);
+        }
+        return embeds;
     }
 
-    getLobbyComponents() {
+    getComponents() {
         const components = [];
         const row = new MessageActionRow()
             .addComponents(
@@ -161,23 +179,44 @@ class Table {
                     .setCustomId('casinoTableJoin')
                     .setLabel('Join')
                     .setStyle('PRIMARY')
-                    .setDisabled(!this.joinable),
+                    .setDisabled(!this.Joinable),
                 new MessageButton()
                     .setCustomId('casinoTableLeave')
                     .setLabel('Leave')
                     .setStyle('SECONDARY'),
             );
+        const row2 = new MessageActionRow()
+            .addComponents(
+                new MessageButton()
+                    .setCustomId('casinoTableStart')
+                    .setLabel('Start')
+                    .setStyle('SUCCESS')
+                    .setDisabled(!this.Playable),
+            );
         components.push(row);
+        components.push(row2);
         return components;
+    }
+
+    scheduleRun(time) {
+        this.runProcess = setTimeout(this.run, time);
+    }
+
+    stopRun() {
+        clearTimeout(this.runProcess);
+    }
+
+    async run() {
+        // TODO: Implement
     }
 
     async handleInteraction(interaction) {
         console.log(`${this.id} Recieved Interaction`);
     }
 
-    async updateMessage() {
-        const embeds = this.getLobbyEmbeds();
-        const components = this.getLobbyComponents();
+    async updateMessage(embeds = null, components = null) {
+        if (!embeds) embeds = this.getEmbeds();
+        if (!components) components = this.getComponents();
         const message = this.message;
         await message.edit({ content: null, embeds, components });
     }
