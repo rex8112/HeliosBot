@@ -59,6 +59,22 @@ class Player {
     toString() {
         return `${this.member}`;
     }
+
+    async bet(amount, table = null) {
+        if (table?.bets.has(this.id)) {
+            this.balance += table.bets.get(this.id);
+        }
+        this.balance -= amount;
+        table?.bets.set(this.id, amount);
+        await this.save();
+    }
+
+    async pay(amount) {
+        this.balance += amount;
+        await this.save();
+    }
+
+
 }
 
 module.exports = {
