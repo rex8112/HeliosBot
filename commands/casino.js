@@ -22,7 +22,11 @@ module.exports = {
         .addSubcommand(subcommand =>
             subcommand
                 .setName('refresh')
-                .setDescription('Refresh the casino')),
+                .setDescription('Refresh the casino'))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('createplayer')
+                .setDescription('Create a player')),
     rolePermissions: [Permissions.FLAGS.MANAGE_GUILD],
     async execute(interaction) {
         const server = interaction.client.servers.get(interaction.guild.id);
@@ -40,6 +44,10 @@ module.exports = {
             await interaction.deferReply({ ephemeral: true });
             await casino.refreshChannels();
             return interaction.editReply({ content: 'Casino Refreshed', ephemeral: true });
+        } else if (interaction.options.getSubcommand() === 'createplayer') {
+            await interaction.deferReply({ ephemeral: true });
+            await casino.createPlayer(interaction.user);
+            return interaction.editReply({ content: 'Player Created', ephemeral: true });
         }
     },
 };
