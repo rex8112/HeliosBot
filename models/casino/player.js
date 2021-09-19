@@ -1,3 +1,4 @@
+const { default: Collection } = require('@discordjs/collection');
 const { Player: PlayerDB } = require('../../tools/database');
 const { Hand } = require('../playingCards');
 
@@ -7,22 +8,27 @@ class Player {
         this.id = member.id;
         this.member = member;
         this.balance = 0;
-        this.hand = null;
+        this.hand = new Hand();
         this.tableId = null;
     }
 
     get Table() {
-        return this.casino.getTable(this.tableId);
+        return this.tableId ? this.casino.getTable(this.tableId) : null;
+    }
+
+    set Table(table) {
+        this.tableId = table?.id ?? null;
+        this.save();
     }
 
     static async fromCasino(casino) {
-        const players = [];
+        const players = new Collection();
         const data = await PlayerDB.findAll({ where: { guildId: casino.id } });
         for (const playerData of data) {
-            const member = await casino.guild.members.fetch(playerData.userId);
+            const member = await casino.server.guild.members.fetch(playerData.userId);
             const player = new Player(casino, member);
             await player.load(playerData);
-            players.push(player);
+            players.set(player.id, player);
         }
         return players;
     }
@@ -35,7 +41,7 @@ class Player {
         if (data) {
             this.balance = data.balance;
             this.hand = Hand.fromJSON(data.hand);
-            this.tableId = data.tableId;
+            this.tableId = data.table;
         }
 
         return this;
@@ -43,7 +49,12 @@ class Player {
 
     async save() {
         // TODO: save to database
-        await PlayerDB.upsert(this.toJSON(), { where: { guildId: this.casino.id, userId: this.id } });
+        const data = await PlayerDB.findOne({ where: { guildId: this.casino.id, userId: this.id } });
+        if (data) {
+            await PlayerDB.update(this.toJSON(), { where: { guildId: this.casino.id, userId: this.id } });
+        } else {
+            await PlayerDB.create(this.toJSON());
+        }
     }
 
     toJSON() {
@@ -52,7 +63,7 @@ class Player {
             userId: this.id,
             balance: this.balance,
             hand: this.hand,
-            table: this.tableId?.id || null,
+            table: this.tableId || null,
         };
     }
 
@@ -62,7 +73,7 @@ class Player {
 
     async bet(amount, table = null) {
         if (table?.bets.has(this.id)) {
-            this.balance += table.bets.get(this.id);
+            this.pay(table.bets.get(this.id));
         }
         this.balance -= amount;
         table?.bets.set(this.id, amount);

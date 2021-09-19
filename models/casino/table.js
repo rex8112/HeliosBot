@@ -26,8 +26,8 @@ class Table {
 
         this.minBet = 0;
         this.maxBet = 0;
-        this.maxPlayers = 0;
-        this.minPlayers = 0;
+        this.maxPlayers = 4;
+        this.minPlayers = 1;
     }
 
     get Joinable() { return this.state === Table.STATES.Lobby && this.players.size < this.maxPlayers; }
@@ -36,12 +36,23 @@ class Table {
 
     get State() { return this.paused ? Table.STATES.Paused : this.state; }
 
+    get ReturnRow() {
+        return new MessageActionRow()
+            .addComponents(
+                new MessageButton()
+                    .setLabel('Return')
+                    .setStyle('LINK')
+                    .setURL(this.message.url),
+            );
+    }
+
     static STATES = {
         Unloaded: 'unloaded',
         Paused: 'paused',
         Inactive: 'inactive',
         Lobby: 'lobby',
         Betting: 'betting',
+        Setup: 'setup',
     }
 
     static TABLES = new Map();
@@ -58,6 +69,9 @@ class Table {
     static async create(casino, channel) {
         const message = await channel.send('Creating table...');
         const table = new Table(casino, message);
+        // TEMPORARY
+        table.state = Table.STATES.Lobby;
+        // TEMPORARY
         await table.save();
         await table.updateMessage();
         return table;
@@ -84,9 +98,9 @@ class Table {
                 this.messages.push(m);
             }
             // Get players
-            for (const player in data.players) {
+            for (const player of data.players) {
                 const p = this.casino.getPlayer(player);
-                if (this.players.includes(p)) continue;
+                if (!p || this.players.has(p.id)) continue;
                 this.players.set(p.id, p);
             }
             // Get bets
@@ -122,7 +136,7 @@ class Table {
             messageId: this.id,
             gameId: this.gameId,
             messages: this.messages.map(m => m.id),
-            players:this.players,
+            players:this.players.map(p => p.id),
             bets: this.bets,
             state: this.state,
             settings: {
@@ -210,15 +224,57 @@ class Table {
         // TODO: Implement
     }
 
-    async handleInteraction(interaction) {
-        console.log(`${this.id} Recieved Interaction`);
+    async join(player) {
+        if (this.players.has(player.id) || player.Table) return false;
+        this.players.set(player.id, player);
+        player.Table = this;
+        await this.save();
+        return true;
     }
 
-    async updateMessage(embeds = null, components = null) {
+    async leave(player) {
+        if (!this.players.has(player.id)) return false;
+        this.players.delete(player.id);
+        player.Table = null;
+        await this.save();
+        return true;
+    }
+
+    async handleInteraction(interaction) {
+        console.log(`${this.id} Recieved Interaction`);
+        if (interaction.customId === 'casinoTableJoin') {
+            const player = this.casino.getPlayer(interaction.user.id);
+            if (!await this.join(player)) {
+                const table = player.Table;
+                if (table?.id !== this.id) {
+                    await interaction.reply({ content: 'You are already in **another** table.', components: [table.ReturnRow], ephemeral: true });
+                } else {
+                    await interaction.reply({ content: 'You are already in this table.', components: [this.ReturnRow], ephemeral: true });
+                }
+            } else {
+                await this.updateMessage(undefined, undefined, interaction);
+            }
+        } else if (interaction.customId === 'casinoTableLeave') {
+            const player = this.casino.getPlayer(interaction.user.id);
+            if (!await this.leave(player)) {
+                await interaction.reply({ content: 'You are not in this table.', components: [this.ReturnRow], ephemeral: true });
+            } else {
+                await this.updateMessage(undefined, undefined, interaction);
+            }
+        } else if (interaction.customId === 'casinoTableStart') {
+            // await this.start();
+        }
+    }
+
+    async updateMessage(embeds = null, components = null, interaction = null) {
         if (!embeds) embeds = this.getEmbeds();
         if (!components) components = this.getComponents();
         const message = this.message;
-        await message.edit({ content: null, embeds, components });
+        if (interaction) {
+            await interaction.update({ content: null, components, embeds });
+        } else {
+            await message.edit({ content: null, embeds, components });
+        }
     }
 }
 

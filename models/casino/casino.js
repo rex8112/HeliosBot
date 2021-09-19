@@ -100,6 +100,13 @@ class Casino {
     getPlayer(user) {
         return this.players.get(user?.id ?? user);
     }
+
+    async createPlayer(user) {
+        const player = new Player(this, user);
+        await player.save();
+        this.players.set(player.id, player);
+        return player;
+    }
 }
 
 class CasinoChannel {
