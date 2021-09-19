@@ -60,6 +60,17 @@ class Card {
     toShortString() {
         return `${this.rank}${this.suitIcon}`;
     }
+
+    toJSON() {
+        return `${this.rank}${this.suit[0]}`;
+    }
+
+    static fromJSON(json) {
+        const card = new Card();
+        card.rank = json[0];
+        card.suit = Card.Suits.find(suit => suit.startsWith(json[1]));
+        return card;
+    }
 }
 
 class Deck {
@@ -132,6 +143,18 @@ class Hand {
 
     toString() {
         return this.cards.join(' ');
+    }
+
+    toJSON() {
+        return this.cards.map(card => card.toJSON());
+    }
+
+    static fromJSON(json) {
+        const hand = new Hand();
+        for (const card of json) {
+            hand.add(Card.fromJSON(card));
+        }
+        return hand;
     }
 
     clear() {
