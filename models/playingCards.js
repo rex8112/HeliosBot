@@ -76,6 +76,7 @@ class Card {
 class Deck {
     constructor(aceHigh = true) {
         this.deck = [];
+        this.discardPile = [];
         this.hands = [];
         this.aceHigh = aceHigh;
         this.reset();
@@ -96,7 +97,8 @@ class Deck {
     }
 
     shuffle() {
-        const { deck } = this;
+        const deck = this.deck = this.deck.concat(this.discardPile);
+        this.discardPile = [];
         for (let i = deck.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [deck[i], deck[j]] = [deck[j], deck[i]];
@@ -117,6 +119,10 @@ class Deck {
                 hand.add(this.draw());
             }
         }
+    }
+
+    discard(card) {
+        this.discardPile.push(card);
     }
 
     addHand(hand) {
