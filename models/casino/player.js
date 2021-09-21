@@ -73,16 +73,22 @@ class Player {
 
     async bet(amount, table = null) {
         if (table?.bets.has(this.id)) {
-            this.pay(table.bets.get(this.id));
+            await this.pay(table.bets.get(this.id), false);
         }
-        this.balance -= amount;
-        table?.bets.set(this.id, amount);
+        if (amount > this.balance) {
+            table?.bets.delete(this.id);
+        } else {
+            this.balance -= amount;
+            table?.bets.set(this.id, amount);
+        }
         await this.save();
     }
 
-    async pay(amount) {
+    async pay(amount, save = true) {
         this.balance += amount;
-        await this.save();
+        if (save) {
+            await this.save();
+        }
     }
 
 

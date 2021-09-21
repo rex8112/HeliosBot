@@ -1,4 +1,4 @@
-const { Collection, MessageEmbed, MessageActionRow, MessageButton } = require('discord.js');
+const { Collection, MessageEmbed, MessageActionRow, MessageButton, MessageSelectMenu } = require('discord.js');
 const { userMention } = require('@discordjs/builders');
 const { Deck } = require('../playingCards');
 const { COLOR } = require('../colors');
@@ -16,6 +16,15 @@ class Table {
         this.name = 'Invalid Table';
         this.description = 'No description. Honestly, if you are seeing this outside of a testing environment then something is very wrong. Please do not bet anything.';
 
+        this.settings = {
+            minBet: 100,
+            maxBet: 1000,
+            minPlayers: 1,
+            maxPlayers: 4,
+            bettingTime: 30000,
+            lobbyTime: 30000,
+        };
+
         this.players = new Collection();
         this.winners = new Collection();
         this.losers = new Collection();
@@ -24,11 +33,14 @@ class Table {
         this.paused = false;
         this.deck = new Deck();
 
-        this.minBet = 0;
-        this.maxBet = 0;
-        this.maxPlayers = 4;
-        this.minPlayers = 1;
     }
+
+    get minBet() { return this.settings.minBet; }
+    get maxBet() { return this.settings.maxBet; }
+    get minPlayers() { return this.settings.minPlayers; }
+    get maxPlayers() { return this.settings.maxPlayers; }
+    get bettingTime() { return this.settings.bettingTime; }
+    get lobbyTime() { return this.settings.lobbyTime; }
 
     get Joinable() { return this.state === Table.STATES.Lobby && this.players.size < this.maxPlayers; }
     get Playable() { return this.state === Table.STATES.Lobby && this.players.size >= this.minPlayers; }
@@ -53,6 +65,8 @@ class Table {
         Lobby: 'lobby',
         Betting: 'betting',
         Setup: 'setup',
+        Cancelled: 'cancelled',
+        Playing: 'playing',
     }
 
     static TABLES = new Map();
@@ -104,7 +118,7 @@ class Table {
                 this.players.set(p.id, p);
             }
             // Get bets
-            this.bets = new Collection(data.bets);
+            this.bets = new Collection(Object.entries(data.bets));
             // Get state
             this.state = data.state;
             // Get settings
@@ -130,6 +144,10 @@ class Table {
     }
 
     toJSON() {
+        const bets = {};
+        for (const [key, value] of this.bets) {
+            bets[key] = value;
+        }
         return {
             channelId: this.channel.id,
             guildId: this.casino.id,
@@ -137,7 +155,7 @@ class Table {
             gameId: this.gameId,
             messages: this.messages.map(m => m.id),
             players:this.players.map(p => p.id),
-            bets: this.bets,
+            bets: bets,
             state: this.state,
             settings: {
                 minBet: this.minBet,
@@ -163,7 +181,7 @@ class Table {
     getEmbeds() {
         const playerString = this.players.map(p => userMention(p.id)).join('\n');
         const embeds = [];
-        if (this.state === Table.STATES.Lobby) {
+        if (this.State === Table.STATES.Lobby) {
             const embed = new MessageEmbed()
                 .setColor(COLOR.creation)
                 .setTitle(`Lobby for ${this.name}`)
@@ -173,7 +191,7 @@ class Table {
                 .addField('Technical Info', `Max Players: **${this.maxPlayers}**\nMinimum Players: **${this.minPlayers}**` +
                 `\n\nMaximum Bet: **${this.maxBet}**\nMinimum Bet: **${this.minBet}**`, true);
             embeds.push(embed);
-        } else if (this.Paused) {
+        } else if (this.State === Table.STATES.Paused) {
             const embed = new MessageEmbed()
                 .setColor(COLOR.creation)
                 .setTitle(`${this.name} Paused`)
@@ -181,47 +199,119 @@ class Table {
                 .setFooter(`Table ID: ${this.id}`)
                 .addField('Players', playerString ? playerString : 'None', true);
             embeds.push(embed);
+        } else if (this.State === Table.STATES.Betting) {
+            const betString = this.players.map(p => `${userMention(p.id)} - ${this.bets.get(p.id) ?? 'None'}`).join('\n');
+            const embed = new MessageEmbed()
+                .setColor(COLOR.creation)
+                .setTitle(`Betting for ${this.name}`)
+                .setDescription('Place your bets below.')
+                .setFooter(`Table ID: ${this.id}`)
+                .addField('Players', betString ? betString : 'None', true);
+            embeds.push(embed);
+        } else if (this.State === Table.STATES.Playing) {
+            const embed = new MessageEmbed()
+                .setColor(COLOR.creation)
+                .setTitle(`Playing ${this.name}`)
+                .setDescription('Invalid Game.');
         }
         return embeds;
     }
 
     getComponents() {
         const components = [];
-        const row = new MessageActionRow()
-            .addComponents(
-                new MessageButton()
-                    .setCustomId('casinoTableJoin')
-                    .setLabel('Join')
-                    .setStyle('PRIMARY')
-                    .setDisabled(!this.Joinable),
-                new MessageButton()
-                    .setCustomId('casinoTableLeave')
-                    .setLabel('Leave')
-                    .setStyle('SECONDARY'),
-            );
-        const row2 = new MessageActionRow()
-            .addComponents(
-                new MessageButton()
-                    .setCustomId('casinoTableStart')
-                    .setLabel('Start')
-                    .setStyle('SUCCESS')
-                    .setDisabled(!this.Playable),
-            );
-        components.push(row);
-        components.push(row2);
+        if (this.State === Table.STATES.Lobby) {
+            const startable = ((this.maxPlayers - this.minPlayers) / 2) <= (this.players.size - this.minPlayers);
+            const row = new MessageActionRow()
+                .addComponents(
+                    new MessageButton()
+                        .setCustomId('casinoTableJoin')
+                        .setLabel('Join')
+                        .setStyle('PRIMARY')
+                        .setDisabled(!this.Joinable),
+                    new MessageButton()
+                        .setCustomId('casinoTableLeave')
+                        .setLabel('Leave')
+                        .setStyle('SECONDARY'),
+                );
+            const row2 = new MessageActionRow()
+                .addComponents(
+                    new MessageButton()
+                        .setCustomId('casinoTableStart')
+                        .setLabel('Start')
+                        .setStyle('SUCCESS')
+                        .setDisabled(!startable),
+                );
+            components.push(row);
+            components.push(row2);
+        } else if (this.State === Table.STATES.Paused) {
+            const row = new MessageActionRow()
+                .addComponents(
+                    new MessageButton()
+                        .setCustomId('casinoTableResume')
+                        .setLabel('Resume')
+                        .setStyle('SUCCESS'),
+                );
+            components.push(row);
+        } else if (this.State === Table.STATES.Betting) {
+            const increment = Math.floor((this.maxBet - this.minBet) / 10);
+            const options = [];
+            for (let i = 0; i <= 10; i++) {
+                options.push({
+                    label: `${this.minBet + (i * increment)} Coins`,
+                    description: `Bet ${this.minBet + (i * increment)} coins`,
+                    value: `${this.minBet + (i * increment)}`,
+                });
+            }
+            const row = new MessageActionRow()
+                .addComponents(
+                    new MessageSelectMenu()
+                        .setCustomId('casinoTableBet')
+                        .setPlaceholder('Select Bet Amount')
+                        .addOptions(options),
+                );
+            components.push(row);
+        }
         return components;
     }
 
-    scheduleRun(time) {
-        this.runProcess = setTimeout(this.run, time);
+    scheduleRun(time, callback = this.run, override = false) {
+        if (override) {
+            this.stopRun();
+            this.runProcess = setTimeout(callback, time);
+        } else if (!this.runProcess) {
+            this.runProcess = setTimeout(callback, time);
+        }
     }
 
     stopRun() {
-        clearTimeout(this.runProcess);
+        if (this.runProcess) {
+            clearTimeout(this.runProcess);
+            this.runProcess = null;
+        }
     }
 
-    async run() {
+    async startBetting() {
+        this.stopRun();
+        this.State = Table.STATES.Betting;
+        this.scheduleRun(this.bettingTime, this.startPlaying);
+        await this.save();
+    }
+
+    async startPlaying() {
+        this.stopRun();
+        this.State = Table.STATES.Playing;
+        await this.save();
+    }
+
+    async run(interaction = null) {
         // TODO: Implement
+        this.stopRun();
+    }
+
+    async cancel() {
+        this.stopRun();
+        this.state = Table.STATES.Cancelled;
+
     }
 
     async join(player) {
@@ -233,7 +323,7 @@ class Table {
     }
 
     async leave(player) {
-        if (!this.players.has(player.id)) return false;
+        if (!this.players.has(player.id) && this.State === Table.STATES.Lobby) return false;
         this.players.delete(player.id);
         player.Table = null;
         await this.save();
@@ -242,7 +332,8 @@ class Table {
 
     async handleInteraction(interaction) {
         console.log(`${this.id} Recieved Interaction`);
-        if (interaction.customId === 'casinoTableJoin') {
+        if (interaction.customId === 'casinoTableJoin' && this.Joinable) {
+            // Join Table
             const player = this.casino.getPlayer(interaction.user.id);
             if (!await this.join(player)) {
                 const table = player.Table;
@@ -254,7 +345,8 @@ class Table {
             } else {
                 await this.updateMessage(undefined, undefined, interaction);
             }
-        } else if (interaction.customId === 'casinoTableLeave') {
+        } else if (interaction.customId === 'casinoTableLeave' && this.State === Table.STATES.Lobby) {
+            // Leave Table
             const player = this.casino.getPlayer(interaction.user.id);
             if (!await this.leave(player)) {
                 await interaction.reply({ content: 'You are not in this table.', components: [this.ReturnRow], ephemeral: true });
@@ -262,7 +354,22 @@ class Table {
                 await this.updateMessage(undefined, undefined, interaction);
             }
         } else if (interaction.customId === 'casinoTableStart') {
-            // await this.start();
+            // Start Table
+            if (this.Playable) {
+                await this.startBetting();
+                await this.updateMessage(undefined, undefined, interaction);
+            } else {
+                await interaction.reply({ content: 'You cannot start this game yet.', components: [this.ReturnRow], ephemeral: true });
+            }
+        } else if (interaction.customId === 'casinoTableBet' && this.State === Table.STATES.Betting) {
+            // Bet
+            const player = this.players.get(interaction.user.id);
+            player.bet(parseInt(interaction.values[0]), this);
+            await this.save();
+            if (this.bets === this.players.size) {
+                await this.startPlaying();
+            }
+            await this.updateMessage(undefined, undefined, interaction);
         }
     }
 
@@ -270,7 +377,7 @@ class Table {
         if (!embeds) embeds = this.getEmbeds();
         if (!components) components = this.getComponents();
         const message = this.message;
-        if (interaction) {
+        if (interaction && !interaction.replied) {
             await interaction.update({ content: null, components, embeds });
         } else {
             await message.edit({ content: null, embeds, components });
