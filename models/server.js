@@ -5,7 +5,7 @@ const { Deck } = require('./deck');
 const { Voice } = require('./voice');
 const { Client, Guild } = require('discord.js');
 
-const wait = require('util').promisfy(setTimeout);
+const wait = require('util').promisify(setTimeout);
 
 class Server {
     /**
