@@ -60,11 +60,23 @@ class Card {
     toShortString() {
         return `${this.rank}${this.suitIcon}`;
     }
+
+    toJSON() {
+        return `${this.rank}${this.suit[0]}`;
+    }
+
+    static fromJSON(json) {
+        const card = new Card();
+        card.rank = json[0];
+        card.suit = Card.Suits.find(suit => suit.startsWith(json[1]));
+        return card;
+    }
 }
 
 class Deck {
     constructor(aceHigh = true) {
         this.deck = [];
+        this.discardPile = [];
         this.hands = [];
         this.aceHigh = aceHigh;
         this.reset();
@@ -85,7 +97,8 @@ class Deck {
     }
 
     shuffle() {
-        const { deck } = this;
+        const deck = this.deck = this.deck.concat(this.discardPile);
+        this.discardPile = [];
         for (let i = deck.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [deck[i], deck[j]] = [deck[j], deck[i]];
@@ -106,6 +119,10 @@ class Deck {
                 hand.add(this.draw());
             }
         }
+    }
+
+    discard(card) {
+        this.discardPile.push(card);
     }
 
     addHand(hand) {
@@ -131,7 +148,23 @@ class Hand {
     }
 
     toString() {
-        return this.cards.join(' ');
+        return this.cards.join(', ');
+    }
+
+    toShortString() {
+        return this.cards.map(card => card.toShortString()).join(', ');
+    }
+
+    toJSON() {
+        return this.cards.map(card => card.toJSON());
+    }
+
+    static fromJSON(json) {
+        const hand = new Hand();
+        for (const card of json) {
+            hand.add(Card.fromJSON(card));
+        }
+        return hand;
     }
 
     clear() {
