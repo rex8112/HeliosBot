@@ -185,6 +185,7 @@ class TopicChannel {
         }
         if (this.archived) {
             this.channel.edit({
+                name: this.channel.name.replace('🛑', ''),
                 parent: this.server.topicCategory,
                 lockPermissions: true,
             }, 'Channel saved');
