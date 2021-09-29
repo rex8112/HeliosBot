@@ -5,6 +5,7 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('editserver')
         .setDescription('Edits the server settings')
+        .setDefaultPermission(false)
         .addChannelOption(option =>
             option.setName('topiccategory')
                 .setDescription('The category that new topics appear in.'))
@@ -24,6 +25,7 @@ module.exports = {
                 .addChoice('Archive Category', 'archivecategory')
                 .addChoice('Starting Role', 'startingrole')
                 .addChoice('Quotes Channel', 'quoteschannel')),
+    rolePermissions: [Permissions.FLAGS.MANAGE_CHANNELS],
     async execute(interaction) {
         if (!interaction.member.permissions.has([Permissions.FLAGS.MANAGE_CHANNELS])) {
             return interaction.reply({ content: 'You do not have permission to edit the server.', ephemeral: true });
