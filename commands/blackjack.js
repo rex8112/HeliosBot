@@ -242,7 +242,7 @@ module.exports = {
             const bet = bets.get(player[0].id);
             const winnings = bet * 2;
             const pDeck = server.getDeck(player[0]);
-            pDeck.addPoints(winnings);
+            pDeck.addPoints(winnings / 2);
             winnerEmbed.addField(`${player[0].displayName}`, `Winnings: ${winnings}\nTotal Points: ${pDeck.points}`);
         }
         for (const player of tied.values()) {

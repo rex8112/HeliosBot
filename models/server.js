@@ -8,6 +8,8 @@ const { Client, Guild, Collection } = require('discord.js');
 
 const wait = require('util').promisify(setTimeout);
 
+const wait = require('util').promisify(setTimeout);
+
 class Server {
     /**
      * @param {Client} client
@@ -75,7 +77,7 @@ class Server {
             for (const member of (await this.guild.members.fetch()).values()) {
                 if (member.user.bot) continue;
                 await this.newDeck(member);
-                if (member.roles.cache.size === 1) {
+                if (member.roles.cache.size === 1 && this.startingRole) {
                     member.roles.add(this.startingRole);
                 }
             }
@@ -126,7 +128,7 @@ class Server {
         for (let i = 0; i < arr.length; i++) {
             const topic = arr[i];
             await topic.channel.edit({ position: i });
-            await wait(1000);
+            await wait(5000);
         }
     }
 
@@ -252,6 +254,7 @@ class Server {
 
     async checkCompetitiveRanking() {
         await this.guild.roles.fetch();
+        await this.guild.members.fetch();
         const arr = Array.from(this.decks.values());
         const rankFillArray = [];
         for (let i = 0; i < this.theme.ranks.length; i++) {
