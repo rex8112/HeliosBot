@@ -238,9 +238,17 @@ class BlackjackTable extends Table {
 
     async handleInteraction(interaction) {
         if (interaction.customId === 'casinoTableHit') {
-            this.hit(interaction.member);
+            if (this.CurrentTurn.id === interaction.member.id) {
+                this.hit(interaction.member);
+            } else {
+                return interaction.reply({ content: 'Please wait your turn!', components: [this.ReturnRow], ephemeral: true });
+            }
         } else if (interaction.customId === 'casinoTableStay') {
-            this.stay(interaction.member);
+            if (this.CurrentTurn.id === interaction.member.id) {
+                this.stay(interaction.member);
+            } else {
+                return interaction.reply({ content: 'Please wait your turn!', components: [this.ReturnRow], ephemeral: true });
+            }
         } else {
             return super.handleInteraction(interaction);
         }
