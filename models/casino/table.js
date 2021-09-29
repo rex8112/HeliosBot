@@ -240,7 +240,7 @@ class Table {
     getComponents() {
         const components = [];
         if (this.State === Table.STATES.Lobby) {
-            const startable = ((this.maxPlayers - this.minPlayers) / 2) <= (this.players.size - this.minPlayers);
+            const startable = Math.floor((this.maxPlayers - this.minPlayers) / 2) <= (this.players.size - this.minPlayers);
             const row = new MessageActionRow()
                 .addComponents(
                     new MessageButton()
