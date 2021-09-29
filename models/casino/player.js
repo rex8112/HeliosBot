@@ -10,6 +10,7 @@ class Player {
         this.balance = 0;
         this.hand = new Hand();
         this.tableId = null;
+        this.dailyId = 0;
     }
 
     get Table() {
@@ -42,6 +43,7 @@ class Player {
             this.balance = data.balance;
             this.hand = Hand.fromJSON(data.hand);
             this.tableId = data.table;
+            this.dailyId = data.dailyId;
         }
 
         return this;
@@ -64,6 +66,7 @@ class Player {
             balance: this.balance,
             hand: this.hand,
             table: this.tableId || null,
+            dailyId: this.dailyId,
         };
     }
 

@@ -148,7 +148,11 @@ class Hand {
     }
 
     toString() {
-        return this.cards.join(' ');
+        return this.cards.join(', ');
+    }
+
+    toShortString() {
+        return this.cards.map(card => card.toShortString()).join(', ');
     }
 
     toJSON() {

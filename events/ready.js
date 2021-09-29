@@ -14,5 +14,6 @@ module.exports = {
             const server = await new Server(client, guild).load();
             client.servers.set(guild.id, server);
         }
+        console.log('Servers loaded');
     },
 };

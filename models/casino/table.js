@@ -4,8 +4,10 @@ const { Deck } = require('../playingCards');
 const { COLOR } = require('../colors');
 const { Table: TableDB } = require('../../tools/database');
 
+const wait = require('util').promisify(setTimeout);
+
 class Table {
-    constructor(casino, message) {
+    constructor(casino, message, settings = {}) {
         this.casino = casino;
         this.id = message.id;
         this.channel = message.channel;
@@ -23,6 +25,8 @@ class Table {
             maxPlayers: 4,
             bettingTime: 30000,
             lobbyTime: 30000,
+            endTime: 30000,
+            ...settings,
         };
 
         this.players = new Collection();
@@ -33,6 +37,8 @@ class Table {
         this.paused = false;
         this.deck = new Deck();
 
+        this.lastUpdate = Date.now();
+        this.ONE_SECOND = 1000;
     }
 
     get minBet() { return this.settings.minBet; }
@@ -41,6 +47,7 @@ class Table {
     get maxPlayers() { return this.settings.maxPlayers; }
     get bettingTime() { return this.settings.bettingTime; }
     get lobbyTime() { return this.settings.lobbyTime; }
+    get endTime() { return this.settings.endTime; }
 
     get Joinable() { return this.state === Table.STATES.Lobby && this.players.size < this.maxPlayers; }
     get Playable() { return this.state === Table.STATES.Lobby && this.players.size >= this.minPlayers; }
@@ -67,6 +74,7 @@ class Table {
         Setup: 'setup',
         Cancelled: 'cancelled',
         Playing: 'playing',
+        Ended: 'ended',
     }
 
     static TABLES = new Map();
@@ -80,9 +88,9 @@ class Table {
         return Table.TABLES.get(id) ?? Table;
     }
 
-    static async create(casino, channel) {
+    static async createTable(casino, channel, settings = {}) {
         const message = await channel.send('Creating table...');
-        const table = new Table(casino, message);
+        const table = new this(casino, message, settings);
         // TEMPORARY
         table.state = Table.STATES.Lobby;
         // TEMPORARY
@@ -122,10 +130,17 @@ class Table {
             // Get state
             this.state = data.state;
             // Get settings
-            this.minBet = data.settings.minBet;
-            this.maxBet = data.settings.maxBet;
-            this.maxPlayers = data.settings.maxPlayers;
-            this.minPlayers = data.settings.minPlayers;
+            for (const [k, v] of Object.entries(data.settings)) {
+                this.settings[k] = v;
+            }
+        }
+
+        if (this.State !== Table.STATES.Lobby) {
+            await this.cleanup(true);
+            this.state = Table.STATES.Cancelled;
+            await this.updateMessage();
+            await wait(1000);
+            await this.run();
         }
         return this;
     }
@@ -138,6 +153,9 @@ class Table {
         this.message = await this.channel.send('Refreshing Table...');
         this.id = this.message.id;
         this.state = oldState;
+        for (const player of this.players.values()) {
+            player.Table = this;
+        }
         await this.updateMessage();
         this.save(oldId);
         return this.id;
@@ -157,12 +175,7 @@ class Table {
             players:this.players.map(p => p.id),
             bets: bets,
             state: this.state,
-            settings: {
-                minBet: this.minBet,
-                maxBet: this.maxBet,
-                maxPlayers: this.maxPlayers,
-                minPlayers: this.minPlayers,
-            },
+            settings: this.settings,
         };
     }
 
@@ -186,7 +199,7 @@ class Table {
                 .setColor(COLOR.creation)
                 .setTitle(`Lobby for ${this.name}`)
                 .setDescription(this.description)
-                .setFooter(`Table ID: ${this.id}`)
+                .setFooter(`This table will start ${this.lobbyTime / 1000} seconds after the minimum players is met.`)
                 .addField('Players', playerString ? playerString : 'None', true)
                 .addField('Technical Info', `Max Players: **${this.maxPlayers}**\nMinimum Players: **${this.minPlayers}**` +
                 `\n\nMaximum Bet: **${this.maxBet}**\nMinimum Bet: **${this.minBet}**`, true);
@@ -205,7 +218,7 @@ class Table {
                 .setColor(COLOR.creation)
                 .setTitle(`Betting for ${this.name}`)
                 .setDescription('Place your bets below.')
-                .setFooter(`Table ID: ${this.id}`)
+                .setFooter(`Betting will end in ${this.bettingTime / 1000} seconds or after everyone has bet.`)
                 .addField('Players', betString ? betString : 'None', true);
             embeds.push(embed);
         } else if (this.State === Table.STATES.Playing) {
@@ -213,6 +226,13 @@ class Table {
                 .setColor(COLOR.creation)
                 .setTitle(`Playing ${this.name}`)
                 .setDescription('Invalid Game.');
+            embeds.push(embed);
+        } else if (this.State === Table.STATES.Cancelled) {
+            const embed = new MessageEmbed()
+                .setColor(COLOR.creation)
+                .setTitle(`${this.name} Cancelled`)
+                .setDescription('The game has been cancelled.');
+            embeds.push(embed);
         }
         return embeds;
     }
@@ -274,12 +294,12 @@ class Table {
         return components;
     }
 
-    scheduleRun(time, callback = this.run, override = false) {
+    scheduleRun(time, override = false) {
         if (override) {
             this.stopRun();
-            this.runProcess = setTimeout(callback, time);
+            this.runProcess = setTimeout(this.run.bind(this), time);
         } else if (!this.runProcess) {
-            this.runProcess = setTimeout(callback, time);
+            this.runProcess = setTimeout(this.run.bind(this), time);
         }
     }
 
@@ -290,22 +310,62 @@ class Table {
         }
     }
 
+    async cleanup(returnBets = false) {
+        const tempPlayers = this.players.clone();
+        for (const player of tempPlayers.values()) {
+            await this.leave(player);
+            if (returnBets) {
+                player.pay(this.bets.get(player.id) ?? 0);
+            }
+        }
+        this.bets.clear();
+    }
+
+    async startLobby() {
+        this.stopRun();
+        this.state = Table.STATES.Lobby;
+        await this.cleanup();
+        await this.save();
+    }
+
     async startBetting() {
         this.stopRun();
-        this.State = Table.STATES.Betting;
-        this.scheduleRun(this.bettingTime, this.startPlaying);
+        this.state = Table.STATES.Betting;
+        this.scheduleRun(this.bettingTime);
         await this.save();
     }
 
     async startPlaying() {
         this.stopRun();
-        this.State = Table.STATES.Playing;
+        this.state = Table.STATES.Playing;
+        await this.save();
+    }
+
+    async endTable() {
+        this.stopRun();
+        this.state = Table.STATES.Ended;
+        this.scheduleRun(this.endTime);
         await this.save();
     }
 
     async run(interaction = null) {
-        // TODO: Implement
+        // Prevents AFK players from stalling a game in any state
         this.stopRun();
+        if (this.State === Table.STATES.Lobby && this.Playable) {
+            await this.startBetting();
+        } else if (this.State === Table.STATES.Betting) {
+            if (this.bets.size !== this.players.size) {
+                for (const player of this.players.values()) {
+                    if (!this.bets.has(player.id)) {
+                        await player.bet(this.minBet, this);
+                    }
+                }
+            }
+            await this.startPlaying();
+        } else if (this.State === Table.STATES.Ended || this.State === Table.STATES.Cancelled) {
+            await this.startLobby();
+        }
+        await this.updateMessage(undefined, undefined, interaction);
     }
 
     async cancel() {
@@ -315,9 +375,12 @@ class Table {
     }
 
     async join(player) {
-        if (this.players.has(player.id) || player.Table) return false;
+        if (this.players.has(player.id) || player.Table || player.balance < this.minBet) return false;
         this.players.set(player.id, player);
         player.Table = this;
+        if (this.players.size >= this.minPlayers && this.lobbyTime > 0) {
+            this.scheduleRun(this.lobbyTime);
+        }
         await this.save();
         return true;
     }
@@ -326,18 +389,22 @@ class Table {
         if (!this.players.has(player.id) && this.State === Table.STATES.Lobby) return false;
         this.players.delete(player.id);
         player.Table = null;
+        if (this.players.size < this.minPlayers) {
+            this.stopRun();
+        }
         await this.save();
         return true;
     }
 
     async handleInteraction(interaction) {
-        console.log(`${this.id} Recieved Interaction`);
-        if (interaction.customId === 'casinoTableJoin' && this.Joinable) {
+        if (interaction.customId === 'casinoTableJoin') {
             // Join Table
             const player = this.casino.getPlayer(interaction.user.id);
             if (!await this.join(player)) {
                 const table = player.Table;
-                if (table?.id !== this.id) {
+                if (player.balance < this.minBet) {
+                    await interaction.reply({ content: 'Your points are too low to join this table.', components: [this.ReturnRow], ephemeral: true });
+                } else if (table?.id !== this.id) {
                     await interaction.reply({ content: 'You are already in **another** table.', components: [table.ReturnRow], ephemeral: true });
                 } else {
                     await interaction.reply({ content: 'You are already in this table.', components: [this.ReturnRow], ephemeral: true });
@@ -355,7 +422,7 @@ class Table {
             }
         } else if (interaction.customId === 'casinoTableStart') {
             // Start Table
-            if (this.Playable) {
+            if (this.Playable && this.players.has(interaction.user.id)) {
                 await this.startBetting();
                 await this.updateMessage(undefined, undefined, interaction);
             } else {
@@ -366,14 +433,23 @@ class Table {
             const player = this.players.get(interaction.user.id);
             player.bet(parseInt(interaction.values[0]), this);
             await this.save();
-            if (this.bets === this.players.size) {
+            if (this.bets.size === this.players.size) {
                 await this.startPlaying();
             }
             await this.updateMessage(undefined, undefined, interaction);
+        } else {
+            if (!interaction.deferred) {
+                await interaction.deferUpdate();
+            }
+            console.log(`${this.id}: Recieved Unhandled Interaction`);
         }
     }
 
     async updateMessage(embeds = null, components = null, interaction = null) {
+        while ((this.lastUpdate - this.ONE_SECOND) > Date.now()) {
+            await wait(500);
+        }
+        this.lastUpdate = Date.now();
         if (!embeds) embeds = this.getEmbeds();
         if (!components) components = this.getComponents();
         const message = this.message;

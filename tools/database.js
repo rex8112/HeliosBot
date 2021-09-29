@@ -211,6 +211,10 @@ const Casino = sequelize.define('casino', {
         allowNull: false,
         defaultValue: [],
     },
+    dailyId: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+    },
 });
 
 const Table = sequelize.define('table', {
@@ -279,6 +283,10 @@ const Player = sequelize.define('player', {
     },
     table: {
         type: DataTypes.BIGINT,
+    },
+    dailyId: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
     },
 });
 

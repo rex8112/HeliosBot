@@ -6,7 +6,8 @@ module.exports = {
         if (!interaction.isButton() && !interaction.isSelectMenu()) return;
 
         if (interaction.customId.startsWith('casino')) {
-            const casino = interaction.client.servers.get(interaction.guild.id).casino;
+            const casino = interaction.client.servers.get(interaction.guild.id)?.casino;
+            if (!casino) return;
             casino.handleInteraction(interaction);
         }
     },

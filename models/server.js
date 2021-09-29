@@ -164,6 +164,18 @@ class Server {
         return arr;
     }
 
+    async getRolesByPermissions(permissions) {
+        const roles = [];
+        await wait(500);
+        await this.guild.roles.fetch();
+        for (const role of this.guild.roles.cache.values()) {
+            if (role.permissions.has(permissions)) {
+                roles.push(role.id);
+            }
+        }
+        return roles;
+    }
+
     async checkTopicChannels() {
         for (const topicChannel of this.topics.values()) {
             try {
@@ -233,6 +245,7 @@ class Server {
                 rank = this.theme.ranks[this.theme.ranks.length - 1];
             }
             await this.theme.setMemberRank(member, rank);
+            await wait(1000);
         }
     }
 
