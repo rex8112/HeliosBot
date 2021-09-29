@@ -7,8 +7,8 @@ const { COLOR } = require('../colors');
 const wait = require('util').promisify(setTimeout);
 
 class BlackjackTable extends Table {
-    constructor(casino, message) {
-        super(casino, message);
+    constructor(casino, message, settings = {}) {
+        super(casino, message, settings);
 
         this.gameId = 'Blackjack';
         this.name = 'Blackjack Table';
