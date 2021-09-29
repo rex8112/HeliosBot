@@ -123,11 +123,15 @@ class Server {
     async sortTopicChannels() {
         const arr = Array.from(this.topics.values());
         arr.sort((a, b) => { return a.compareToTopic(b); });
+        const channelPositions = [];
         for (let i = 0; i < arr.length; i++) {
             const topic = arr[i];
-            await topic.channel.edit({ position: i });
-            await wait(5000);
+            channelPositions.push({
+                channel: topic.channel.id,
+                position: i,
+            });
         }
+        await this.guild.setChannelPositions(channelPositions);
     }
 
     async newTopicChannel(name, description, creator) {
