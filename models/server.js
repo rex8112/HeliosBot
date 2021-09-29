@@ -8,8 +8,6 @@ const { Client, Guild, Collection } = require('discord.js');
 
 const wait = require('util').promisify(setTimeout);
 
-const wait = require('util').promisify(setTimeout);
-
 class Server {
     /**
      * @param {Client} client
