@@ -4,7 +4,7 @@ const { TopicChannel } = require('./topicChannel');
 const { Theme } = require('./theme');
 const { Deck } = require('./deck');
 const { Voice } = require('./voice');
-const { Client, Guild } = require('discord.js');
+const { Client, Guild, Collection } = require('discord.js');
 
 const wait = require('util').promisify(setTimeout);
 
@@ -174,6 +174,35 @@ class Server {
             }
         }
         return roles;
+    }
+
+    /**
+     * Set guild command permissions based on a command id keyed permission collection.
+     * @param {Collection} commandPerms
+     */
+    async setCommandsPermissions(commandPerms) {
+        const fullPermissions = [];
+        for (const [commandId, perms] of commandPerms.entries()) {
+            const ids = await this.getRolesByPermissions(perms);
+            const permsArr = [];
+            for (const id of ids) {
+                const perm = {
+                    id: id,
+                    type: 'ROLE',
+                    permission: true,
+                };
+                permsArr.push(perm);
+            }
+            fullPermissions.push({
+                id: commandId,
+                permissions: permsArr,
+            });
+        }
+        // Check if the command has any role permissions
+        // Loop through role ids and add them to the permissions array
+        if (fullPermissions.length > 0) {
+            await this.guild.commands.permissions.set({ fullPermissions });
+        }
     }
 
     async checkTopicChannels() {

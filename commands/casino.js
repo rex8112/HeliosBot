@@ -6,6 +6,7 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('casino')
         .setDescription('Manage Casino Settings')
+        .setDefaultPermission(false)
         .addSubcommand(subcommand =>
             subcommand
                 .setName('addchannel')
@@ -27,17 +28,17 @@ module.exports = {
                         .addChoice('Blackjack', 'Blackjack'))
                 .addIntegerOption(option =>
                     option
-                        .setName('minBet')
+                        .setName('minbet')
                         .setDescription('The minimum bet for the table.')
                         .setRequired(true))
                 .addIntegerOption(option =>
                     option
-                        .setName('maxBet')
+                        .setName('maxbet')
                         .setDescription('The maximum bet for the table.')
                         .setRequired(true))
                 .addIntegerOption(option =>
                     option
-                        .setName('maxPlayers')
+                        .setName('maxplayers')
                         .setDescription('The maximum number of players for the table.')
                         .setRequired(true)))
         .addSubcommand(subcommand =>
@@ -59,9 +60,9 @@ module.exports = {
             if (!cc) return interaction.reply({ content: 'You must be in a casino channel to add a table.', ephemeral: true });
             const gameId = interaction.options.getString('table');
             const settings = {
-                minBet: interaction.options.getInteger('minBet'),
-                maxBet: interaction.options.getInteger('maxBet'),
-                maxPlayers: interaction.options.getInteger('maxPlayers'),
+                minBet: interaction.options.getInteger('minbet'),
+                maxBet: interaction.options.getInteger('maxbet'),
+                maxPlayers: interaction.options.getInteger('maxplayers'),
             };
             await cc.createTable(gameId, settings);
             return interaction.editReply({ content: 'Added a table', ephemeral: true });
