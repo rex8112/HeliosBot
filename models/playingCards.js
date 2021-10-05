@@ -207,6 +207,11 @@ class HandFinders {
         return cards.sort((a, b) => b.rank - a.rank)[0];
     }
 
+    /**
+     * Get an array of pairs.
+     * @param {Card[]} cards
+     * @returns {Array<Card[]>} Array of the different pairs.
+     */
     static getPairs(cards) {
         const ranks = Card.Ranks;
         const pairs = [];
@@ -219,6 +224,11 @@ class HandFinders {
         return pairs;
     }
 
+    /**
+     * Get an array of three of a kinds.
+     * @param {Card[]} cards
+     * @returns {Array<Card[]>} Array of the different three of a kinds.
+     */
     static getThreeOfAKinds(cards) {
         const ranks = Card.Ranks;
         const threeOfAKinds = [];
@@ -231,6 +241,11 @@ class HandFinders {
         return threeOfAKinds;
     }
 
+    /**
+     * Get an array of four of a kinds.
+     * @param {Card[]} cards
+     * @returns {Array<Card[]>} Array of the different four of a kinds.
+     */
     static getFourOfAKinds(cards) {
         const ranks = Card.Ranks;
         const fourOfAKinds = [];
@@ -243,6 +258,11 @@ class HandFinders {
         return fourOfAKinds;
     }
 
+    /**
+     * Get the cards that make up a full house if there is one.
+     * @param {Card[]} cards
+     * @returns {Card[]} the cards in the full house
+     */
     static getFullHouse(cards) {
         const pairs = HandFinders.getPairs(cards);
         const threeOfAKinds = HandFinders.getThreeOfAKinds(cards);
@@ -257,6 +277,11 @@ class HandFinders {
         return [];
     }
 
+    /**
+     * Get the cards that make up a flush if there is one.
+     * @param {Card[]} cards
+     * @returns {Card[]} the cards with the same suit
+     */
     static getFlush(cards) {
         const suits = Card.Suits;
         const flush = [];
@@ -269,6 +294,11 @@ class HandFinders {
         return flush;
     }
 
+    /**
+     * Get the cards that make up the straight if there is one.
+     * @param {Card[]} cards
+     * @returns {Card[]} The cards in the straight
+     */
     static getStraight(cards) {
         const ranks = Card.Ranks.slice(0, Card.Ranks.length - 4);
         for (let i = 0; i < ranks.length; i++) {
@@ -284,6 +314,11 @@ class HandFinders {
         return [];
     }
 
+    /**
+     * Get the cards that make up the straight flush if there is one.
+     * @param {Card[]} cards
+     * @returns {Card[]} The cards in the straight flush
+     */
     static getStraightFlush(cards) {
         const flush = HandFinders.getFlush(cards);
         if (flush.length >= 5) {
@@ -295,6 +330,11 @@ class HandFinders {
         return [];
     }
 
+    /**
+     * Get the cards that make up the royal flush if there is one.
+     * @param {Card[]} cards
+     * @returns {Card[]} The cards in the royal flush
+     */
     static getRoyalFlush(cards) {
         const flush = HandFinders.getFlush(cards);
         if (flush.length >= 5) {
@@ -309,6 +349,11 @@ class HandFinders {
         return [];
     }
 
+    /**
+     * Get the single card value.
+     * @param {Card} card
+     * @returns {Number} the card value
+     */
     static getBlackJackValue(card) {
         if (card.rank === 'A') {
             return 11;
