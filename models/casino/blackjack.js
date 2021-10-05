@@ -58,9 +58,11 @@ class BlackjackTable extends Table {
         this.showDealer = true;
         await this.updateMessage();
         await wait(2000);
-        while (HandFinders.getBlackJackScore(this.dealer.cards) < 17) {
+        let dealerValue = HandFinders.getBlackJackScore(this.dealer.cards);
+        while (dealerValue < 17 || (dealerValue === 17 && HandFinders.isBlackJackSoft(this.dealer.cards))) {
             this.dealer.add(this.deck.draw());
             this.dealerString = this.dealer.toShortString();
+            dealerValue = HandFinders.getBlackJackScore(this.dealer.cards);
             await this.updateMessage();
             await wait(2000);
         }

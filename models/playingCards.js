@@ -319,7 +319,13 @@ class HandFinders {
         return parseInt(card.rank);
     }
 
-    static getBlackJackScore(cards) {
+    /**
+     * Get the value of the hand.
+     * @param {Card[]} cards
+     * @param {{ elevens: 0 }} returnElevens
+     * @returns {Number} the blackjack value of the hand
+     */
+    static getBlackJackScore(cards, returnElevens = { elevens: 0 }) {
         let score = 0;
         let elevens = 0;
         let ones = 0;
@@ -336,7 +342,23 @@ class HandFinders {
             elevens -= 1;
             ones += 1;
         }
+        returnElevens.elevens = elevens;
         return totalScore();
+    }
+
+    /**
+     * Determines if a hand in blackjack is achieved by an eleven ace.
+     * @param {Array<Card>} cards
+     */
+    static isBlackJackSoft(cards) {
+        if (cards.find(card => card.rank === 'A')) {
+            const elevens = { elevens: 0 };
+            HandFinders.getBlackJackScore(cards, elevens);
+            if (elevens.elevens > 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
 }
