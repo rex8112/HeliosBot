@@ -103,6 +103,10 @@ class Server {
             });
             this.load();
         }
+        this.muteRole = this.guild.roles.cache.find(role => role.name === 'VoiceControlled');
+        if (this.muteRole) {
+            this.clearMuteRole();
+        }
         return this;
     }
 
@@ -206,6 +210,16 @@ class Server {
         // Loop through role ids and add them to the permissions array
         if (fullPermissions.length > 0) {
             await this.guild.commands.permissions.set({ fullPermissions });
+        }
+    }
+
+    async clearMuteRole() {
+        if (this.muteRole) {
+            const members = await this.muteRole.members;
+            for (const member of members.values()) {
+                await member.edit({ mute: false, deaf: false });
+                await member.roles.remove(this.muteRole);
+            }
         }
     }
 
