@@ -1,4 +1,4 @@
-const { TextChannel, VoiceChannel, Collection, MessageEmbed, MessageActionRow, MessageButton } = require('discord.js');
+const { TextChannel, VoiceChannel, Collection, MessageEmbed, MessageActionRow, MessageButton, ButtonInteraction } = require('discord.js');
 
 class GameVoice {
     /**
@@ -81,7 +81,7 @@ class GameVoice {
     }
 
     // Embed Management
-    async getEmbed() {
+    async getEmbeds() {
         const embeds = [];
         const embed = new MessageEmbed()
             .setTitle(`${this.name}`)
@@ -161,6 +161,56 @@ class GameVoice {
         return components;
     }
 
+    async updateMessage(interaction = null) {
+        if (interaction) {
+            return interaction.update(this.message);
+        } else {
+            return this.message.edit({ embeds: this.getEmbeds(), components: this.getComponents() });
+        }
+    }
+
+    /**
+     * Handle discord interaction with the game
+     * @param {ButtonInteraction} interaction Discord interaction
+     */
+    async handleInteraction(interaction) {
+        const customId = interaction.customId;
+        if (customId === 'gameStart') {
+            await this.start();
+            return interaction.reply({ content: 'Game started!', ephemeral: true });
+        } else if (customId === 'gameEnd') {
+            await this.end();
+            return interaction.reply({ content: 'Game ended!', ephemeral: true });
+        } else if (customId === 'gameDie') {
+            await this.die(interaction.member);
+            return interaction.reply({ content: 'You have died.', ephemeral: true });
+        } else if (customId === 'gameJoin') {
+            const result = await this.addMember(interaction.member);
+            if (result) {
+                return this.updateMessage(interaction);
+            } else {
+                return interaction.reply({ content: 'Maximum Players reached!', ephemeral: true });
+            }
+        } else if (customId === 'gameLeave') {
+            await this.removeMember(interaction.member);
+            return this.updateMessage(interaction);
+        } else if (customId === 'gameJoin1') {
+            const result = await this.addMember(interaction.member, 1);
+            if (result) {
+                return this.updateMessage(interaction);
+            } else {
+                return interaction.reply({ content: 'Maximum Players reached!', ephemeral: true });
+            }
+        } else if (customId === 'gameJoin2') {
+            const result = await this.addMember(interaction.member, 2);
+            if (result) {
+                return this.updateMessage(interaction);
+            } else {
+                return interaction.reply({ content: 'Maximum Players reached!', ephemeral: true });
+            }
+        }
+    }
+
     // Game Commands
     async start() {
         for (const player of this.players.values()) {
@@ -205,7 +255,7 @@ class GameVoice {
     // Player Management
     async addMember(member, team = 0) {
         if (this.players.size >= this.max) {
-            return;
+            return false;
         }
         const player = new Player(member);
         this.players.set(member.id, player);
@@ -226,6 +276,7 @@ class GameVoice {
                 this.team2.set(member.id, player);
             }
         }
+        return true;
     }
 
     async removeMember(member) {
