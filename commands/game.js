@@ -93,9 +93,9 @@ module.exports = {
             game = await server.newGame(interaction.channel, name, maxplayers, false, false, false, team1, team2, invite);
         } else if (subcommand === 'fixme') {
             const member = interaction.member;
-            if (member.voiceState.channelId && member.roles.has(server.mutedRole)) {
-                await member.edit({ mute: false, deafen: false });
-                await member.roles.remove(server.mutedRole);
+            if (member.voice.channelId && server.muteRole.members.has(member.id)) {
+                await member.edit({ mute: false, deaf: false });
+                await member.roles.remove(server.muteRole);
                 return interaction.reply({ content: 'You have been fixed!', ephemeral: true });
             } else {
                 return interaction.reply({ content: 'You need to be in a voice channel.', ephemeral: true });
