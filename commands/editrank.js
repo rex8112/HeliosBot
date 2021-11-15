@@ -5,6 +5,7 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('editrank')
         .setDescription('Edit a rank')
+        .setDefaultPermission(false)
         .addSubcommand(subcommand =>
             subcommand
                 .setName('add')
@@ -41,7 +42,7 @@ module.exports = {
                         .setName('rank')
                         .setDescription('The rank to set the member to')
                         .setRequired(true))),
-    permissions: [Permissions.FLAGS.MANAGE_ROLES],
+    rolePermissions: [Permissions.FLAGS.MANAGE_ROLES],
     async execute(interaction) {
         if (!interaction.member.permissions.has([Permissions.FLAGS.MANAGE_CHANNELS])) {
             return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });

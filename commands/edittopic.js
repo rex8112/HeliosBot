@@ -54,7 +54,7 @@ module.exports = {
                 topic.pinned = topic.pinned ? false : true;
                 await topic.save();
                 await server.sortTopicChannels();
-                await interaction.editReply({ content: 'Topic pinned.' });
+                await interaction.editReply({ content: `Topic ${!topic.pinned ? 'un' : ''}pinned.`, ephemeral: true });
             }
         }
     },

@@ -1,9 +1,13 @@
 const { Server: ServerDB } = require('../tools/database');
+const { Casino } = require('./casino/casino');
 const { TopicChannel } = require('./topicChannel');
 const { Theme } = require('./theme');
 const { Deck } = require('./deck');
 const { Voice } = require('./voice');
-const { Client, Guild } = require('discord.js');
+const { GameVoice } = require('./gameVoice');
+const { Client, Guild, Collection } = require('discord.js');
+
+const wait = require('util').promisify(setTimeout);
 
 class Server {
     /**
@@ -13,6 +17,7 @@ class Server {
     constructor(client, guild) {
         this.client = client;
         this.guild = guild;
+        this.id = guild.id;
         this.name = this.guild.name;
         this.topicCategory = null;
         this.startingRole = null;
@@ -24,10 +29,18 @@ class Server {
         this.decks = new Map();
         this.theme = null;
         this.privateVoiceChannels = new Map();
+        this.bets = true;
+        this.casino = null;
+        this.games = new Collection();
+        this._muteRole = null;
     }
 
     static POINTS_PER_MESSAGE = 2;
     static POINTS_PER_MINUTE = 1;
+
+    get muteRole() {
+        return this._muteRole ? this._muteRole : this.guild.roles.cache.find(role => role.name === 'VoiceControlled');
+    }
 
 
     async load() {
@@ -69,6 +82,9 @@ class Server {
             for (const member of (await this.guild.members.fetch()).values()) {
                 if (member.user.bot) continue;
                 await this.newDeck(member);
+                if (member.roles.cache.size === 1 && this.startingRole) {
+                    member.roles.add(this.startingRole);
+                }
             }
             // await this.guild.commands.fetch();
             if (this.privateCategory) {
@@ -80,6 +96,7 @@ class Server {
                     }
                 }
             }
+            this.casino = await new Casino(this).load();
         } else {
             this.name = this.guild.name;
             this.topicCategory = null;
@@ -93,6 +110,9 @@ class Server {
             });
             this.load();
         }
+        // if (this.muteRole) {
+        //     this.clearMuteRole();
+        // }
         return this;
     }
 
@@ -113,10 +133,15 @@ class Server {
     async sortTopicChannels() {
         const arr = Array.from(this.topics.values());
         arr.sort((a, b) => { return a.compareToTopic(b); });
+        const channelPositions = [];
         for (let i = 0; i < arr.length; i++) {
             const topic = arr[i];
-            await topic.channel.edit({ position: i });
+            channelPositions.push({
+                channel: topic.channel.id,
+                position: i,
+            });
         }
+        await this.guild.setChannelPositions(channelPositions);
     }
 
     async newTopicChannel(name, description, creator) {
@@ -153,6 +178,57 @@ class Server {
         return arr;
     }
 
+    async getRolesByPermissions(permissions) {
+        const roles = [];
+        await wait(500);
+        await this.guild.roles.fetch();
+        for (const role of this.guild.roles.cache.values()) {
+            if (role.permissions.has(permissions)) {
+                roles.push(role.id);
+            }
+        }
+        return roles;
+    }
+
+    /**
+     * Set guild command permissions based on a command id keyed permission collection.
+     * @param {Collection} commandPerms
+     */
+    async setCommandsPermissions(commandPerms) {
+        const fullPermissions = [];
+        for (const [commandId, perms] of commandPerms.entries()) {
+            const ids = await this.getRolesByPermissions(perms);
+            const permsArr = [];
+            for (const id of ids) {
+                const perm = {
+                    id: id,
+                    type: 'ROLE',
+                    permission: true,
+                };
+                permsArr.push(perm);
+            }
+            fullPermissions.push({
+                id: commandId,
+                permissions: permsArr,
+            });
+        }
+        // Check if the command has any role permissions
+        // Loop through role ids and add them to the permissions array
+        if (fullPermissions.length > 0) {
+            await this.guild.commands.permissions.set({ fullPermissions });
+        }
+    }
+
+    async clearMuteRole() {
+        if (this.muteRole) {
+            const members = await this.muteRole.members;
+            for (const member of members.values()) {
+                await member.edit({ mute: false, deaf: false });
+                await member.roles.remove(this.muteRole);
+            }
+        }
+    }
+
     async checkTopicChannels() {
         for (const topicChannel of this.topics.values()) {
             try {
@@ -174,10 +250,10 @@ class Server {
                         pointsToAdd = Math.floor(points / 2);
                     }
                     if (deck) {
-                        deck.addPoints(pointsToAdd);
+                        deck.addEarnedPoints(pointsToAdd);
                     } else {
                         const newDeck = await this.newDeck(member);
-                        newDeck.addPoints(pointsToAdd);
+                        newDeck.addEarnedPoints(pointsToAdd);
                     }
                 }
             } catch (err) {
@@ -200,6 +276,7 @@ class Server {
 
     async checkCompetitiveRanking() {
         await this.guild.roles.fetch();
+        await this.guild.members.fetch();
         const arr = Array.from(this.decks.values());
         const rankFillArray = [];
         for (let i = 0; i < this.theme.ranks.length; i++) {
@@ -222,6 +299,7 @@ class Server {
                 rank = this.theme.ranks[this.theme.ranks.length - 1];
             }
             await this.theme.setMemberRank(member, rank);
+            await wait(1000);
         }
     }
 
@@ -231,6 +309,23 @@ class Server {
         await voice.build(name, creator, whitelist, nsfw);
         this.privateVoiceChannels.set(voice.textChannelId, voice);
         return voice;
+    }
+
+    async newGame(channel, name, max, mute, deaf, allowDead, team1 = null, team2 = null, invite = null) {
+        const gv = new GameVoice(this, name, max, mute, deaf, allowDead);
+        if (team1 && team2) {
+            gv.setTeams(team1, team2);
+        }
+        if (invite) {
+            gv.setInvite(invite, true);
+        }
+        await gv.build(channel);
+        this.games.set(gv.id, gv);
+        return gv;
+    }
+
+    getGame(id) {
+        return this.games.get(id);
     }
 
     async showArchive(member) {

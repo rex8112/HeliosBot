@@ -5,7 +5,9 @@ const { roleMention } = require('@discordjs/builders');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('theme')
-        .setDescription('Changes the theme of the guild.'),
+        .setDescription('Changes the theme of the guild.')
+        .setDefaultPermission(false),
+    rolePermissions: [Permissions.FLAGS.MANAGE_GUILD, Permissions.FLAGS.MANAGE_ROLES],
     async execute(interaction) {
         const filter = m => m.author.id === interaction.user.id;
         if (!interaction.member.permissions.has([Permissions.FLAGS.MANAGE_GUILD, Permissions.FLAGS.MANAGE_ROLES])) {

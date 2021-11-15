@@ -12,6 +12,9 @@ module.exports = {
         await interaction.deferReply();
         const server = interaction.client.servers.get(interaction.guild.id);
         const ranks = server.theme.ranks;
+        if (ranks.length === 0) {
+            return interaction.editReply({ content: 'No ranks are set up and I do not currently support the leaderboard without them.', ephemeral: true });
+        }
         const embeds = [];
         let position = 1;
         for (const rank of ranks) {
@@ -22,7 +25,7 @@ module.exports = {
             for (let i = 0; i < decks.length; i++) {
                 let add = false;
                 const deck = decks[i];
-                let stringToAdd = `${position}. ${userMention(deck.member.id)}: ${deck.totalPoints} Points`;
+                let stringToAdd = `${position}. ${userMention(deck.member.id)}: ${deck.earnedPoints.toLocaleString()} Activity Points`;
                 if (i < 5) add = true;
                 if (deck.member.id === interaction.member.id) {
                     stringToAdd = bold(stringToAdd);

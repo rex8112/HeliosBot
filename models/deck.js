@@ -6,20 +6,20 @@ class Deck {
         this.guild = server.guild;
         this.member = member;
         this.cards = {};
-        this.totalPoints = 0;
-        this.spentPoints = 0;
+        this.earnedPoints = 0;
+        this.currentPoints = 0;
         this.lastMessageTime = Date.now();
     }
 
-    get points() { return this.totalPoints - this.spentPoints; }
+    get points() { return this.earnedPoints + this.currentPoints; }
 
     toJSON() {
         return {
             guildId: this.guild.id,
             userId: this.member.id,
             cards: this.cards,
-            totalPoints: this.totalPoints,
-            spentPoints: this.spentPoints,
+            totalPoints: this.earnedPoints,
+            spentPoints: this.currentPoints,
         };
     }
 
@@ -35,8 +35,8 @@ class Deck {
         const deck = await DeckDB.findOne({ where: { guildId: this.guild.id, userId: this.member.id } });
         if (deck) {
             this.cards = deck.cards;
-            this.totalPoints = deck.totalPoints;
-            this.spentPoints = deck.spentPoints;
+            this.earnedPoints = deck.totalPoints;
+            this.currentPoints = deck.spentPoints;
         } else {
             this.insert();
         }
@@ -44,13 +44,18 @@ class Deck {
     }
 
     async addPoints(points) {
-        this.totalPoints += points;
+        this.currentPoints += points;
+        await this.save();
+    }
+
+    async addEarnedPoints(points) {
+        this.earnedPoints += points;
         await this.save();
     }
 
     async spendPoints(points) {
         if (this.points < points) return false;
-        this.spentPoints += points;
+        this.currentPoints -= points;
         await this.save();
         return true;
     }
@@ -58,7 +63,7 @@ class Deck {
     async addMessagePoints(points) {
         if (this.lastMessageTime + 60 * 1000 < Date.now()) {
             this.lastMessageTime = Date.now();
-            await this.addPoints(points);
+            await this.addEarnedPoints(points);
         }
     }
 
@@ -76,7 +81,7 @@ class Deck {
     }
 
     compareToDeck(deck) {
-        return this.totalPoints - deck.totalPoints;
+        return this.earnedPoints - deck.earnedPoints;
     }
 }
 

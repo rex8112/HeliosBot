@@ -200,6 +200,97 @@ const Quote = sequelize.define('quote', {
     },
 }, { timestamps: false });
 
+const Casino = sequelize.define('casino', {
+    guildId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+        unique: true,
+    },
+    channels: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [],
+    },
+    dailyId: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+    },
+});
+
+const Table = sequelize.define('table', {
+    guildId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+    },
+    channelId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+    },
+    messageId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+        unique: true,
+    },
+    gameId: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
+    messages: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [],
+    },
+    players: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [],
+    },
+    bets: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: {},
+    },
+    state: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'inactive',
+    },
+    settings: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: {},
+    },
+});
+
+const Player = sequelize.define('player', {
+    guildId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+    },
+    userId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+    },
+    balance: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+    },
+    hand: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [],
+    },
+    table: {
+        type: DataTypes.BIGINT,
+    },
+    dailyId: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+    },
+});
+
+
 module.exports = {
     Topic,
     Server,
@@ -208,5 +299,8 @@ module.exports = {
     Voice,
     VoiceTemplate,
     Quote,
+    Casino,
+    Table,
+    Player,
     sequelize,
 };
