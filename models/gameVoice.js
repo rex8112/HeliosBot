@@ -18,7 +18,7 @@ class GameVoice {
         this.deaf = deaf;
         this.allowDead = allowDead;
 
-        this.muteRole = this.guild.roles.cache.find(role => role.name === 'VoiceControlled');
+        this.muteRole = server.muteRole;
 
         this.running = false;
         this.message = null;
@@ -34,17 +34,21 @@ class GameVoice {
 
     // Properties
     get isTeams() {
-        return this.team1Channel && this.team2Channel;
+        return this.team1Channel != null && this.team2Channel != null;
+    }
+
+    get id() {
+        return this.message?.id || null;
     }
     /**
      * Create the game message
      * @param {TextChannel} channel Channel to send the message to
      */
-    async create(channel) {
+    async build(channel) {
         if (!this.muteRole) {
             await this.createRole();
         }
-        this.message = await channel.send(`${this.name} is starting!`);
+        this.message = await channel.send({ embeds: this.getEmbeds(), components: this.getComponents() });
     }
 
     /**
@@ -81,26 +85,27 @@ class GameVoice {
     }
 
     // Embed Management
-    async getEmbeds() {
+    getEmbeds() {
         const embeds = [];
         const embed = new MessageEmbed()
             .setTitle(`${this.name}`)
             .setColor('#0099ff')
             .setDescription(`Players: ${this.players.size}/${this.max}`)
-            .addField('Game Type', `Teams: ${this.isTeams}\nMute: ${this.mute}\nDeaf: ${this.deaf}`);
+            .addField('Game Type', `Teams: ${this.isTeams ? 'True' : 'False'}\nMute: ${this.mute}\nDeaf: ${this.deaf}`);
         if (this.isTeams) {
             const t1String = this.team1.size > 0 ? this.team1.map(player => player.member.displayName).join(', ') : 'None';
             const t2String = this.team2.size > 0 ? this.team2.map(player => player.member.displayName).join(', ') : 'None';
             embed.addField('Team 1', `${this.team1Channel}\n${t1String}`);
             embed.addField('Team 2', `${this.team2Channel}\n${t2String}`);
         } else {
-            embed.addField('Players', this.players.map(p => p.member.displayName).join('\n'));
+            const pString = this.players.map(p => p.member.displayName).join('\n');
+            embed.addField('Players', pString ? pString : 'None');
         }
         embeds.push(embed);
         return embeds;
     }
 
-    async getComponents() {
+    getComponents() {
         const components = [];
         const row = new MessageActionRow()
             .addComponents(
@@ -112,7 +117,7 @@ class GameVoice {
                 new MessageButton()
                     .setCustomId('gameEnd')
                     .setLabel('End')
-                    .setStyle('DANGER')
+                    .setStyle('SECONDARY')
                     .setDisabled(!this.running),
             );
         if (this.allowDead) {
@@ -120,10 +125,17 @@ class GameVoice {
                 new MessageButton()
                     .setCustomId('gameDie')
                     .setLabel('Died')
-                    .setStyle('SECONDARY')
+                    .setStyle('DANGER')
                     .setDisabled(!this.running),
             );
         }
+        row.addComponents(
+            new MessageButton()
+                .setCustomId('gameClose')
+                .setLabel('Close')
+                .setStyle('SECONDARY')
+                .setDisabled(this.running),
+        );
         components.push(row);
 
         const row2 = new MessageActionRow()
@@ -163,7 +175,7 @@ class GameVoice {
 
     async updateMessage(interaction = null) {
         if (interaction) {
-            return interaction.update(this.message);
+            return interaction.update({ embeds: this.getEmbeds(), components: this.getComponents() });
         } else {
             return this.message.edit({ embeds: this.getEmbeds(), components: this.getComponents() });
         }
@@ -177,10 +189,10 @@ class GameVoice {
         const customId = interaction.customId;
         if (customId === 'gameStart') {
             await this.start();
-            return interaction.reply({ content: 'Game started!', ephemeral: true });
+            return this.updateMessage(interaction);
         } else if (customId === 'gameEnd') {
             await this.end();
-            return interaction.reply({ content: 'Game ended!', ephemeral: true });
+            return this.updateMessage(interaction);
         } else if (customId === 'gameDie') {
             await this.die(interaction.member);
             return interaction.reply({ content: 'You have died.', ephemeral: true });
@@ -208,6 +220,9 @@ class GameVoice {
             } else {
                 return interaction.reply({ content: 'Maximum Players reached!', ephemeral: true });
             }
+        } else if (customId === 'gameClose') {
+            await this.close();
+            return interaction.reply({ content: 'Game closed.', ephemeral: true });
         }
     }
 
@@ -218,10 +233,10 @@ class GameVoice {
 
             // Move to team channel if they are in one
             if (this.team1Channel && this.team2Channel) {
-                if (this.team1.findKey(player.id)) {
-                    await player.member.voice.setChannel(this.team1Channel);
+                if (this.team1.get(player.id)) {
+                    await player.setChannel(this.team1Channel);
                 } else {
-                    await player.member.voice.setChannel(this.team2Channel);
+                    await player.setChannel(this.team2Channel);
                 }
             }
         }
@@ -232,8 +247,10 @@ class GameVoice {
         for (const player of this.players.values()) {
             player.update(false, false);
             // Move all players back to the lobby
-            if (player.member.voice.channelId !== this.team1Channel.id) {
-                await player.member.voice.setChannel(this.team1Channel);
+            if (this.isTeams) {
+                if (player.member.voice.channelId !== this.team1Channel?.id) {
+                    await player.setChannel(this.team1Channel);
+                }
             }
         }
         this.running = false;
@@ -243,6 +260,7 @@ class GameVoice {
         for (const player of this.players.values()) {
             this.removeMember(player.member);
         }
+        this.server.games.delete(this.id);
     }
 
     async die(member) {
@@ -281,21 +299,22 @@ class GameVoice {
 
     async removeMember(member) {
         const player = this.players.get(member.id);
+        let result;
         if (player) {
-            player.unmute();
-            player.undeafen();
-            player.update();
-        }
-        this.players.delete(member.id);
-        if (this.isTeams) {
-            // Clear their previous team
-            if (this.team1.has(player.id)) {
-                this.team1.delete(player.id);
-            } else if (this.team2.has(player.id)) {
-                this.team2.delete(player.id);
+            result = player.update(false, false);
+            this.players.delete(member.id);
+            if (this.isTeams) {
+                // Clear their previous team
+                if (this.team1.has(player.id)) {
+                    this.team1.delete(player.id);
+                } else if (this.team2.has(player.id)) {
+                    this.team2.delete(player.id);
+                }
             }
         }
-        await member.roles.remove(this.muteRole);
+        if (result) {
+            await member.roles.remove(this.muteRole);
+        }
     }
 }
 
@@ -316,10 +335,29 @@ class Player {
     async update(mute, deafen) {
         this.muted = mute;
         this.deafened = deafen;
-        await this.member.edit({ mute: mute, deaf: deafen });
+        try {
+            await this.member.edit({ mute: mute, deaf: deafen });
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    async setChannel(channel) {
+        try {
+            await this.member.voice.setChannel(channel);
+            return true;
+        } catch (e) {
+            return false;
+        }
     }
 
     async clear() {
-        await this.member.edit({ mute: false, deaf: false });
+        await this.update(false, false);
     }
 }
+
+module.exports = {
+    GameVoice,
+    Player,
+};

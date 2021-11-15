@@ -4,6 +4,7 @@ const { TopicChannel } = require('./topicChannel');
 const { Theme } = require('./theme');
 const { Deck } = require('./deck');
 const { Voice } = require('./voice');
+const { GameVoice } = require('./gameVoice');
 const { Client, Guild, Collection } = require('discord.js');
 
 const wait = require('util').promisify(setTimeout);
@@ -30,10 +31,16 @@ class Server {
         this.privateVoiceChannels = new Map();
         this.bets = true;
         this.casino = null;
+        this.games = new Collection();
+        this._muteRole = null;
     }
 
     static POINTS_PER_MESSAGE = 2;
     static POINTS_PER_MINUTE = 1;
+
+    get muteRole() {
+        return this._muteRole ? this._muteRole : this.guild.roles.cache.find(role => role.name === 'VoiceControlled');
+    }
 
 
     async load() {
@@ -103,10 +110,9 @@ class Server {
             });
             this.load();
         }
-        this.muteRole = this.guild.roles.cache.find(role => role.name === 'VoiceControlled');
-        if (this.muteRole) {
-            this.clearMuteRole();
-        }
+        // if (this.muteRole) {
+        //     this.clearMuteRole();
+        // }
         return this;
     }
 
@@ -303,6 +309,20 @@ class Server {
         await voice.build(name, creator, whitelist, nsfw);
         this.privateVoiceChannels.set(voice.textChannelId, voice);
         return voice;
+    }
+
+    async newGame(channel, name, max, mute, deaf, allowDead, team1 = null, team2 = null) {
+        const gv = new GameVoice(this, name, max, mute, deaf, allowDead);
+        if (team1 && team2) {
+            gv.setTeams(team1, team2);
+        }
+        await gv.build(channel);
+        this.games.set(gv.id, gv);
+        return gv;
+    }
+
+    getGame(id) {
+        return this.games.get(id);
     }
 
     async showArchive(member) {
