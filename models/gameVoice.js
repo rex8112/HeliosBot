@@ -183,7 +183,7 @@ class GameVoice {
     }
 
     async updateMessage(interaction = null) {
-        if (interaction && !interaction.deffered) {
+        if (interaction && !interaction.deferred) {
             return interaction.update({ embeds: this.getEmbeds(), components: this.getComponents() });
         } else {
             return this.message.edit({ embeds: this.getEmbeds(), components: this.getComponents() });
