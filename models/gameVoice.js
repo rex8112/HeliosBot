@@ -65,6 +65,7 @@ class GameVoice {
                 name: 'VoiceControlled',
                 reason: 'Did not exist before',
             });
+            this.server.muteRole = this.muteRole;
         }
     }
 
