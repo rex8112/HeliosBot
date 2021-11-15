@@ -87,6 +87,9 @@ module.exports = {
         } else if (subcommand === 'teams') {
             const team1 = options.getChannel('team1');
             const team2 = options.getChannel('team2');
+            if (!team1.isVoice() || !team2.isVoice()) {
+                return interaction.reply('Both channels must be voice channels.');
+            }
             game = await server.newGame(interaction.channel, name, maxplayers, false, false, false, team1, team2, invite);
         } else if (subcommand === 'fixme') {
             const member = interaction.member;
