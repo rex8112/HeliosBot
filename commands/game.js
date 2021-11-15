@@ -33,7 +33,11 @@ module.exports = {
                     option
                         .setName('allowdead')
                         .setDescription('Whether or not to allow dead players to talk during the game.')
-                        .setRequired(true)))
+                        .setRequired(true))
+                .addStringOption(option =>
+                    option
+                        .setName('invite')
+                        .setDescription('The invite link or code to join your lobby. This will be shared when people join the game.')))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('teams')
@@ -51,13 +55,17 @@ module.exports = {
                 .addChannelOption(option =>
                     option
                         .setName('team1')
-                        .setDescription('The channel to put team 1 in.')
+                        .setDescription('The channel to put team 1 in. This will also act as the lobby when no game is played')
                         .setRequired(true))
                 .addChannelOption(option =>
                     option
                         .setName('team2')
                         .setDescription('The channel to put team 2 in.')
-                        .setRequired(true)))
+                        .setRequired(true))
+                .addStringOption(option =>
+                    option
+                        .setName('invite')
+                        .setDescription('The invite link or code to join your lobby. This will be shared when people join the game.')))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('fixme')
@@ -68,17 +76,18 @@ module.exports = {
         const server = interaction.client.servers.get(interaction.guild.id);
         const name = options.getString('name');
         const maxplayers = options.getNumber('maxplayers');
+        const invite = options.getString('invite');
         let game;
 
         if (subcommand === 'ingame') {
             const mute = options.getBoolean('mute');
             const deafen = options.getBoolean('deafen');
             const allowdead = options.getBoolean('allowdead');
-            game = await server.newGame(interaction.channel, name, maxplayers, mute, deafen, allowdead);
+            game = await server.newGame(interaction.channel, name, maxplayers, mute, deafen, allowdead, undefined, undefined, invite);
         } else if (subcommand === 'teams') {
             const team1 = options.getChannel('team1');
             const team2 = options.getChannel('team2');
-            game = await server.newGame(interaction.channel, name, maxplayers, false, false, false, team1, team2);
+            game = await server.newGame(interaction.channel, name, maxplayers, false, false, false, team1, team2, invite);
         } else if (subcommand === 'fixme') {
             const member = interaction.member;
             if (member.voiceState.channelId && member.roles.has(server.mutedRole)) {

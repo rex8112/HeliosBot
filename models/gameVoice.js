@@ -40,6 +40,10 @@ class GameVoice {
     get id() {
         return this.message?.id || null;
     }
+
+    get host() {
+        return this.players.first();
+    }
     /**
      * Create the game message
      * @param {TextChannel} channel Channel to send the message to
@@ -86,15 +90,19 @@ class GameVoice {
 
     // Embed Management
     getEmbeds() {
+        let desc = `Game Host: ${this.host?.member}\nPlayers: ${this.players.size}/${this.max}`;
+        if (this.invite) {
+            desc += `\nInvite: ${this.privateInvite ? 'Private' : this.invite}`;
+        }
         const embeds = [];
         const embed = new MessageEmbed()
             .setTitle(`${this.name}`)
             .setColor('#0099ff')
-            .setDescription(`Players: ${this.players.size}/${this.max}`)
+            .setDescription(desc)
             .addField('Game Type', `Teams: ${this.isTeams ? 'True' : 'False'}\nMute: ${this.mute}\nDeaf: ${this.deaf}`);
         if (this.isTeams) {
-            const t1String = this.team1.size > 0 ? this.team1.map(player => player.member.displayName).join(', ') : 'None';
-            const t2String = this.team2.size > 0 ? this.team2.map(player => player.member.displayName).join(', ') : 'None';
+            const t1String = this.team1.size > 0 ? this.team1.map(player => player.member.displayName).join('\n') : 'None';
+            const t2String = this.team2.size > 0 ? this.team2.map(player => player.member.displayName).join('\n') : 'None';
             embed.addField('Team 1', `${this.team1Channel}\n${t1String}`);
             embed.addField('Team 2', `${this.team2Channel}\n${t2String}`);
         } else {
@@ -174,7 +182,7 @@ class GameVoice {
     }
 
     async updateMessage(interaction = null) {
-        if (interaction) {
+        if (interaction && !interaction.deffered) {
             return interaction.update({ embeds: this.getEmbeds(), components: this.getComponents() });
         } else {
             return this.message.edit({ embeds: this.getEmbeds(), components: this.getComponents() });
@@ -187,19 +195,21 @@ class GameVoice {
      */
     async handleInteraction(interaction) {
         const customId = interaction.customId;
-        if (customId === 'gameStart') {
-            await this.start();
-            return this.updateMessage(interaction);
-        } else if (customId === 'gameEnd') {
-            await this.end();
-            return this.updateMessage(interaction);
-        } else if (customId === 'gameDie') {
+        if (customId === 'gameDie') {
             await this.die(interaction.member);
             return interaction.reply({ content: 'You have died.', ephemeral: true });
         } else if (customId === 'gameJoin') {
+            if (!interaction.member.voice.channel) {
+                return interaction.reply({ content: 'You must be in a voice channel to join.', ephemeral: true });
+            }
             const result = await this.addMember(interaction.member);
             if (result) {
-                return this.updateMessage(interaction);
+                if (this.privateInvite) {
+                    this.updateMessage();
+                    return interaction.reply({ content: `Invite: ${this.invite}`, ephemeral: true });
+                } else {
+                    return this.updateMessage(interaction);
+                }
             } else {
                 return interaction.reply({ content: 'Maximum Players reached!', ephemeral: true });
             }
@@ -220,9 +230,22 @@ class GameVoice {
             } else {
                 return interaction.reply({ content: 'Maximum Players reached!', ephemeral: true });
             }
-        } else if (customId === 'gameClose') {
-            await this.close();
-            return interaction.reply({ content: 'Game closed.', ephemeral: true });
+        }
+        if (interaction.member.id === this.host?.id) {
+            if (customId === 'gameStart') {
+                await interaction.deferUpdate();
+                await this.start();
+                return this.updateMessage(interaction);
+            } else if (customId === 'gameEnd') {
+                await interaction.deferUpdate();
+                await this.end();
+                return this.updateMessage(interaction);
+            } else if (customId === 'gameClose') {
+                await this.close();
+                return interaction.reply({ content: 'Game closed.', ephemeral: true });
+            }
+        } else {
+            return interaction.reply({ content: 'You are not the host.', ephemeral: true });
         }
     }
 
@@ -261,6 +284,10 @@ class GameVoice {
             this.removeMember(player.member);
         }
         this.server.games.delete(this.id);
+        const embed = this.message.embeds[0];
+        embed.setColor('RED');
+        embed.setFooter('Game Closed');
+        await this.message.edit({ embeds: [embed], components: [] });
     }
 
     async die(member) {

@@ -311,10 +311,13 @@ class Server {
         return voice;
     }
 
-    async newGame(channel, name, max, mute, deaf, allowDead, team1 = null, team2 = null) {
+    async newGame(channel, name, max, mute, deaf, allowDead, team1 = null, team2 = null, invite = null) {
         const gv = new GameVoice(this, name, max, mute, deaf, allowDead);
         if (team1 && team2) {
             gv.setTeams(team1, team2);
+        }
+        if (invite) {
+            gv.setInvite(invite, true);
         }
         await gv.build(channel);
         this.games.set(gv.id, gv);
