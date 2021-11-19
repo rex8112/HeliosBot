@@ -24,6 +24,7 @@ class Server {
         this.quotesChannel = null;
         this.archiveCategory = null;
         this.privateCategory = null;
+        this.privateVoiceChannelCreator = null;
         this.getPrivateCategory();
         this.topics = new Map();
         this.decks = new Map();
@@ -159,6 +160,25 @@ class Server {
         return this.privateCategory = this.guild.channels.cache.find((channel) => {
             return channel.type === 'GUILD_CATEGORY' && channel.name === 'Private Channels';
         });
+    }
+
+    async getPrivateVoiceChannelCreator() {
+        if (this.privateCategory) {
+            const voiceChannel = this.privateCategory.children.find((channel) => {
+                return channel.name === 'Create Channel';
+            });
+            if (voiceChannel) {
+                this.privateVoiceChannelCreator = voiceChannel;
+            } else {
+                const channel = await this.privateCategory.createChannel('Create Channel', {
+                    type: 'GUILD_VOICE',
+                });
+                this.privateVoiceChannelCreator = channel;
+            }
+            return this.privateVoiceChannelCreator;
+        }
+        this.privateVoiceChannelCreator = null;
+        return null;
     }
 
     async newDeck(member) {

@@ -113,6 +113,23 @@ class Voice {
         this.getVoiceTemplate().save();
     }
 
+    async edit(data = { name: null, whitelist: null }) {
+        if (data.name) this.name = data.name;
+
+        const overwrites = [];
+        if (data.whitelist !== this.whitelist) {
+            this.whitelist = data.whitelist;
+            for (const member of this.members.values()) {
+                overwrites.push(this.getPermission(member));
+            }
+            await this.voiceChannel.permissionOverwrites.set(overwrites);
+            await this.textChannel.permissionOverwrites.set(overwrites);
+        }
+        await this.voiceChannel.edit({ name: this.name, permissionOverwrites: overwrites });
+        await this.save();
+        this.getVoiceTemplate().save();
+    }
+
     async save() {
         await VoiceDB.update(this.toJSON(), { where: { creatorId: this.creator.id, voiceId: this.voiceChannelId } });
     }
@@ -165,13 +182,7 @@ class Voice {
     async addMember(member) {
         if (this.members.has(member.id) || member.id === this.guild.client.user.id) return false;
         const overwrites = [...this.voiceChannel.permissionOverwrites.cache.values()];
-        if (this.whitelist) {
-            const allowPermission = Voice.getAllowPermission(member.id);
-            overwrites.push(allowPermission);
-        } else {
-            const denyPermission = Voice.getDenyPermission(member.id);
-            overwrites.push(denyPermission);
-        }
+        overwrites.push(this.getPermission(member));
         await this.voiceChannel.permissionOverwrites.set(overwrites);
         await this.textChannel.permissionOverwrites.set(overwrites);
         this.members.set(member.id, member);
@@ -219,6 +230,16 @@ class Voice {
             deny: ['VIEW_CHANNEL'],
             type,
         };
+    }
+
+    getPermission(member) {
+        if (this.whitelist) {
+            const allowPermission = Voice.getAllowPermission(member.id);
+            return allowPermission;
+        } else {
+            const denyPermission = Voice.getDenyPermission(member.id);
+            return denyPermission;
+        }
     }
 
     getVoiceTemplate() {

@@ -4,6 +4,7 @@ module.exports = {
         if (channel.type === 'DM') return;
         const server = channel.client.servers.get(channel.guild.id);
         server.getPrivateCategory();
+        server.getPrivateVoiceChannelCreator();
         server.save();
     },
 };
