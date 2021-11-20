@@ -107,7 +107,11 @@ class Voice {
     }
 
     async edit(data = { name: undefined, whitelist: undefined }) {
-        if (data.name) this.name = data.name;
+        const cData = {};
+        if (data.name) {
+            this.name = data.name;
+            cData.name = data.name;
+        }
 
         const overwrites = [];
         if (data.whitelist !== undefined && data.whitelist !== this.whitelist) {
@@ -122,11 +126,10 @@ class Voice {
             for (const member of this.members.values()) {
                 overwrites.push(this.getPermission(member));
             }
-            await this.voiceChannel.permissionOverwrites.set(overwrites);
-            await this.textChannel.permissionOverwrites.set(overwrites);
+            cData.permissionOverwrites = overwrites;
         }
-        await this.voiceChannel.edit({ name: this.name, permissionOverwrites: overwrites });
-        await this.textChannel.edit({ name: this.name, permissionOverwrites: overwrites });
+        await this.voiceChannel.edit(cData);
+        await this.textChannel.edit(cData);
         await this.welcomeMessage?.edit({ embeds: this.getEmbeds() });
         await this.save();
         this.getVoiceTemplate().save();

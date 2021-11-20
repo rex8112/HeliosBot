@@ -93,7 +93,9 @@ class Server {
                     const voiceChannel = new Voice(this, id);
                     await voiceChannel.load();
                     if (voiceChannel.loaded) {
-                        this.privateVoiceChannels.set(voiceChannel.textChannelId, voiceChannel);
+                        if (voiceChannel.guild.id === this.guild.id) {
+                            this.privateVoiceChannels.set(voiceChannel.textChannelId, voiceChannel);
+                        }
                     }
                 }
             }
