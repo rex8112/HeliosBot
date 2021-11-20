@@ -17,7 +17,7 @@ class Voice {
         this.voiceChannelId = voiceChannelId;
         this.textChannelId = textChannelId;
         this.whitelist = false;
-        this.members = new Map();
+        this.members = new Collection();
         this.creationTimestamp = Number(Date.now());
         this.welcomeMessage = null;
         this.loaded = false;
@@ -100,25 +100,25 @@ class Voice {
         this.loaded = true;
 
         // Send welcome message
-        const memberString = [...this.members.keys()].map(id => userMention(id)).join('\n');
-        const embed = new MessageEmbed()
-            .setColor('GREEN')
-            .setTitle(`${voiceChannel.name} Created Successfully`)
-            .setDescription(`This channel will persist for ${Voice.MINUTES} minutes or until everyone is gone, whichever comes last.\nKeep in mind, Administrators can still see all of these channels.`)
-            .addField('Creator', userMention(this.creator.id), true)
-            .addField(`${this.whitelist ? 'Allowed' : 'Blocked'} People`, memberString ? memberString : 'None', true);
-        this.welcomeMessage = await this.textChannel.send({ embeds: [embed] });
+        this.welcomeMessage = await this.textChannel.send({ embeds: this.getEmbeds() });
         await this.welcomeMessage.pin();
         await VoiceDB.create(this.toJSON());
         this.getVoiceTemplate().save();
     }
 
-    async edit(data = { name: null, whitelist: null }) {
+    async edit(data = { name: undefined, whitelist: undefined }) {
         if (data.name) this.name = data.name;
 
         const overwrites = [];
-        if (data.whitelist !== this.whitelist) {
+        if (data.whitelist !== undefined && data.whitelist !== this.whitelist) {
             this.whitelist = data.whitelist;
+            if (this.whitelist) {
+                this.members.set(this.guild.client.user.id, this.guild.client.user);
+                this.members.set(this.creator.id, this.creator);
+            } else {
+                this.members.delete(this.guild.client.user.id);
+                this.members.delete(this.creator.id);
+            }
             for (const member of this.members.values()) {
                 overwrites.push(this.getPermission(member));
             }
@@ -126,6 +126,8 @@ class Voice {
             await this.textChannel.permissionOverwrites.set(overwrites);
         }
         await this.voiceChannel.edit({ name: this.name, permissionOverwrites: overwrites });
+        await this.textChannel.edit({ name: this.name, permissionOverwrites: overwrites });
+        await this.welcomeMessage?.edit({ embeds: this.getEmbeds() });
         await this.save();
         this.getVoiceTemplate().save();
     }
@@ -161,6 +163,19 @@ class Voice {
         return this;
     }
 
+    getEmbeds() {
+        const memberString = [...this.members.keys()].map(id => userMention(id)).join('\n');
+        const embed = new MessageEmbed()
+            .setColor('GREEN')
+            .setTitle(`${this.name} Created Successfully`)
+            .setDescription(`This channel will persist for ${Voice.MINUTES} minutes or until everyone is gone, whichever comes last.\nKeep in mind, Administrators can still see all of these channels.\n` +
+                'To edit this channel please use the `/voice edit` command. All changes will be saved for the next time you create a channel.\n' +
+                'To add members to your whitelist/blacklist, right click them in Discord then click Apps then Add to Voice.')
+            .addField('Creator', userMention(this.creator.id), true)
+            .addField(`${this.whitelist ? 'Allowed' : 'Blocked'} People`, memberString ? memberString : 'None', true);
+        return [embed];
+    }
+
     async checkDelete() {
         if (!this.loaded) return false;
         const checkDate = new Date(this.creationTimestamp + 1000 * 60 * Voice.MINUTES);
@@ -175,6 +190,7 @@ class Voice {
 
     async delete() {
         await VoiceDB.destroy({ where: { creatorId: this.creator.id } });
+        this.server.privateVoiceChannels.delete(this.textChannelId);
         if (this.voiceChannel) await this.voiceChannel.delete();
         if (this.textChannel) await this.textChannel.delete();
     }

@@ -29,7 +29,7 @@ class Server {
         this.topics = new Map();
         this.decks = new Map();
         this.theme = null;
-        this.privateVoiceChannels = new Map();
+        this.privateVoiceChannels = new Collection();
         this.bets = true;
         this.casino = null;
         this.games = new Collection();
@@ -114,6 +114,7 @@ class Server {
         // if (this.muteRole) {
         //     this.clearMuteRole();
         // }
+        this.getPrivateVoiceChannelCreator();
         return this;
     }
 
