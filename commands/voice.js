@@ -24,12 +24,17 @@ module.exports = {
         if (!server.privateCategory) return interaction.reply({ content: 'This Discord needs a "Private Channels" Category first', ephemeral: true });
         if (interaction.options.getSubcommand() === 'edit') {
             await interaction.deferReply({ ephemeral: true });
+            const data = {};
             const name = interaction.options.getString('name');
             let typeString = interaction.options.getString('type');
             const voice = server.privateVoiceChannels.find(c => c.creator.id === interaction.member.id);
-            if (typeString) typeString = typeString === 'whitelist' ? true : false;
+            if (name) data['name'] = name;
+            if (typeString) {
+                typeString = typeString === 'whitelist' ? true : false;
+                data['whitelist'] = typeString;
+            }
             if (voice) {
-                await voice.edit({ name, whitelist: typeString });
+                await voice.edit(data);
                 await interaction.editReply({ content: 'Voice channel edited!' });
             } else {
                 await interaction.editReply({ content: 'You do not have a voice channel.' });
