@@ -104,6 +104,7 @@ class Voice {
         await this.welcomeMessage.pin();
         await VoiceDB.create(this.toJSON());
         this.getVoiceTemplate().save();
+        return true;
     }
 
     async edit(data = { name: undefined, whitelist: undefined }) {

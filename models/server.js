@@ -329,9 +329,13 @@ class Server {
     async newVoiceChannel(name, creator, whitelist, nsfw, members = new Map()) {
         const voice = new Voice(this);
         voice.members = members;
-        await voice.build(name, creator, whitelist, nsfw);
-        this.privateVoiceChannels.set(voice.textChannelId, voice);
-        return voice;
+        const result = await voice.build(name, creator, whitelist, nsfw);
+        if (result) {
+            this.privateVoiceChannels.set(voice.textChannelId, voice);
+            return voice;
+        } else {
+            return null;
+        }
     }
 
     async newGame(channel, name, max, mute, deaf, allowDead, team1 = null, team2 = null, invite = null) {

@@ -21,7 +21,11 @@ module.exports = {
             } else {
                 voice = await server.newVoiceChannel(`${newState.member.displayName}'s Channel`, newState.member, true, false, new Collection());
             }
-            await newState.setChannel(voice.voiceChannel, 'Created Private Voice Channel');
+            if (voice) {
+                await newState.setChannel(voice.voiceChannel, 'Created Private Voice Channel');
+            } else {
+                await newState.member.send('Failed to create private voice channel! You likely already have one in another server.');
+            }
         } catch (error) {
             console.error(error);
         }
