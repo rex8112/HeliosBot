@@ -126,6 +126,13 @@ class Voice {
             for (const member of this.members.values()) {
                 overwrites.push(this.getPermission(member));
             }
+            if (!this.whitelist) {
+                const allowPermission = Voice.getAllowPermission(this.guild.roles.everyone.id, 'role');
+                overwrites.push(allowPermission);
+            } else {
+                const denyPermission = Voice.getDenyPermission(this.guild.roles.everyone.id, 'role');
+                overwrites.push(denyPermission);
+            }
             cData.permissionOverwrites = overwrites;
         }
         await this.voiceChannel.edit(cData);
