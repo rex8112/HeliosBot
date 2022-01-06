@@ -60,14 +60,9 @@ class Voice {
             this.members.set(this.guild.client.user.id, this.guild.client.user);
             this.members.set(member.id, member);
         }
-        for (const id of this.members.keys()) {
-            if (this.whitelist) {
-                const allowPermission = Voice.getAllowPermission(id);
-                permissions.push(allowPermission);
-            } else {
-                const denyPermission = Voice.getDenyPermission(id);
-                permissions.push(denyPermission);
-            }
+        for (const mem of this.members.values()) {
+            const permission = this.getPermission(mem);
+            permissions.push(permission);
         }
         // Set everyone permissions
         if (!this.whitelist) {
@@ -261,6 +256,18 @@ class Voice {
         await this.save();
         this.getVoiceTemplate().save();
         return true;
+    }
+
+    static getCreatorPermission(id, type = 'member') {
+        return {
+            id,
+            type,
+            allow: [
+                'VIEW_CHANNEL',
+                'PRIORITY_SPEAKER',
+                'MOVE_MEMBERS',
+            ],
+        };
     }
 
     static getAllowPermission(id, type = 'member') {
