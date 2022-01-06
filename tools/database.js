@@ -127,8 +127,6 @@ Deck.sync();
 const Voice = sequelize.define('voice', {
     creatorId: {
         type: DataTypes.BIGINT,
-        allowNull: false,
-        unique: true,
     },
     voiceId: {
         type: DataTypes.BIGINT,

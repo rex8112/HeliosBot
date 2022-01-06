@@ -38,7 +38,7 @@ class Voice {
 
     toJSON() {
         return {
-            creatorId: this.creator.id,
+            creatorId: this.creator?.id ?? null,
             voiceId: this.voiceChannelId,
             textId: this.textChannelId,
             whitelist: this.whitelist,
@@ -119,10 +119,10 @@ class Voice {
             this.whitelist = data.whitelist;
             if (this.whitelist) {
                 this.members.set(this.guild.client.user.id, this.guild.client.user);
-                this.members.set(this.creator.id, this.creator);
+                if (this.creator) this.members.set(this.creator.id, this.creator);
             } else {
                 this.members.delete(this.guild.client.user.id);
-                this.members.delete(this.creator.id);
+                if (this.creator) this.members.delete(this.creator.id);
             }
             for (const member of this.members.values()) {
                 overwrites.push(this.getPermission(member));
@@ -138,13 +138,13 @@ class Voice {
         }
         await this.voiceChannel.edit(cData);
         await this.textChannel.edit(cData);
-        await this.welcomeMessage?.edit({ embeds: this.getEmbeds() });
+        await this.welcomeMessage?.edit({ embeds: this.creator ? this.getEmbeds() : this.getNeutralEmbeds() });
         await this.save();
         this.getVoiceTemplate().save();
     }
 
     async save() {
-        await VoiceDB.update(this.toJSON(), { where: { creatorId: this.creator.id, voiceId: this.voiceChannelId } });
+        await VoiceDB.update(this.toJSON(), { where: { voiceId: this.voiceChannelId } });
     }
 
     async load(voiceChannelId = null) {
@@ -182,7 +182,18 @@ class Voice {
             .setDescription(`This channel will persist for ${Voice.MINUTES} minutes or until everyone is gone, whichever comes last.\nKeep in mind, Administrators can still see all of these channels.\n` +
                 'To edit this channel please use the `/voice edit` command. All changes will be saved for the next time you create a channel.\n' +
                 'To add members to your whitelist/blacklist, right click them in Discord then click Apps then Add to Voice.')
-            .addField('Creator', userMention(this.creator.id), true)
+            .addField('Creator', userMention(this.creator?.id), true)
+            .addField(`${this.whitelist ? 'Allowed' : 'Blocked'} People`, memberString ? memberString : 'None', true);
+        return [embed];
+    }
+
+    getNeutralEmbeds() {
+        const memberString = [...this.members.keys()].map(id => userMention(id)).join('\n');
+        const embed = new MessageEmbed()
+            .setColor('GREY')
+            .setTitle('Channel Has Been Neutralized')
+            .setDescription('The creator of this channel has left and so the channel has been neutralized.\n' +
+                'This channel is no longer editable and you will have to create a new one.')
             .addField(`${this.whitelist ? 'Allowed' : 'Blocked'} People`, memberString ? memberString : 'None', true);
         return [embed];
     }
@@ -194,13 +205,22 @@ class Voice {
             if (this.voiceChannel.members.size === 0) {
                 await this.delete();
                 return true;
+            } else if (this.creator && !this.voiceChannel.members.has(this.creator.id)) {
+                await this.makeNeutral();
             }
         }
         return false;
     }
 
+    async makeNeutral() {
+        this.members.set(this.creator.id, this.creator);
+        this.creator = null;
+        await this.edit({ name: `<Neutral> ${this.name}` });
+        await this.welcomeMessage.edit({ embeds: this.getNeutralEmbeds() });
+    }
+
     async delete() {
-        await VoiceDB.destroy({ where: { creatorId: this.creator.id } });
+        await VoiceDB.destroy({ where: { voiceId: this.voiceChannelId } });
         this.server.privateVoiceChannels.delete(this.textChannelId);
         if (this.voiceChannel) await this.voiceChannel.delete();
         if (this.textChannel) await this.textChannel.delete();
@@ -221,7 +241,7 @@ class Voice {
             await this.welcomeMessage.edit({ embeds: [embed] });
         }
         await this.save();
-        this.getVoiceTemplate().save();
+        if (this.creator) this.getVoiceTemplate().save();
         return true;
     }
 
@@ -260,6 +280,10 @@ class Voice {
     }
 
     getPermission(member) {
+        if (this.creator && member.id === this.creator.id) {
+            const creatorPermission = Voice.getCreatorPermission(member.id);
+            return creatorPermission;
+        }
         if (this.whitelist) {
             const allowPermission = Voice.getAllowPermission(member.id);
             return allowPermission;
@@ -302,6 +326,7 @@ class VoiceLast {
     }
 
     async save() {
+        if (!this.member) return;
         const data = await VoiceTemplate.findOne({ where: { creatorId: this.member.id } });
         if (!data) {
             await VoiceTemplate.create(this.toJSON());
