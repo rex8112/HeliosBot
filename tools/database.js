@@ -288,6 +288,33 @@ const Player = sequelize.define('player', {
     },
 });
 
+const TTK = sequelize.define('ttk', {
+    index: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        unique: true,
+        primaryKey: true,
+        autoIncrement: true,
+    },
+    killerId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+    },
+    killerUsername: {
+        type: DataTypes.STRING,
+    },
+    victimId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+    },
+    victimUsername: {
+        type: DataTypes.STRING,
+    },
+    notes: {
+        type: DataTypes.STRING,
+    },
+});
+
 
 module.exports = {
     Topic,
@@ -300,5 +327,6 @@ module.exports = {
     Casino,
     Table,
     Player,
+    TTK,
     sequelize,
 };
