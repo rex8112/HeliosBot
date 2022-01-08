@@ -40,6 +40,7 @@ module.exports = {
         if (interaction.options.getSubcommand() === 'report') {
             const killer = interaction.options.getMember('killer', true);
             const victim = interaction.options.getMember('victim') ?? interaction.member;
+            const reporter = interaction.member;
             const notes = interaction.options.getString('notes');
             if (killer.id === victim.id) {
                 return interaction.reply({ content: 'You cannot Team Kill yourself, you are just bad.', ephemeral: true });
@@ -51,6 +52,8 @@ module.exports = {
                     killerUsername: `${killer.user.username}#${killer.user.discriminator}`,
                     victimId: victim.id,
                     victimUsername: `${victim.user.username}#${victim.user.discriminator}`,
+                    reporterId: reporter.id,
+                    reporterUsername: `${reporter.user.username}#${reporter.user.discriminator}`,
                     notes: notes,
                 });
             } catch (error) {
@@ -96,6 +99,7 @@ module.exports = {
 
             let killer;
             let victim;
+            let reporter;
             try {
                 killer = await interaction.guild.members.fetch(kill.killerId);
             } catch (error) {
@@ -106,10 +110,15 @@ module.exports = {
             } catch (error) {
                 victim = kill.victimUsername;
             }
+            try {
+                reporter = await interaction.guild.members.fetch(kill.reporterId);
+            } catch (error) {
+                reporter = kill.reporterUsername;
+            }
             const embed = new MessageEmbed()
                 .setTitle(`Kill #${kill.index}`)
                 .setColor('DARK_RED')
-                .setDescription(`**${killer ?? kill.killerUsername}** killed **${victim ?? kill.victimUsername}** on ${time(kill.createdAt)}`);
+                .setDescription(`**${killer ?? kill.killerUsername}** killed **${victim ?? kill.victimUsername}** on ${time(kill.createdAt)}\n\nReported by **${reporter}**`);
             if (kill.notes) embed.addField('Notes', kill.notes);
             return interaction.editReply({ content: null, embeds: [embed] });
         }

@@ -310,6 +310,13 @@ const TTK = sequelize.define('ttk', {
     victimUsername: {
         type: DataTypes.STRING,
     },
+    reporterId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+    },
+    reporterUsername: {
+        type: DataTypes.STRING,
+    },
     notes: {
         type: DataTypes.STRING,
     },
