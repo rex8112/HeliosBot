@@ -317,6 +317,11 @@ const TTK = sequelize.define('ttk', {
     reporterUsername: {
         type: DataTypes.STRING,
     },
+    justified: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+    },
     notes: {
         type: DataTypes.STRING,
     },
