@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, time } = require('@discordjs/builders');
-const { MessageEmbed } = require('discord.js');
+const { MessageEmbed, MessageActionRow, MessageButton, Collection } = require('discord.js');
 const { TTK } = require('../tools/database');
 
 module.exports = {
@@ -38,6 +38,7 @@ module.exports = {
                         .setRequired(true))),
     async execute(interaction) {
         if (interaction.options.getSubcommand() === 'report') {
+            const server = interaction.client.servers.get(interaction.guild.id);
             const killer = interaction.options.getMember('killer', true);
             const victim = interaction.options.getMember('victim') ?? interaction.member;
             const reporter = interaction.member;
@@ -45,9 +46,10 @@ module.exports = {
             if (killer.id === victim.id) {
                 return interaction.reply({ content: 'You cannot Team Kill yourself, you are just bad.', ephemeral: true });
             }
-            await interaction.deferReply();
+            let message = await interaction.deferReply();
+            let entry;
             try {
-                await TTK.create({
+                entry = await TTK.create({
                     killerId: killer.id,
                     killerUsername: `${killer.user.username}#${killer.user.discriminator}`,
                     victimId: victim.id,
@@ -59,7 +61,12 @@ module.exports = {
             } catch (error) {
                 return interaction.editReply({ content: `Something went wrong reporting that kill.\n\n\`\`\`${error}\`\`\`` });
             }
-            return interaction.editReply({ content: 'Team Kill reported.' });
+            message = await interaction.editReply({
+                content: `${reporter} Reported Kill \`${entry.index}\`: ${killer} Killed ${victim} ${time(entry.createdAt, 'R')}\n\n${notes ?? ''}`,
+                components: getComponents(entry.index),
+            });
+            const votes = new tkVotes(entry.index, message);
+            server.tkVotes.set(entry.index, votes);
         } else if (interaction.options.getSubcommand() === 'query') {
             const user = interaction.options.getMember('user', true);
             await interaction.deferReply();
@@ -118,9 +125,68 @@ module.exports = {
             const embed = new MessageEmbed()
                 .setTitle(`Kill #${kill.index}`)
                 .setColor('DARK_RED')
-                .setDescription(`**${killer ?? kill.killerUsername}** killed **${victim ?? kill.victimUsername}** on ${time(kill.createdAt)}\n\nReported by **${reporter}**`);
+                .setDescription(`${kill.justified ? '***Justified***\n' : ''}**${killer ?? kill.killerUsername}** killed **${victim ?? kill.victimUsername}** on ${time(kill.createdAt)}\n\nReported by **${reporter}**`);
             if (kill.notes) embed.addField('Notes', kill.notes);
             return interaction.editReply({ content: null, embeds: [embed] });
         }
     },
 };
+
+function getComponents(index) {
+    const components = [];
+    const row = new MessageActionRow()
+        .addComponents(
+            new MessageButton()
+                .setCustomId(`ttkJustified-${index}`)
+                .setLabel('Justified')
+                .setStyle('SUCCESS'),
+            new MessageButton()
+                .setCustomId(`ttkUnjustified-${index}`)
+                .setLabel('Unjustified')
+                .setStyle('DANGER'),
+        );
+    components.push(row);
+    return components;
+}
+
+class tkVotes {
+    constructor(server, index, message) {
+        this.server = server;
+        this.index = index;
+        this.message = message;
+        this.votes = new Collection();
+        setTimeout(() => this.finishVoting(), 600000);
+    }
+
+    get yes() {
+        return this.votes.filter(v => v === true).size;
+    }
+
+    get no() {
+        return this.votes.filter(v => v === false).size;
+    }
+
+    addVote(user, vote) {
+        this.votes.set(user.id, vote);
+        return true;
+    }
+
+    async finishVoting() {
+        await TTK.update({
+            justified: this.isJustified(),
+        }, {
+            where: {
+                index: this.index,
+            },
+        });
+        await this.message.edit({
+            components: [],
+            content: `${this.message.content}\n\n${this.isJustified() ? 'The kill was justified.' : 'The kill was not justified.'}`,
+        });
+        this.server.tkVotes.delete(this.index);
+    }
+
+    isJustified() {
+        return this.yes > this.no;
+    }
+}

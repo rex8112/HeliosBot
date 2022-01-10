@@ -34,6 +34,7 @@ class Server {
         this.casino = null;
         this.games = new Collection();
         this._muteRole = null;
+        this.tkVotes = new Collection();
     }
 
     static POINTS_PER_MESSAGE = 2;
