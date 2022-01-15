@@ -1,5 +1,7 @@
 const { TextChannel, VoiceChannel, Collection, MessageEmbed, MessageActionRow, MessageButton, ButtonInteraction } = require('discord.js');
 
+const wait = require('util').promisify(setTimeout);
+
 class GameVoice {
     /**
      * Manage players ability to talk while in game
@@ -263,6 +265,7 @@ class GameVoice {
                     await player.setChannel(this.team2Channel);
                 }
             }
+            await wait(500);
         }
         this.running = true;
     }
@@ -276,6 +279,7 @@ class GameVoice {
                     await player.setChannel(this.team1Channel);
                 }
             }
+            await wait(500);
         }
         this.running = false;
     }
