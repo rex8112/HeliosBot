@@ -9,7 +9,7 @@ module.exports = {
             const server = newState.guild.client.servers.get(newState.guild.id);
             const privateCreator = server.privateVoiceChannelCreator;
             if (!privateCreator) return;
-            const existing = server.privateVoiceChannels.find(c => c.creator.id === newState.member.id);
+            const existing = server.privateVoiceChannels.find(c => c.creator?.id === newState.member.id);
             if (existing) {
                 await newState.setChannel(existing.voiceChannel, 'Already existing Voice Channel');
                 return;
