@@ -6,7 +6,7 @@ module.exports = {
     async execute(interaction) {
         try {
             const server = interaction.client.servers.get(interaction.guild.id);
-            const voice = [...server.privateVoiceChannels.values()].find(v => v.creator.id === interaction.user.id);
+            const voice = [...server.privateVoiceChannels.values()].find(v => v.creator?.id === interaction.user.id);
             if (!voice) return interaction.reply({ content: 'You do not have a voice channel.', ephemeral: true });
             const target = interaction.options.getMember('user');
             if (await voice.removeMember(target)) {
