@@ -1,4 +1,4 @@
-const { MessageEmbed, MessageActionRow, MessageButton } = require('discord.js');
+const { MessageEmbed, MessageActionRow, MessageButton, Collection } = require('discord.js');
 const { time } = require('@discordjs/builders');
 const { Topic } = require('../tools/database');
 
@@ -193,7 +193,7 @@ class TopicChannel {
             embed = unarchiveEmbed;
         }
         if (author) {
-            embed.setAuthor(author.displayName, author.user.avatarURL());
+            embed.setAuthor({ name: author.displayName, iconURL: author.user.avatarURL() });
         }
         await this.channel.send({ embeds: [embed] });
         await this.save();
@@ -215,6 +215,48 @@ class TopicChannel {
     async checkArchive() {
         if (this.pendingRemovalDate && this.pendingRemovalDate < Date.now()) {
             await this.archive();
+        }
+    }
+
+    async checkTier() {
+        const tierThreshold = {
+            1: 3,
+            2: 7,
+            3: 14,
+        };
+        const membersPosted = new Collection();
+        try {
+            const messages = await this.channel.messages.fetch({ limit: 100 });
+            for (const message of messages.values()) {
+                if (message.author.bot) {
+                    continue;
+                }
+
+                membersPosted.set(message.author.id, message.author);
+            }
+        } catch (e) {
+            return;
+        }
+
+        const members = membersPosted.size;
+        let newTier = this.tier;
+        if (this.tier === 4) {
+            return;
+        } else if (members >= tierThreshold[3]) {
+            newTier = 4;
+        } else if (members >= tierThreshold[2]) {
+            newTier = 3;
+        } else if (members >= tierThreshold[1]) {
+            newTier = 2;
+        }
+        if (newTier > this.tier) {
+            this.tier = newTier;
+            this.save();
+            const embed = new MessageEmbed()
+                .setColor('GREEN')
+                .setTitle('Topic Tier Increased')
+                .setDescription(`Topic tier has been increased to **${this.tier}**.`);
+            await this.channel.send({ embeds: [embed] });
         }
     }
 

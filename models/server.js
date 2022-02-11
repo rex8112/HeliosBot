@@ -256,6 +256,7 @@ class Server {
     async checkTopicChannels() {
         for (const topicChannel of this.topics.values()) {
             try {
+                await topicChannel.checkTier();
                 await topicChannel.checkArchive();
                 await topicChannel.checkIdle();
             } catch (err) {
