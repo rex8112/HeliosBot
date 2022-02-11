@@ -140,8 +140,9 @@ class TopicChannel {
         const queueEmbed = new MessageEmbed()
             .setColor('RED')
             .setTitle('⚠Flagged to be Archived⚠')
-            .setDescription(`This channel has been flagged due to inactivity. 
-            The channel will be archived ${time(this.pendingRemovalDate, 'R')} for later retrieval, assuming an admin does not remove it.`)
+            .setDescription(
+                'This channel has been flagged due to inactivity. '
+                + `The channel will be archived ${time(this.pendingRemovalDate, 'R')} for later retrieval, assuming an admin does not remove it.`)
             .addField('Archive Time', `${time(this.pendingRemovalDate)}`);
         await this.save();
         await this.channel.send({ embeds: [queueEmbed], components: [this.saveRow] });
