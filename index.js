@@ -61,7 +61,14 @@ client.on('interactionCreate', async interaction => {
         await context.execute(interaction);
     } catch (error) {
         console.error(error);
-        await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
+        const content = `An error occured while executing this command\n\`\`\`js\n${error.stack}\`\`\``;
+        if (interaction.deferred) {
+            interaction.editReply({ content: content, ephemeral: true });
+        } else if (interaction.replied) {
+            interaction.followUp({ content: content, ephemeral: true });
+        } else {
+            interaction.reply({ content: content, ephemeral: true });
+        }
     }
 });
 
