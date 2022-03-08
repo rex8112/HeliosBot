@@ -137,13 +137,13 @@ class Rank {
     }
 
     async removeMember(member) {
-        if (this.role.members.has(member.id) && this.guild.members.cache.has(member.id)) {
+        if (this.role.members.has(member.id) && this.theme.guild.members.cache.has(member.id)) {
             await member.roles.remove(this.role);
         }
     }
 
     async addMember(member) {
-        if (!this.role.members.has(member.id) && this.guild.members.cache.has(member.id)) {
+        if (!this.role.members.has(member.id) && this.theme.guild.members.cache.has(member.id)) {
             await member.roles.add(this.role);
         }
     }
