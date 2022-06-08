@@ -19,7 +19,7 @@ class Config:
     # Private Methods
 
     def _serialize(self, data: dict) -> None:
-        data_str = json.dumps(data)
+        data_str = json.dumps(data, indent=4, sort_keys=True)
         self.file = data_str
 
     def _deserialize(self) -> dict:
