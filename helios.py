@@ -3,6 +3,7 @@ import sys
 import discord
 from discord.ext import commands
 
+from helios import HeliosBot
 from helios.tools import Config
 
 description = '''The beginnings of a new Helios'''
@@ -11,8 +12,8 @@ intents = discord.Intents.default()
 intents.members = True
 intents.message_content = True
 
-bot = commands.Bot(command_prefix='?', description=description, intents=intents)
-bot.settings = Config.from_file_path()
+settings = Config.from_file_path()
+bot = HeliosBot(command_prefix='?', description=description, intents=intents, settings=settings)
 
 
 @bot.event
@@ -25,4 +26,5 @@ if not bot.settings.token:
     print('Token not found, please fill out config.json.')
     sys.exit()
 
-bot.run(bot.settings.token)
+if __name__ == '__main__':
+    bot.run(bot.settings.token)

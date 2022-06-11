@@ -6,6 +6,7 @@ class Config:
     def __init__(self) -> None:
         self.token = ''
         self.owner = '180067685986467840'
+        self.api_url = '127.0.0.1:5000/api'
         self.file_path = 'config.json'
 
     # Class Methods
@@ -35,7 +36,8 @@ class Config:
     def save(self):
         data = {
             'token': self.token,
-            'owner': self.owner
+            'owner': self.owner,
+            'api_url': self.api_url
         }
         self._serialize(data)
 
