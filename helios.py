@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands
 
 from helios import HeliosBot
+from helios.server import Server
 from helios.tools import Config
 
 description = '''The beginnings of a new Helios'''
@@ -20,6 +21,10 @@ bot = HeliosBot(command_prefix='?', description=description, intents=intents, se
 async def on_ready():
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
     print('-----')
+
+    for guild in bot.guilds:
+        server = Server(bot, 'None', guild)
+        await server.setup_hook()
 
 
 if not bot.settings.token:

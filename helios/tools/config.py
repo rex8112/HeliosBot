@@ -6,8 +6,10 @@ class Config:
     def __init__(self) -> None:
         self.token = ''
         self.owner = '180067685986467840'
-        self.api_url = '127.0.0.1:5000/api'
+        self.api_url = 'http://127.0.0.1:8000/api'
         self.file_path = 'config.json'
+        self.api_username = 'admin'
+        self.api_password = '123'
 
     # Class Methods
     @classmethod
@@ -37,7 +39,9 @@ class Config:
         data = {
             'token': self.token,
             'owner': self.owner,
-            'api_url': self.api_url
+            'api_url': self.api_url,
+            'api_username': self.api_username,
+            'api_password': self.api_password
         }
         self._serialize(data)
 

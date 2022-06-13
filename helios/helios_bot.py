@@ -3,6 +3,7 @@ import asyncio
 import aiohttp
 from discord.ext import commands, tasks
 from .tools import Config
+from .server import Server
 from typing import Tuple
 
 
@@ -14,7 +15,7 @@ class HeliosBot(commands.Bot):
 
     async def request(self, url_end: str, method='GET'):
         url = f'{self.settings.api_url}{url_end}'
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(auth=aiohttp.BasicAuth(self.settings.api_username, self.settings.api_password)) as session:
             if method == 'GET':
                 return await session.get(url)
             elif method == 'POST':
