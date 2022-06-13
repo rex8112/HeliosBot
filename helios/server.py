@@ -44,6 +44,7 @@ class Server:
             raise IdMismatchException('ID in data does not match server ID', self.id, data.get('id'))
         self.settings = data.get('settings')
         self.flags = data.get('flags')
+        self.loaded = True
 
     def serialize(self) -> Dict:
         """
@@ -59,10 +60,9 @@ class Server:
 
         return data
 
-    async def setup_hook(self):
+    # Static Methods
+    @staticmethod
+    async def fetch(bot: 'HeliosBot', guild_id: int):
         # Make asynchronous call to API
-        response = await self.bot.request(f'/servers/{self.id}')
-        if response.status == 200:
-            print('Success', await response.text())
-        else:
-            print('Not Found?', response.status)
+        response = await bot.request(f'/servers/{guild_id}/')
+        return await response.json()

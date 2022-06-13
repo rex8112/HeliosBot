@@ -1,11 +1,19 @@
 import sys
 
 import discord
+import logging
 from discord.ext import commands
 
 from helios import HeliosBot
 from helios.server import Server
 from helios.tools import Config
+
+logger = logging.getLogger('HeliosLogger')
+logger.setLevel(logging.DEBUG)
+consoleHandler = logging.StreamHandler()
+consoleHandler.setLevel(logging.DEBUG)
+logger.addHandler(consoleHandler)
+
 
 description = '''The beginnings of a new Helios'''
 
@@ -17,14 +25,10 @@ settings = Config.from_file_path()
 bot = HeliosBot(command_prefix='?', description=description, intents=intents, settings=settings)
 
 
-@bot.event
+'''@bot.event
 async def on_ready():
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
-    print('-----')
-
-    for guild in bot.guilds:
-        server = Server(bot, 'None', guild)
-        await server.setup_hook()
+    print('-----')'''
 
 
 if not bot.settings.token:
