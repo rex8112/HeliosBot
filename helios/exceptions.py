@@ -4,3 +4,7 @@ class HeliosException(Exception):
 
 class IdMismatchException(HeliosException):
     pass
+
+
+class NotFoundException(HeliosException):
+    pass
