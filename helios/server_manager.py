@@ -1,6 +1,6 @@
 import asyncio
 
-from helios import HeliosBot
+from .helios_bot import HeliosBot
 
 
 class ServerManager:
