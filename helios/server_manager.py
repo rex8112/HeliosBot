@@ -20,7 +20,7 @@ class ServerManager:
         start_time = time.time()
         tasks = []
         for guild in self.bot.guilds:
-            tasks.append(asyncio.ensure_future(Server.fetch(self.bot, guild.id)))
+            tasks.append(asyncio.ensure_future(self.bot.http.get_server(guild.id)))
             server = Server(self.bot, self, guild)
             self.servers[server.id] = server
 

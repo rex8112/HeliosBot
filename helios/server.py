@@ -59,10 +59,3 @@ class Server:
         }
 
         return data
-
-    # Static Methods
-    @staticmethod
-    async def fetch(bot: 'HeliosBot', guild_id: int):
-        # Make asynchronous call to API
-        response = await bot.request(f'/servers/{guild_id}/')
-        return await response.json()

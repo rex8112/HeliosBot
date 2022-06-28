@@ -6,6 +6,7 @@ from discord.ext import commands, tasks
 
 from .server_manager import ServerManager
 from .tools import Config
+from .http import HTTPClient
 from .server import Server
 from typing import Tuple
 
@@ -17,7 +18,7 @@ class HeliosBot(commands.Bot):
         self.servers = ServerManager(self)
         self.settings = settings
         self.ready_once = True
-        self._session = aiohttp.ClientSession()
+        self.http = HTTPClient(self.settings.api_url, self.settings.api_username, self.settings.api_password)
 
         super().__init__(command_prefix, intents=intents, **options)
 
@@ -27,15 +28,3 @@ class HeliosBot(commands.Bot):
             logger.debug('Beginning server load')
             await self.servers.setup()
             self.ready_once = False
-
-    async def request(self, url_end: str, method='GET'):
-        url = f'{self.settings.api_url}{url_end}'
-        async with aiohttp.ClientSession(
-                auth=aiohttp.BasicAuth(self.settings.api_username, self.settings.api_password)
-        ) as session:
-            if method == 'GET':
-                return await session.get(url)
-            elif method == 'POST':
-                return await session.post(url)
-            elif method == 'PUT':
-                return await session.put(url)
