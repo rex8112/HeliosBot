@@ -1,4 +1,5 @@
-import asyncio
+from typing import Union
+
 import aiohttp
 
 
@@ -9,9 +10,9 @@ class HTTPClient:
             auth=aiohttp.BasicAuth(api_username, api_password)
         )
 
-    async def request(self, url_end: str, method='GET'):
+    async def request(self, url_end: str, method='GET', **params):
         url = f'/api/{url_end}'
-        resp = await self._session.request(method, url)
+        resp = await self._session.request(method, url, **params)
         return await resp.json()
 
     async def get_server(self, guild_id: str):
@@ -21,6 +22,10 @@ class HTTPClient:
     async def add_server(self, guild_id: str, **data):
         raise NotImplemented
 
-    async def get_channel(self, channel_id: str):
-        resp = await self.request(f'/channels/{channel_id}/')
+    async def get_channel(self, channel_id: str = None, **params) -> Union[dict, list]:
+        resp = None
+        if channel_id:
+            resp = await self.request(f'/channels/{channel_id}/')
+        else:
+            resp = await self.request(f'/channels/', **params)
         return resp
