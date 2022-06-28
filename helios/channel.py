@@ -1,7 +1,4 @@
-import discord
-from discord.ext import commands
-from typing import TYPE_CHECKING, Optional, Union
-
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from discord.abc import PrivateChannel
