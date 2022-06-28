@@ -2,9 +2,9 @@ class HeliosException(Exception):
     pass
 
 
-class IdMismatchException(HeliosException):
+class IdMismatchError(HeliosException):
     pass
 
 
-class NotFoundException(HeliosException):
+class NotFoundError(HeliosException):
     pass

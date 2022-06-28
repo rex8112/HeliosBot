@@ -3,7 +3,7 @@ import asyncio
 import discord
 from typing import TYPE_CHECKING, Dict
 
-from .exceptions import IdMismatchException
+from .exceptions import IdMismatchError
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
@@ -38,10 +38,10 @@ class Server:
         """
         Takes a dictionary from the Helios API and fills out the class
         :param data: A JSON Dictionary from the Helios API
-        :raises helios.IdMismatchException: When the ID in the data does not equal the ID in the given guild
+        :raises helios.IdMismatchError: When the ID in the data does not equal the ID in the given guild
         """
         if data.get('id') != self.id:
-            raise IdMismatchException('ID in data does not match server ID', self.id, data.get('id'))
+            raise IdMismatchError('ID in data does not match server ID', self.id, data.get('id'))
         self.settings = data.get('settings')
         self.flags = data.get('flags')
         self.loaded = True
