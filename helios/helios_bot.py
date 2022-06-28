@@ -17,6 +17,7 @@ class HeliosBot(commands.Bot):
         self.servers = ServerManager(self)
         self.settings = settings
         self.ready_once = True
+        self._session = aiohttp.ClientSession()
 
         super().__init__(command_prefix, intents=intents, **options)
 

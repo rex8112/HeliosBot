@@ -3,10 +3,10 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
-from helios.server import Server
+from .server import Server
 
 if TYPE_CHECKING:
-    from helios import HeliosBot
+    from .helios_bot import HeliosBot
 logger = logging.getLogger('HeliosLogger')
 
 
