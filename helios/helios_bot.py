@@ -1,14 +1,10 @@
-import asyncio
-
-import aiohttp
 import logging
-from discord.ext import commands, tasks
 
+from discord.ext import commands
+
+from .http import HTTPClient
 from .server_manager import ServerManager
 from .tools import Config
-from .http import HTTPClient
-from .server import Server
-from typing import Tuple
 
 logger = logging.getLogger('HeliosLogger')
 

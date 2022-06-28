@@ -1,7 +1,7 @@
 import asyncio
+from typing import TYPE_CHECKING, Dict
 
 import discord
-from typing import TYPE_CHECKING, Dict
 
 from .exceptions import IdMismatchError
 
