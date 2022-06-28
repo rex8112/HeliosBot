@@ -5,7 +5,7 @@ if TYPE_CHECKING:
 
 
 class Channel:
-    channel_type = 'Basic'
+    channel_type = 'basic'
 
     def __init__(self,
                  manager: 'ChannelManager',
@@ -45,11 +45,19 @@ class Channel:
         else:
             return False
 
+    @classmethod
+    def new(cls, manager: 'ChannelManager', channel_id: int):
+        data = {
+            'id': channel_id,
+            'type': cls.channel_type,
+        }
+        return cls(manager, data)
+
     def _deserialize(self, data: dict) -> None:
         if self.channel_type != data.get('type'):
             raise TypeError(f'Channel data is of type {data.get("type")} not {self.channel_type}')
-        self.settings = data.get('settings')
-        self.flags = data.get('flags')
+        self.settings = data.get('settings', self.settings)
+        self.flags = data.get('flags', self.flags)
 
     def serialize(self) -> dict:
         return {
