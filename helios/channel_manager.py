@@ -6,7 +6,7 @@ from .channel import Channel
 from .server import Server
 
 if TYPE_CHECKING:
-    from .helios_bot import Server, HeliosBot
+    from .helios_bot import HeliosBot
 logger = logging.getLogger('HeliosLogger')
 
 
