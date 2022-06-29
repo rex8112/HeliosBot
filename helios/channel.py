@@ -1,4 +1,7 @@
+import datetime
 from typing import TYPE_CHECKING
+
+import discord
 
 if TYPE_CHECKING:
     from helios import ChannelManager, HeliosBot
@@ -6,8 +9,8 @@ if TYPE_CHECKING:
 
 class Channel:
     channel_type = 'basic'
-    default_settings = {}
-    allowed_flags = []
+    _default_settings = {}
+    _allowed_flags = []
 
     def __init__(self,
                  manager: 'ChannelManager',
@@ -20,7 +23,7 @@ class Channel:
         self.bot: 'HeliosBot' = manager.bot
         self.manager = manager
         self.channel = None
-        self.settings = self.default_settings.copy()
+        self.settings = self._default_settings.copy()
         self.flags = []
         self._id = None
 
@@ -56,8 +59,8 @@ class Channel:
         return cls(manager, data)
 
     def set_flag(self, flag: str, on: bool):
-        if flag not in self.allowed_flags:
-            raise KeyError(f'{flag} not in {type(self)} allowed flags: {self.allowed_flags}')
+        if flag not in self._allowed_flags:
+            raise KeyError(f'{flag} not in {type(self)} allowed flags: {self._allowed_flags}')
         if flag in self.flags and on is False:
             self.flags.remove(flag)
         elif flag not in self.flags and on is True:
@@ -86,16 +89,16 @@ class Channel:
 
 class TopicChannel(Channel):
     channel_type = 'topic'
-    default_settings = {
+    _default_settings = {
         'tier': 0,
         'saves_in_row': 0,
         'creator': None,
-        **super().default_settings
+        **super()._default_settings
     }
-    allowed_flags = [
+    _allowed_flags = [
         'MARKED',
         'ARCHIVED',
-        *super().allowed_flags
+        *super()._allowed_flags
     ]
 
     def __init__(self, manager: 'ChannelManager', data: dict):
