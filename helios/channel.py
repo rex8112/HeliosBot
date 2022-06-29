@@ -55,6 +55,17 @@ class Channel:
         }
         return cls(manager, data)
 
+    def set_flag(self, flag: str, on: bool):
+        if flag not in self.allowed_flags:
+            raise KeyError(f'{flag} not in {type(self)} allowed flags: {self.allowed_flags}')
+        if flag in self.flags and on is False:
+            self.flags.remove(flag)
+        elif flag not in self.flags and on is True:
+            self.flags.append(flag)
+
+    def get_flag(self, flag: str):
+        return flag in self.flags
+
     def _deserialize(self, data: dict) -> None:
         if self.channel_type != data.get('type'):
             raise TypeError(f'Channel data is of type {data.get("type")} not {self.channel_type}')
@@ -69,3 +80,26 @@ class Channel:
             'settings': self.settings,
             'flags': self.flags
         }
+
+
+class TopicChannel(Channel):
+    channel_type = 'topic'
+    default_settings = {
+        'tier': 0,
+        'saves_in_row': 0,
+        'creator': None,
+        **super().default_settings
+    }
+    allowed_flags = [
+        'MARKED',
+        'ARCHIVED',
+        *super().allowed_flags
+    ]
+
+    def __init__(self, manager: 'ChannelManager', data: dict):
+        super().__init__(manager, data)
+
+
+Channel_Dict = {
+    Channel.channel_type: Channel
+}
