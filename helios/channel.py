@@ -6,6 +6,8 @@ if TYPE_CHECKING:
 
 class Channel:
     channel_type = 'basic'
+    default_settings = {}
+    allowed_flags = []
 
     def __init__(self,
                  manager: 'ChannelManager',
@@ -18,7 +20,7 @@ class Channel:
         self.bot: 'HeliosBot' = manager.bot
         self.manager = manager
         self.channel = None
-        self.settings = {}
+        self.settings = self.default_settings.copy()
         self.flags = []
         self._id = None
 
