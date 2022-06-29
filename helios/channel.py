@@ -100,9 +100,61 @@ class TopicChannel(Channel):
         'ARCHIVED',
         *super()._allowed_flags
     ]
+    _repeated_authors_value = 1 / 20  # Users per messages
+    _tier_thresholds_lengths = {
+        0: datetime.timedelta(days=1),
+        2: datetime.timedelta(days=3),
+        5: datetime.timedelta(days=7),
+        10: datetime.timedelta(days=14),
+        20: datetime.timedelta(days=28)
+    }
 
     def __init__(self, manager: 'ChannelManager', data: dict):
         super().__init__(manager, data)
+
+    async def get_last_week_authors_value(self) -> dict[int, int]:
+        week_ago = datetime.datetime.now() - datetime.timedelta(days=7)
+        authors = {}
+        async for msg in self.channel.history(after=week_ago):
+            author = msg.author
+            if not author.bot:
+                authors[author.id] = 0.05 + authors.get(author.id, 1)
+        return authors
+
+    async def evaluate_tier(self, change=True, allow_degrade=False) -> int:
+        authors = await self.get_last_week_authors_value()
+        total_value = 0
+        for author_id, value in authors.items():
+            total_value += value
+        tier = 0
+        for i, threshold in enumerate(self._tier_thresholds_lengths.keys()):
+            if total_value >= threshold:
+                tier = i + 1
+        if not allow_degrade and tier < self.settings.get('tier'):
+            tier = self.settings.get('tier')
+        if change and tier != self.settings.get('tier'):
+            self.settings['tier'] = tier
+            embed = self._get_tier_change_embed(tier)
+            await self.channel.send(embed=embed)
+        return tier
+
+    def _get_tier_change_embed(self, tier: int) -> discord.Embed:
+        cur_tier = self.settings.get('tier')
+        if tier == cur_tier:
+            raise ValueError('Tier can not be the same value as the current tier')
+        lower = tier < cur_tier
+        if lower:
+            embed = discord.Embed(
+                colour=discord.Colour.red(),
+                title=f'Tier decreased to {tier}!'
+            )
+        else:
+            embed = discord.Embed(
+                colour=discord.Colour.green(),
+                title=f'Tier increased to {tier}!'
+            )
+        embed.description = f'New idle timer is: {self._tier_thresholds_lengths.get(tier).days} days'
+        return embed
 
 
 Channel_Dict = {
