@@ -168,11 +168,17 @@ class TopicChannel(Channel):
             await self.channel.send(embed=embed)
         return tier
 
-    async def markable(self):
+    async def get_markable(self) -> bool:
+        """
+        Returns whether the channel is eligible to be marked for archival
+        """
         last_message = await self.channel.fetch_message(self.channel.last_message_id)
         return last_message.created_at < self.oldest_allowed
 
-    def archivable(self):
+    def get_archivable(self) -> bool:
+        """
+        Returns whether the channel is ready to be archived
+        """
         now = datetime.datetime.now()
         marked = 'MARKED' in self.flags
         timing = self.settings.get('archive_at', now + datetime.timedelta(days=1)) < now
