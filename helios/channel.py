@@ -87,12 +87,18 @@ class Channel:
         }
 
 
+def _get_archive_time():
+    return datetime.datetime.now() + datetime.timedelta(hours=30)
+
+
 class TopicChannel(Channel):
     channel_type = 'topic'
     _default_settings = {
         'tier': 0,
         'saves_in_row': 0,
         'creator': None,
+        'archive_at': None,
+        'archive_message_id': None,
         **super()._default_settings
     }
     _allowed_flags = [
@@ -112,6 +118,12 @@ class TopicChannel(Channel):
     def __init__(self, manager: 'ChannelManager', data: dict):
         super().__init__(manager, data)
 
+    @property
+    def oldest_allowed(self) -> datetime.datetime:
+        delta = list(self._tier_thresholds_lengths.values())[self.settings.get('tier') - 1]
+        now = datetime.datetime.now()
+        return now - delta
+
     async def get_last_week_authors_value(self) -> dict[int, int]:
         week_ago = datetime.datetime.now() - datetime.timedelta(days=7)
         authors = {}
@@ -120,6 +132,24 @@ class TopicChannel(Channel):
             if not author.bot:
                 authors[author.id] = 0.05 + authors.get(author.id, 1)
         return authors
+
+    async def set_marked(self, state: bool, post=True):
+        self.set_flag('MARKED', state)
+        if post:
+            if state:
+                message = await self.channel.send(content='Beep Boop: Need Embeds and View Setup')  # TODO
+                self.settings['archive_message_id'] = message.id
+                self.settings['archive_at'] = _get_archive_time()
+            else:
+                message_id = self.settings.get('archive_message_id')
+                message = None
+                if message_id:
+                    message = await self.channel.fetch_message(message_id)
+                if not message:
+                    message = await self.channel.send(content='Beep Boop: Need Embeds and View Setup')
+                await message.edit(view=None, embed=None)
+                self.settings['archive_at'] = None
+                self.settings['archive_message_id'] = message.id
 
     async def evaluate_tier(self, change=True, allow_degrade=False) -> int:
         authors = await self.get_last_week_authors_value()
@@ -137,6 +167,16 @@ class TopicChannel(Channel):
             embed = self._get_tier_change_embed(tier)
             await self.channel.send(embed=embed)
         return tier
+
+    async def markable(self):
+        last_message = await self.channel.fetch_message(self.channel.last_message_id)
+        return last_message.created_at < self.oldest_allowed
+
+    def archivable(self):
+        now = datetime.datetime.now()
+        marked = 'MARKED' in self.flags
+        timing = self.settings.get('archive_at', now + datetime.timedelta(days=1)) < now
+        return marked and timing
 
     def _get_tier_change_embed(self, tier: int) -> discord.Embed:
         cur_tier = self.settings.get('tier')
@@ -158,5 +198,6 @@ class TopicChannel(Channel):
 
 
 Channel_Dict = {
-    Channel.channel_type: Channel
+    Channel.channel_type: Channel,
+    TopicChannel.channel_type: TopicChannel
 }
