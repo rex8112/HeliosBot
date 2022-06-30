@@ -120,11 +120,15 @@ class TopicChannel(Channel):
 
     @property
     def oldest_allowed(self) -> datetime.datetime:
+        """
+        Get the datetime of how old the last message has to be for the channel to get marked
+        :return: A naive timezone that I think is UTC
+        """
         delta = list(self._tier_thresholds_lengths.values())[self.settings.get('tier') - 1]
         now = datetime.datetime.now()
         return now - delta
 
-    async def get_last_week_authors_value(self) -> dict[int, int]:
+    async def _get_last_week_authors_value(self) -> dict[int, int]:
         week_ago = datetime.datetime.now() - datetime.timedelta(days=7)
         authors = {}
         async for msg in self.channel.history(after=week_ago):
@@ -133,7 +137,12 @@ class TopicChannel(Channel):
                 authors[author.id] = 0.05 + authors.get(author.id, 1)
         return authors
 
-    async def set_marked(self, state: bool, post=True):
+    async def set_marked(self, state: bool, post=True) -> None:
+        """
+        Set whether the channel is marked for archival.
+        :param state: The state to set it to
+        :param post: Whether to make/edit a post about it
+        """
         self.set_flag('MARKED', state)
         if post:
             if state:
@@ -152,7 +161,13 @@ class TopicChannel(Channel):
                 self.settings['archive_message_id'] = message.id
 
     async def evaluate_tier(self, change=True, allow_degrade=False) -> int:
-        authors = await self.get_last_week_authors_value()
+        """
+        Evaluate the current tier based on activity during the last week.
+        :param change: Whether to allow the function to change the channel based on the results
+        :param allow_degrade: Whether to allow the channel to go down in tiers
+        :return: The evaluated tier
+        """
+        authors = await self._get_last_week_authors_value()
         total_value = 0
         for author_id, value in authors.items():
             total_value += value
