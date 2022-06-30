@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Dict
 import discord
 
 from .exceptions import IdMismatchError
+from .channel_manager import ChannelManager
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
@@ -16,7 +17,7 @@ class Server:
         self.bot = bot
         self.guild = guild
         self.manager = manager
-        self.channels = {}
+        self.channels = ChannelManager(self)
         self.private_voice_channels = {}
         self.topics = {}
         self.settings = {}

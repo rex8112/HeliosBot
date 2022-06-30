@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from .channel import Channel
 from .server import Server
@@ -14,7 +14,10 @@ class ChannelManager:
     def __init__(self, server: 'Server'):
         self.bot: 'HeliosBot' = server.bot
         self.server = server
-        self.channels = {}
+        self.channels: dict[int, Channel] = {}
+
+    def get(self, channel_id: int) -> Optional[Channel]:
+        return self.channels.get(channel_id)
 
     async def setup(self, channel_data: list[dict] = None):
         start_time = time.time()

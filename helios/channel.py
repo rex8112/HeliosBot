@@ -122,7 +122,7 @@ class TopicChannel(Channel):
     def oldest_allowed(self) -> datetime.datetime:
         """
         Get the datetime of how old the last message has to be for the channel to get marked
-        :return: A naive timezone that I think is UTC
+        :return: A naive timezone that I think is in local time
         """
         delta = list(self._tier_thresholds_lengths.values())[self.settings.get('tier') - 1]
         now = datetime.datetime.now()
@@ -144,11 +144,14 @@ class TopicChannel(Channel):
         :param post: Whether to make/edit a post about it
         """
         self.set_flag('MARKED', state)
+        if state:
+            self.settings['archive_at'] = _get_archive_time()
+        else:
+            self.settings['archive_at'] = None
         if post:
             if state:
                 message = await self.channel.send(content='Beep Boop: Need Embeds and View Setup')  # TODO
                 self.settings['archive_message_id'] = message.id
-                self.settings['archive_at'] = _get_archive_time()
             else:
                 message_id = self.settings.get('archive_message_id')
                 message = None
@@ -157,8 +160,17 @@ class TopicChannel(Channel):
                 if not message:
                     message = await self.channel.send(content='Beep Boop: Need Embeds and View Setup')
                 await message.edit(view=None, embed=None)
-                self.settings['archive_at'] = None
                 self.settings['archive_message_id'] = message.id
+
+    async def set_archive(self, state: bool, post=True) -> None:
+        await self.set_marked(False, post=False)
+        pass
+
+    async def save_channel(self, interaction: discord.Interaction = None):
+        if self.get_flag('ARCHIVED'):
+            await self.set_archive(False)
+        elif self.get_flag('MARKED'):
+            await self.set_marked(False)
 
     async def evaluate_tier(self, change=True, allow_degrade=False) -> int:
         """

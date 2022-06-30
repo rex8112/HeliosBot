@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from .server import Server
 
@@ -13,8 +13,11 @@ logger = logging.getLogger('HeliosLogger')
 class ServerManager:
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
-        self.servers = {}
+        self.servers: dict[int, Server] = {}
         self.channel_refresh_queue = asyncio.Queue()
+
+    def get(self, guild_id: int) -> Optional[Server]:
+        return self.servers.get(guild_id)
 
     async def setup(self):
         start_time = time.time()
