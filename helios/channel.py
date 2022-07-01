@@ -149,8 +149,8 @@ class TopicChannel(Channel):
         else:
             self.settings['archive_at'] = None
         if post:
-            if state:
-                message = await self.channel.send(content='Beep Boop: Need Embeds and View Setup')  # TODO
+            if state:  # TODO add marked embeds and views
+                message = await self.channel.send(content='Beep Boop: Need Embeds and View Setup')
                 self.settings['archive_message_id'] = message.id
             else:
                 message_id = self.settings.get('archive_message_id')
@@ -163,14 +163,18 @@ class TopicChannel(Channel):
                 self.settings['archive_message_id'] = message.id
 
     async def set_archive(self, state: bool, post=True) -> None:
-        await self.set_marked(False, post=False)
-        pass
+        self.settings['archive_at'] = None
+        if state:
+            await self.set_marked(False, post=False)
+        # TODO Post archive messages and move to category found in Server settings
 
     async def save_channel(self, interaction: discord.Interaction = None):
+        post = interaction is None
         if self.get_flag('ARCHIVED'):
-            await self.set_archive(False)
+            await self.set_archive(False, post=post)
         elif self.get_flag('MARKED'):
-            await self.set_marked(False)
+            await self.set_marked(False, post=post)
+        # TODO Use interaction to post save embed
 
     async def evaluate_tier(self, change=True, allow_degrade=False) -> int:
         """
