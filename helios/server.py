@@ -12,6 +12,11 @@ if TYPE_CHECKING:
 
 
 class Server:
+    _default_settings = {
+        'archive_category': None,
+        'topic_category': None
+    }
+
     def __init__(self, bot: 'HeliosBot', manager: 'ServerManager', guild: discord.Guild):
         self.loaded = False
         self.bot = bot
@@ -43,8 +48,10 @@ class Server:
         """
         if data.get('id') != self.id:
             raise IdMismatchError('ID in data does not match server ID', self.id, data.get('id'))
-        self.settings = data.get('settings')
         self.flags = data.get('flags')
+        settings = data.get('settings', {})
+        for k, v in settings.items():
+            self.settings[k] = v
         self.loaded = True
 
     def serialize(self) -> Dict:
