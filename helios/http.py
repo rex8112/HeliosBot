@@ -29,3 +29,7 @@ class HTTPClient:
         else:
             resp = await self.request(f'/channels/', **params)
         return resp
+
+    async def put_channel(self, json_data: Union[dict, list]):
+        resp = await self.request('/channels/', method='PUT', json=json_data)
+        return resp

@@ -60,6 +60,9 @@ class Channel:
         }
         return cls(manager, data)
 
+    async def save(self):
+        self.bot.http.put_channel(self.serialize())
+
     def set_flag(self, flag: str, on: bool):
         if flag not in self._allowed_flags:
             raise KeyError(f'{flag} not in {type(self)} allowed flags: {self._allowed_flags}')
