@@ -130,6 +130,27 @@ class TopicChannel(Channel):
         now = datetime.datetime.now()
         return now - delta
 
+    @property
+    def archive_time(self) -> Optional[datetime.datetime]:
+        raw_time = self.settings.get('archive_at')
+        if raw_time:
+            return datetime.datetime.fromisoformat(raw_time)
+        return None
+
+    @property
+    def archive_category(self) -> Optional[discord.CategoryChannel]:
+        channel_id = self.server.settings.get('archive_category')
+        if channel_id:
+            return self.bot.get_channel(channel_id)
+        return None
+
+    @property
+    def topic_category(self) -> Optional[discord.CategoryChannel]:
+        channel_id = self.server.settings.get('topic_category')
+        if channel_id:
+            return self.bot.get_channel(channel_id)
+        return None
+
     async def _get_last_week_authors_value(self) -> dict[int, int]:
         week_ago = datetime.datetime.now() - datetime.timedelta(days=7)
         authors = {}
@@ -147,28 +168,22 @@ class TopicChannel(Channel):
         """
         self.set_flag('MARKED', state)
         if state:
-            self.settings['archive_at'] = _get_archive_time()
+            self.settings['archive_at'] = _get_archive_time().isoformat()
         else:
             self.settings['archive_at'] = None
         if post:
-            if state:  # TODO add marked embeds and views
-                message = await self.channel.send(content='Beep Boop: Need Embeds and View Setup')
-                self.settings['archive_message_id'] = message.id
+            if state:
+                await self.post_archive_message(embed=self._get_marked_embed(), view=TopicView(self.bot))
             else:
-                message_id = self.settings.get('archive_message_id')
-                message = None
-                if message_id:
-                    message = await self.channel.fetch_message(message_id)
-                if not message:
-                    message = await self.channel.send(content='Beep Boop: Need Embeds and View Setup')
-                await message.edit(view=None, embed=None)
-                self.settings['archive_message_id'] = message.id
+                await self.post_archive_message(embed=self._get_saved_embed())
 
     async def set_archive(self, state: bool, post=True) -> None:
         self.settings['archive_at'] = None
         if state:
             await self.set_marked(False, post=False)
-        # TODO Post archive messages and move to category found in Server settings
+            await self.channel.edit(category=self.archive_category)
+        else:
+            await self.channel.edit(category=self.topic_category)
 
     async def save_channel(self, interaction: discord.Interaction = None):
         post = interaction is None
@@ -201,6 +216,16 @@ class TopicChannel(Channel):
             await self.channel.send(embed=embed)
         return tier
 
+    async def post_archive_message(self, content=None, *, embed=None, view=None):
+        message_id = self.settings.get('archive_message_id')
+        message = None
+        if message_id:
+            message = await self.channel.fetch_message(message_id)
+        if not message:
+            message = await self.channel.send(content=content, embed=embed, view=view)
+        await message.edit(content=content, view=view, embed=embed)
+        self.settings['archive_message_id'] = message.id
+
     async def get_markable(self) -> bool:
         """
         Returns whether the channel is eligible to be marked for archival
@@ -216,6 +241,9 @@ class TopicChannel(Channel):
         marked = 'MARKED' in self.flags
         timing = self.settings.get('archive_at', now + datetime.timedelta(days=1)) < now
         return marked and timing
+
+    def can_delete(self) -> bool:
+        return self.settings.get('tier') == 1 and self.get_archivable()
 
     def _get_tier_change_embed(self, tier: int) -> discord.Embed:
         cur_tier = self.settings.get('tier')
