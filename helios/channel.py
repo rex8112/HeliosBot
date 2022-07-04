@@ -1,7 +1,9 @@
 import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import discord
+
+from .views import TopicView
 
 if TYPE_CHECKING:
     from helios import ChannelManager, HeliosBot
@@ -231,6 +233,41 @@ class TopicChannel(Channel):
                 title=f'Tier increased to {tier}!'
             )
         embed.description = f'New idle timer is: {self._tier_thresholds_lengths.get(tier).days} days'
+        return embed
+
+    def _get_marked_embed(self) -> discord.Embed:
+        cur_tier = self.settings.get('tier')
+        t = self.archive_time
+        word = 'archived' if cur_tier > 0 else 'deleted'
+        embed = discord.Embed(
+            colour=discord.Colour.red(),
+            title=f'⚠Flagged to be {word.capitalize()}⚠',
+            description=(
+                f'This channel has been flagged due to inactivity. The channel will be {word} '
+                f'<t:{int(t.timestamp())}:R> for later retrieval, assuming an admin does not remove it.'
+            )
+        )
+        embed.add_field(
+            name=f'{word.capitalize()[:-2]} Time',
+            value=f'<t:{int(t.timestamp())}:f>'
+        )
+        return embed
+
+    def _get_saved_embed(self) -> discord.Embed:
+        cur_tier = self.settings.get('tier')
+        word = 'Archive' if cur_tier > 0 else 'Deletion'
+        if self.get_flag('ARCHIVED'):
+            embed = discord.Embed(
+                colour=discord.Colour.green(),
+                title='Channel Restored',
+                description=f'Channel restored at {cur_tier} tier.'
+            )
+        else:
+            embed = discord.Embed(
+                colour=discord.Colour.green(),
+                title=f'{word} Aborted',
+                description=f'{word} was successfully aborted.'
+            )
         return embed
 
 
