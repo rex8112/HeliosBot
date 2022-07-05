@@ -6,7 +6,7 @@ class Config:
     def __init__(self) -> None:
         self.token = ''
         self.owner = '180067685986467840'
-        self.api_url = 'http://127.0.0.1:8000/api'
+        self.api_url = 'http://127.0.0.1:8000/'
         self.file_path = 'config.json'
         self.api_username = 'admin'
         self.api_password = '123'
