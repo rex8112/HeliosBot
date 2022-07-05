@@ -1,4 +1,5 @@
 import datetime
+import json
 from typing import TYPE_CHECKING, Optional
 
 import discord
@@ -61,7 +62,7 @@ class Channel:
         return cls(manager, data)
 
     async def save(self):
-        self.bot.http.put_channel(self.serialize())
+        await self.bot.helios_http.put_channel(self.serialize())
 
     def set_flag(self, flag: str, on: bool):
         if flag not in self._allowed_flags:
@@ -104,12 +105,10 @@ class TopicChannel(Channel):
         'creator': None,
         'archive_at': None,
         'archive_message_id': None,
-        **super()._default_settings
     }
     _allowed_flags = [
         'MARKED',
         'ARCHIVED',
-        *super()._allowed_flags
     ]
     _repeated_authors_value = 1 / 20  # Users per messages
     _tier_thresholds_lengths = {
@@ -194,7 +193,8 @@ class TopicChannel(Channel):
             await self.set_archive(False, post=post)
         elif self.get_flag('MARKED'):
             await self.set_marked(False, post=post)
-        # TODO Use interaction to post save embed
+        if not post:
+            await interaction.response.edit_message(embed=self._get_saved_embed(), view=None)  # TODO
 
     async def evaluate_tier(self, change=True, allow_degrade=False) -> int:
         """

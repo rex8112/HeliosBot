@@ -8,7 +8,7 @@ from .exceptions import IdMismatchError
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
-    from helios import ServerManager
+    from .server_manager import ServerManager
 
 
 class Server:

@@ -23,7 +23,7 @@ class ChannelManager:
         start_time = time.time()
         tasks = []
         if not channel_data:
-            data = await self.bot.http.get_channel(server=self.server.id)
+            data = await self.bot.helios_http.get_channel(server=self.server.id)
             channel_data = data
 
         for data in channel_data:
