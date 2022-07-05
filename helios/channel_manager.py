@@ -27,5 +27,6 @@ class ChannelManager:
             channel_data = data
 
         for data in channel_data:
-            c = Channel(self, data)
+            channel_cls = Channel_Dict.get(data.get('type'))
+            c = channel_cls(self, data)
             self.channels[c.id] = c
