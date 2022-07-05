@@ -52,5 +52,7 @@ async def main():
     async with bot:
         await load_extensions()
         await bot.start(bot.settings.token)
+        await asyncio.sleep(0.1)
+    await asyncio.sleep(0.1)
 
 asyncio.run(main())

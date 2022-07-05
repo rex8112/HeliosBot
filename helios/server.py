@@ -3,8 +3,8 @@ from typing import TYPE_CHECKING, Dict
 
 import discord
 
-from .exceptions import IdMismatchError
 from .channel_manager import ChannelManager
+from .exceptions import IdMismatchError
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot

@@ -2,10 +2,10 @@ import logging
 import time
 from typing import TYPE_CHECKING, Optional
 
-from .channel import Channel
-from .server import Server
+from .channel import Channel_Dict, Channel
 
 if TYPE_CHECKING:
+    from .server import Server
     from .helios_bot import HeliosBot
 logger = logging.getLogger('HeliosLogger')
 

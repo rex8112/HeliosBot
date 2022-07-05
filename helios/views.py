@@ -1,9 +1,11 @@
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 import discord
 
-from .helios_bot import HeliosBot
 from .types import HeliosChannel
+
+if TYPE_CHECKING:
+    from .helios_bot import HeliosBot
 
 
 async def send_bad_response(interaction: discord.Interaction, message: str):
