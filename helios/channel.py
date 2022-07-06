@@ -64,6 +64,15 @@ class Channel:
     async def save(self):
         await self.bot.helios_http.put_channel(self.serialize())
 
+    async def delete(self, del_channel=True):
+        try:
+            if del_channel:
+                await self.channel.delete()
+        except (discord.Forbidden, discord.HTTPException, discord.NotFound):
+            pass
+        finally:
+            await self.bot.helios_http.del_channel(self.id)
+
     def set_flag(self, flag: str, on: bool):
         if flag not in self._allowed_flags:
             raise KeyError(f'{flag} not in {type(self)} allowed flags: {self._allowed_flags}')
@@ -214,10 +223,20 @@ class TopicChannel(Channel):
         if not allow_degrade and tier < self.settings.get('tier'):
             tier = self.settings.get('tier')
         if change and tier != self.settings.get('tier'):
-            self.settings['tier'] = tier
             embed = self._get_tier_change_embed(tier)
+            self.settings['tier'] = tier
             await self.channel.send(embed=embed)
         return tier
+
+    async def evaluate_state(self):
+        marked = self.get_flag('MARKED')
+        archived = self.get_flag('ARCHIVED')
+        if marked:
+            if self.get_archivable():
+                await self.set_archive(True)
+        elif not archived:
+            if self.get_markable():
+                await self.set_marked(True)
 
     async def post_archive_message(self, content=None, *, embed=None, view=None):
         message_id = self.settings.get('archive_message_id')

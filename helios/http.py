@@ -36,3 +36,7 @@ class HTTPClient:
     async def put_channel(self, json_data: Union[dict, list]):
         resp = await self.request('channels/', method='PUT', json=json_data)
         return resp
+
+    async def del_channel(self, id: int):
+        resp = await self.request('channels/', method='DELETE', id=id)
+        return resp
