@@ -1,3 +1,4 @@
+import json
 from typing import Union, TYPE_CHECKING
 
 import aiohttp
@@ -16,7 +17,8 @@ class HTTPClient:
     async def request(self, url_end: str, method='GET', **params):
         url = f'/api/{url_end}'
         resp = await self._session.request(method, url, **params)
-        return await resp.json()
+        j = await resp.json()
+        return j
 
     async def get_server(self, guild_id: str):
         resp = await self.request(f'servers/{guild_id}/')
@@ -30,13 +32,17 @@ class HTTPClient:
         if channel_id:
             resp = await self.request(f'channels/{channel_id}/')
         else:
-            resp = await self.request(f'channels/', **params)
+            resp = await self.request(f'channels/', params=params)
         return resp
 
-    async def put_channel(self, json_data: Union[dict, list]):
-        resp = await self.request('channels/', method='PUT', json=json_data)
+    async def post_channel(self, json_data: Union[dict, list]):
+        resp = await self.request('channels/', method='POST', json=json_data)
+        return resp
+
+    async def patch_channel(self, json_data: Union[dict, list]):
+        resp = await self.request(f'channels/{json_data.get("id")}/', method='PATCH', json=json_data)
         return resp
 
     async def del_channel(self, id: int):
-        resp = await self.request('channels/', method='DELETE', id=id)
+        resp = await self.request(f'channels/{id}/', method='DELETE')
         return resp

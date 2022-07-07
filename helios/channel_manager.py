@@ -18,20 +18,21 @@ class ChannelManager:
     def __init__(self, server: 'Server'):
         self.bot: 'HeliosBot' = server.bot
         self.server = server
-        self.channels: dict[int, HeliosChannel] = {}
+        self.channels: dict[int, 'HeliosChannel'] = {}
 
     def get(self, channel_id: int) -> Optional[Channel]:
         return self.channels.get(channel_id)
 
-    def get_type(self, t: str) -> list[HeliosChannel]:
-        return list(filter(lambda x: x.type == t, self.channels.values()))
+    def get_type(self, t: str) -> list['HeliosChannel']:
+        return list(filter(lambda x: x.channel_type == t, self.channels.values()))
 
-    def _add_channel(self, channel: HeliosChannel):
+    def _add_channel(self, channel: 'HeliosChannel'):
         if self.get(channel.id):
             raise NotImplemented
         self.channels[channel.id] = channel
 
     async def manage_channels(self):
+        await self.bot.wait_until_ready()
         while True:
             await self.purge_dead_channels()
             await self.manage_topics()
@@ -44,20 +45,25 @@ class ChannelManager:
             if v.alive is False:
                 del self.channels[k]
                 deletes.append(v.delete(del_channel=False))
-        await asyncio.wait(deletes)
+        if len(deletes) > 0:
+            await asyncio.wait(deletes)
 
     async def manage_topics(self):
         """Run evaluate_tiers and evaluate_state on all topic channels."""
         topic_channels = self.get_type('topic')
         e_tiers = []
         e_state = []
+        e_save = []
         for c in topic_channels:
             e_tiers.append(c.evaluate_tier())
             e_state.append(c.evaluate_state())
-        logger.debug(f'{self.server.name}: Evaluating Topic Tiers')
-        await asyncio.wait(e_tiers)
-        logger.debug(f'{self.server.name}: Evaluating Topic States')
-        await asyncio.wait(e_state)
+            e_save.append(c.save())
+        if len(e_tiers) > 0:
+            logger.debug(f'{self.server.name}: Evaluating Topic Tiers')
+            await asyncio.wait(e_tiers)
+            logger.debug(f'{self.server.name}: Evaluating Topic States')
+            await asyncio.wait(e_state)
+            await asyncio.wait(e_save)
 
     async def create_topic(self, name: str, owner: discord.User) -> tuple[bool, str]:
         topics = self.get_type('topic')
@@ -89,6 +95,7 @@ class ChannelManager:
                 self.channels[c.id] = c
             else:
                 deletes.append(c.delete(del_channel=False))
-        await asyncio.wait(deletes)
+        if len(deletes) > 0:
+            await asyncio.wait(deletes)
         logger.debug(f'Adding {self.server.id}: Channel Manager to event loop')
         self.bot.loop.create_task(self.manage_channels(), name=f'{self.server.id}: Channel Manager')

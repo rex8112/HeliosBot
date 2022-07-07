@@ -32,6 +32,7 @@ class Channel:
 
         self._id = data['id']
         self.channel = self.bot.get_channel(self._id)
+        self._loaded = False
 
         self._deserialize(data)
 
@@ -59,10 +60,16 @@ class Channel:
             'id': channel_id,
             'type': cls.channel_type,
         }
-        return cls(manager, data)
+        c = cls(manager, data)
+        c._loaded = False
+        return c
 
     async def save(self):
-        await self.bot.helios_http.put_channel(self.serialize())
+        if self._loaded:
+            await self.bot.helios_http.patch_channel(self.serialize())
+        else:
+            await self.bot.helios_http.post_channel(self.serialize())
+            self._loaded = True
 
     async def delete(self, del_channel=True):
         try:
@@ -91,6 +98,7 @@ class Channel:
         settings = data.get('settings', {})
         for k, v in settings.items():
             self.settings[k] = v
+        self._loaded = True
 
     def serialize(self) -> dict:
         return {
@@ -109,7 +117,7 @@ def _get_archive_time():
 class TopicChannel(Channel):
     channel_type = 'topic'
     _default_settings = {
-        'tier': 0,
+        'tier': 1,
         'saves_in_row': 0,
         'creator': None,
         'archive_at': None,
@@ -135,10 +143,10 @@ class TopicChannel(Channel):
     def oldest_allowed(self) -> datetime.datetime:
         """
         Get the datetime of how old the last message has to be for the channel to get marked
-        :return: A naive timezone that I think is in local time
+        :return: An aware datetime that is in local time
         """
         delta = list(self._tier_thresholds_lengths.values())[self.settings.get('tier') - 1]
-        now = datetime.datetime.now()
+        now = datetime.datetime.now().astimezone()
         return now - delta
 
     @property
@@ -162,13 +170,16 @@ class TopicChannel(Channel):
             return self.bot.get_channel(channel_id)
         return None
 
+    def tier_duration(self, tier: int) -> datetime.timedelta:
+        return list(self._tier_thresholds_lengths.values())[tier - 1]
+
     async def _get_last_week_authors_value(self) -> dict[int, int]:
         week_ago = datetime.datetime.now() - datetime.timedelta(days=7)
         authors = {}
         async for msg in self.channel.history(after=week_ago):
             author = msg.author
             if not author.bot:
-                authors[author.id] = 0.05 + authors.get(author.id, 1)
+                authors[author.id] = 0.05 + authors.get(author.id, 0.95)
         return authors
 
     async def set_marked(self, state: bool, post=True) -> None:
@@ -235,7 +246,7 @@ class TopicChannel(Channel):
             if self.get_archivable():
                 await self.set_archive(True)
         elif not archived:
-            if self.get_markable():
+            if await self.get_markable():
                 await self.set_marked(True)
 
     async def post_archive_message(self, content=None, *, embed=None, view=None):
@@ -252,8 +263,15 @@ class TopicChannel(Channel):
         """
         Returns whether the channel is eligible to be marked for archival
         """
-        last_message = await self.channel.fetch_message(self.channel.last_message_id)
-        return last_message.created_at < self.oldest_allowed
+        if self.channel.last_message_id:
+            last_message = await self.channel.fetch_message(self.channel.last_message_id)
+        else:
+            last_message = None
+        if last_message is None:
+            time = self.channel.created_at
+        else:
+            time = last_message.created_at
+        return time < self.oldest_allowed
 
     def get_archivable(self) -> bool:
         """
@@ -282,7 +300,7 @@ class TopicChannel(Channel):
                 colour=discord.Colour.green(),
                 title=f'Tier increased to {tier}!'
             )
-        embed.description = f'New idle timer is: {self._tier_thresholds_lengths.get(tier).days} days'
+        embed.description = f'New idle timer is: {self.tier_duration(tier).days} days'
         return embed
 
     def _get_marked_embed(self) -> discord.Embed:
