@@ -41,5 +41,5 @@ class TopicView(discord.ui.View):
         if channel.channel_type != 'topic':
             await send_bad_response(interaction, 'This should not be possible')
             return
-        await channel.save_channel()
+        await channel.save_channel(interaction=interaction)
         await channel.save()

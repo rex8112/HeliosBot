@@ -129,8 +129,8 @@ class TopicChannel(Channel):
     ]
     _repeated_authors_value = 1 / 20  # Users per messages
     _tier_thresholds_lengths = {
-        0: datetime.timedelta(minutes=1),
-        2: datetime.timedelta(minutes=3),
+        0: datetime.timedelta(days=1),
+        2: datetime.timedelta(days=3),
         5: datetime.timedelta(days=7),
         10: datetime.timedelta(days=14),
         20: datetime.timedelta(days=28)
@@ -200,6 +200,7 @@ class TopicChannel(Channel):
                 await self.post_archive_message(embed=self._get_saved_embed())
 
     async def set_archive(self, state: bool, post=True) -> None:
+        self.set_flag('ARCHIVED', state)
         self.settings['archive_at'] = None
         if state:
             await self.set_marked(False, post=False)
@@ -244,7 +245,10 @@ class TopicChannel(Channel):
         marked = self.get_flag('MARKED')
         archived = self.get_flag('ARCHIVED')
         if marked:
-            if self.get_archivable():
+            archivable = self.get_archivable()
+            if archivable and self.can_delete():
+                await self.channel.delete(reason='Expired from inactivity')
+            elif archivable:
                 await self.set_archive(True)
         elif not archived:
             if await self.get_markable():
@@ -290,7 +294,7 @@ class TopicChannel(Channel):
         return marked and timing
 
     def can_delete(self) -> bool:
-        return self.settings.get('tier') == 1 and self.get_archivable()
+        return self.settings.get('tier') == 1
 
     def _get_tier_change_embed(self, tier: int) -> discord.Embed:
         cur_tier = self.settings.get('tier')
