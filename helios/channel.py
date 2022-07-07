@@ -111,7 +111,7 @@ class Channel:
 
 
 def _get_archive_time():
-    return datetime.datetime.now() + datetime.timedelta(hours=30)
+    return datetime.datetime.now().astimezone() + datetime.timedelta(hours=30)
 
 
 class TopicChannel(Channel):
@@ -129,8 +129,8 @@ class TopicChannel(Channel):
     ]
     _repeated_authors_value = 1 / 20  # Users per messages
     _tier_thresholds_lengths = {
-        0: datetime.timedelta(days=1),
-        2: datetime.timedelta(days=3),
+        0: datetime.timedelta(minutes=1),
+        2: datetime.timedelta(minutes=3),
         5: datetime.timedelta(days=7),
         10: datetime.timedelta(days=14),
         20: datetime.timedelta(days=28)
@@ -214,7 +214,8 @@ class TopicChannel(Channel):
         elif self.get_flag('MARKED'):
             await self.set_marked(False, post=post)
         if not post:
-            await interaction.response.edit_message(embed=self._get_saved_embed(), view=None)  # TODO
+            await interaction.response.edit_message(embed=self._get_saved_embed(), view=None)
+        self.settings['archive_message_id'] = None
 
     async def evaluate_tier(self, change=True, allow_degrade=False) -> int:
         """
@@ -277,9 +278,15 @@ class TopicChannel(Channel):
         """
         Returns whether the channel is ready to be archived
         """
-        now = datetime.datetime.now()
+        now = datetime.datetime.now().astimezone()
         marked = 'MARKED' in self.flags
-        timing = self.settings.get('archive_at', now + datetime.timedelta(days=1)) < now
+        default = now + datetime.timedelta(days=1)
+        archive_at_raw = self.settings.get('archive_at')
+        if archive_at_raw:
+            archive_at = datetime.datetime.fromisoformat(archive_at_raw)
+        else:
+            archive_at = default
+        timing = archive_at < now
         return marked and timing
 
     def can_delete(self) -> bool:
@@ -306,7 +313,7 @@ class TopicChannel(Channel):
     def _get_marked_embed(self) -> discord.Embed:
         cur_tier = self.settings.get('tier')
         t = self.archive_time
-        word = 'archived' if cur_tier > 0 else 'deleted'
+        word = 'archived' if cur_tier > 1 else 'deleted'
         embed = discord.Embed(
             colour=discord.Colour.red(),
             title=f'⚠Flagged to be {word.capitalize()}⚠',
@@ -316,14 +323,14 @@ class TopicChannel(Channel):
             )
         )
         embed.add_field(
-            name=f'{word.capitalize()[:-2]} Time',
+            name=f'{word.capitalize()[:-1]} Time',
             value=f'<t:{int(t.timestamp())}:f>'
         )
         return embed
 
     def _get_saved_embed(self) -> discord.Embed:
         cur_tier = self.settings.get('tier')
-        word = 'Archive' if cur_tier > 0 else 'Deletion'
+        word = 'Archive' if cur_tier > 1 else 'Deletion'
         if self.get_flag('ARCHIVED'):
             embed = discord.Embed(
                 colour=discord.Colour.green(),

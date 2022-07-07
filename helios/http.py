@@ -1,4 +1,3 @@
-import json
 from typing import Union, TYPE_CHECKING
 
 import aiohttp
@@ -20,7 +19,7 @@ class HTTPClient:
         j = await resp.json()
         return j
 
-    async def get_server(self, guild_id: str):
+    async def get_server(self, guild_id: int):
         resp = await self.request(f'servers/{guild_id}/')
         return resp
 
@@ -28,7 +27,6 @@ class HTTPClient:
         raise NotImplemented
 
     async def get_channel(self, channel_id: str = None, **params) -> Union[dict, list]:
-        resp = None
         if channel_id:
             resp = await self.request(f'channels/{channel_id}/')
         else:

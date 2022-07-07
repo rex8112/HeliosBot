@@ -6,6 +6,7 @@ from discord.ext import commands
 from .http import HTTPClient
 from .server_manager import ServerManager
 from .tools import Config
+from .views import TopicView
 
 logger = logging.getLogger('HeliosLogger')
 
@@ -26,6 +27,7 @@ class HeliosBot(commands.Bot):
             api_username=self.settings.api_username,
             api_password=self.settings.api_password
         )
+        self.add_view(TopicView(self))
 
     async def on_ready(self):
         logger.info(f'Logged in as {self.user} (ID: {self.user.id})')

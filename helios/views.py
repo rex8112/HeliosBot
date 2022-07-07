@@ -42,3 +42,4 @@ class TopicView(discord.ui.View):
             await send_bad_response(interaction, 'This should not be possible')
             return
         await channel.save_channel()
+        await channel.save()
