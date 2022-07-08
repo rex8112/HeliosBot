@@ -32,7 +32,7 @@ class Channel:
 
         self._id = data['id']
         self.channel = self.bot.get_channel(self._id)
-        self._loaded = False
+        self._new = False
 
         self._deserialize(data)
 
@@ -61,15 +61,15 @@ class Channel:
             'type': cls.channel_type,
         }
         c = cls(manager, data)
-        c._loaded = False
+        c._new = True
         return c
 
     async def save(self):
-        if self._loaded:
-            await self.bot.helios_http.patch_channel(self.serialize())
-        else:
+        if self._new:
             await self.bot.helios_http.post_channel(self.serialize())
-            self._loaded = True
+            self._new = True
+        else:
+            await self.bot.helios_http.patch_channel(self.serialize())
 
     async def delete(self, del_channel=True):
         try:
@@ -98,7 +98,7 @@ class Channel:
         settings = data.get('settings', {})
         for k, v in settings.items():
             self.settings[k] = v
-        self._loaded = True
+        self._new = True
 
     def serialize(self) -> dict:
         return {

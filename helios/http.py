@@ -19,14 +19,22 @@ class HTTPClient:
         j = await resp.json()
         return j
 
-    async def get_server(self, guild_id: int):
-        resp = await self.request(f'servers/{guild_id}/')
+    async def get_server(self, guild_id: int = None):
+        if guild_id:
+            resp = await self.request(f'servers/{guild_id}/')
+        else:
+            resp = await self.request(f'servers/')
         return resp
 
-    async def add_server(self, guild_id: str, **data):
-        raise NotImplemented
+    async def post_server(self, json_data: Union[dict, list]):
+        resp = await self.request(f'servers/', method='POST', json=json_data)
+        return resp
 
-    async def get_channel(self, channel_id: str = None, **params) -> Union[dict, list]:
+    async def patch_server(self, json_data: Union[dict, list]):
+        resp = await self.request(f'servers/{json_data.get("id")}/', method='PATCH', json=json_data)
+        return resp
+
+    async def get_channel(self, channel_id: int = None, **params) -> Union[dict, list]:
         if channel_id:
             resp = await self.request(f'channels/{channel_id}/')
         else:

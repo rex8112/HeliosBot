@@ -22,20 +22,24 @@ class ServerManager:
     async def setup(self):
         start_time = time.time()
         tasks = []
-        for guild in self.bot.guilds:
-            tasks.append(asyncio.ensure_future(self.bot.helios_http.get_server(guild.id)))
-            server = Server(self.bot, self, guild)
-            self.servers[server.id] = server
+        server_data = await self.bot.helios_http.get_server()
+        server_dict = {}
+        for data in server_data:
+            server_dict[data.get('id')] = data
 
-        servers_data = await asyncio.gather(*tasks)
-        tasks.clear()
-        for data in servers_data:
-            if data.get('detail') is None:
-                server: Server = self.servers.get(data.get('id'))
+        for guild in self.bot.guilds:
+            data = server_dict.get(guild.id)
+            if data:
+                server = Server(self, guild)
                 server.deserialize(data)
                 channel_data = data.get('channels')
-                tasks.append(asyncio.ensure_future(server.channels.setup(channel_data)))
+                tasks.append(server.channels.setup(channel_data))
+            else:
+                server = Server.new(self, guild)
+                tasks.append(server.save())
+            self.servers[server.id] = server
+
         logger.info(f'{len(tasks)} Servers loaded in {time.time() - start_time} seconds')
         start_time = time.time()
-        await asyncio.gather(*tasks)
+        await asyncio.wait(tasks)
         logger.info(f'Channels loaded in {time.time() - start_time} seconds')

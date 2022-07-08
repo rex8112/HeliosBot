@@ -1,4 +1,3 @@
-import asyncio
 from typing import TYPE_CHECKING, Dict
 
 import discord
@@ -7,7 +6,6 @@ from .channel_manager import ChannelManager
 from .exceptions import IdMismatchError
 
 if TYPE_CHECKING:
-    from .helios_bot import HeliosBot
     from .server_manager import ServerManager
 
 
@@ -17,18 +15,18 @@ class Server:
         'topic_category': None
     }
 
-    def __init__(self, bot: 'HeliosBot', manager: 'ServerManager', guild: discord.Guild):
+    def __init__(self, manager: 'ServerManager', guild: discord.Guild):
         self.loaded = False
-        self.bot = bot
+        self.bot = manager.bot
         self.guild = guild
         self.manager = manager
         self.channels = ChannelManager(self)
         self.private_voice_channels = {}
         self.topics = {}
-        self.settings = {}
+        self.settings = self._default_settings.copy()
         self.flags = []
 
-        self._event = asyncio.Event()
+        self._new = False
 
     # Properties
     @property
@@ -38,6 +36,13 @@ class Server:
     @property
     def id(self):
         return self.guild.id
+
+    @classmethod
+    def new(cls, manager: 'ServerManager', guild: discord.Guild):
+        s = cls(manager, guild)
+        s._new = True
+        s.loaded = True
+        return s
 
     # Methods
     def deserialize(self, data: Dict) -> None:
@@ -67,3 +72,10 @@ class Server:
         }
 
         return data
+
+    async def save(self):
+        if self._new:
+            await self.bot.helios_http.post_server(self.serialize())
+            self._new = False
+        else:
+            await self.bot.helios_http.patch_server(self.serialize())
