@@ -41,12 +41,15 @@ class ChannelManager:
 
     async def purge_dead_channels(self):
         deletes = []
+        deletes_keys = []
         for k, v in self.channels.items():
             if v.alive is False:
-                del self.channels[k]
+                deletes_keys.append(k)
                 deletes.append(v.delete(del_channel=False))
         if len(deletes) > 0:
             await asyncio.wait(deletes)
+            for k in deletes_keys:
+                del self.channels[k]
 
     async def manage_topics(self):
         """Run evaluate_tiers and evaluate_state on all topic channels."""

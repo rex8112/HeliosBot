@@ -16,7 +16,7 @@ class HTTPClient:
     async def request(self, url_end: str, method='GET', **params):
         url = f'/api/{url_end}'
         resp = await self._session.request(method, url, **params)
-        j = await resp.json()
+        j = await resp.json(content_type=resp.headers.get('Content-Type'))
         return j
 
     async def get_server(self, guild_id: int = None):

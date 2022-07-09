@@ -23,7 +23,7 @@ class SettingsCog(commands.GroupCog, name='settings'):
 
     @app_commands.command(name='archivecategory', description='Set the archive category')
     @app_commands.checks.has_permissions(administrator=True)
-    async def topic_category(self, interaction: discord.Interaction, archive_category: discord.CategoryChannel):
+    async def archive_category(self, interaction: discord.Interaction, archive_category: discord.CategoryChannel):
         server = self.bot.servers.get(guild_id=interaction.guild_id)
         server.settings['archive_category'] = archive_category.id
         await server.save()

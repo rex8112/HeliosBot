@@ -67,7 +67,7 @@ class Channel:
     async def save(self):
         if self._new:
             await self.bot.helios_http.post_channel(self.serialize())
-            self._new = True
+            self._new = False
         else:
             await self.bot.helios_http.patch_channel(self.serialize())
 
@@ -98,7 +98,6 @@ class Channel:
         settings = data.get('settings', {})
         for k, v in settings.items():
             self.settings[k] = v
-        self._new = True
 
     def serialize(self) -> dict:
         return {

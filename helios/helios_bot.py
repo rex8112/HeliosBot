@@ -1,6 +1,7 @@
 import logging
-from typing import Optional
+from typing import Optional, Union
 
+import discord
 from discord.ext import commands
 
 from .http import HTTPClient
@@ -21,6 +22,7 @@ class HeliosBot(commands.Bot):
         super().__init__(command_prefix, intents=intents, **options)
 
     async def setup_hook(self) -> None:
+        self.tree.on_error = self.on_slash_error
         self.helios_http = HTTPClient(
             self.settings.api_url,
             loop=self.loop,
@@ -35,3 +37,13 @@ class HeliosBot(commands.Bot):
             logger.debug('Beginning server load')
             await self.servers.setup()
             self.ready_once = False
+
+    @staticmethod
+    async def on_slash_error(
+            interaction: discord.Interaction,
+            error: discord.app_commands.AppCommandError
+    ):
+        if interaction.response.is_done():
+            await interaction.followup.send(f'Something went wrong\n```{type(error)}: {error}```')
+        else:
+            await interaction.response.send_message(f'Something went wrong\n```{type(error)}: {error}```')
