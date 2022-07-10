@@ -349,6 +349,13 @@ class TopicChannel(Channel):
         return embed
 
 
+class VoiceChannel(Channel):
+    channel_type = 'private_voice'
+
+    def __init__(self, manager: 'ChannelManager', data: dict):
+        super().__init__(manager, data)
+
+
 Channel_Dict = {
     Channel.channel_type: Channel,
     TopicChannel.channel_type: TopicChannel
