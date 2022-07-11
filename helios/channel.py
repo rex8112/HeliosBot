@@ -1,6 +1,6 @@
 import datetime
 import json
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union
 
 import discord
 
@@ -8,6 +8,7 @@ from .views import TopicView
 
 if TYPE_CHECKING:
     from helios import ChannelManager, HeliosBot
+    from .voice_template import VoiceTemplate
 
 
 class Channel:
@@ -354,6 +355,14 @@ class VoiceChannel(Channel):
 
     def __init__(self, manager: 'ChannelManager', data: dict):
         super().__init__(manager, data)
+
+    async def update_permissions(self):
+        template: 'VoiceTemplate' = self.settings.get('template')  # TODO get template
+        for target, perms in template.permissions:
+            await self._update_perm(target, perms)
+
+    async def _update_perm(self, target: Union[discord.Member, discord.Role], overwrites: discord.PermissionOverwrite):
+        await self.channel.set_permissions(target, overwrite=overwrites)
 
 
 Channel_Dict = {
