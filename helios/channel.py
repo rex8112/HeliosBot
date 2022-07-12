@@ -356,8 +356,14 @@ class VoiceChannel(Channel):
     def __init__(self, manager: 'ChannelManager', data: dict):
         super().__init__(manager, data)
 
-    async def update_permissions(self):
-        template: 'VoiceTemplate' = self.settings.get('template')  # TODO get template
+    async def apply_template(self, template: 'VoiceTemplate'):
+        await self.channel.edit(
+            name=template.name,
+            nsfw=template.nsfw
+        )
+        await self.update_permissions(template)
+
+    async def update_permissions(self, template: 'VoiceTemplate'):
         for target, perms in template.permissions:
             await self._update_perm(target, perms)
 
@@ -367,5 +373,6 @@ class VoiceChannel(Channel):
 
 Channel_Dict = {
     Channel.channel_type: Channel,
-    TopicChannel.channel_type: TopicChannel
+    TopicChannel.channel_type: TopicChannel,
+    VoiceChannel.channel_type: VoiceChannel
 }
