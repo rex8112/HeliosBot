@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import time
 from typing import TYPE_CHECKING, Optional
 
 import discord
@@ -73,7 +72,7 @@ class ChannelManager:
         for t in topics:
             if t.channel.name.lower() == name.lower():
                 return False, f'Channel already exists: {t.channel.mention}'
-        category = self.bot.get_channel(self.server.settings.get('topic_category'))
+        category = self.bot.get_channel(self.server.settings.topic_category)
         if category:
             new_channel = await category.create_text_channel(name=name)
             channel_type = Channel_Dict.get('topic')

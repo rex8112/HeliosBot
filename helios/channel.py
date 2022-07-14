@@ -157,14 +157,14 @@ class TopicChannel(Channel):
 
     @property
     def archive_category(self) -> Optional[discord.CategoryChannel]:
-        channel_id = self.server.settings.get('archive_category')
+        channel_id = self.server.settings.archive_category
         if channel_id:
             return self.bot.get_channel(channel_id)
         return None
 
     @property
     def topic_category(self) -> Optional[discord.CategoryChannel]:
-        channel_id = self.server.settings.get('topic_category')
+        channel_id = self.server.settings.topic_category
         if channel_id:
             return self.bot.get_channel(channel_id)
         return None
