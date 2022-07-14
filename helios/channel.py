@@ -352,9 +352,31 @@ class TopicChannel(Channel):
 
 class VoiceChannel(Channel):
     channel_type = 'private_voice'
+    _default_settings = {
+        'owner': None,
+        'template': None
+    }
 
     def __init__(self, manager: 'ChannelManager', data: dict):
         super().__init__(manager, data)
+
+    def can_delete(self) -> bool:
+        ago = datetime.datetime.now() - datetime.timedelta(minutes=5)
+        return len(self.channel.members) == 0 and ago <= self.channel.created_at
+
+    def can_neutralize(self) -> bool:
+        return self.owner in self.channel.members
+
+    @property
+    def owner(self) -> Optional[discord.Member]:
+        owner_id = self.settings.get('owner')
+        if owner_id:
+            return self.channel.guild.get_member(owner_id)
+        return None
+
+    async def neutralize(self):
+        self.settings['owner'] = None
+        await self.channel.edit(name=f'<Neutral> {self.channel.name}')
 
     async def apply_template(self, template: 'VoiceTemplate'):
         await self.channel.edit(
