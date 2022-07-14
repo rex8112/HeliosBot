@@ -12,8 +12,11 @@ if TYPE_CHECKING:
 class Settings:
     def __init__(self, data: dict, *, bot: 'HeliosBot' = None, guild: 'Guild' = None):
         for k, v in data.items():
-            if self.__getattribute__(k):
-                raise AttributeError(f'Attribute {k} already exists')
+            try:
+                if self.__getattribute__(k):
+                    raise AttributeError(f'Attribute {k} already exists')
+            except AttributeError:
+                ...
             if isinstance(v, tuple):
                 try:
                     self.__setattr__(k, Item.deserialize(v, bot=bot, guild=guild))
@@ -46,11 +49,11 @@ class Item:
     @staticmethod
     def deserialize(o: tuple[str, Union[str, int]], *, bot: 'HeliosBot' = None, guild: 'Guild' = None):
         name, data = o
-        if name is 'Member':
+        if name == 'Member':
             if not guild:
                 raise ValueError(f'Argument guild required for type {name}.')
             return guild.get_member(data)
-        elif name is 'Channel':
+        elif name == 'Channel':
             if not guild:
                 raise ValueError(f'Argument guild required for type {name}.')
             return guild.get_channel(data)
