@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Optional
 import discord
 
 from .views import TopicView
+from .tools.settings import Settings
 
 if TYPE_CHECKING:
     from helios import ChannelManager, HeliosBot
@@ -26,7 +27,6 @@ class Channel:
         self.bot: 'HeliosBot' = manager.bot
         self.manager = manager
         self.channel = None
-        self.settings = self._default_settings.copy()
         self.flags = []
         self._id = None
 
@@ -34,6 +34,7 @@ class Channel:
         self.channel = self.bot.get_channel(self._id)
         self._new = False
 
+        self.settings = Settings(self._default_settings, bot=self.bot, guild=self.channel.guild)
         self._deserialize(data)
 
     @property
@@ -95,16 +96,15 @@ class Channel:
         if self.channel_type != data.get('type'):
             raise TypeError(f'Channel data is of type `{data.get("type")}` not `{self.channel_type}`')
         self.flags = data.get('flags', self.flags)
-        settings = data.get('settings', {})
-        for k, v in settings.items():
-            self.settings[k] = v
+        settings = {**self._default_settings, **data.get('settings', {})}
+        self.settings = Settings(settings, bot=self.bot, guild=self.channel.guild)
 
     def serialize(self) -> dict:
         return {
             'id': self.id,
             'server': self.server.id,
             'type': self.channel_type,
-            'settings': self.settings,
+            'settings': self.settings.to_dict(),
             'flags': self.flags
         }
 
@@ -144,13 +144,13 @@ class TopicChannel(Channel):
         Get the datetime of how old the last message has to be for the channel to get marked
         :return: An aware datetime that is in local time
         """
-        delta = list(self._tier_thresholds_lengths.values())[self.settings.get('tier') - 1]
+        delta = list(self._tier_thresholds_lengths.values())[self.settings.tier - 1]
         now = datetime.datetime.now().astimezone()
         return now - delta
 
     @property
     def archive_time(self) -> Optional[datetime.datetime]:
-        raw_time = self.settings.get('archive_at')
+        raw_time = self.settings.archive_at
         if raw_time:
             return datetime.datetime.fromisoformat(raw_time)
         return None
@@ -189,9 +189,9 @@ class TopicChannel(Channel):
         """
         self.set_flag('MARKED', state)
         if state:
-            self.settings['archive_at'] = _get_archive_time().isoformat()
+            self.settings.archive_at = _get_archive_time().isoformat()
         else:
-            self.settings['archive_at'] = None
+            self.settings.archive_at = None
         if post:
             if state:
                 await self.post_archive_message(embed=self._get_marked_embed(), view=TopicView(self.bot))
@@ -200,7 +200,7 @@ class TopicChannel(Channel):
 
     async def set_archive(self, state: bool, post=True) -> None:
         self.set_flag('ARCHIVED', state)
-        self.settings['archive_at'] = None
+        self.settings.archive_at = None
         if state:
             await self.set_marked(False, post=False)
             await self.channel.edit(category=self.archive_category)
@@ -215,7 +215,7 @@ class TopicChannel(Channel):
             await self.set_marked(False, post=post)
         if not post:
             await interaction.response.edit_message(embed=self._get_saved_embed(), view=None)
-        self.settings['archive_message_id'] = None
+        self.settings.archive_message_id = None
 
     async def evaluate_tier(self, change=True, allow_degrade=False) -> int:
         """
@@ -232,11 +232,11 @@ class TopicChannel(Channel):
         for i, threshold in enumerate(self._tier_thresholds_lengths.keys()):
             if total_value >= threshold:
                 tier = i + 1
-        if not allow_degrade and tier < self.settings.get('tier'):
-            tier = self.settings.get('tier')
-        if change and tier != self.settings.get('tier'):
+        if not allow_degrade and tier < self.settings.tier:
+            tier = self.settings.tier
+        if change and tier != self.settings.tier:
             embed = self._get_tier_change_embed(tier)
-            self.settings['tier'] = tier
+            self.settings.tier = tier
             await self.channel.send(embed=embed)
         return tier
 
@@ -254,14 +254,14 @@ class TopicChannel(Channel):
                 await self.set_marked(True)
 
     async def post_archive_message(self, content=None, *, embed=None, view=None):
-        message_id = self.settings.get('archive_message_id')
+        message_id = self.settings.archive_message_id
         message = None
         if message_id:
             message = await self.channel.fetch_message(message_id)
         if not message:
             message = await self.channel.send(content=content, embed=embed, view=view)
         await message.edit(content=content, view=view, embed=embed)
-        self.settings['archive_message_id'] = message.id
+        self.settings.archive_message_id = message.id
 
     async def get_markable(self) -> bool:
         """
@@ -284,7 +284,7 @@ class TopicChannel(Channel):
         now = datetime.datetime.now().astimezone()
         marked = 'MARKED' in self.flags
         default = now + datetime.timedelta(days=1)
-        archive_at_raw = self.settings.get('archive_at')
+        archive_at_raw = self.settings.archive_at
         if archive_at_raw:
             archive_at = datetime.datetime.fromisoformat(archive_at_raw)
         else:
@@ -293,10 +293,10 @@ class TopicChannel(Channel):
         return marked and timing
 
     def can_delete(self) -> bool:
-        return self.settings.get('tier') == 1
+        return self.settings.tier == 1
 
     def _get_tier_change_embed(self, tier: int) -> discord.Embed:
-        cur_tier = self.settings.get('tier')
+        cur_tier = self.settings.tier
         if tier == cur_tier:
             raise ValueError('Tier can not be the same value as the current tier')
         lower = tier < cur_tier
@@ -314,7 +314,7 @@ class TopicChannel(Channel):
         return embed
 
     def _get_marked_embed(self) -> discord.Embed:
-        cur_tier = self.settings.get('tier')
+        cur_tier = self.settings.tier
         t = self.archive_time
         word = 'archived' if cur_tier > 1 else 'deleted'
         embed = discord.Embed(
@@ -332,7 +332,7 @@ class TopicChannel(Channel):
         return embed
 
     def _get_saved_embed(self) -> discord.Embed:
-        cur_tier = self.settings.get('tier')
+        cur_tier = self.settings.tier
         word = 'Archive' if cur_tier > 1 else 'Deletion'
         if self.get_flag('ARCHIVED'):
             embed = discord.Embed(
