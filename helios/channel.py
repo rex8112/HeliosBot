@@ -369,13 +369,35 @@ class VoiceChannel(Channel):
 
     @property
     def owner(self) -> Optional[discord.Member]:
-        owner_id = self.settings.get('owner')
+        owner_id = self.settings.owner
         if owner_id:
             return self.channel.guild.get_member(owner_id)
         return None
 
+    @property
+    def template(self) -> 'VoiceTemplate':
+        ...
+
+    def _get_menu_embed(self) -> discord.Embed:
+        embed = discord.Embed(
+            title=f'{self.channel.name} Menu',
+            description='Any and all settings are controlled from this message.',
+            colour=discord.Colour.orange()
+        )
+        allowed_string = '\n'.join(x.mention for x in self.template.allowed.values())
+        denied_string = '\n'.join(x.mention for x in self.template.allowed.values())
+        embed.add_field(
+            name='Allowed',
+            value=allowed_string if allowed_string else 'None'
+        )
+        embed.add_field(
+            name='Denied',
+            value=denied_string if denied_string else 'None'
+        )
+        return embed
+
     async def neutralize(self):
-        self.settings['owner'] = None
+        self.settings.owner = None
         await self.channel.edit(name=f'<Neutral> {self.channel.name}')
 
     async def apply_template(self, template: 'VoiceTemplate'):
