@@ -17,7 +17,7 @@ class SettingsCog(commands.GroupCog, name='settings'):
     @app_commands.checks.has_permissions(administrator=True)
     async def topic_category(self, interaction: discord.Interaction, topic_category: discord.CategoryChannel):
         server = self.bot.servers.get(guild_id=interaction.guild_id)
-        server.settings['topic_category'] = topic_category.id
+        server.settings.topic_category = topic_category.id
         await server.save()
         await interaction.response.send_message('Setting Changed', ephemeral=True)
 
@@ -25,7 +25,7 @@ class SettingsCog(commands.GroupCog, name='settings'):
     @app_commands.checks.has_permissions(administrator=True)
     async def archive_category(self, interaction: discord.Interaction, archive_category: discord.CategoryChannel):
         server = self.bot.servers.get(guild_id=interaction.guild_id)
-        server.settings['archive_category'] = archive_category.id
+        server.settings.archive_category = archive_category.id
         await server.save()
         await interaction.response.send_message('Setting Changed', ephemeral=True)
 

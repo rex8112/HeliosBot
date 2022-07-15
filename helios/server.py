@@ -4,6 +4,7 @@ import discord
 
 from .channel_manager import ChannelManager
 from .exceptions import IdMismatchError
+from .tools.settings import Settings
 
 if TYPE_CHECKING:
     from .server_manager import ServerManager
@@ -23,7 +24,7 @@ class Server:
         self.channels = ChannelManager(self)
         self.private_voice_channels = {}
         self.topics = {}
-        self.settings = self._default_settings.copy()
+        self.settings = Settings(self._default_settings, bot=self.bot, guild=self.guild)
         self.flags = []
 
         self._new = False
@@ -54,9 +55,8 @@ class Server:
         if data.get('id') != self.id:
             raise IdMismatchError('ID in data does not match server ID', self.id, data.get('id'))
         self.flags = data.get('flags')
-        settings = data.get('settings', {})
-        for k, v in settings.items():
-            self.settings[k] = v
+        settings = {**self._default_settings, **data.get('settings', {})}
+        self.settings = Settings(settings, bot=self.bot, guild=self.guild)
         self.loaded = True
 
     def serialize(self) -> Dict:
@@ -67,7 +67,7 @@ class Server:
         data = {
             'id': self.id,
             'name': self.name,
-            'settings': self.settings,
+            'settings': self.settings.to_dict(),
             'flags': self.flags
         }
 
