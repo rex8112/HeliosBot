@@ -53,9 +53,9 @@ class HTTPClient:
         resp = await self.request(f'channels/{id}/', method='DELETE')
         return resp
 
-    async def get_member(self, mem_id: int = None, **params) -> Union[dict, list]:
-        if mem_id:
-            resp = await self.request(f'members/{mem_id}/')
+    async def get_member(self, id: int = None, **params) -> Union[dict, list]:
+        if id:
+            resp = await self.request(f'members/{id}/')
         else:
             resp = await self.request(f'members/', params=params)
         return resp
