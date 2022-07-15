@@ -105,6 +105,7 @@ class HeliosMember(HasFlags, HasSettings):
         data = None
         if self._new:
             data = await self.bot.helios_http.post_member(self.serialize())
+            self._new = False
         if self._changed or force:
             data = await self.bot.helios_http.patch_member(self.serialize())
         if data:
