@@ -8,6 +8,7 @@ from .tools.settings import Settings
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
     from .server import Server
+    from .member_manager import MemberManager
     from discord import Guild, Member
 
 
@@ -20,9 +21,9 @@ class HeliosMember(HasFlags, HasSettings):
         'FORBIDDEN'
     ]
 
-    def __init__(self, server: 'Server', member: 'Member', *, data: dict = None):
+    def __init__(self, manager: 'MemberManager', member: 'Member', *, data: dict = None):
         self._id = 0
-        self.server = server
+        self.manager = manager
         self.member = member
         self.settings = Settings(self._default_settings, bot=self.bot, guild=self.guild)
         self.flags = []
@@ -33,6 +34,10 @@ class HeliosMember(HasFlags, HasSettings):
         self._new = True
         if data:
             self._deserialize(data)
+
+    @property
+    def server(self) -> 'Server':
+        return self.manager.server
 
     @property
     def bot(self) -> 'HeliosBot':
@@ -107,7 +112,11 @@ class HeliosMember(HasFlags, HasSettings):
             self._id = data.get('id')
 
     async def load(self):
-        data = await self.bot.helios_http.get_member(self._id)
+        if self._id != 0:
+            data = await self.bot.helios_http.get_member(self._id)
+        else:
+            data = await self.bot.helios_http.get_member(params={'server': self.server.id, 'member_id': self.member.id})
+            data = data[0]
         self._deserialize(data)
 
 
