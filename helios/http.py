@@ -52,3 +52,22 @@ class HTTPClient:
     async def del_channel(self, id: int):
         resp = await self.request(f'channels/{id}/', method='DELETE')
         return resp
+
+    async def get_member(self, mem_id: int = None, **params) -> Union[dict, list]:
+        if mem_id:
+            resp = await self.request(f'members/{mem_id}/')
+        else:
+            resp = await self.request(f'members/', params=params)
+        return resp
+
+    async def post_member(self, json_data: Union[dict, list]):
+        resp = await self.request('members/', method='POST', json=json_data)
+        return resp
+
+    async def patch_member(self, json_data: Union[dict, list]):
+        resp = await self.request(f'members/{json_data.get("id")}/', method='PATCH', json=json_data)
+        return resp
+
+    async def del_member(self, mem_id: int):
+        resp = await self.request(f'members/{mem_id}/', method='DELETE')
+        return resp
