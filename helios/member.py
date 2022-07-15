@@ -1,3 +1,4 @@
+import datetime
 from typing import TYPE_CHECKING
 
 from .abc import HasSettings, HasFlags
@@ -26,6 +27,8 @@ class HeliosMember(HasFlags, HasSettings):
         self.settings = Settings(self._default_settings, bot=self.bot, guild=self.guild)
         self.flags = []
 
+        self._last_check = get_floor_now()
+        self._partial = 0
         self._changed = False
         self._new = True
         if data:
@@ -69,6 +72,30 @@ class HeliosMember(HasFlags, HasSettings):
             'flags': self.flags
         }
 
+    def check_voice(self, amt: int, partial: int = 4) -> bool:
+        """
+        Check if member is in a non-afk voice channel and apply amt per minute since last check.
+        :param amt: Amount to apply per minute of being in a channel.
+        :param partial: Amount of times required to get amt if alone.
+        :return: Whether the member was given points or partial points.
+        """
+        now = get_floor_now()
+        delta = now - self._last_check
+        minutes = delta.seconds // 60
+        self._last_check = now
+
+        if self.member.voice and not self.member.voice.afk:
+            for _ in range(minutes):
+                if len(self.member.voice.channel.members) > 1:
+                    self.add_activity_points(amt)
+                elif self._partial >= partial:
+                    self.add_activity_points(amt)
+                    self._partial = 0
+                else:
+                    self._partial += 1
+            return True
+        return False
+
     async def save(self, force=False):
         data = None
         if self._new:
@@ -83,3 +110,11 @@ class HeliosMember(HasFlags, HasSettings):
         data = await self.bot.helios_http.get_member(self._id)
         self._deserialize(data)
 
+
+def get_floor_now() -> datetime.datetime:
+    now = datetime.datetime.now().astimezone()
+    now = now - datetime.timedelta(
+        seconds=now.second,
+        microseconds=now.microsecond
+    )
+    return now
