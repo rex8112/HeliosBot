@@ -1,8 +1,12 @@
-from typing import Union
+from typing import Union, TYPE_CHECKING
 
 import discord
 
 from .exceptions import IdMismatchError
+
+if TYPE_CHECKING:
+    from .member import HeliosMember
+    from .helios_bot import HeliosBot
 
 
 class VoiceTemplate:
@@ -19,16 +23,20 @@ class VoiceTemplate:
         read_messages=True
     )
 
-    def __init__(self, owner: discord.Member, name: str):
+    def __init__(self, owner: 'HeliosMember', name: str, *, data: dict = None):
         self.id = 0
         self.owner = owner
         self.guild = owner.guild
         self.name = name
 
+        self._new = True
+
         self.nsfw: bool = False
         self.private: bool = True
         self.allowed: dict[int, discord.Member] = {}
         self.denied: dict[int, discord.Member] = {}
+        if data:
+            self._deserialize(data)
 
     @property
     def permissions(self) -> list[tuple[Union[discord.Role, discord.Member], discord.PermissionOverwrite]]:
@@ -49,6 +57,10 @@ class VoiceTemplate:
             permissions.append((member, self._deny_permissions))
 
         return permissions
+
+    @property
+    def bot(self) -> 'HeliosBot':
+        return self.owner.bot
 
     def allow(self, member: discord.Member) -> tuple[discord.Member, discord.PermissionOverwrite]:
         self.allowed[member.id] = member
@@ -72,8 +84,8 @@ class VoiceTemplate:
 
         return member, None
 
-    def deserialize(self, data: dict) -> None:
-        if data.get('owner') != self.owner.id or data.get('guild') != self.guild.id:
+    def _deserialize(self, data: dict) -> None:
+        if data.get('owner') != self.owner.member.id or data.get('guild') != self.guild.id:
             raise IdMismatchError('Guild or Owner Id does not match')
         self.id = data.get('id')
         self.name = data.get('name')
@@ -90,10 +102,17 @@ class VoiceTemplate:
         return {
             'id': self.id,
             'name': self.name,
-            'owner': self.owner.id,
+            'owner': self.owner.member.id,
             'guild': self.guild.id,
             'private': self.private,
             'nsfw': self.nsfw,
             'allowed': list(self.allowed.keys()),
             'denied': list(self.denied.keys())
         }
+
+    async def save(self):
+        if self._new:
+            resp = await self.bot.helios_http.post_template(self.serialize())
+        else:
+            resp = await self.bot.helios_http.patch_template(self.serialize())
+        return resp
