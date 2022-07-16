@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Dict
 import discord
 
 from .channel_manager import ChannelManager
+from .member_manager import MemberManager
 from .exceptions import IdMismatchError
 from .tools.settings import Settings
 
@@ -22,6 +23,7 @@ class Server:
         self.guild = guild
         self.manager = manager
         self.channels = ChannelManager(self)
+        self.members = MemberManager(self)
         self.private_voice_channels = {}
         self.topics = {}
         self.settings = Settings(self._default_settings, bot=self.bot, guild=self.guild)
