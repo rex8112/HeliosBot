@@ -33,7 +33,9 @@ class ServerManager:
                 server = Server(self, guild)
                 server.deserialize(data)
                 channel_data = data.get('channels')
+                member_data = data.get('members')
                 tasks.append(server.channels.setup(channel_data))
+                tasks.append(server.members.setup(member_data))
             else:
                 server = Server.new(self, guild)
                 tasks.append(server.save())
@@ -42,4 +44,4 @@ class ServerManager:
         logger.info(f'{len(tasks)} Servers loaded in {time.time() - start_time} seconds')
         start_time = time.time()
         await asyncio.wait(tasks)
-        logger.info(f'Channels loaded in {time.time() - start_time} seconds')
+        logger.info(f'Channels and Members loaded in {time.time() - start_time} seconds')
