@@ -10,6 +10,7 @@ from .tools.settings import Settings
 if TYPE_CHECKING:
     from helios import ChannelManager, HeliosBot
     from .voice_template import VoiceTemplate
+    from .member import HeliosMember
 
 
 class Channel:
@@ -368,15 +369,17 @@ class VoiceChannel(Channel):
         return self.owner in self.channel.members
 
     @property
-    def owner(self) -> Optional[discord.Member]:
+    def owner(self) -> Optional[HeliosMember]:
         owner_id = self.settings.owner
         if owner_id:
-            return self.channel.guild.get_member(owner_id)
+            return self.server.members.get(member_id=owner_id)
         return None
 
     @property
-    def template(self) -> 'VoiceTemplate':
-        ...
+    def template(self) -> Optional['VoiceTemplate']:
+        if self.owner:
+            return self.owner.templates.get(self.settings.template)
+        return None
 
     def _get_menu_embed(self) -> discord.Embed:
         embed = discord.Embed(
@@ -395,6 +398,13 @@ class VoiceChannel(Channel):
             value=denied_string if denied_string else 'None'
         )
         return embed
+
+    async def change_name(self, name: str):
+        await self.channel.edit(
+            name=name
+        )
+        self.template.name = name
+        await self.template.save()
 
     async def neutralize(self):
         self.settings.owner = None
