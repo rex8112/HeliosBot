@@ -3,6 +3,7 @@ from typing import Optional, TYPE_CHECKING
 import discord
 
 from .types import HeliosChannel
+from .modals import VoiceNameChange
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
@@ -43,3 +44,20 @@ class TopicView(discord.ui.View):
             return
         await channel.save_channel(interaction=interaction)
         await channel.save()
+
+
+class VoiceView(discord.ui.View):
+    def __init__(self, bot: 'HeliosBot'):
+        super().__init__(timeout=None)
+        self.bot = bot
+
+    def get_channel(self, guild_id: int, channel_id: int) -> Optional['HeliosChannel']:
+        server = self.bot.servers.get(guild_id)
+        if server:
+            channel = server.channels.get(channel_id)
+            return channel
+        return None
+
+    @discord.ui.button(label='Change Name', style=discord.ButtonStyle.gray, custom_id='voice:name')
+    async def change_name(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(VoiceNameChange())

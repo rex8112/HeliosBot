@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from .helios_bot import HeliosBot
     from .server import Server
     from .member_manager import MemberManager
+    from .voice_template import VoiceTemplate
     from discord import Guild, Member
 
 
@@ -25,6 +26,7 @@ class HeliosMember(HasFlags, HasSettings):
         self._id = 0
         self.manager = manager
         self.member = member
+        self.templates: dict[int, 'VoiceTemplate'] = {}
         self.settings = Settings(self._default_settings, bot=self.bot, guild=self.guild)
         self.flags = []
 
