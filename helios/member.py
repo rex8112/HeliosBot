@@ -69,13 +69,16 @@ class HeliosMember(HasFlags, HasSettings):
         self._changed = False
 
     def serialize(self) -> dict:
-        return {
+        data = {
             'id': self._id,
             'server': self.server.id,
             'member_id': self.member.id,
             'settings': self.settings.to_dict(),
             'flags': self.flags
         }
+        if self._id == 0:
+            del data['id']
+        return data
 
     def check_voice(self, amt: int, partial: int = 4) -> bool:
         """
