@@ -22,6 +22,21 @@ class MemberManager:
     def get(self, member_id: int):
         return self.members.get(member_id)
 
+    async def manage_members(self):
+        self.check_voices()
+        await self.save_all()
+
+    def check_voices(self):
+        for m in self.members.values():
+            settings = self.server.settings
+            m.check_voice(settings.points_per_minute, settings.partial)
+
+    async def save_all(self):
+        saves = []
+        for m in self.members.values():
+            saves.append(m.save())
+        await asyncio.wait(saves)
+
     async def setup(self, member_data: list[dict] = None):
         if member_data is None:
             member_data = await self.bot.helios_http.get_member(params={'server': self.server.id})

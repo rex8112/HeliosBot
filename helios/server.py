@@ -14,7 +14,9 @@ if TYPE_CHECKING:
 class Server:
     _default_settings = {
         'archive_category': None,
-        'topic_category': None
+        'topic_category': None,
+        'partial': 4,
+        'points_per_minute': 1
     }
 
     def __init__(self, manager: 'ServerManager', guild: discord.Guild):
