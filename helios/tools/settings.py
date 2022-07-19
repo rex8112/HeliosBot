@@ -38,16 +38,21 @@ class Settings:
 
 class Item:
     @staticmethod
-    def serialize(o: Any):
+    def serialize(o: Any) -> Union[tuple[str, Any], Any]:
         name = type(o).__name__
         if isinstance(o, Snowflake):
             data = o.id
+        elif isinstance(o, (int, str, bool)):
+            data = o
         else:
-            raise DecodingError(f'Can not serialize object of type {type(o).__name__}')
+            try:
+                data = o.serialize()
+            except AttributeError:
+                raise DecodingError(f'Can not serialize object of type {type(o).__name__}')
         return name, data
 
     @staticmethod
-    def deserialize(o: tuple[str, Union[str, int]], *, bot: 'HeliosBot' = None, guild: 'Guild' = None):
+    def deserialize(o: tuple[str, Any], *, bot: 'HeliosBot' = None, guild: 'Guild' = None):
         name, data = o
         if name == 'Member':
             if not guild:
@@ -57,5 +62,24 @@ class Item:
             if not guild:
                 raise ValueError(f'Argument guild required for type {name}.')
             return guild.get_channel(data)
+        elif name == 'HeliosMember':
+            if not guild or not bot:
+                raise(ValueError(f'Argument guild and bot required for type {name}'))
+            server = bot.servers.get(guild.id)
+            return server.members.get(data)
         else:
             raise NotImplemented
+
+    @staticmethod
+    def serialize_list(el: list[Any]) -> list[tuple[str, Any]]:
+        new_list = []
+        for o in el:
+            new_list.append(Item.serialize(o))
+        return new_list
+
+    @staticmethod
+    def deserialize_list(el: list[tuple[str, Any]], *, bot: 'HeliosBot' = None, guild: 'Guild' = None) -> list[Any]:
+        new_list = []
+        for o in el:
+            new_list.append(Item.deserialize(o, bot=bot, guild=guild))
+        return new_list
