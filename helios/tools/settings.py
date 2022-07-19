@@ -3,6 +3,7 @@ from typing import Union, TYPE_CHECKING, Any
 from discord.abc import Snowflake
 
 from ..exceptions import DecodingError
+from ..types.settings import ItemSerializable
 
 if TYPE_CHECKING:
     from ..helios_bot import HeliosBot
@@ -38,11 +39,11 @@ class Settings:
 
 class Item:
     @staticmethod
-    def serialize(o: Any) -> Union[tuple[str, Any], Any]:
+    def serialize(o: Any) -> Union[ItemSerializable, Any]:
         name = type(o).__name__
         if isinstance(o, Snowflake):
             data = o.id
-        elif isinstance(o, (int, str, bool)):
+        elif isinstance(o, (int, float, str, bool)):
             data = o
         else:
             try:
@@ -52,7 +53,7 @@ class Item:
         return name, data
 
     @staticmethod
-    def deserialize(o: tuple[str, Any], *, bot: 'HeliosBot' = None, guild: 'Guild' = None):
+    def deserialize(o: ItemSerializable, *, bot: 'HeliosBot' = None, guild: 'Guild' = None):
         name, data = o
         if name == 'Member':
             if not guild:
@@ -71,15 +72,29 @@ class Item:
             raise NotImplemented
 
     @staticmethod
-    def serialize_list(el: list[Any]) -> list[tuple[str, Any]]:
+    def serialize_list(el: list[Any]) -> list[ItemSerializable]:
         new_list = []
         for o in el:
             new_list.append(Item.serialize(o))
         return new_list
 
     @staticmethod
-    def deserialize_list(el: list[tuple[str, Any]], *, bot: 'HeliosBot' = None, guild: 'Guild' = None) -> list[Any]:
+    def deserialize_list(el: list[ItemSerializable], *, bot: 'HeliosBot' = None, guild: 'Guild' = None) -> list[Any]:
         new_list = []
         for o in el:
             new_list.append(Item.deserialize(o, bot=bot, guild=guild))
         return new_list
+
+    @staticmethod
+    def serialize_dict(d: dict[str, Any]) -> dict[str, ItemSerializable]:
+        new_d = {}
+        for k, v in d.items():
+            new_d[k] = Item.serialize(v)
+        return new_d
+
+    @staticmethod
+    def deserialize_dict(d: dict[str, ItemSerializable], *, bot: 'HeliosBot' = None, guild: 'Guild' = None):
+        new_d = {}
+        for k, v in d.items():
+            new_d[k] = Item.deserialize(v, bot=bot, guild=guild)
+        return new_d
