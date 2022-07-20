@@ -59,9 +59,9 @@ class RaceHorse:
         return self.speed
 
     def tick_stamina(self):
-        length = 100
+        length = 200
         decrease_coefficient = 10 / (length / 10)  # stamina / (track_length / speed)  ---- No this does not make sense.
-        decrease_amt = decrease_coefficient * (self.speed / 10)
+        decrease_amt = decrease_coefficient * self.speed_percentage
         self.stamina -= decrease_amt
         if self.stamina < 0:
             self.stamina = 0
