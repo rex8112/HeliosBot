@@ -30,7 +30,7 @@ class Horse(HasSettings):
         self.stats['acceleration'] = Stat('acceleration', 0)
         self.stats['stamina'] = Stat('stamina', 0)
         self.settings: HorseSettings = self._default_settings.copy()
-        self.settings.tier = tier
+        self.settings['tier'] = tier
 
         self._new = True
         self._changed = False
@@ -56,7 +56,7 @@ class Horse(HasSettings):
         total = 0
         quantity = 0
         for v in self.stats.stats.values():
-            total += v
+            total += v.value
             quantity += 1
         return round(total / quantity, 2)
 
