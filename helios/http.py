@@ -2,6 +2,8 @@ from typing import Union, TYPE_CHECKING
 
 import aiohttp
 
+from .exceptions import HTTPError
+
 if TYPE_CHECKING:
     from asyncio import AbstractEventLoop
 
@@ -16,6 +18,8 @@ class HTTPClient:
     async def request(self, url_end: str, method='GET', **params):
         url = f'/api/{url_end}'
         resp = await self._session.request(method, url, **params)
+        if resp.status not in [200, 404]:
+            raise HTTPError(resp.status, await resp.text())
         j = await resp.json(content_type=resp.headers.get('Content-Type'))
         return j
 
