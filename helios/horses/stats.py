@@ -21,7 +21,9 @@ class Stat:
 
 
 class StatContainer:
-    def __init__(self, stats: dict[str, Stat] = {}):
+    def __init__(self, stats: dict[str, Stat] = None):
+        if stats is None:
+            stats = {}
         self.stats: dict[str, Stat] = stats
 
     def __setitem__(self, key, value):
