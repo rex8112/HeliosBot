@@ -78,25 +78,27 @@ class Race:
         self.channel = channel
         self.horses: list[RaceHorse] = []
         self.finished: list[RaceHorse] = []
-        self.length = 50
+        self.length = 100
+        self.tick_number = 0
         self.phase = 0
 
     def tick(self):
+        self.tick_number += 1
         to_finish = []
         for h in self.horses:
             if h.progress < self.length:
                 h.tick()
             elif h not in self.finished:
-                to_finish.append(h)
+                h.tick_finished = self.tick_number
+                self.finished.append(h)
 
-        sorted_to_finish = sorted(to_finish, key=lambda x: x.progress, reverse=True)
-        self.finished += sorted_to_finish
+        self.finished.sort(key=lambda x: (x.tick_finished, -x.progress))
 
         if len(self.finished) >= len(self.horses) - 1:
             self.phase += 1
             if len(self.finished) == len(self.horses) - 1:
                 for h in self.horses:
-                    if h.progress < self.length:
+                    if h not in self.finished:
                         self.finished.append(h)
                         break
 
