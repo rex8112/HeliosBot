@@ -36,7 +36,7 @@ class RaceHorse:
         return random.uniform(self.speed_increase * (1 - variation), self.speed_increase)
 
     def tick_speed(self):
-        variation = 0.05
+        variation = 0.1
         if self.speed > self.max_speed:
             self.speed = self.max_speed
 
@@ -59,10 +59,7 @@ class RaceHorse:
         return self.speed
 
     def tick_stamina(self):
-        length = 200
-        decrease_coefficient = 10 / (length / 10)  # stamina / (track_length / speed)  ---- No this does not make sense.
-        decrease_amt = decrease_coefficient * self.speed_percentage
-        self.stamina -= decrease_amt
+        self.stamina -= self.speed
         if self.stamina < 0:
             self.stamina = 0
 
@@ -78,15 +75,20 @@ class Race:
         self.channel = channel
         self.horses: list[RaceHorse] = []
         self.finished: list[RaceHorse] = []
-        self.length = 100
+        self.length = 50
         self.phase = 0
 
     def tick(self):
+        to_finish = []
         for h in self.horses:
             if h.progress < self.length:
                 h.tick()
             elif h not in self.finished:
-                self.finished.append(h)
+                to_finish.append(h)
+
+        sorted_to_finish = sorted(to_finish, key=lambda x: x.progress, reverse=True)
+        self.finished += sorted_to_finish
+
         if len(self.finished) >= len(self.horses) - 1:
             self.phase += 1
             if len(self.finished) == len(self.horses) - 1:

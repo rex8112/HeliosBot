@@ -28,7 +28,6 @@ class Horse(HasSettings):
         self.stats = StatContainer()
         self.stats['speed'] = Stat('speed', 0)
         self.stats['acceleration'] = Stat('acceleration', 0)
-        self.stats['stamina'] = Stat('stamina', 0)
         self.settings: HorseSettings = self._default_settings.copy()
         self.settings['tier'] = tier
 
@@ -49,7 +48,7 @@ class Horse(HasSettings):
 
     @property
     def stamina(self) -> float:
-        return self.get_calculated_stat('stamina')
+        return self.breed.stat_multiplier['stamina'] * 100
 
     @property
     def quality(self) -> float:
@@ -74,10 +73,8 @@ class Horse(HasSettings):
     def generate_stats(self):
         rand_speed = random.randint(1, 10)
         rand_accel = random.randint(1, 10)
-        rand_stamina = random.randint(1, 10)
         self.stats['speed'].value = rand_speed
         self.stats['acceleration'].value = rand_accel
-        self.stats['stamina'].value = rand_stamina
 
     def serialize(self) -> HorseSerializable:
         data: HorseSerializable = {
