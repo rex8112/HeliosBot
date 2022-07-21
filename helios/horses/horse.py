@@ -48,7 +48,7 @@ class Horse(HasSettings):
 
     @property
     def stamina(self) -> float:
-        return self.breed.stat_multiplier['stamina'] * 100
+        return self.breed.stat_multiplier['stamina'] * 100 * self.tier
 
     @property
     def quality(self) -> float:
