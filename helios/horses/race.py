@@ -98,7 +98,7 @@ class Race:
                         break
 
     def get_progress_string(self):
-        total_size = 10
+        total_size = 30
         filled_char = '▰'
         empty_char = '▱'
         progress_string = ''
@@ -108,11 +108,11 @@ class Race:
             percent = (h.progress / self.length) * 100
             if percent > 100:
                 percent = 100
-            filled = int(percent // total_size)
+            filled = int((percent / 100) * total_size)
             empty = int(total_size - filled)
             for _ in range(filled):
                 p += filled_char
             for _ in range(empty):
                 p += empty_char
-            progress_string += f'{p} {percent:6.2f}% - {h.name} - {h.stamina_percentage:5.2f} - {h.speed:5.2f} - {h.max_speed:5.2f}\n'
+            progress_string += f'{p} {percent:7.3f}% - {h.name} - {h.stamina_percentage:5.2f} - {h.speed_percentage:5.2f} - {h.max_speed:5.2f}\n'
         return progress_string
