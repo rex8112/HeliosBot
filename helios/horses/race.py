@@ -6,6 +6,8 @@ from .horse import Horse
 
 
 class RaceHorse:
+    SPEED_LIMITER_MULTIPLIER = 0.5
+
     def __init__(self, horse: Horse, jockey=None):
         self.name = horse.name
         self.horse = horse
@@ -13,16 +15,17 @@ class RaceHorse:
         self.speed = 0
         self.progress = 0
         self.stamina = horse.stamina
+        self.tick_finished = None
 
     @property
     def max_speed(self) -> float:
-        min_max_speed = self.horse.speed * 0.5
+        min_max_speed = self.horse.speed * 0.5 * RaceHorse.SPEED_LIMITER_MULTIPLIER
         diff = min_max_speed * self.stamina_percentage
         return round(min_max_speed + diff, 2)
 
     @property
     def speed_increase(self) -> float:
-        return round(self.horse.acceleration / 10, 1)
+        return round(self.horse.acceleration * 0.1 * RaceHorse.SPEED_LIMITER_MULTIPLIER, 2)
 
     @property
     def speed_percentage(self) -> float:
