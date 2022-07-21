@@ -71,8 +71,9 @@ class Horse(HasSettings):
         return (self.stats[stat].value + ((self.tier - 1) * 10)) * self.breed.stat_multiplier[stat]
 
     def generate_stats(self):
-        rand_speed = random.randint(1, 10)
-        rand_accel = random.randint(1, 10)
+        minimum = 1 if self.tier > 1 else 5
+        rand_speed = random.randint(minimum, 10)
+        rand_accel = random.randint(minimum, 10)
         self.stats['speed'].value = rand_speed
         self.stats['acceleration'].value = rand_accel
 
