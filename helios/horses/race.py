@@ -14,6 +14,7 @@ class RaceHorse:
         self.jockey = jockey
         self.speed = 0
         self.progress = 0
+        self.achieved_target = False
         self.stamina = horse.stamina
         self.tick_finished = None
 
@@ -21,7 +22,7 @@ class RaceHorse:
     def max_speed(self) -> float:
         min_max_speed = self.horse.speed * 0.5 * RaceHorse.SPEED_LIMITER_MULTIPLIER
         diff = min_max_speed * self.stamina_percentage
-        return round(min_max_speed + diff, 2)
+        return round(min_max_speed + diff, 4)
 
     @property
     def speed_increase(self) -> float:
@@ -39,26 +40,41 @@ class RaceHorse:
         return random.uniform(self.speed_increase * (1 - variation), self.speed_increase)
 
     def tick_speed(self):
-        variation = 0.1
+        acceleration_variation = 0.2
+        acceleration_multiplier = 1
+        target = 0.8
+        min_speed = 0.5
+        max_speed = 1
         if self.speed > self.max_speed:
             self.speed = self.max_speed
 
-        if self.speed_percentage < 0.5:
+        if self.speed_percentage < min_speed:
             # Best increase
             self.speed += self.speed_increase
-        elif self.speed_percentage < 1:
+        elif not self.achieved_target:
             # Varied increase
-            increase = round(self.get_random_increase(variation), 2)
+            increase = round(self.get_random_increase(acceleration_variation), 4)
             self.speed += increase
+            if self.speed_percentage >= target:
+                self.achieved_target = True
         else:
             # Potential decrease
-            chance_to_decrease = 1 - self.stamina_percentage
-            amt_to_decrease = variation * self.speed
-            if random.random() <= chance_to_decrease:
-                self.speed -= amt_to_decrease
+            if self.speed_percentage < target:
+                chance_to_decrease = 0.33  # Chance to decrease when lower than target speed
+            elif self.speed_percentage > target:
+                chance_to_decrease = 0.66  # Chance to decrease when faster than target speed
+            else:
+                chance_to_decrease = 0.5  # Chance to decrease when matching target speed - Very unlikely scenario
+            amt_to_change = acceleration_multiplier * self.speed_increase
+            if random.random() > chance_to_decrease:
+                self.speed += amt_to_change
+            else:
+                self.speed -= self.speed * 0.05
 
         if self.speed > self.max_speed:
             self.speed = self.max_speed
+        elif self.speed < 0:
+            self.speed = 0
         return self.speed
 
     def tick_stamina(self):
