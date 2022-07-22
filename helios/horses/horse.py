@@ -1,3 +1,4 @@
+import math
 import random
 from typing import TYPE_CHECKING, Optional
 
@@ -14,14 +15,14 @@ if TYPE_CHECKING:
 
 class Horse(HasSettings):
     _default_settings: HorseSettings = {
-        'tier': 1,
         'gender': 'male',
         'age': 0,
         'owner': None,
         'wins': 0
     }
+    base_stat = 10
 
-    def __init__(self, tier: int, breed: str):
+    def __init__(self, breed: str):
         self._id = 0
         self.name = 'Unknown'
         self.breed = Breed(breed)
@@ -29,14 +30,13 @@ class Horse(HasSettings):
         self.stats['speed'] = Stat('speed', 0)
         self.stats['acceleration'] = Stat('acceleration', 0)
         self.settings: HorseSettings = self._default_settings.copy()
-        self.settings['tier'] = tier
 
         self._new = True
         self._changed = False
 
     @property
     def tier(self) -> int:
-        return self.settings['tier']
+        return math.ceil(self.stats['speed'].value)
 
     @property
     def speed(self) -> float:
@@ -48,7 +48,7 @@ class Horse(HasSettings):
 
     @property
     def stamina(self) -> float:
-        return self.breed.stat_multiplier['stamina'] * 100 * self.tier
+        return self.breed.stat_multiplier['stamina'] * 500
 
     @property
     def quality(self) -> float:
@@ -60,20 +60,27 @@ class Horse(HasSettings):
         return round(total / quantity, 2)
 
     @classmethod
-    def new(cls, name: str, breed: str, tier: int, owner: Optional['HeliosMember']):
-        horse = cls(tier, breed)
+    def new(cls, name: str, breed: str, owner: Optional['HeliosMember'], *, num: int = None):
+        horse = cls(breed)
         horse.name = name
         horse.settings['owner'] = owner
-        horse.generate_stats()
+        horse.generate_stats(num=num)
         return horse
 
     def get_calculated_stat(self, stat: str):
-        return (self.stats[stat].value + ((self.tier - 1) * 10)) * self.breed.stat_multiplier[stat]
+        return (Horse.base_stat + self.stats[stat].value) * self.breed.stat_multiplier[stat]
 
-    def generate_stats(self):
-        minimum = 1 if self.tier > 1 else 5
-        rand_speed = random.randint(minimum, 10)
-        rand_accel = random.randint(minimum, 10)
+    def generate_stats(self, num=None):
+        if not num:
+            num = random.choices(
+                range(1, 11),
+                weights=(33, 20, 15, 10, 7, 5, 4, 3, 2, 1),
+                k=1
+            )[0]
+        speed_diff = round(random.uniform(0, 0.5), 2)
+        accel_diff = round(random.uniform(0, 0.5), 2)
+        rand_speed = num - speed_diff
+        rand_accel = num - accel_diff
         self.stats['speed'].value = rand_speed
         self.stats['acceleration'].value = rand_accel
 

@@ -11,7 +11,6 @@ SettingsSerializable = Dict[str, Union[ItemSerializable, Primitives]]
 
 class HorseSettings(TypedDict):
     breed: str
-    tier: int
     gender: str
     age: int
     owner: Optional['HeliosMember']

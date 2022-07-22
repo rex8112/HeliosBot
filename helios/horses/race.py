@@ -6,7 +6,9 @@ from .horse import Horse
 
 
 class RaceHorse:
-    SPEED_LIMITER_MULTIPLIER = 0.5
+    SPEED_LIMITER_MULTIPLIER = 1
+    BASE_SPEED = 10
+    BASE_ACCEL = 3
 
     def __init__(self, horse: Horse, jockey=None):
         self.name = horse.name
@@ -20,13 +22,16 @@ class RaceHorse:
 
     @property
     def max_speed(self) -> float:
-        min_max_speed = self.horse.speed * 0.5 * RaceHorse.SPEED_LIMITER_MULTIPLIER
+        max_speed = RaceHorse.BASE_SPEED + (self.horse.speed * 0.1) * RaceHorse.SPEED_LIMITER_MULTIPLIER
+        min_max_speed = max_speed * 0.5
         diff = min_max_speed * self.stamina_percentage
         return round(min_max_speed + diff, 4)
 
     @property
     def speed_increase(self) -> float:
-        return round(self.horse.acceleration * 0.1 * RaceHorse.SPEED_LIMITER_MULTIPLIER, 2)
+        return round(
+            (RaceHorse.BASE_ACCEL + (self.horse.acceleration * 0.5))
+            * 0.1 * RaceHorse.SPEED_LIMITER_MULTIPLIER, 4)
 
     @property
     def speed_percentage(self) -> float:
@@ -69,7 +74,7 @@ class RaceHorse:
             if random.random() > chance_to_decrease:
                 self.speed += amt_to_change
             else:
-                self.speed -= self.speed * 0.05
+                self.speed -= amt_to_change
 
         if self.speed > self.max_speed:
             self.speed = self.max_speed
@@ -94,7 +99,7 @@ class Race:
         self.channel = channel
         self.horses: list[RaceHorse] = []
         self.finished: list[RaceHorse] = []
-        self.length = 100
+        self.length = 500
         self.tick_number = 0
         self.phase = 0
 
@@ -118,11 +123,15 @@ class Race:
                         self.finished.append(h)
                         break
 
+    def get_positions(self) -> list[RaceHorse]:
+        return sorted(self.horses, key=lambda rh: rh.progress, reverse=True)
+
     def get_progress_string(self):
-        total_size = 30
+        total_size = 50
         filled_char = '▰'
         empty_char = '▱'
         progress_string = ''
+        position_sorted_list = self.get_positions()
 
         for h in self.horses:
             p = ''
@@ -135,5 +144,5 @@ class Race:
                 p += filled_char
             for _ in range(empty):
                 p += empty_char
-            progress_string += f'{p} {percent:7.3f}% - {h.name} - {h.stamina_percentage:5.2f} - {h.speed_percentage:5.2f} - {h.max_speed:5.2f}\n'
+            progress_string += f'{p} {position_sorted_list.index(h) + 1:2} {percent:7.3f}% - {h.name}\n'
         return progress_string
