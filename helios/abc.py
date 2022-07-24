@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .tools.settings import Settings
+    from .types.settings import PossibleSettings
 
 
 class HasFlags:
@@ -22,4 +22,4 @@ class HasFlags:
 
 class HasSettings:
     _default_settings: dict
-    settings: 'Settings'
+    settings: 'PossibleSettings'
