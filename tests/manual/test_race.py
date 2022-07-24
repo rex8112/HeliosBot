@@ -13,7 +13,7 @@ async def main():
             horses.append(h)
         sorted_horses = sorted(horses, key=lambda xh: xh.quality, reverse=True)
         race_horses = [RaceHorse(h) for h in sorted_horses]
-        race = Race(None)
+        race = Race()
         race.horses = race_horses
         print(f'======= Starting Race {t} =======')
         print(race.get_progress_string())
@@ -27,10 +27,10 @@ async def main():
         print(f'======= Finished Race {t} =======')
         print(f'Took {ticks} seconds to complete.')
         winning = ''
-        for i, h in enumerate(race.finished):
+        for i, h in enumerate(race.finished_horses):
             winning += f'{i}: {h.name} - {h.horse.quality} - {h.horse.speed:6.2f} - {h.horse.acceleration:6.2f} - {h.horse.stamina}\n'
         print(winning)
-        winnings.append(race.finished)
+        winnings.append(race.finished_horses)
     final_message = ''
     for i in range(len(winnings[0])):
         line = ''

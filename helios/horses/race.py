@@ -1,8 +1,12 @@
 import random
+from typing import Optional
 
 import discord
 
 from .horse import Horse
+from ..abc import HasSettings
+from ..types.horses import MaxRaceHorses
+from ..types.settings import EventRaceSettings
 
 
 class RaceHorse:
@@ -94,34 +98,42 @@ class RaceHorse:
 
 
 class Race:
-    def __init__(self, channel: discord.TextChannel):
+    def __init__(self):
         self._id = 0
-        self.channel = channel
         self.horses: list[RaceHorse] = []
-        self.finished: list[RaceHorse] = []
+        self.finished_horses: list[RaceHorse] = []
         self.length = 500
         self.tick_number = 0
         self.phase = 0
 
+    @property
+    def finished(self) -> bool:
+        return len(self.finished_horses) == len(self.horses)
+
     def tick(self):
         self.tick_number += 1
-        to_finish = []
         for h in self.horses:
             if h.progress < self.length:
                 h.tick()
-            elif h not in self.finished:
+            elif h not in self.finished_horses:
                 h.tick_finished = self.tick_number
-                self.finished.append(h)
+                self.finished_horses.append(h)
 
-        self.finished.sort(key=lambda x: (x.tick_finished, -x.progress))
+        self.finished_horses.sort(key=lambda x: (x.tick_finished, -x.progress))
 
-        if len(self.finished) >= len(self.horses) - 1:
+        if len(self.finished_horses) >= len(self.horses) - 1:
             self.phase += 1
-            if len(self.finished) == len(self.horses) - 1:
+            if len(self.finished_horses) == len(self.horses) - 1:
                 for h in self.horses:
-                    if h not in self.finished:
-                        self.finished.append(h)
+                    if h not in self.finished_horses:
+                        self.finished_horses.append(h)
                         break
+
+    def set_horses(self, horses: list[Horse]):
+        race_horses = []
+        for h in horses:
+            race_horses.append(RaceHorse(h))
+        self.horses = race_horses
 
     def get_positions(self) -> list[RaceHorse]:
         return sorted(self.horses, key=lambda rh: rh.progress, reverse=True)
@@ -146,3 +158,51 @@ class Race:
                 p += empty_char
             progress_string += f'{p} {position_sorted_list.index(h) + 1:2} {percent:7.3f}% - {h.name}\n'
         return progress_string
+
+
+class EventRace(HasSettings):
+    _default_settings: EventRaceSettings = {
+        'channel': None,
+        'message': None,
+        'purse': 75000,
+        'stake': 4000,
+        'max_horses': 6
+    }
+
+    def __init__(self):
+        self.race: Optional[Race] = None
+        self.purse = 75000
+        self.stake = 4000
+        self.max_horses: MaxRaceHorses[6, 12] = 6
+        self.horses: list[Horse] = []
+        self.bets = []
+
+    def generate_race(self) -> Race:
+        race = Race()
+        race.set_horses(self.horses)
+        self.race = race
+        return race
+
+    def get_payout_structure(self) -> list[float]:
+        if self.max_horses == 6:
+            structure = [.6, .2, .13, .05, .01, .01]
+        else:  # self.max_horses == 12:
+            structure = [.6, .18, .1, .04]
+            amount_to_spread = .01
+            for _ in range(12 - len(structure)):
+                structure.append(amount_to_spread)
+
+        return structure
+
+    def get_payout_amount(self, structure: list[float]) -> list[float]:
+        payout = []
+        for p in structure:
+            payout.append(round(self.purse * p, 2))
+        if sum(payout) < self.purse:
+            payout[0] += self.purse - sum(payout)
+        return payout
+
+    def payout_horses(self):
+        payout = self.get_payout_amount(self.get_payout_structure())
+        for i, h in enumerate(self.race.finished_horses):
+            h.horse.pay(payout[i])
