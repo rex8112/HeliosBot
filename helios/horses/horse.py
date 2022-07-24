@@ -67,6 +67,9 @@ class Horse(HasSettings):
         horse.generate_stats(num=num)
         return horse
 
+    def pay(self, amount: float):
+        ...
+
     def get_calculated_stat(self, stat: str):
         return (Horse.base_stat + self.stats[stat].value) * self.breed.stat_multiplier[stat]
 
