@@ -1,6 +1,9 @@
-from typing import TypedDict, TYPE_CHECKING, Optional
+from typing import TypedDict, TYPE_CHECKING, Optional, Literal
 
 from .settings import SettingsSerializable
+
+
+MaxRaceHorses = Literal[6, 12]
 
 
 class HorseSerializable(TypedDict):
