@@ -2,7 +2,7 @@ from typing import TypedDict, TYPE_CHECKING, Optional, Union, Dict, Tuple
 
 if TYPE_CHECKING:
     from ..member import HeliosMember
-    from .horses import MaxRaceHorses
+    from .horses import MaxRaceHorses, RaceTypes
     from discord import TextChannel, Message
 
 
@@ -26,3 +26,4 @@ class EventRaceSettings(TypedDict):
     purse: int
     stake: int
     max_horses: 'MaxRaceHorses'
+    type: 'RaceTypes'

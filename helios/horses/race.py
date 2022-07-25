@@ -166,7 +166,8 @@ class EventRace(HasSettings):
         'message': None,
         'purse': 75000,
         'stake': 4000,
-        'max_horses': 6
+        'max_horses': 6,
+        'type': 'maiden'
     }
 
     def __init__(self):
@@ -175,6 +176,10 @@ class EventRace(HasSettings):
         self.bets = []
 
         self.settings = EventRace._default_settings.copy()
+
+    @property
+    def finished(self) -> bool:
+        return self.race and self.race.finished
 
     @property
     def purse(self) -> int:
