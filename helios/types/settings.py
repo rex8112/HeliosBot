@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 Primitives = Union[int, float, bool, str]
 ItemSerializable = Tuple[str, Primitives]
 SettingsSerializable = Dict[str, Union[ItemSerializable, Primitives]]
-PossibleSettings = Union['HorseSettings']
+PossibleSettings = Union['HorseSettings', 'EventRaceSettings']
 
 
 class HorseSettings(TypedDict):

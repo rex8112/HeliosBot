@@ -171,11 +171,30 @@ class EventRace(HasSettings):
 
     def __init__(self):
         self.race: Optional[Race] = None
-        self.purse = 75000
-        self.stake = 4000
-        self.max_horses: MaxRaceHorses[6, 12] = 6
         self.horses: list[Horse] = []
         self.bets = []
+
+        self.settings = EventRace._default_settings.copy()
+
+    @property
+    def purse(self) -> int:
+        return self.settings['purse']
+
+    @property
+    def stake(self) -> int:
+        return self.settings['stake']
+
+    @property
+    def max_horses(self) -> MaxRaceHorses:
+        return self.settings['max_horses']
+
+    @property
+    def channel(self) -> Optional[discord.TextChannel]:
+        return self.settings['channel']
+
+    @property
+    def message(self) -> Optional[discord.Message]:
+        return self.settings['message']
 
     def generate_race(self) -> Race:
         race = Race()
