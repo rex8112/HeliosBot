@@ -5,12 +5,13 @@ from typing import TYPE_CHECKING, Optional
 from .breed import Breed
 from .stats import StatContainer, Stat
 from ..abc import HasSettings
-from ..types.settings import HorseSettings
-from ..types.horses import HorseSerializable
 from ..tools.settings import Item
+from ..types.horses import HorseSerializable
+from ..types.settings import HorseSettings
 
 if TYPE_CHECKING:
     from ..member import HeliosMember
+    from ..stadium import Stadium
 
 
 class Horse(HasSettings):
@@ -22,7 +23,8 @@ class Horse(HasSettings):
     }
     base_stat = 10
 
-    def __init__(self, breed: str):
+    def __init__(self, stadium: 'Stadium', breed: str):
+        self.stadium = stadium
         self._id = 0
         self.name = 'Unknown'
         self.breed = Breed(breed)
@@ -108,5 +110,5 @@ class Horse(HasSettings):
         self.name = data['name']
         self.breed = Breed(data['breed'])
         self.stats = StatContainer.from_dict(data['stats'])
-        self.settings = Item.deserialize_dict(data['settings'])
+        self.settings = Item.deserialize_dict(data['settings'], guild=self.stadium.guild)
         self._new = False

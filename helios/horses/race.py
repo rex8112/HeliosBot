@@ -170,7 +170,10 @@ class EventRace(HasSettings):
         'type': 'maiden'
     }
 
-    def __init__(self):
+    def __init__(self, stadium: 'Stadium'):
+        self.stadium = stadium
+        self._id = 0
+        self.name = ''
         self.race: Optional[Race] = None
         self.horses: list[Horse] = []
         self.bets = []
