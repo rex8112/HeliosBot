@@ -35,6 +35,10 @@ class Horse(HasSettings):
         self._changed = False
 
     @property
+    def id(self) -> int:
+        return self._id
+
+    @property
     def tier(self) -> int:
         return math.ceil(self.stats['speed'].value)
 
