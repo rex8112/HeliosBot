@@ -1,3 +1,4 @@
+import datetime
 from typing import TypedDict, TYPE_CHECKING, Optional, Union, Dict, Tuple
 
 if TYPE_CHECKING:
@@ -27,3 +28,5 @@ class EventRaceSettings(TypedDict):
     stake: int
     max_horses: 'MaxRaceHorses'
     type: 'RaceTypes'
+    race_time: datetime.datetime
+    betting_time: int

@@ -1,5 +1,6 @@
+import datetime
 import random
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 import discord
 
@@ -7,6 +8,56 @@ from .horse import Horse
 from ..abc import HasSettings
 from ..types.horses import MaxRaceHorses
 from ..types.settings import EventRaceSettings
+
+if TYPE_CHECKING:
+    from ..stadium import Stadium
+
+
+class Record:
+    def __init__(self):
+        self.id = 0
+        self.horse_id = 0
+        self.race_type = 'None'
+        self.earnings = 0
+        self.placing = 0
+
+    @classmethod
+    def new(cls, horse: 'RaceHorse', event_race: 'EventRace', earnings: float):
+        if not event_race.finished:
+            raise ValueError('event_race must be finished')
+        record = cls()
+        record.id = 0
+        record.horse_id = horse.horse.id
+        record.race_type = event_race.settings['type']
+        record.earnings = earnings
+        record.placing = event_race.race.finished_horses.index(horse)
+        return record
+
+    @classmethod
+    def from_data(cls, data: dict):
+        record = cls()
+        record._deserialize(data)
+        return record
+
+    @property
+    def is_new(self) -> bool:
+        return self.id == 0
+
+    def serialize(self):
+        return {
+            'id': self.id,
+            'horse': self.horse_id,
+            'type': self.race_type,
+            'earnings': self.earnings,
+            'placing': self.placing
+        }
+
+    def _deserialize(self, data: dict):
+        self.id = data['id']
+        self.horse_id = data['horse']
+        self.race_type = data['type']
+        self.earnings = data['earnings']
+        self.placing = data['placing']
 
 
 class RaceHorse:
@@ -167,7 +218,9 @@ class EventRace(HasSettings):
         'purse': 75000,
         'stake': 4000,
         'max_horses': 6,
-        'type': 'maiden'
+        'type': 'maiden',
+        'race_time': datetime.datetime.now().astimezone(),
+        'betting_time': 15 * 60
     }
 
     def __init__(self, stadium: 'Stadium'):
@@ -178,7 +231,15 @@ class EventRace(HasSettings):
         self.horses: list[Horse] = []
         self.bets = []
 
-        self.settings = EventRace._default_settings.copy()
+        self.settings: EventRaceSettings = EventRace._default_settings.copy()
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def is_new(self):
+        return self._id == 0
 
     @property
     def finished(self) -> bool:
@@ -203,6 +264,46 @@ class EventRace(HasSettings):
     @property
     def message(self) -> Optional[discord.Message]:
         return self.settings['message']
+
+    @property
+    def time_until_race(self) -> datetime.timedelta:
+        now = datetime.datetime.now().astimezone()
+        return self.settings['race_time'] - now
+
+    @property
+    def time_until_betting(self) -> datetime.timedelta:
+        return self.time_until_race - datetime.timedelta(self.settings['betting_time'])
+
+    def _get_race_embed(self) -> discord.Embed:
+        if not self.race:
+            desc_string = f'The {self.name} is about to commence!'
+        elif self.finished:
+            desc_string = f'{self.race.finished_horses[0]} has won the race!'
+        else:
+            desc_string = self.race.get_progress_string()
+
+        embed = discord.Embed(
+            colour=discord.Colour.orange(),
+            title=self.name,
+            description=desc_string
+        )
+        embed.add_field(
+            name='Race Information',
+            value=(
+                f'Purse: {self.purse}\n'
+                f'Stake: {self.stake}\n'
+                f'Type: {self.settings["type"].capitalize()}\n'
+                f'Horses: {self.max_horses}'
+            )
+        )
+        horse_string = ''
+        for h in self.horses:
+            owner = h.settings['owner'].member
+            if not owner:
+                owner = self.stadium.owner
+            horse_string += f'{h.name} - {owner.mention}'
+
+        return embed
 
     def generate_race(self) -> Race:
         race = Race()
