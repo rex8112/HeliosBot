@@ -1,6 +1,8 @@
 import datetime
 from typing import TypedDict, TYPE_CHECKING, Optional, Union, Dict, Tuple
 
+import discord
+
 if TYPE_CHECKING:
     from ..member import HeliosMember
     from .horses import MaxRaceHorses, RaceTypes
@@ -30,3 +32,8 @@ class EventRaceSettings(TypedDict):
     type: 'RaceTypes'
     race_time: datetime.datetime
     betting_time: int
+
+
+class StadiumSettings(TypedDict):
+    season: int
+    category: Optional[discord.CategoryChannel]

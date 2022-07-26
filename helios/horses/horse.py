@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Optional
 from .breed import Breed
 from .stats import StatContainer, Stat
 from ..abc import HasSettings
+from ..exceptions import IdMismatchError
 from ..tools.settings import Item
 from ..types.horses import HorseSerializable
 from ..types.settings import HorseSettings
@@ -23,11 +24,11 @@ class Horse(HasSettings):
     }
     base_stat = 10
 
-    def __init__(self, stadium: 'Stadium', breed: str):
+    def __init__(self, stadium: 'Stadium'):
         self.stadium = stadium
         self._id = 0
         self.name = 'Unknown'
-        self.breed = Breed(breed)
+        self.breed = Breed('')
         self.stats = StatContainer()
         self.stats['speed'] = Stat('speed', 0)
         self.stats['acceleration'] = Stat('acceleration', 0)
@@ -73,6 +74,12 @@ class Horse(HasSettings):
         horse.generate_stats(num=num)
         return horse
 
+    @classmethod
+    def from_dict(cls, stadium: 'Stadium', data: dict):
+        h = cls(stadium)
+        h._deserialize(data)
+        return h
+
     def pay(self, amount: float):
         ...
 
@@ -95,6 +102,7 @@ class Horse(HasSettings):
 
     def serialize(self) -> HorseSerializable:
         data: HorseSerializable = {
+            'server': self.stadium.server.id,
             'id': self._id,
             'name': self.name,
             'breed': self.breed.name,
@@ -106,6 +114,8 @@ class Horse(HasSettings):
         return data
 
     def _deserialize(self, data: HorseSerializable):
+        if data['server'] != self.stadium.server.id:
+            raise IdMismatchError('This horse does not belong to this stadium.')
         self._id = data['id']
         self.name = data['name']
         self.breed = Breed(data['breed'])
