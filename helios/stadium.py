@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import discord
 
@@ -10,7 +10,8 @@ if TYPE_CHECKING:
 
 class Stadium(HasSettings):
     _default_settings = {
-
+        'season': 0,
+        'category': None
     }
 
     def __init__(self, server: 'Server'):
@@ -23,3 +24,14 @@ class Stadium(HasSettings):
     @property
     def owner(self) -> discord.Member:
         return self.guild.me
+
+    @property
+    def category(self) -> Optional[discord.CategoryChannel]:
+        c = self.settings['category']
+        if c:
+            if isinstance(c, discord.CategoryChannel):
+                return c
+            else:
+                return self.guild.get_channel(c)
+        else:
+            return None
