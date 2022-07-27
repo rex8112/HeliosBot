@@ -75,3 +75,60 @@ class HTTPClient:
     async def del_member(self, mem_id: int):
         resp = await self.request(f'members/{mem_id}/', method='DELETE')
         return resp
+
+    async def get_stadium(self, *, stadium_id: int = None, **params):
+        if stadium_id:
+            resp = await self.request(f'stadiums/{stadium_id}')
+        else:
+            resp = await self.request(f'stadiums/', params=params)
+        return resp
+
+    async def post_stadium(self, json_data: Union[dict, list]):
+        resp = await self.request('stadiums/', method='POST', json=json_data)
+        return resp
+
+    async def patch_stadium(self, json_data: Union[dict, list]):
+        resp = await self.request(f'stadiums/{json_data.get("id")}/', method='PATCH', json=json_data)
+        return resp
+
+    async def del_stadium(self, stadium_id: int):
+        resp = await self.request(f'stadiums/{stadium_id}/', method='DELETE')
+        return resp
+
+    async def get_horse(self, *, horse_id: int = None, **params):
+        if horse_id:
+            resp = await self.request(f'horses/{horse_id}')
+        else:
+            resp = await self.request(f'horses/', params=params)
+        return resp
+
+    async def post_horse(self, json_data: Union[dict, list]):
+        resp = await self.request('horses/', method='POST', json=json_data)
+        return resp
+
+    async def patch_horse(self, json_data: Union[dict, list]):
+        resp = await self.request(f'horses/{json_data.get("id")}/', method='PATCH', json=json_data)
+        return resp
+
+    async def del_horse(self, horse_id: int):
+        resp = await self.request(f'horses/{horse_id}/', method='DELETE')
+        return resp
+
+    async def get_race(self, *, race_id: int = None, **params):
+        if race_id:
+            resp = await self.request(f'races/{race_id}')
+        else:
+            resp = await self.request(f'races/', params=params)
+        return resp
+
+    async def post_race(self, json_data: Union[dict, list]):
+        resp = await self.request('races/', method='POST', json=json_data)
+        return resp
+
+    async def patch_race(self, json_data: Union[dict, list]):
+        resp = await self.request(f'races/{json_data.get("id")}/', method='PATCH', json=json_data)
+        return resp
+
+    async def del_race(self, race_id: int):
+        resp = await self.request(f'races/{race_id}/', method='DELETE')
+        return resp

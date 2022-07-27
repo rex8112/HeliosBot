@@ -55,7 +55,7 @@ class Stadium(HasSettings):
 
     async def setup(self, data: StadiumSerializable = None):
         if data is None:
-            ...  # data = await self.server.bot.helios_http.get_stadium(self.server.id)
+            data = await self.server.bot.helios_http.get_stadium(stadium_id=self.server.id)
 
         for hdata in data['horses']:
             h = Horse.from_dict(self, hdata)
