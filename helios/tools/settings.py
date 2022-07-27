@@ -1,3 +1,4 @@
+import datetime
 from typing import Union, TYPE_CHECKING, Any
 
 from discord.abc import Snowflake
@@ -45,11 +46,16 @@ class Item:
             data = o.id
         elif isinstance(o, (int, float, str, bool)):
             data = o
+        elif isinstance(o, (datetime.datetime, datetime.date, datetime.time)):
+            data = o.isoformat()
         else:
             try:
-                data = o.serialize()
+                data = o.id
             except AttributeError:
-                raise DecodingError(f'Can not serialize object of type {type(o).__name__}')
+                try:
+                    data = o.serialize()
+                except AttributeError:
+                    raise DecodingError(f'Can not serialize object of type {type(o).__name__}')
         return name, data
 
     @staticmethod
@@ -65,9 +71,18 @@ class Item:
             return guild.get_channel(data)
         elif name == 'HeliosMember':
             if not guild or not bot:
-                raise(ValueError(f'Argument guild and bot required for type {name}'))
+                raise ValueError(f'Argument guild and bot required for type {name}')
             server = bot.servers.get(guild.id)
             return server.members.get(data)
+        elif name == 'Horse':
+            if not guild or not bot:
+                raise ValueError(f'Argument guild and bot required for type {name}')
+            server = bot.servers.get(guild.id)
+            horse = None
+            if server:
+                stadium = server.stadium
+                horse = stadium.horses.get(data)
+            return horse
         else:
             raise NotImplemented
 
