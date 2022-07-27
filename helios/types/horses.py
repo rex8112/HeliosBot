@@ -3,7 +3,7 @@ from typing import TypedDict, Optional, Literal
 from .settings import SettingsSerializable
 
 MaxRaceHorses = Literal[6, 12, 20]
-RaceTypes = Literal['maiden', 'daily', 'stake']
+RaceTypes = Literal['basic', 'maiden', 'daily', 'stake']
 
 
 class HorseSerializable(TypedDict):
