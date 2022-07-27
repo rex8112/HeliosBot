@@ -6,7 +6,8 @@ import discord
 
 from .horse import Horse
 from ..abc import HasSettings
-from ..types.horses import MaxRaceHorses
+from ..tools.settings import Item
+from ..types.horses import MaxRaceHorses, RaceTypes
 from ..types.settings import EventRaceSettings
 
 if TYPE_CHECKING:
@@ -275,6 +276,34 @@ class EventRace(HasSettings):
     def time_until_betting(self) -> datetime.timedelta:
         return self.time_until_race - datetime.timedelta(self.settings['betting_time'])
 
+    @property
+    def phase(self):
+        return self.settings['phase']
+
+    @phase.setter
+    def phase(self, value: int):
+        self.settings['phase'] = value
+
+    @classmethod
+    def new(cls, stadium: 'Stadium', channel: discord.TextChannel, race_type: RaceTypes, race_time: datetime.datetime):
+        erace = cls(stadium)
+        erace.settings['channel'] = channel
+        erace.settings['type'] = race_type
+        erace.set_race_time(race_time)
+        return erace
+
+    @classmethod
+    def from_dict(cls, stadium: 'Stadium', data):
+        erace = cls(stadium)
+        erace._deserialize(data)
+        return erace
+
+    async def start(self):
+        ...
+
+    def set_race_time(self, dt: datetime.datetime):
+        self.settings['race_time'] = dt
+
     def _get_race_embed(self) -> discord.Embed:
         if not self.race:
             desc_string = f'The {self.name} is about to commence!'
@@ -335,3 +364,17 @@ class EventRace(HasSettings):
         payout = self.get_payout_amount(self.get_payout_structure())
         for i, h in enumerate(self.race.finished_horses):
             h.horse.pay(payout[i])
+
+    def serialize(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'horses': Item.serialize_list(self.horses),
+            'settings': Item.serialize_dict(self.settings)
+        }
+
+    def _deserialize(self, data):
+        self._id = data['id']
+        self.name = data['name']
+        self.horses = Item.deserialize_list(data['horses'], guild=self.stadium.guild, bot=self.stadium.server.bot)
+        self.settings = Item.deserialize_dict(self.settings, guild=self.stadium.guild, bot=self.stadium.server.bot)
