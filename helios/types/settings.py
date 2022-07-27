@@ -32,6 +32,7 @@ class EventRaceSettings(TypedDict):
     type: 'RaceTypes'
     race_time: datetime.datetime
     betting_time: int
+    phase: int
 
 
 class StadiumSettings(TypedDict):

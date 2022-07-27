@@ -189,8 +189,8 @@ class Race:
     def get_positions(self) -> list[RaceHorse]:
         return sorted(self.horses, key=lambda rh: rh.progress, reverse=True)
 
-    def get_progress_string(self):
-        total_size = 50
+    def get_progress_string(self, size=10):
+        total_size = size
         filled_char = '▰'
         empty_char = '▱'
         progress_string = ''
@@ -220,7 +220,8 @@ class EventRace(HasSettings):
         'max_horses': 6,
         'type': 'maiden',
         'race_time': datetime.datetime.now().astimezone(),
-        'betting_time': 15 * 60
+        'betting_time': 15 * 60,
+        'phase': 0
     }
 
     def __init__(self, stadium: 'Stadium'):
