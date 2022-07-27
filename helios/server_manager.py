@@ -36,6 +36,7 @@ class ServerManager:
                 member_data = data.get('members')
                 tasks.append(server.channels.setup(channel_data))
                 tasks.append(server.members.setup(member_data))
+                tasks.append(server.stadium.setup())
             else:
                 server = Server.new(self, guild)
                 tasks.append(server.save())
