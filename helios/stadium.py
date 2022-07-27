@@ -22,7 +22,7 @@ class Stadium(HasSettings):
 
     def __init__(self, server: 'Server'):
         self.server = server
-        self.horses: list['Horse'] = []
+        self.horses: dict[int, 'Horse'] = {}
         self.races: list['EventRace'] = []
         self.settings: StadiumSettings = self._default_settings.copy()
 
@@ -59,7 +59,7 @@ class Stadium(HasSettings):
 
         for hdata in data['horses']:
             h = Horse.from_dict(self, hdata)
-            self.horses.append(h)
+            self.horses[h.id] = h
 
         for rdata in data['races']:
             r = EventRace.from_dict(self, rdata)
