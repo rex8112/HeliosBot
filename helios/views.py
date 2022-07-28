@@ -6,6 +6,7 @@ from .types import HeliosChannel
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
+    from .horses.race import EventRace
 
 
 async def send_bad_response(interaction: discord.Interaction, message: str):
@@ -43,3 +44,17 @@ class TopicView(discord.ui.View):
             return
         await channel.save_channel(interaction=interaction)
         await channel.save()
+
+
+class PreRaceView(discord.ui.View):
+    def __init__(self, er: 'EventRace'):
+        super().__init__(timeout=None)
+        self.race = er
+
+    @discord.ui.button(label='Bet', style=discord.ButtonStyle.blurple, disabled=True)
+    async def bet(self, interaction: discord.Interaction, button: discord.ui.Button):
+        ...  # Show bet view, wait for its completion, fill values
+
+    @discord.ui.button(label='Register', style=discord.ButtonStyle.gray, disabled=True)
+    async def register(self, interaction: discord.Interaction, button: discord.ui.Button):
+        ...  # Show register view, wait for its completion, fill values

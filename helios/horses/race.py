@@ -299,7 +299,19 @@ class EventRace(HasSettings):
         return erace
 
     async def start(self):
-        ...
+        cont = True
+        while cont:
+            if self.phase == 0:
+                ...  # Post registration options
+            elif self.phase == 1:
+                ...  # Registration complete, commence betting
+            elif self.phase == 2:
+                ...  # RACE TIME
+            elif self.phase == 3:
+                ...  # Race over, time to calculate winnings for racers and betters.
+            else:
+                # Everything is over. GG.
+                cont = False
 
     def set_race_time(self, dt: datetime.datetime):
         self.settings['race_time'] = dt
