@@ -2,6 +2,7 @@ from typing import Optional, TYPE_CHECKING
 
 import discord
 
+from .modals import BetModal
 from .types import HeliosChannel
 
 if TYPE_CHECKING:
@@ -53,7 +54,8 @@ class PreRaceView(discord.ui.View):
 
     @discord.ui.button(label='Bet', style=discord.ButtonStyle.blurple, disabled=True)
     async def bet(self, interaction: discord.Interaction, button: discord.ui.Button):
-        ...  # Show bet view, wait for its completion, fill values
+        member = self.race.stadium.server.members.get(interaction.user.id)
+        await interaction.response.send_modal(BetModal(self.race, member))  # Modal handles all further actions
 
     @discord.ui.button(label='Register', style=discord.ButtonStyle.gray, disabled=True)
     async def register(self, interaction: discord.Interaction, button: discord.ui.Button):

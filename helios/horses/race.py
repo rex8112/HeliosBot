@@ -12,6 +12,7 @@ from ..types.settings import EventRaceSettings
 
 if TYPE_CHECKING:
     from ..stadium import Stadium
+    from ..member import HeliosMember
 
 
 class Record:
@@ -312,6 +313,23 @@ class EventRace(HasSettings):
             else:
                 # Everything is over. GG.
                 cont = False
+
+    def bet(self, member: 'HeliosMember', horse: 'Horse', amount: int):
+        ...  # Create a Bet listing and add to list
+
+    def find_horse(self, name: str) -> 'Horse':
+        name = name.lower()
+        for horse in self.horses:
+            if horse.name.lower() == name:
+                return horse
+
+    def is_qualified(self, horse: 'Horse') -> bool:
+        """
+        Check whether a horse is eligible for this race.
+        :param horse: The horse to check
+        :return: Whether the horse is allowed to race.
+        """
+        return True
 
     def set_race_time(self, dt: datetime.datetime):
         self.settings['race_time'] = dt
