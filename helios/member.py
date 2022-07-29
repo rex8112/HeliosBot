@@ -1,14 +1,15 @@
 import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict
 
 from .abc import HasSettings, HasFlags
 from .exceptions import IdMismatchError
-from .tools.settings import Settings
+from .tools.settings import Item
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
     from .server import Server
     from .member_manager import MemberManager
+    from .horses.horse import Horse
     from discord import Guild, Member
 
 
@@ -25,7 +26,7 @@ class HeliosMember(HasFlags, HasSettings):
         self._id = 0
         self.manager = manager
         self.member = member
-        self.settings = Settings(self._default_settings, bot=self.bot, guild=self.guild)
+        self.settings = self._default_settings.copy()
         self.flags = []
 
         self._last_check = get_floor_now()
@@ -47,8 +48,12 @@ class HeliosMember(HasFlags, HasSettings):
     def guild(self) -> 'Guild':
         return self.server.guild
 
+    @property
+    def horses(self) -> Dict[int, 'Horse']:
+        return self.server.stadium.get_owner_horses(self)
+
     def add_activity_points(self, amt: int):
-        self.settings.activity_points += amt
+        self.settings['activity_points'] += amt
         self._changed = True
 
     def set_activity_points(self, amt: int):
@@ -63,7 +68,7 @@ class HeliosMember(HasFlags, HasSettings):
 
         self._id = data.get('id')
         settings = {**self._default_settings, **data.get('settings', {})}
-        self.settings = Settings(settings, bot=self.bot, guild=self.guild)
+        self.settings = Item.deserialize_dict(settings, bot=self.bot, guild=self.guild)
         self.flags = data.get('flags')
         self._new = False
         self._changed = False
@@ -73,7 +78,7 @@ class HeliosMember(HasFlags, HasSettings):
             'id': self._id,
             'server': self.server.id,
             'member_id': self.member.id,
-            'settings': self.settings.to_dict(),
+            'settings': Item.serialize_dict(self.settings),
             'flags': self.flags
         }
         if self._id == 0:

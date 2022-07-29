@@ -49,7 +49,7 @@ class TopicView(discord.ui.View):
 
 class PreRaceView(discord.ui.View):
     def __init__(self, er: 'EventRace'):
-        super().__init__(timeout=None)
+        super().__init__(timeout=er.time_until_race.seconds)
         self.race = er
 
     @discord.ui.button(label='Bet', style=discord.ButtonStyle.blurple, disabled=True)
@@ -59,4 +59,10 @@ class PreRaceView(discord.ui.View):
 
     @discord.ui.button(label='Register', style=discord.ButtonStyle.gray, disabled=True)
     async def register(self, interaction: discord.Interaction, button: discord.ui.Button):
-        ...  # Show register view, wait for its completion, fill values
+        # Show register view, wait for its completion, fill values
+        member = self.race.stadium.server.members.get(interaction.user.id)
+        horses = list(filter(lambda x: self.race.is_qualified(x), member.horses.values()))
+        horse_strings = []
+        for i, h in enumerate(horses):
+            horse_strings.append(f'{i}. {h.name}')
+        # TODO: Call register view

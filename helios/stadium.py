@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Dict
 
 import discord
 
@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from .server import Server
     from .horses.horse import Horse
     from .horses.race import EventRace
+    from .member import HeliosMember
 
 
 class Stadium(HasSettings):
@@ -41,6 +42,13 @@ class Stadium(HasSettings):
             return c
         else:
             return None
+
+    def get_owner_horses(self, member: 'HeliosMember') -> Dict[int, Horse]:
+        horses = filter(lambda h: h.owner == member, self.horses.values())
+        horse_dict = {}
+        for h in horses:
+            horse_dict[h.id] = h
+        return horse_dict
 
     def serialize(self) -> StadiumSerializable:
         return {
