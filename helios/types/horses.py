@@ -12,6 +12,7 @@ class HorseSerializable(TypedDict):
     name: str
     breed: str
     stats: dict[str, str]
+    born: str
     settings: SettingsSerializable
 
 

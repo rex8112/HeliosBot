@@ -1,3 +1,4 @@
+import datetime
 import math
 import random
 from typing import TYPE_CHECKING, Optional
@@ -29,6 +30,7 @@ class Horse(HasSettings):
         self._id = 0
         self.name = 'Unknown'
         self.breed = Breed('')
+        self.date_born = datetime.datetime.now().astimezone().date()
         self.stats = StatContainer()
         self.stats['speed'] = Stat('speed', 0)
         self.stats['acceleration'] = Stat('acceleration', 0)
@@ -107,6 +109,7 @@ class Horse(HasSettings):
             'name': self.name,
             'breed': self.breed.name,
             'stats': self.stats.serialize(),
+            'born': Item.serialize(self.date_born),
             'settings': Item.serialize_dict(self.settings)
         }
         if self._new:
@@ -120,5 +123,6 @@ class Horse(HasSettings):
         self.name = data['name']
         self.breed = Breed(data['breed'])
         self.stats = StatContainer.from_dict(data['stats'])
+        self.date_born = Item.deserialize(data['born'])
         self.settings = Item.deserialize_dict(data['settings'], guild=self.stadium.guild)
         self._new = False
