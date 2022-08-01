@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import random
 from typing import Optional, TYPE_CHECKING
@@ -9,6 +10,7 @@ from ..abc import HasSettings
 from ..tools.settings import Item
 from ..types.horses import MaxRaceHorses, RaceTypes
 from ..types.settings import EventRaceSettings
+from ..views import PreRaceView
 
 if TYPE_CHECKING:
     from ..stadium import Stadium
@@ -269,9 +271,17 @@ class EventRace(HasSettings):
         return self.settings['message']
 
     @property
+    def race_time(self) -> datetime.datetime:
+        return self.settings['race_time']
+
+    @property
+    def betting_time(self) -> datetime.datetime:
+        return self.race_time - datetime.timedelta(self.settings['betting_time'])
+
+    @property
     def time_until_race(self) -> datetime.timedelta:
         now = datetime.datetime.now().astimezone()
-        return self.settings['race_time'] - now
+        return self.race_time - now
 
     @property
     def time_until_betting(self) -> datetime.timedelta:
@@ -301,18 +311,51 @@ class EventRace(HasSettings):
 
     async def start(self):
         cont = True
+        view = None
         while cont:
             if self.phase == 0:
-                ...  # Post registration options
+                if view is None:
+                    view = PreRaceView(self)
+                view.check_race_status()
+                await self.send_or_edit_message(embed=self._get_registration_embed(), view=view)
+                wait_for = self.time_until_betting.seconds
+                if wait_for > 0:
+                    await asyncio.sleep(wait_for)
+                self.phase = 1
             elif self.phase == 1:
-                ...  # Registration complete, commence betting
+                # Registration complete, commence betting
+                if view is None:
+                    view = PreRaceView(self)
+                view.check_race_status()
+                await self.send_or_edit_message(embed=self._get_betting_embed(), view=view)
+                wait_for = self.time_until_race.seconds
+                if wait_for > 0:
+                    await asyncio.sleep(wait_for)
+                self.phase = 2
+                view = None
             elif self.phase == 2:
-                ...  # RACE TIME
+                # RACE TIME
+                if self.race is None:
+                    self.generate_race()
+                    await self.send_or_edit_message(embed=self._get_race_embed())
+
+                self.race.tick()
+                await self.send_or_edit_message(embed=self._get_race_embed())
+
+                if self.race.finished:
+                    self.phase = 3
+                await asyncio.sleep(1)
             elif self.phase == 3:
-                ...  # Race over, time to calculate winnings for racers and betters.
+                self.phase = 4  # Race over, time to calculate winnings for racers and betters.
             else:
                 # Everything is over. GG.
                 cont = False
+
+    async def send_or_edit_message(self, content=None, *, embed=None, view=None):
+        if self.message is None:
+            self.settings['message'] = await self.channel.send(content=content, embed=embed, view=view)
+        else:
+            await self.message.edit(content=content, embed=embed, view=view)
 
     def bet(self, member: 'HeliosMember', horse: 'Horse', amount: int):
         ...  # Create a Bet listing and add to list
@@ -333,6 +376,22 @@ class EventRace(HasSettings):
 
     def set_race_time(self, dt: datetime.datetime):
         self.settings['race_time'] = dt
+
+    def _get_registration_embed(self) -> discord.Embed:
+        embed = discord.Embed(
+            colour=discord.Colour.blue(),
+            title=self.name + ' Registration',
+            description=f'Betting will commence <t:{self.settings["race_time"].timestamp()}:R>'
+        )
+        return embed
+
+    def _get_betting_embed(self) -> discord.Embed:
+        embed = discord.Embed(
+            colour=discord.Colour.green(),
+            title=self.name + ' Betting',
+            description=f'Betting is now available. Race begins <t:{self.betting_time.timestamp()}:R>'
+        )
+        return embed
 
     def _get_race_embed(self) -> discord.Embed:
         if not self.race:

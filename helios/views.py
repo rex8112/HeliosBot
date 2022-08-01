@@ -52,6 +52,12 @@ class PreRaceView(discord.ui.View):
         super().__init__(timeout=er.time_until_race.seconds)
         self.race = er
 
+    def check_race_status(self):
+        if self.race.phase == 1:
+            self.bet.disabled = False
+        else:
+            self.bet.disabled = True
+
     @discord.ui.button(label='Bet', style=discord.ButtonStyle.blurple, disabled=True)
     async def bet(self, interaction: discord.Interaction, button: discord.ui.Button):
         member = self.race.stadium.server.members.get(interaction.user.id)
