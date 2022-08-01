@@ -309,7 +309,7 @@ class EventRace(HasSettings):
         erace._deserialize(data)
         return erace
 
-    async def start(self):
+    async def run(self):
         cont = True
         view = None
         while cont:

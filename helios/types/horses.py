@@ -18,4 +18,5 @@ class HorseSerializable(TypedDict):
 
 class StadiumSerializable(TypedDict):
     server: int
+    day: int
     settings: dict
