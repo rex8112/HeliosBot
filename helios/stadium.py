@@ -137,6 +137,7 @@ class Stadium(HasSettings):
         if data is None:
             await self.save(new=True)
         else:
+            self._deserialize(data)
             for hdata in data['horses']:
                 h = Horse.from_dict(self, hdata)
                 self.horses[h.id] = h
@@ -144,16 +145,27 @@ class Stadium(HasSettings):
             for rdata in data['races']:
                 r = EventRace.from_dict(self, rdata)
                 self.races.append(r)
+        self.create_run_task()
+
+    def create_run_task(self):
         self.server.bot.loop.create_task(self.run())
 
     async def run(self):
+        self._running = True
         cont = True
         while cont:
+            if self.category is None:
+                cont = False
+                break
             cur_day = self.get_day()
             if cur_day != self.day:
                 self.day = cur_day
                 # Check if horses need to be added to the pool
+                if len(self.horses) < 100:
+                    await self.batch_create_horses(100)
+
             basic_races = list(filter(lambda r: r.settings['type'] == 'basic', self.races))
             if len(basic_races) < 1:
                 self.new_basic_race()
             await asyncio.sleep(60)
+        self._running = False
