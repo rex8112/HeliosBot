@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 from typing import TYPE_CHECKING, Optional, Dict
 
@@ -57,7 +58,7 @@ class Stadium(HasSettings):
         delta = datetime.datetime.now() - epoch_day
         return delta.days
 
-    def get_owner_horses(self, member: 'HeliosMember') -> Dict[int, Horse]:
+    def get_owner_horses(self, member: 'HeliosMember') -> Dict[int, 'Horse']:
         horses = filter(lambda h: h.owner == member, self.horses.values())
         horse_dict = {}
         for h in horses:
@@ -91,17 +92,26 @@ class Stadium(HasSettings):
         self.day = data['day']
         self.settings = Item.deserialize_dict(data['settings'], bot=self.server.bot, guild=self.guild)
 
+    async def save(self, new=False):
+        if new:
+            await self.server.bot.helios_http.post_stadium(self.serialize())
+        else:
+            await self.server.bot.helios_http.patch_stadium(self.serialize())
+
     async def setup(self, data: StadiumSerializable = None):
         if data is None:
             data = await self.server.bot.helios_http.get_stadium(stadium_id=self.server.id)
+        if data is None:
+            await self.save(new=True)
+        else:
+            for hdata in data['horses']:
+                h = Horse.from_dict(self, hdata)
+                self.horses[h.id] = h
 
-        for hdata in data['horses']:
-            h = Horse.from_dict(self, hdata)
-            self.horses[h.id] = h
-
-        for rdata in data['races']:
-            r = EventRace.from_dict(self, rdata)
-            self.races.append(r)
+            for rdata in data['races']:
+                r = EventRace.from_dict(self, rdata)
+                self.races.append(r)
+        self.server.bot.loop.create_task(self.run())
 
     async def run(self):
         cont = True
@@ -113,3 +123,4 @@ class Stadium(HasSettings):
             basic_races = list(filter(lambda r: r.settings['type'] == 'basic', self.races))
             if len(basic_races) < 1:
                 self.new_basic_race()
+            await asyncio.sleep(60)
