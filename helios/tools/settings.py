@@ -19,7 +19,7 @@ class Settings:
                     raise AttributeError(f'Attribute {k} already exists')
             except AttributeError:
                 ...
-            if isinstance(v, tuple):
+            if isinstance(v, list):
                 try:
                     self.__setattr__(k, Item.deserialize(v, bot=bot, guild=guild))
                 except DecodingError:
@@ -44,7 +44,7 @@ class Item:
         name = type(o).__name__
         if isinstance(o, Snowflake):
             data = o.id
-        elif isinstance(o, (int, float, str, bool)):
+        elif isinstance(o, (int, float, str, bool)) or o is None:
             data = o
         elif isinstance(o, (datetime.datetime, datetime.date, datetime.time)):
             data = o.isoformat()
@@ -60,7 +60,7 @@ class Item:
 
     @staticmethod
     def deserialize(o: ItemSerializable, *, bot: 'HeliosBot' = None, guild: 'Guild' = None):
-        name, data = o
+        name, data = tuple(o)
         if name == 'Member':
             if not guild:
                 raise ValueError(f'Argument guild required for type {name}.')
@@ -83,6 +83,8 @@ class Item:
                 stadium = server.stadium
                 horse = stadium.horses.get(data)
             return horse
+        elif name in ['str', 'int', 'float', 'bool']:
+            return data
         else:
             raise NotImplemented
 
@@ -111,5 +113,8 @@ class Item:
     def deserialize_dict(d: dict[str, ItemSerializable], *, bot: 'HeliosBot' = None, guild: 'Guild' = None):
         new_d = {}
         for k, v in d.items():
-            new_d[k] = Item.deserialize(v, bot=bot, guild=guild)
+            if isinstance(v, list):
+                new_d[k] = Item.deserialize(v, bot=bot, guild=guild)
+            else:
+                new_d[k] = v
         return new_d
