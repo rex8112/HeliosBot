@@ -1,4 +1,4 @@
-from typing import TypedDict, Optional, Literal
+from typing import TypedDict, Optional, Literal, Tuple
 
 from .settings import SettingsSerializable
 
@@ -12,7 +12,7 @@ class HorseSerializable(TypedDict):
     name: str
     breed: str
     stats: dict[str, str]
-    born: str
+    born: Tuple[str, str]
     settings: SettingsSerializable
 
 
