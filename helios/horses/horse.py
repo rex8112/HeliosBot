@@ -44,6 +44,10 @@ class Horse(HasSettings):
         return self._id
 
     @property
+    def is_new(self) -> bool:
+        return self.id == 0
+
+    @property
     def tier(self) -> int:
         return math.ceil(self.stats['speed'].value)
 
@@ -69,8 +73,8 @@ class Horse(HasSettings):
         return round(total / quantity, 2)
 
     @classmethod
-    def new(cls, name: str, breed: str, owner: Optional['HeliosMember'], *, num: int = None):
-        horse = cls(breed)
+    def new(cls, stadium: 'Stadium', name: str, breed: str, owner: Optional['HeliosMember'], *, num: int = None):
+        horse = cls(stadium)
         horse.name = name
         horse.settings['owner'] = owner
         horse.generate_stats(num=num)
@@ -126,3 +130,12 @@ class Horse(HasSettings):
         self.date_born = Item.deserialize(data['born'])
         self.settings = Item.deserialize_dict(data['settings'], guild=self.stadium.guild)
         self._new = False
+
+    async def save(self):
+        if self.is_new:
+            data = self.serialize()
+            del data['id']
+            new_data = await self.stadium.server.bot.helios_http.post_horse(data)
+            self._id = new_data['id']
+        else:
+            await self.stadium.server.bot.helios_http.patch_horse(self.serialize())

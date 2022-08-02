@@ -22,6 +22,10 @@ class Stadium(HasSettings):
         'season': 0,
         'category': None
     }
+    required_channels = [
+        'announcements',
+        'basic-races'
+    ]
     epoch_day = datetime.datetime(2022, 8, 1, 1, 0, 0)
 
     def __init__(self, server: 'Server'):
@@ -48,9 +52,14 @@ class Stadium(HasSettings):
             return None
 
     @property
+    def announcement_channel(self) -> Optional[discord.TextChannel]:
+        if self.category:
+            return next(filter(lambda x: x.name == 'announcements', self.category.channels))
+
+    @property
     def basic_channel(self) -> Optional[discord.TextChannel]:
         if self.category:
-            return next(filter(lambda x: x.name == 'basic_races', self.category.channels))
+            return next(filter(lambda x: x.name == 'basic-races', self.category.channels))
 
     @staticmethod
     def get_day():
@@ -97,6 +106,30 @@ class Stadium(HasSettings):
             await self.server.bot.helios_http.post_stadium(self.serialize())
         else:
             await self.server.bot.helios_http.patch_stadium(self.serialize())
+
+    async def batch_create_horses(self, count: int):
+        tasks = []
+        used_names = [x.name for x in self.horses.values()]
+        random_names = await self.server.bot.helios_http.request_names(count + 20)
+        for _ in range(count):
+            name = random_names[-1]
+            random_names.pop()
+            while name not in used_names:
+                name = random_names[-1]
+                random_names.pop()
+
+            h = Horse.new(self, name, 'Unknown', None)
+            await h.save()
+            self.horses[h.id] = h
+            used_names.append(name)
+
+    async def build_channels(self):
+        category = self.category
+        if category:
+            for channel_name in self.required_channels:
+                channel = next(filter(lambda x: x.name == channel_name, self.category.channels))
+                if not channel:
+                    await self.category.create_text_channel(channel_name)
 
     async def setup(self, data: StadiumSerializable = None):
         if data is None:

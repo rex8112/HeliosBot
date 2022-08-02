@@ -9,10 +9,14 @@ if TYPE_CHECKING:
 
 
 class HTTPClient:
-    def __init__(self, base_url, *, loop: 'AbstractEventLoop', api_username: str, api_password: str):
+    def __init__(self, base_url, *, loop: 'AbstractEventLoop', api_username: str, api_password: str, name_api_key: str):
         self._session = aiohttp.ClientSession(
             base_url=base_url,
             auth=aiohttp.BasicAuth(api_username, api_password)
+        )
+        name_headers = {'X-Api-Key': name_api_key}
+        self._name_session = aiohttp.ClientSession(
+            headers=name_headers
         )
 
     @staticmethod
@@ -29,6 +33,12 @@ class HTTPClient:
             raise HTTPError(resp.status, await resp.text())
         j = await self.json_or_none(resp)
         return j
+
+    async def request_names(self, quantity: int, *, name_type='firstname') -> list[str]:
+        url = 'https://randommer.io/api/Name'
+        resp = await self._name_session.get(url, params={'nameType': name_type, 'quantity': quantity})
+        if resp.status == 200:
+            return await resp.json()
 
     async def get_server(self, guild_id: int = None):
         if guild_id:
