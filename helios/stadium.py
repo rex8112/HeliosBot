@@ -27,6 +27,7 @@ class Stadium(HasSettings):
         'basic-races'
     ]
     epoch_day = datetime.datetime(2022, 8, 1, 1, 0, 0)
+    daily_points = 1000
 
     def __init__(self, server: 'Server'):
         self.server = server
@@ -34,6 +35,12 @@ class Stadium(HasSettings):
         self.races: list['EventRace'] = []
         self.day = 0
         self.settings: StadiumSettings = self._default_settings.copy()
+
+        self._running = False
+
+    @property
+    def running(self) -> bool:
+        return self._running
 
     @property
     def guild(self) -> discord.Guild:

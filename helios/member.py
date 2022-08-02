@@ -16,7 +16,8 @@ if TYPE_CHECKING:
 class HeliosMember(HasFlags, HasSettings):
     _default_settings = {
         'activity_points': 0,
-        'points': 0
+        'points': 0,
+        'day_claimed': 0
     }
     _allowed_flags = [
         'FORBIDDEN'
@@ -52,6 +53,18 @@ class HeliosMember(HasFlags, HasSettings):
     def horses(self) -> Dict[int, 'Horse']:
         return self.server.stadium.get_owner_horses(self)
 
+    @property
+    def points(self) -> int:
+        return self.settings['points']
+
+    @points.setter
+    def points(self, value: int):
+        self.settings['points'] = int(value)
+
+    @property
+    def activity_points(self) -> int:
+        return self.settings['activity_points']
+
     def add_activity_points(self, amt: int):
         self.settings['activity_points'] += amt
         self._changed = True
@@ -84,6 +97,18 @@ class HeliosMember(HasFlags, HasSettings):
         if self._id == 0:
             del data['id']
         return data
+
+    def claim_daily(self) -> bool:
+        """
+        :return: Whether the daily could be claimed.
+        """
+        stadium = self.server.stadium
+        if self.settings['day_claimed'] != stadium.day:
+            self.points += stadium.daily_points
+            self.settings['day_claimed'] = stadium.day
+            return True
+        else:
+            return False
 
     def check_voice(self, amt: int, partial: int = 4) -> bool:
         """
