@@ -15,12 +15,19 @@ class HTTPClient:
             auth=aiohttp.BasicAuth(api_username, api_password)
         )
 
+    @staticmethod
+    async def json_or_none(cr: aiohttp.ClientResponse):
+        if cr.status == 404:
+            return None
+        else:
+            return await cr.json(content_type=cr.headers.get('Content-Type'))
+
     async def request(self, url_end: str, method='GET', **params):
         url = f'/api/{url_end}'
         resp = await self._session.request(method, url, **params)
-        if resp.status not in [200, 404]:
+        if resp.status not in [200, 201, 404]:
             raise HTTPError(resp.status, await resp.text())
-        j = await resp.json(content_type=resp.headers.get('Content-Type'))
+        j = await self.json_or_none(resp)
         return j
 
     async def get_server(self, guild_id: int = None):
@@ -78,21 +85,21 @@ class HTTPClient:
 
     async def get_stadium(self, *, stadium_id: int = None, **params):
         if stadium_id:
-            resp = await self.request(f'stadiums/{stadium_id}')
+            resp = await self.request(f'stadium/{stadium_id}')
         else:
-            resp = await self.request(f'stadiums/', params=params)
+            resp = await self.request(f'stadium/', params=params)
         return resp
 
     async def post_stadium(self, json_data: Union[dict, list]):
-        resp = await self.request('stadiums/', method='POST', json=json_data)
+        resp = await self.request('stadium/', method='POST', json=json_data)
         return resp
 
     async def patch_stadium(self, json_data: Union[dict, list]):
-        resp = await self.request(f'stadiums/{json_data.get("id")}/', method='PATCH', json=json_data)
+        resp = await self.request(f'stadium/{json_data.get("id")}/', method='PATCH', json=json_data)
         return resp
 
     async def del_stadium(self, stadium_id: int):
-        resp = await self.request(f'stadiums/{stadium_id}/', method='DELETE')
+        resp = await self.request(f'stadium/{stadium_id}/', method='DELETE')
         return resp
 
     async def get_horse(self, *, horse_id: int = None, **params):
