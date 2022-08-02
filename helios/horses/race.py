@@ -7,6 +7,7 @@ import discord
 
 from .horse import Horse
 from ..abc import HasSettings
+from ..exceptions import IdMismatchError
 from ..tools.settings import Item
 from ..types.horses import MaxRaceHorses, RaceTypes
 from ..types.settings import EventRaceSettings
@@ -457,12 +458,15 @@ class EventRace(HasSettings):
     def serialize(self):
         return {
             'id': self.id,
+            'server': self.stadium.server.id,
             'name': self.name,
             'horses': Item.serialize_list(self.horses),
             'settings': Item.serialize_dict(self.settings)
         }
 
     def _deserialize(self, data):
+        if self.stadium.server.id != data['server']:
+            raise IdMismatchError('This data does not belong to this server.')
         self._id = data['id']
         self.name = data['name']
         self.horses = Item.deserialize_list(data['horses'], guild=self.stadium.guild, bot=self.stadium.server.bot)
