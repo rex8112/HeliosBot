@@ -45,7 +45,7 @@ class Item:
         if isinstance(o, Snowflake):
             data = o.id
         elif isinstance(o, (int, float, str, bool)) or o is None:
-            data = o
+            return o
         elif isinstance(o, (datetime.datetime, datetime.date, datetime.time)):
             data = o.isoformat()
         else:
@@ -60,6 +60,8 @@ class Item:
 
     @staticmethod
     def deserialize(o: ItemSerializable, *, bot: 'HeliosBot' = None, guild: 'Guild' = None):
+        if isinstance(o, (int, float, str, bool)):
+            return o
         name, data = tuple(o)
         if name == 'Member':
             if not guild:
