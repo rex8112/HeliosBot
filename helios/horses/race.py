@@ -1,7 +1,8 @@
 import asyncio
 import datetime
+import enum
 import random
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, List
 
 import discord
 
@@ -16,6 +17,12 @@ from ..views import PreRaceView
 if TYPE_CHECKING:
     from ..stadium import Stadium
     from ..member import HeliosMember
+
+
+class BetType(enum.Enum):
+    win = 0
+    place = 1
+    show = 2
 
 
 class Record:
@@ -63,6 +70,52 @@ class Record:
         self.race_type = data['type']
         self.earnings = data['earnings']
         self.placing = data['placing']
+
+
+class Bet:
+    def __init__(self, bet_type: BetType, horse_id: int, better_id: int, amount: int):
+        self.type = bet_type
+        self.horse_id = horse_id
+        self.better = better_id
+        self.amount = amount
+        self.fulfilled = False
+        self.timestamp = datetime.datetime.now().astimezone()
+
+    @classmethod
+    def from_dict(cls, data):
+        bet = cls(BetType(data['type']), data['horse_id'], data['better'], data['amount'])
+        bet.fulfilled = data['fulfilled']
+        bet.timestamp = Item.deserialize(data['timestamp'])
+        return bet
+
+    def get_bet_result(self, finished_horses: List[Horse]) -> bool:
+        finished_horse_ids = [x.id for x in finished_horses]
+        if self.type is BetType.win:
+            return self.horse_id in finished_horse_ids[:1]
+        elif self.type is BetType.place:
+            return self.horse_id in finished_horse_ids[:2]
+        elif self.type is BetType.show:
+            return self.horse_id in finished_horse_ids[:3]
+        else:
+            return False
+
+    def serialize(self):
+        return {
+            'type': self.type,
+            'horse_id': self.horse_id,
+            'better': self.better,
+            'amount': self.amount,
+            'fulfilled': self.fulfilled,
+            'timestamp': Item.serialize(self.timestamp)
+        }
+
+    def _deserialize(self, data: dict):
+        self.type = data['type']
+        self.horse_id = data['horse_id']
+        self.better = data['better']
+        self.amount = data['amount']
+        self.fulfilled = data['fulfilled']
+        self.timestamp = Item.deserialize(data['timestamp'])
 
 
 class RaceHorse:
