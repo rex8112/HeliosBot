@@ -411,8 +411,9 @@ class EventRace(HasSettings):
         else:
             await self.message.edit(content=content, embed=embed, view=view)
 
-    def bet(self, member: 'HeliosMember', horse: 'Horse', amount: int):
-        ...  # Create a Bet listing and add to list
+    def bet(self, bet_type: BetType, member: 'HeliosMember', horse: 'Horse', amount: int):
+        bet = Bet(bet_type, horse.id, member.member.id, amount)
+        self.bets.append(bet)
 
     def find_horse(self, name: str) -> 'Horse':
         name = name.lower()
