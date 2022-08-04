@@ -288,7 +288,7 @@ class EventRace(HasSettings):
         self.name = ''
         self.race: Optional[Race] = None
         self.horses: list[Horse] = []
-        self.bets = []
+        self.bets: List[Bet] = []
 
         self.settings: EventRaceSettings = EventRace._default_settings.copy()
 
@@ -362,6 +362,30 @@ class EventRace(HasSettings):
         erace = cls(stadium)
         erace._deserialize(data)
         return erace
+
+    def get_total_bets(self) -> int:
+        total = 0
+        for bet in self.bets:
+            total += bet.amount
+        return total
+
+    def get_total_win_bets(self) -> int:
+        total = 0
+        for bet in list(filter(lambda x: x.type == BetType.win, self.bets)):
+            total += bet.amount
+        return total
+
+    def get_total_place_bets(self) -> int:
+        total = 0
+        for bet in list(filter(lambda x: x.type == BetType.place, self.bets)):
+            total += bet.amount
+        return total
+
+    def get_total_show_bets(self) -> int:
+        total = 0
+        for bet in list(filter(lambda x: x.type == BetType.show, self.bets)):
+            total += bet.amount
+        return total
 
     async def run(self):
         cont = True
