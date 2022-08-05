@@ -489,6 +489,8 @@ class EventRace(HasSettings):
                 await self.save()
             else:
                 # Everything is over. GG.
+                self.stadium.races.remove(self)
+                await self.stadium.save()
                 cont = False
 
     async def send_or_edit_message(self, content=None, *, embed=None, view=None):
