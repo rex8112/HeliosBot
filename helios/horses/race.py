@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import enum
+import math
 import random
 from typing import Optional, TYPE_CHECKING, List
 
@@ -369,23 +370,74 @@ class EventRace(HasSettings):
             total += bet.amount
         return total
 
-    def get_total_win_bets(self) -> int:
+    def get_total_type_bets(self, t: BetType) -> int:
         total = 0
-        for bet in list(filter(lambda x: x.type == BetType.win, self.bets)):
+        for bet in list(filter(lambda x: x.type == t, self.bets)):
             total += bet.amount
         return total
 
-    def get_total_place_bets(self) -> int:
+    def get_winning_type_bets(self, t: BetType) -> int:
+        if not self.finished:
+            return 0
         total = 0
-        for bet in list(filter(lambda x: x.type == BetType.place, self.bets)):
+        if t == BetType.win:
+            horses = self.race.finished_horses[:1]
+        elif t == BetType.place:
+            horses = self.race.finished_horses[:2]
+        else:  # t == BetType.show:
+            horses = self.race.finished_horses[:3]
+        horses = [x.horse.id for x in horses]
+        for bet in list(filter(lambda x: x.type == t and x.horse_id in horses, self.bets)):
             total += bet.amount
         return total
 
-    def get_total_show_bets(self) -> int:
+    def get_horse_type_bets(self, t: BetType, h: Horse) -> int:
         total = 0
-        for bet in list(filter(lambda x: x.type == BetType.show, self.bets)):
+        for bet in list(filter(lambda x: x.type == t and x.horse_id == h.id, self.bets)):
             total += bet.amount
         return total
+
+    def calculate_odds(self, h: Horse):
+        total = self.get_total_type_bets(BetType.win) * 1  # For houses take if needed later
+        horse_pool = self.get_horse_type_bets(BetType.win, h)
+        diff = total - horse_pool
+        odds = diff / horse_pool
+        odds = math.floor(odds * 10) / 10
+        return odds
+
+    def calculate_pool_odds(self, t: BetType):
+        total = self.get_total_type_bets(t)
+        winning = self.get_winning_type_bets(t)
+        diff = total - winning
+        odds = diff / winning
+        return math.floor(odds * 10) / 10
+
+    def get_payout_amount(self, bet: Bet) -> int:
+        if not self.finished:
+            return 0
+        if bet.type == BetType.win:
+            winning_horse = self.race.finished_horses[0].horse
+            if bet.horse_id == winning_horse.id:
+                odds = self.calculate_odds(winning_horse)
+                winning = bet.amount * odds
+                return int(winning) + bet.amount
+            return 0
+        else:
+            won = bet.get_bet_result([x.horse for x in self.race.finished_horses])
+
+            if won:
+                odds = self.calculate_pool_odds(bet.type)
+                winning = bet.amount * odds
+                return int(winning) + bet.amount
+            return 0
+
+    async def save(self):
+        if self.is_new:
+            data = self.serialize()
+            del data['id']
+            await self.stadium.server.bot.helios_http.post_race(data)
+        else:
+            await self.stadium.server.bot.helios_http.patch_race(self.serialize())
 
     async def run(self):
         cont = True
@@ -400,6 +452,7 @@ class EventRace(HasSettings):
                 if wait_for > 0:
                     await asyncio.sleep(wait_for)
                 self.phase = 1
+                await self.save()
             elif self.phase == 1:
                 # Registration complete, commence betting
                 if view is None:
@@ -422,9 +475,18 @@ class EventRace(HasSettings):
 
                 if self.race.finished:
                     self.phase = 3
+                    await self.save()
                 await asyncio.sleep(1)
             elif self.phase == 3:
+                tasks = []
+                for bet in self.bets:
+                    amount = self.get_payout_amount(bet)
+                    member = self.stadium.server.members.get(bet.better)
+                    if not member.member.bot:
+                        member.points += amount
+                        tasks.append(member.save())
                 self.phase = 4  # Race over, time to calculate winnings for racers and betters.
+                await self.save()
             else:
                 # Everything is over. GG.
                 cont = False
