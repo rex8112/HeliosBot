@@ -150,6 +150,8 @@ class Stadium(HasSettings):
                 self.horses[h.id] = h
 
             for rdata in data['races']:
+                if rdata['settings']['phase'] >= 4:
+                    continue
                 r = EventRace.from_dict(self, rdata)
                 self.races.append(r)
         self.create_run_task()
