@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 from discord import ui, Interaction
 
 from .exceptions import BetError
+from .horses.race import BetType
 
 if TYPE_CHECKING:
     from .server import Server
@@ -37,6 +38,11 @@ class BetModal(ui.Modal, title=f'Bet'):
         self.member = member
 
     async def on_submit(self, interaction: Interaction) -> None:
+        types = {
+            'win': BetType.win,
+            'place': BetType.place,
+            'show': BetType.show
+        }
         if self.type.value.lower() not in ['place', 'win', 'show']:
             raise BetError('Type must be win, place, or show.')
         try:
@@ -46,8 +52,14 @@ class BetModal(ui.Modal, title=f'Bet'):
         horse = self.race.find_horse(self.horse_name.value)
         if horse is None:
             raise BetError('You must type a valid horse name that is registered to this race.')
-        self.race.bet(self.member, horse, amt)
-        await interaction.response.send_message(f'You have placed a <type> bet on <horse> for <amount>.', ephemeral=True)
+        if self.member.points < amt:
+            raise BetError(f'You only have {self.member.points} points')
+        self.race.bet(types[self.type.value.lower()], self.member, horse, amt)
+        self.member.points -= amt
+        await self.member.save()
+        await self.race.save()
+        await interaction.response.send_message(
+            f'You have placed a {types[self.type.value.lower()]} bet on {horse.name} for {amt}.', ephemeral=True)
 
     async def on_error(self, interaction: Interaction, error: Exception) -> None:
         if isinstance(error, BetError):
