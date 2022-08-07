@@ -35,7 +35,7 @@ class StadiumCog(commands.Cog):
             tomorrow = datetime.datetime.now().astimezone() + datetime.timedelta(days=1)
             tomorrow = tomorrow.date()
             tomorrow = datetime.datetime.combine(tomorrow, epoch_time)
-            await interaction.response.send_message(f'Check back <t:{tomorrow.timestamp()}:R>', ephemeral=True)
+            await interaction.response.send_message(f'Check back <t:{int(tomorrow.timestamp())}:R>', ephemeral=True)
 
 
 async def setup(bot: 'HeliosBot'):

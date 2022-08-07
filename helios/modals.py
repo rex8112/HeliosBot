@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 from discord import ui, Interaction
 
 from .exceptions import BetError
-from .horses.race import BetType
+from .horses.enumerations import BetType
 
 if TYPE_CHECKING:
     from .server import Server

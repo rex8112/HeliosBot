@@ -23,8 +23,11 @@ class MemberManager:
         return self.members.get(member_id)
 
     async def manage_members(self):
-        self.check_voices()
-        await self.save_all()
+        cont = True
+        while cont:
+            self.check_voices()
+            await self.save_all()
+            await asyncio.sleep(60)
 
     def check_voices(self):
         for m in self.members.values():
@@ -55,4 +58,5 @@ class MemberManager:
             self.members[m.member.id] = m
         if len(tasks) > 0:
             await asyncio.wait(tasks)
+        self.bot.loop.create_task(self.manage_members())
 

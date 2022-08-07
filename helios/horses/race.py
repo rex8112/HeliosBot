@@ -1,12 +1,12 @@
 import asyncio
 import datetime
-import enum
 import math
 import random
 from typing import Optional, TYPE_CHECKING, List
 
 import discord
 
+from .enumerations import BetType
 from .horse import Horse
 from ..abc import HasSettings
 from ..exceptions import IdMismatchError
@@ -18,12 +18,6 @@ from ..views import PreRaceView
 if TYPE_CHECKING:
     from ..stadium import Stadium
     from ..member import HeliosMember
-
-
-class BetType(enum.Enum):
-    win = 0
-    place = 1
-    show = 2
 
 
 class Record:
@@ -102,7 +96,7 @@ class Bet:
 
     def serialize(self):
         return {
-            'type': self.type,
+            'type': self.type.value,
             'horse_id': self.horse_id,
             'better': self.better,
             'amount': self.amount,
@@ -111,7 +105,7 @@ class Bet:
         }
 
     def _deserialize(self, data: dict):
-        self.type = data['type']
+        self.type = BetType(data['type'])
         self.horse_id = data['horse_id']
         self.better = data['better']
         self.amount = data['amount']
@@ -246,7 +240,12 @@ class Race:
         self.horses = race_horses
 
     def get_positions(self) -> list[RaceHorse]:
-        return sorted(self.horses, key=lambda rh: rh.progress, reverse=True)
+        progress_sort = sorted(self.horses, key=lambda rh: rh.progress, reverse=True)
+        final_list = [*self.finished_horses]
+        for horse in progress_sort:
+            if horse not in final_list:
+                final_list.append(horse)
+        return final_list
 
     def get_progress_string(self, size=10):
         total_size = size
@@ -266,7 +265,7 @@ class Race:
                 p += filled_char
             for _ in range(empty):
                 p += empty_char
-            progress_string += f'{p} {position_sorted_list.index(h) + 1:2} {percent:7.3f}% - {h.name}\n'
+            progress_string += f'{p} `{position_sorted_list.index(h) + 1:2} {percent:7.3f}%` - {h.name}\n'
         return progress_string
 
 
@@ -292,6 +291,8 @@ class EventRace(HasSettings):
         self.bets: List[Bet] = []
 
         self.settings: EventRaceSettings = EventRace._default_settings.copy()
+
+        self._task = None
 
     @property
     def id(self):
@@ -331,7 +332,7 @@ class EventRace(HasSettings):
 
     @property
     def betting_time(self) -> datetime.datetime:
-        return self.race_time - datetime.timedelta(self.settings['betting_time'])
+        return self.race_time - datetime.timedelta(seconds=self.settings['betting_time'])
 
     @property
     def time_until_race(self) -> datetime.timedelta:
@@ -340,7 +341,7 @@ class EventRace(HasSettings):
 
     @property
     def time_until_betting(self) -> datetime.timedelta:
-        return self.time_until_race - datetime.timedelta(self.settings['betting_time'])
+        return self.time_until_race - datetime.timedelta(seconds=self.settings['betting_time'])
 
     @property
     def phase(self):
@@ -412,7 +413,7 @@ class EventRace(HasSettings):
         odds = diff / winning
         return math.floor(odds * 10) / 10
 
-    def get_payout_amount(self, bet: Bet) -> int:
+    def get_bet_payout_amount(self, bet: Bet) -> int:
         if not self.finished:
             return 0
         if bet.type == BetType.win:
@@ -435,21 +436,29 @@ class EventRace(HasSettings):
         if self.is_new:
             data = self.serialize()
             del data['id']
-            await self.stadium.server.bot.helios_http.post_race(data)
+            resp = await self.stadium.server.bot.helios_http.post_race(data)
+            self._id = resp['id']
         else:
             await self.stadium.server.bot.helios_http.patch_race(self.serialize())
+
+    def create_run_task(self):
+        if not self._task:
+            self._task = self.stadium.server.bot.loop.create_task(self.run())
+        else:
+            print('This is bad')
 
     async def run(self):
         cont = True
         view = None
+        await self.save()
         while cont:
             if self.phase == 0:
                 if view is None:
                     view = PreRaceView(self)
                 view.check_race_status()
                 await self.send_or_edit_message(embed=self._get_registration_embed(), view=view)
-                wait_for = self.time_until_betting.seconds
-                if wait_for > 0:
+                if self.time_until_betting > datetime.timedelta(seconds=0):
+                    wait_for = self.time_until_betting.seconds
                     await asyncio.sleep(wait_for)
                 self.phase = 1
                 await self.save()
@@ -459,8 +468,8 @@ class EventRace(HasSettings):
                     view = PreRaceView(self)
                 view.check_race_status()
                 await self.send_or_edit_message(embed=self._get_betting_embed(), view=view)
-                wait_for = self.time_until_race.seconds
-                if wait_for > 0:
+                if self.time_until_race > datetime.timedelta(seconds=0):
+                    wait_for = self.time_until_race.seconds
                     await asyncio.sleep(wait_for)
                 self.phase = 2
                 view = None
@@ -469,6 +478,7 @@ class EventRace(HasSettings):
                 if self.race is None:
                     self.generate_race()
                     await self.send_or_edit_message(embed=self._get_race_embed())
+                    await asyncio.sleep(5)
 
                 self.race.tick()
                 await self.send_or_edit_message(embed=self._get_race_embed())
@@ -480,11 +490,14 @@ class EventRace(HasSettings):
             elif self.phase == 3:
                 tasks = []
                 for bet in self.bets:
-                    amount = self.get_payout_amount(bet)
+                    amount = self.get_bet_payout_amount(bet)
                     member = self.stadium.server.members.get(bet.better)
                     if not member.member.bot:
                         member.points += amount
+                        bet.fulfilled = True
                         tasks.append(member.save())
+                if len(tasks) > 0:
+                    await asyncio.wait(tasks)
                 self.phase = 4  # Race over, time to calculate winnings for racers and betters.
                 await self.save()
             else:
@@ -496,8 +509,13 @@ class EventRace(HasSettings):
     async def send_or_edit_message(self, content=None, *, embed=None, view=None):
         if self.message is None:
             self.settings['message'] = await self.channel.send(content=content, embed=embed, view=view)
+            await self.save()
         else:
-            await self.message.edit(content=content, embed=embed, view=view)
+            try:
+                await self.message.edit(content=content, embed=embed, view=view)
+            except discord.NotFound:
+                self.settings['message'] = None
+                await self.send_or_edit_message(content, embed=embed, view=view)
 
     def bet(self, bet_type: BetType, member: 'HeliosMember', horse: 'Horse', amount: int):
         bet = Bet(bet_type, horse.id, member.member.id, amount)
@@ -524,7 +542,7 @@ class EventRace(HasSettings):
         embed = discord.Embed(
             colour=discord.Colour.blue(),
             title=self.name + ' Registration',
-            description=f'Betting will commence <t:{self.settings["race_time"].timestamp()}:R>'
+            description=f'Betting will commence <t:{int(self.betting_time.timestamp())}:R>'
         )
         return embed
 
@@ -532,17 +550,26 @@ class EventRace(HasSettings):
         embed = discord.Embed(
             colour=discord.Colour.green(),
             title=self.name + ' Betting',
-            description=f'Betting is now available. Race begins <t:{self.betting_time.timestamp()}:R>'
+            description=f'Betting is now available. Race begins <t:{int(self.settings["race_time"].timestamp())}:R>'
         )
+        horse_string = ''
+        for h in self.horses:
+            owner = h.settings['owner']
+            if not owner:
+                owner = self.stadium.owner
+            else:
+                owner = owner.member
+            horse_string += f'{h.name} - {owner.mention}\n'
+        embed.add_field(name='Horses', value=horse_string)
         return embed
 
     def _get_race_embed(self) -> discord.Embed:
         if not self.race:
             desc_string = f'The {self.name} is about to commence!'
         elif self.finished:
-            desc_string = f'{self.race.finished_horses[0]} has won the race!'
+            desc_string = f'{self.race.finished_horses[0].name} has won the race!'
         else:
-            desc_string = self.race.get_progress_string()
+            desc_string = self.race.get_progress_string(20)
 
         embed = discord.Embed(
             colour=discord.Colour.orange(),
@@ -560,10 +587,13 @@ class EventRace(HasSettings):
         )
         horse_string = ''
         for h in self.horses:
-            owner = h.settings['owner'].member
+            owner = h.settings['owner']
             if not owner:
                 owner = self.stadium.owner
-            horse_string += f'{h.name} - {owner.mention}'
+            else:
+                owner = owner.member
+            horse_string += f'{h.name} - {owner.mention}\n'
+        embed.add_field(name='Horses', value=horse_string)
 
         return embed
 
@@ -602,6 +632,7 @@ class EventRace(HasSettings):
             'id': self.id,
             'server': self.stadium.server.id,
             'name': self.name,
+            'bets': [x.serialize() for x in self.bets],
             'horses': Item.serialize_list(self.horses),
             'settings': Item.serialize_dict(self.settings)
         }
@@ -612,4 +643,6 @@ class EventRace(HasSettings):
         self._id = data['id']
         self.name = data['name']
         self.horses = Item.deserialize_list(data['horses'], guild=self.stadium.guild, bot=self.stadium.server.bot)
-        self.settings = Item.deserialize_dict(self.settings, guild=self.stadium.guild, bot=self.stadium.server.bot)
+        self.bets = [Bet.from_dict(x) for x in data['bets']]
+        settings = {**self._default_settings, **data['settings']}
+        self.settings = Item.deserialize_dict(settings, guild=self.stadium.guild, bot=self.stadium.server.bot)

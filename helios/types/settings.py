@@ -1,5 +1,5 @@
 import datetime
-from typing import TypedDict, TYPE_CHECKING, Optional, Union, Dict, Tuple
+from typing import TypedDict, TYPE_CHECKING, Optional, Union, Dict, Tuple, List
 
 import discord
 
@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 
 Primitives = Union[int, float, bool, str]
-ItemSerializable = Tuple[str, Primitives]
+ItemSerializable = Tuple[str, Union[Primitives, List]]
 SettingsSerializable = Dict[str, Union[ItemSerializable, Primitives]]
 PossibleSettings = Union['HorseSettings', 'EventRaceSettings']
 

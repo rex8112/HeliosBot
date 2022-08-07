@@ -105,7 +105,7 @@ class HTTPClient:
         return resp
 
     async def patch_stadium(self, json_data: Union[dict, list]):
-        resp = await self.request(f'stadium/{json_data.get("id")}/', method='PATCH', json=json_data)
+        resp = await self.request(f'stadium/{json_data.get("server")}/', method='PATCH', json=json_data)
         return resp
 
     async def del_stadium(self, stadium_id: int):

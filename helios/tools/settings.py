@@ -2,6 +2,7 @@ import datetime
 from typing import Union, TYPE_CHECKING, Any
 
 from discord.abc import Snowflake
+from discord import Message, PartialMessage
 
 from ..exceptions import DecodingError
 from ..types.settings import ItemSerializable
@@ -42,7 +43,9 @@ class Item:
     @staticmethod
     def serialize(o: Any) -> Union[ItemSerializable, Any]:
         name = type(o).__name__
-        if isinstance(o, Snowflake):
+        if isinstance(o, (Message, PartialMessage)):
+            data = [o.channel.id, o.id]
+        elif isinstance(o, Snowflake):
             data = o.id
         elif isinstance(o, (int, float, str, bool)) or o is None:
             return o
@@ -76,6 +79,15 @@ class Item:
                 raise ValueError(f'Argument guild and bot required for type {name}')
             server = bot.servers.get(guild.id)
             return server.members.get(data)
+        elif name in ['CategoryChannel', 'TextChannel', 'VoiceChannel']:
+            if not guild:
+                raise ValueError(f'Argument guild required for type {name}')
+            return guild.get_channel(data)
+        elif name in ['Message', 'PartialMessage']:
+            if not guild:
+                raise ValueError(f'Argument guild required for type {name}')
+            channel = guild.get_channel(data[0])
+            return channel.get_partial_message(data[1])
         elif name == 'Horse':
             if not guild or not bot:
                 raise ValueError(f'Argument guild and bot required for type {name}')
@@ -87,8 +99,16 @@ class Item:
             return horse
         elif name in ['str', 'int', 'float', 'bool']:
             return data
+        elif name == 'NoneType':
+            return None
+        elif name == 'date':
+            return datetime.date.fromisoformat(data)
+        elif name == 'time':
+            return datetime.time.fromisoformat(data)
+        elif name == 'datetime':
+            return datetime.datetime.fromisoformat(data)
         else:
-            raise NotImplemented
+            raise NotImplementedError(f'Can not deserialize type: {name}: {data}')
 
     @staticmethod
     def serialize_list(el: list[Any]) -> list[ItemSerializable]:

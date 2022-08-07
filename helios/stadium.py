@@ -1,11 +1,13 @@
 import asyncio
 import datetime
+import random
 from typing import TYPE_CHECKING, Optional, Dict
 
 import discord
 
 from .abc import HasSettings
 from .exceptions import IdMismatchError
+from .horses.horse import Horse
 from .horses.race import EventRace
 from .tools.settings import Item
 from .types.horses import StadiumSerializable
@@ -13,7 +15,6 @@ from .types.settings import StadiumSettings
 
 if TYPE_CHECKING:
     from .server import Server
-    from .horses.horse import Horse
     from .member import HeliosMember
 
 
@@ -37,6 +38,10 @@ class Stadium(HasSettings):
         self.settings: StadiumSettings = self._default_settings.copy()
 
         self._running = False
+
+    @property
+    def id(self) -> int:
+        return self.server.id
 
     @property
     def running(self) -> bool:
@@ -84,12 +89,19 @@ class Stadium(HasSettings):
     def new_basic_race(self) -> bool:
         now = datetime.datetime.now().astimezone()
         next_slot = now + datetime.timedelta(minutes=15)
-        next_slot = next_slot - datetime.timedelta(minutes=next_slot.second % 15)
+        next_slot = next_slot - datetime.timedelta(
+            minutes=next_slot.minute % 15,
+            seconds=next_slot.second,
+            microseconds=next_slot.microsecond
+        )
         delta = next_slot - now
         if delta.seconds < 360:
             next_slot = next_slot + datetime.timedelta(minutes=15)
         if self.basic_channel:
             er = EventRace.new(self, self.basic_channel, 'basic', next_slot)
+            er.name = 'Quarter Hourly'
+            er.settings['betting_time'] = 300
+            er.horses = random.sample(list(self.horses.values()), k=er.max_horses)
             self.races.append(er)
             self.server.bot.loop.create_task(er.run())
             return True
@@ -121,7 +133,7 @@ class Stadium(HasSettings):
         for _ in range(count):
             name = random_names[-1]
             random_names.pop()
-            while name not in used_names:
+            while name in used_names:
                 name = random_names[-1]
                 random_names.pop()
 
@@ -134,7 +146,11 @@ class Stadium(HasSettings):
         category = self.category
         if category:
             for channel_name in self.required_channels:
-                channel = next(filter(lambda x: x.name == channel_name, self.category.channels))
+                channels = list(filter(lambda x: x.name == channel_name, category.channels))
+                if len(channels) > 0:
+                    channel = channels[0]
+                else:
+                    channel = None
                 if not channel:
                     await self.category.create_text_channel(channel_name)
 
@@ -152,8 +168,10 @@ class Stadium(HasSettings):
             for rdata in data['races']:
                 if rdata['settings']['phase'] >= 4:
                     continue
-                r = EventRace.from_dict(self, rdata)
-                self.races.append(r)
+                else:
+                    r = EventRace.from_dict(self, rdata)
+                    self.races.append(r)
+                    r.create_run_task()
         self.create_run_task()
 
     def create_run_task(self):
@@ -172,9 +190,11 @@ class Stadium(HasSettings):
                 # Check if horses need to be added to the pool
                 if len(self.horses) < 100:
                     await self.batch_create_horses(100)
+                    await self.save()
 
             basic_races = list(filter(lambda r: r.settings['type'] == 'basic', self.races))
             if len(basic_races) < 1:
                 self.new_basic_race()
+                await self.save()
             await asyncio.sleep(60)
         self._running = False

@@ -67,6 +67,7 @@ class SettingsCog(commands.GroupCog, name='settings'):
         await stadium.save()
         if not stadium.running:
             stadium.create_run_task()
+        await interaction.response.send_message('Stadium Set', ephemeral=True)
 
 
 async def setup(bot: 'HeliosBot'):
