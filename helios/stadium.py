@@ -57,6 +57,10 @@ class Stadium(HasSettings):
         return self.guild.me
 
     @property
+    def owner_member(self) -> 'HeliosMember':
+        return HeliosMember(self.server.members, )
+
+    @property
     def category(self) -> Optional[discord.CategoryChannel]:
         c = self.settings['category']
         if c:
@@ -200,3 +204,39 @@ class Stadium(HasSettings):
                 await self.save()
             await asyncio.sleep(60)
         self._running = False
+
+    def _get_new_stadium_embed(self) -> discord.Embed:
+        embed = discord.Embed(
+            colour=discord.Colour.orange(),
+            title='Welcome to the Helios Stadium!',
+            description=(
+                'This is your one stop shop for anything horse racing. Want to bet on an unimportant but always '
+                f'happening race? Head to {self.basic_channel.mention}. Low on cash? Try /daily. Be sure to hang out, '
+                'upcoming features will use activity points which are now being accumulated via voice channels.'
+            )
+        )
+        embed.add_field(
+            name='Bet Types',
+            value=(
+                'In horse racing you are always betting against other bettors, not the house, therefore '
+                'the odds of your bets are affected by the amount of other bets.\n\n'
+                'Curious what win, place, and show mean? Let me explain:\n'
+                '**Win**: This one is pretty self explanatory, you are betting on your horse to win first place '
+                'in the race. Your payout is based on the listed odds on the betting screen at the time the race '
+                'starts, not at the time of the bet.\n'
+                '**Place**: You are betting on your horse getting either first or second place. The payout is usually '
+                'much lower than a win bet because the winning pool is split amongst the bettors of the two horses '
+                'in first and second. But depending on amounts bet, this could theoretically be higher.'
+                '**Show**: This is nearly identical to a place bet except for first, second, and third positions.'
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name='Features to look forward to',
+            value=(
+                'In its current state, the Stadium allows for betting on Quarter Hourly races but that is not where it '
+                'is going to end. There are many features planned for the Stadium, including but not limited to: '
+                'Tournaments, Track Records, Horse and Jockey Ownership, and Horse Breeding.'
+            )
+        )
+        return embed

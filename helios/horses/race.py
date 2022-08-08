@@ -496,7 +496,7 @@ class EventRace(HasSettings):
                     amount = self.get_bet_payout_amount(bet)
                     member = self.stadium.server.members.get(bet.better)
                     bet.fulfilled = True
-                    if not member.member.bot:
+                    if member and not member.member.bot:
                         member.points += amount
                         tasks.append(member.save())
                 if len(tasks) > 0:

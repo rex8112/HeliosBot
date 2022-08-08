@@ -139,6 +139,9 @@ class HeliosMember(HasFlags, HasSettings):
 
     async def save(self, force=False):
         data = None
+        if self.member.bot:
+            self._changed = False
+            return
         if self._new:
             data = await self.bot.helios_http.post_member(self.serialize())
             self._new = False
