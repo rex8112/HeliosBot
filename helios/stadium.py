@@ -1,7 +1,7 @@
 import asyncio
 import datetime
 import random
-from typing import TYPE_CHECKING, Optional, Dict
+from typing import TYPE_CHECKING, Optional, Dict, List
 
 import discord
 
@@ -166,11 +166,13 @@ class Stadium(HasSettings):
             await self.save(new=True)
         else:
             self._deserialize(data)
-            for hdata in data['horses']:
+            horse_data: List[Dict] = await self.server.bot.helios_http.get_horse(server=self.server.id)
+            for hdata in horse_data:
                 h = Horse.from_dict(self, hdata)
                 self.horses[h.id] = h
 
-            for rdata in data['races']:
+            race_data: List[Dict] = await self.server.bot.helios_http.get_race(server=self.server.id)
+            for rdata in race_data:
                 if rdata['settings']['phase'] >= 4:
                     continue
                 else:
