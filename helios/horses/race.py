@@ -327,6 +327,10 @@ class EventRace(HasSettings):
         return self.settings['message']
 
     @property
+    def thread(self) -> Optional[discord.Thread]:
+        return self.channel.get_thread(self.message.id)
+
+    @property
     def race_time(self) -> datetime.datetime:
         return self.settings['race_time']
 
@@ -484,6 +488,11 @@ class EventRace(HasSettings):
                     self.inflate_bets(1000)
                     await self.save()
                 await self.send_or_edit_message(embed=self._get_betting_embed(), view=view)
+                if not self.thread:
+                    await self.message.create_thread(
+                        name=f'{self.name}-{self.race_time.strftime("%H:%M")}',
+                        auto_archive_duration=60
+                    )
                 if self.time_until_race > datetime.timedelta(seconds=0):
                     wait_for = self.time_until_race.seconds
                     await asyncio.sleep(wait_for)
