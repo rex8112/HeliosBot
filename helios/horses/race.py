@@ -365,6 +365,16 @@ class EventRace(HasSettings):
         erace._deserialize(data)
         return erace
 
+    def inflate_bets(self, amt_to_inflate: int):
+        horse_qualities = [x.quality for x in self.horses]
+        sum_qualities = sum(horse_qualities)
+        for i, h in enumerate(self.horses):
+            quality_percent = horse_qualities[i] / sum_qualities
+            amt_to_bet = amt_to_inflate * quality_percent
+            self.bet(BetType.win, self.stadium.owner_member, h, int(amt_to_bet))
+            self.bet(BetType.place, self.stadium.owner_member, h, int(amt_to_bet))
+            self.bet(BetType.show, self.stadium.owner_member, h, int(amt_to_bet))
+
     def get_total_bets(self) -> int:
         total = 0
         for bet in self.bets:
@@ -470,6 +480,9 @@ class EventRace(HasSettings):
                 if view is None:
                     view = PreRaceView(self)
                 view.check_race_status()
+                if len(self.bets) == 0:
+                    self.inflate_bets(1000)
+                    await self.save()
                 await self.send_or_edit_message(embed=self._get_betting_embed(), view=view)
                 if self.time_until_race > datetime.timedelta(seconds=0):
                     wait_for = self.time_until_race.seconds
