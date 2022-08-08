@@ -21,7 +21,8 @@ if TYPE_CHECKING:
 class Stadium(HasSettings):
     _default_settings: StadiumSettings = {
         'season': 0,
-        'category': None
+        'category': None,
+        'announcement_id': 0
     }
     required_channels = [
         'announcements',
@@ -192,6 +193,9 @@ class Stadium(HasSettings):
             if self.category is None:
                 cont = False
                 break
+            if self.settings['announcement_id'] == 0:
+                await self.announcement_channel.send(embed=self._get_new_stadium_embed())
+                self.settings['announcement_id'] = 1
             cur_day = self.get_day()
             if cur_day != self.day:
                 self.day = cur_day

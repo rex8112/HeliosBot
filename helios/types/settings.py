@@ -38,3 +38,4 @@ class EventRaceSettings(TypedDict):
 class StadiumSettings(TypedDict):
     season: int
     category: Optional[discord.CategoryChannel]
+    announcement_id: int
