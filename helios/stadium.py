@@ -38,6 +38,7 @@ class Stadium(HasSettings):
         self.settings: StadiumSettings = self._default_settings.copy()
 
         self._running = False
+        self._task = None
 
     @property
     def id(self) -> int:
@@ -175,7 +176,8 @@ class Stadium(HasSettings):
         self.create_run_task()
 
     def create_run_task(self):
-        self.server.bot.loop.create_task(self.run())
+        if not self._task:
+            self._task = self.server.bot.loop.create_task(self.run())
 
     async def run(self):
         self._running = True

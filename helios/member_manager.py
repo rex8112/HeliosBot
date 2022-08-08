@@ -1,5 +1,6 @@
 import asyncio
 from typing import TYPE_CHECKING
+
 from .member import HeliosMember
 
 if TYPE_CHECKING:
@@ -23,11 +24,9 @@ class MemberManager:
         return self.members.get(member_id)
 
     async def manage_members(self):
-        cont = True
-        while cont:
-            self.check_voices()
-            await self.save_all()
-            await asyncio.sleep(60)
+        await self.bot.wait_until_ready()
+        self.check_voices()
+        await self.save_all()
 
     def check_voices(self):
         for m in self.members.values():
@@ -58,5 +57,5 @@ class MemberManager:
             self.members[m.member.id] = m
         if len(tasks) > 0:
             await asyncio.wait(tasks)
-        self.bot.loop.create_task(self.manage_members())
+        #  self.bot.loop.create_task(self.manage_members())
 
