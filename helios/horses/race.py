@@ -401,6 +401,9 @@ class EventRace(HasSettings):
     def calculate_odds(self, h: Horse):
         total = self.get_total_type_bets(BetType.win) * 1  # For houses take if needed later
         horse_pool = self.get_horse_type_bets(BetType.win, h)
+        if horse_pool == 0:
+            horse_pool = 1
+            total += 1
         diff = total - horse_pool
         odds = diff / horse_pool
         odds = math.floor(odds * 10) / 10
@@ -492,9 +495,9 @@ class EventRace(HasSettings):
                 for bet in self.bets:
                     amount = self.get_bet_payout_amount(bet)
                     member = self.stadium.server.members.get(bet.better)
+                    bet.fulfilled = True
                     if not member.member.bot:
                         member.points += amount
-                        bet.fulfilled = True
                         tasks.append(member.save())
                 if len(tasks) > 0:
                     await asyncio.wait(tasks)
@@ -555,11 +558,13 @@ class EventRace(HasSettings):
         horse_string = ''
         for h in self.horses:
             owner = h.settings['owner']
+            odds = self.calculate_odds(h)
+            odds_ratio = odds.as_integer_ratio()
             if not owner:
                 owner = self.stadium.owner
             else:
                 owner = owner.member
-            horse_string += f'{h.name} - {owner.mention}\n'
+            horse_string += f'`{odds_ratio[0]:2} to {odds_ratio[1]:2}` | {h.name} - {owner.mention}\n'
         embed.add_field(name='Horses', value=horse_string)
         return embed
 
@@ -594,6 +599,7 @@ class EventRace(HasSettings):
                 owner = owner.member
             horse_string += f'{h.name} - {owner.mention}\n'
         embed.add_field(name='Horses', value=horse_string)
+        embed.set_footer(text=f'Tick: {self.race.tick_number}')
 
         return embed
 
