@@ -70,6 +70,17 @@ class ChannelManager:
             await asyncio.wait(e_state)
             await asyncio.wait(e_save)
 
+    async def add_topic(self, channel: discord.TextChannel, owner: discord.User, tier=1) -> tuple[bool, str]:
+        if self.channels.get(channel.id):
+            return False, 'This channel already exists.'
+        channel_type = Channel_Dict.get('topic')
+        ch = channel_type.new(self, channel.id)
+        ch.settings.creator = owner.id
+        ch.settings.tier = tier
+        self._add_channel(ch)
+        await ch.save()
+        return True, 'Created Successfully!'
+
     async def create_topic(self, name: str, owner: discord.User) -> tuple[bool, str]:
         topics = self.get_type('topic')
         for t in topics:
