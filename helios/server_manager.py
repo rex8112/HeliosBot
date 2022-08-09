@@ -3,6 +3,8 @@ import logging
 import time
 from typing import TYPE_CHECKING, Optional
 
+import discord
+
 from .server import Server
 
 if TYPE_CHECKING:
@@ -18,6 +20,17 @@ class ServerManager:
 
     def get(self, guild_id: int) -> Optional[Server]:
         return self.servers.get(guild_id)
+
+    async def add_server(self, guild: discord.Guild):
+        tasks = []
+        server = Server.new(self, guild)
+        await server.save()
+        tasks.append(server.channels.setup())
+        tasks.append(server.members.setup())
+        tasks.append(server.stadium.setup())
+        await asyncio.wait(tasks)
+        self.servers[guild.id] = server
+        return server
 
     async def manage_servers(self):
         cont = True
