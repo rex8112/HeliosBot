@@ -16,9 +16,9 @@ class EventsCog(commands.Cog):
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
         server = self.bot.servers.get(member.guild.id)
-        helios_member = server.members.get(member.id)
+        helios_member = await server.members.fetch(member.id)
         if not helios_member:
-            server.members.add_member(member)
+            await server.members.add_member(member)
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild):
