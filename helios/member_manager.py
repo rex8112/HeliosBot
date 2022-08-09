@@ -1,6 +1,8 @@
 import asyncio
 from typing import TYPE_CHECKING
 
+import discord
+
 from .member import HeliosMember
 
 if TYPE_CHECKING:
@@ -22,6 +24,24 @@ class MemberManager:
 
     def get(self, member_id: int):
         return self.members.get(member_id)
+
+    async def fetch(self, member_id: int, *, force=False):
+        member = self.get(member_id)
+        if member and not force:
+            return member
+        mem_data = await self.bot.helios_http.get_member(id=member_id)
+        mem = self.guild.get_member(member_id)
+        if mem_data and mem:
+            member = HeliosMember(self, mem, data=mem_data)
+            self.members[member_id] = member
+            return member
+        return None
+
+    async def add_member(self, mem: discord.Member):
+        h = HeliosMember(self, mem)
+        self.members[mem.id] = h
+        await h.save()
+        return h
 
     async def manage_members(self):
         await self.bot.wait_until_ready()
