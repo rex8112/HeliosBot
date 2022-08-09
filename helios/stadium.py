@@ -9,13 +9,13 @@ from .abc import HasSettings
 from .exceptions import IdMismatchError
 from .horses.horse import Horse
 from .horses.race import EventRace
+from .member import HeliosMember
 from .tools.settings import Item
 from .types.horses import StadiumSerializable
 from .types.settings import StadiumSettings
 
 if TYPE_CHECKING:
     from .server import Server
-    from .member import HeliosMember
 
 
 class Stadium(HasSettings):
@@ -59,7 +59,7 @@ class Stadium(HasSettings):
 
     @property
     def owner_member(self) -> 'HeliosMember':
-        return HeliosMember(self.server.members, )
+        return HeliosMember(self.server.members, self.owner)
 
     @property
     def category(self) -> Optional[discord.CategoryChannel]:
@@ -124,7 +124,11 @@ class Stadium(HasSettings):
         if data['server'] != self.server.id:
             raise IdMismatchError('This stadium does not belong to this server.')
         self.day = data['day']
-        self.settings = Item.deserialize_dict(data['settings'], bot=self.server.bot, guild=self.guild)
+        self.settings = Item.deserialize_dict(
+            {**self._default_settings, **data['settings']},
+            bot=self.server.bot,
+            guild=self.guild
+        )
 
     async def save(self, new=False):
         if new:
@@ -226,13 +230,13 @@ class Stadium(HasSettings):
             value=(
                 'In horse racing you are always betting against other bettors, not the house, therefore '
                 'the odds of your bets are affected by the amount of other bets.\n\n'
-                'Curious what win, place, and show mean? Let me explain:\n'
+                'Curious what win, place, and show mean? Let me explain:\n\n'
                 '**Win**: This one is pretty self explanatory, you are betting on your horse to win first place '
                 'in the race. Your payout is based on the listed odds on the betting screen at the time the race '
                 'starts, not at the time of the bet.\n'
                 '**Place**: You are betting on your horse getting either first or second place. The payout is usually '
                 'much lower than a win bet because the winning pool is split amongst the bettors of the two horses '
-                'in first and second. But depending on amounts bet, this could theoretically be higher.'
+                'in first and second. But depending on amounts bet, this could theoretically be higher.\n'
                 '**Show**: This is nearly identical to a place bet except for first, second, and third positions.'
             ),
             inline=False
