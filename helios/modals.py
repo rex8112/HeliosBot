@@ -38,7 +38,7 @@ class BetModal(ui.Modal, title=f'Bet'):
         self.member = member
 
     async def on_submit(self, interaction: Interaction) -> None:
-        types = {
+        types: dict[str, BetType] = {
             'win': BetType.win,
             'place': BetType.place,
             'show': BetType.show
@@ -59,7 +59,8 @@ class BetModal(ui.Modal, title=f'Bet'):
         await self.member.save()
         await self.race.save()
         await interaction.response.send_message(
-            f'You have placed a {types[self.type.value.lower()]} bet on {horse.name} for {amt}.', ephemeral=True)
+            f'You have placed a {types[self.type.value.lower()].name} bet on {horse.name} for {amt}.', ephemeral=True)
+        await self.race.message.edit(embed=self.race.get_betting_embed())
 
     async def on_error(self, interaction: Interaction, error: Exception) -> None:
         if isinstance(error, BetError):
