@@ -28,7 +28,11 @@ class EventsCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if message.guild.me in message.mentions and message.author.voice.channel:
+        if message.author == self.bot.user:
+            return
+        if message.guild.me in message.mentions and message.author.voice:
+            if not message.author.voice.channel:
+                return
             channel = message.author.voice.channel
             mention_string = ''
             allowed = []
