@@ -1,11 +1,10 @@
 import datetime
-import json
 from typing import TYPE_CHECKING, Optional, Union
 
 import discord
 
-from .views import TopicView
 from .tools.settings import Settings
+from .views import TopicView
 
 if TYPE_CHECKING:
     from helios import ChannelManager, HeliosBot
@@ -355,7 +354,7 @@ class VoiceChannel(Channel):
     channel_type = 'private_voice'
     _default_settings = {
         'owner': None,
-        'template': None
+        'template_name': None
     }
 
     def __init__(self, manager: 'ChannelManager', data: dict):
@@ -378,7 +377,10 @@ class VoiceChannel(Channel):
     @property
     def template(self) -> Optional['VoiceTemplate']:
         if self.owner:
-            return self.owner.templates.get(self.settings.template)
+            templates = list(filter(lambda x: x.name == self.settings.template_name, self.owner.templates))
+            if len(templates) > 0:
+                return templates[0]
+            return None
         return None
 
     def _get_menu_embed(self) -> discord.Embed:

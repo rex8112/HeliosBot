@@ -1,10 +1,10 @@
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING, Dict, Optional
 
 import discord
 
 from .channel_manager import ChannelManager
-from .member_manager import MemberManager
 from .exceptions import IdMismatchError
+from .member_manager import MemberManager
 from .tools.settings import Settings
 
 if TYPE_CHECKING:
@@ -14,7 +14,8 @@ if TYPE_CHECKING:
 class Server:
     _default_settings = {
         'archive_category': None,
-        'topic_category': None
+        'topic_category': None,
+        'private_create': None
     }
 
     def __init__(self, manager: 'ServerManager', guild: discord.Guild):
@@ -39,6 +40,10 @@ class Server:
     @property
     def id(self):
         return self.guild.id
+
+    @property
+    def private_create_channel(self) -> Optional[discord.VoiceChannel]:
+        return self.settings.private_create
 
     @classmethod
     def new(cls, manager: 'ServerManager', guild: discord.Guild):
