@@ -37,7 +37,8 @@ class MemberManager:
         saves = []
         for m in self.members.values():
             saves.append(m.save())
-        await asyncio.wait(saves)
+        if len(saves) > 0:
+            await asyncio.wait(saves)
 
     async def setup(self, member_data: list[dict] = None):
         if member_data is None:
