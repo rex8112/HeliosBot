@@ -218,7 +218,9 @@ class TopicChannel(Channel):
         elif self.get_flag('MARKED'):
             await self.set_marked(False, post=post)
         if not post:
-            await interaction.response.edit_message(embed=self._get_saved_embed(), view=None)
+            embed = self._get_saved_embed()
+            embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar.url)
+            await interaction.response.edit_message(embed=embed, view=None)
         self.settings.archive_message_id = None
 
     async def evaluate_tier(self, change=True, allow_degrade=False) -> int:
