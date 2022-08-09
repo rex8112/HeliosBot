@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, Union
+from typing import Optional
 
 import discord
 from discord.ext import commands
@@ -27,7 +27,8 @@ class HeliosBot(commands.Bot):
             self.settings.api_url,
             loop=self.loop,
             api_username=self.settings.api_username,
-            api_password=self.settings.api_password
+            api_password=self.settings.api_password,
+            name_api_key=self.settings.randomname_api_key
         )
         self.add_view(TopicView(self))
 

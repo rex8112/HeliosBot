@@ -19,6 +19,8 @@ class ChannelManager:
         self.server = server
         self.channels: dict[int, 'HeliosChannel'] = {}
 
+        self._task = None
+
     def get(self, channel_id: int) -> Optional[Channel]:
         return self.channels.get(channel_id)
 
@@ -30,13 +32,14 @@ class ChannelManager:
             raise NotImplemented
         self.channels[channel.id] = channel
 
+    def create_run_task(self):
+        if not self._task:
+            self._task = self.bot.loop.create_task(self.manage_channels(), name=f'{self.server.id}: Channel Manager')
+
     async def manage_channels(self):
         await self.bot.wait_until_ready()
-        while True:
-            await self.purge_dead_channels()
-            await self.manage_topics()
-
-            await asyncio.sleep(60)
+        await self.purge_dead_channels()
+        await self.manage_topics()
 
     async def purge_dead_channels(self):
         deletes = []
@@ -100,4 +103,4 @@ class ChannelManager:
         if len(deletes) > 0:
             await asyncio.wait(deletes)
         logger.debug(f'Adding {self.server.id}: Channel Manager to event loop')
-        self.bot.loop.create_task(self.manage_channels(), name=f'{self.server.id}: Channel Manager')
+        #  self.create_run_task()

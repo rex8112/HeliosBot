@@ -3,8 +3,9 @@ from typing import TYPE_CHECKING, Dict
 import discord
 
 from .channel_manager import ChannelManager
-from .member_manager import MemberManager
 from .exceptions import IdMismatchError
+from .member_manager import MemberManager
+from .stadium import Stadium
 from .tools.settings import Settings
 
 if TYPE_CHECKING:
@@ -14,7 +15,9 @@ if TYPE_CHECKING:
 class Server:
     _default_settings = {
         'archive_category': None,
-        'topic_category': None
+        'topic_category': None,
+        'partial': 4,
+        'points_per_minute': 1
     }
 
     def __init__(self, manager: 'ServerManager', guild: discord.Guild):
@@ -24,6 +27,7 @@ class Server:
         self.manager = manager
         self.channels = ChannelManager(self)
         self.members = MemberManager(self)
+        self.stadium = Stadium(self)
         self.private_voice_channels = {}
         self.topics = {}
         self.settings = Settings(self._default_settings, bot=self.bot, guild=self.guild)
