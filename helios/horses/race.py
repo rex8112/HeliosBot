@@ -2,7 +2,8 @@ import asyncio
 import datetime
 import math
 import random
-from typing import Optional, TYPE_CHECKING, List
+from fractions import Fraction
+from typing import Optional, TYPE_CHECKING, List, Dict
 
 import discord
 
@@ -71,15 +72,17 @@ class Bet:
     def __init__(self, bet_type: BetType, horse_id: int, better_id: int, amount: int):
         self.type = bet_type
         self.horse_id = horse_id
-        self.better = better_id
+        self.better_id = better_id
         self.amount = amount
+        self.amount_returned = 0
         self.fulfilled = False
         self.timestamp = datetime.datetime.now().astimezone()
 
     @classmethod
     def from_dict(cls, data):
-        bet = cls(BetType(data['type']), data['horse_id'], data['better'], data['amount'])
+        bet = cls(BetType(data['type']), data['horse_id'], data['better_id'], data['amount'])
         bet.fulfilled = data['fulfilled']
+        bet.amount_returned = data.get('amount_returned', 0)
         bet.timestamp = Item.deserialize(data['timestamp'])
         return bet
 
@@ -98,8 +101,9 @@ class Bet:
         return {
             'type': self.type.value,
             'horse_id': self.horse_id,
-            'better': self.better,
+            'better_id': self.better_id,
             'amount': self.amount,
+            'amount_returned': self.amount_returned,
             'fulfilled': self.fulfilled,
             'timestamp': Item.serialize(self.timestamp)
         }
@@ -107,7 +111,7 @@ class Bet:
     def _deserialize(self, data: dict):
         self.type = BetType(data['type'])
         self.horse_id = data['horse_id']
-        self.better = data['better']
+        self.better_id = data['better_id']
         self.amount = data['amount']
         self.fulfilled = data['fulfilled']
         self.timestamp = Item.deserialize(data['timestamp'])
@@ -467,6 +471,7 @@ class EventRace(HasSettings):
     async def run(self):
         cont = True
         view = None
+        last_tick = None
         await self.save()
         while cont:
             if self.phase == 0:
@@ -487,7 +492,7 @@ class EventRace(HasSettings):
                 if len(self.bets) == 0:
                     self.inflate_bets(1000)
                     await self.save()
-                await self.send_or_edit_message(embed=self._get_betting_embed(), view=view)
+                await self.send_or_edit_message(embed=self.get_betting_embed(), view=view)
                 if not self.thread:
                     await self.message.create_thread(
                         name=f'{self.name}-{self.race_time.strftime("%H:%M")}',
@@ -497,6 +502,7 @@ class EventRace(HasSettings):
                     wait_for = self.time_until_race.seconds
                     await asyncio.sleep(wait_for)
                 self.phase = 2
+                await self.save()
                 view = None
             elif self.phase == 2:
                 # RACE TIME
@@ -504,8 +510,15 @@ class EventRace(HasSettings):
                     self.generate_race()
                     await self.send_or_edit_message(embed=self._get_race_embed())
                     await asyncio.sleep(5)
+                if last_tick is None:
+                    last_tick = datetime.datetime.now()
 
-                self.race.tick()
+                diff = datetime.datetime.now() - last_tick
+                seconds = int(diff.seconds)
+                for _ in range(seconds):
+                    if not self.race.finished:
+                        self.race.tick()
+                last_tick = datetime.datetime.now()
                 await self.send_or_edit_message(embed=self._get_race_embed())
 
                 if self.race.finished:
@@ -514,15 +527,42 @@ class EventRace(HasSettings):
                 await asyncio.sleep(1)
             elif self.phase == 3:
                 tasks = []
+                member_bets: Dict[discord.Member, List[Bet]] = {}
                 for bet in self.bets:
                     amount = self.get_bet_payout_amount(bet)
-                    member = self.stadium.server.members.get(bet.better)
+                    member = self.stadium.server.members.get(bet.better_id)
                     bet.fulfilled = True
+                    bet.amount_returned = amount
                     if member and not member.member.bot:
+                        if member_bets.get(member.member):
+                            member_bets.get(member.member).append(bet)
+                        else:
+                            member_bets[member.member] = [bet]
                         member.points += amount
                         tasks.append(member.save())
                 if len(tasks) > 0:
                     await asyncio.wait(tasks)
+                sends = []
+                for mem, bets in member_bets.items():
+                    if mem.bot:
+                        continue
+                    desc = ''
+                    for bet in bets:
+                        desc += (
+                            f'You bet **{bet.amount:,}** for {self.stadium.horses[bet.horse_id].name} to '
+                            f'{bet.type.name}.\n'
+                            f'You received **{bet.amount_returned:,}**\n'
+                        )
+                    embed = discord.Embed(
+                        colour=discord.Colour.green(),
+                        title=f'{self.name} Bet Summary',
+                        description=desc
+                    )
+                    sends.append(mem.send(embed=embed))
+
+                if len(sends) > 0:
+                    await asyncio.wait(sends)
+
                 self.phase = 4  # Race over, time to calculate winnings for racers and betters.
                 await self.save()
             else:
@@ -543,8 +583,15 @@ class EventRace(HasSettings):
                 await self.send_or_edit_message(content, embed=embed, view=view)
 
     def bet(self, bet_type: BetType, member: 'HeliosMember', horse: 'Horse', amount: int):
-        bet = Bet(bet_type, horse.id, member.member.id, amount)
-        self.bets.append(bet)
+        bets = list(filter(
+            lambda x: x.type == bet_type and x.better_id == member.member.id and x.horse_id == horse.id,
+            self.bets
+        ))
+        if len(bets) > 0:
+            bets[0].amount += amount
+        else:
+            bet = Bet(bet_type, horse.id, member.member.id, amount)
+            self.bets.append(bet)
 
     def find_horse(self, name: str) -> 'Horse':
         name = name.lower()
@@ -571,7 +618,7 @@ class EventRace(HasSettings):
         )
         return embed
 
-    def _get_betting_embed(self) -> discord.Embed:
+    def get_betting_embed(self) -> discord.Embed:
         embed = discord.Embed(
             colour=discord.Colour.green(),
             title=self.name + ' Betting',
@@ -581,12 +628,12 @@ class EventRace(HasSettings):
         for h in self.horses:
             owner = h.settings['owner']
             odds = self.calculate_odds(h)
-            odds_ratio = odds.as_integer_ratio()
+            odds_ratio = Fraction(odds).limit_denominator()
             if not owner:
                 owner = self.stadium.owner
             else:
                 owner = owner.member
-            horse_string += f'`{odds_ratio[0]:2} to {odds_ratio[1]:2}` | {h.name} - {owner.mention}\n'
+            horse_string += f'`{odds_ratio.numerator:3} to {odds_ratio.denominator:2}` | {h.name} - {owner.mention}\n'
         embed.add_field(name='Horses', value=horse_string)
         return embed
 
@@ -594,7 +641,9 @@ class EventRace(HasSettings):
         if not self.race:
             desc_string = f'The {self.name} is about to commence!'
         elif self.finished:
-            desc_string = f'{self.race.finished_horses[0].name} has won the race!'
+            desc_string = f'{self.race.finished_horses[0].name} has won the race!\n\n'
+            for i, horse in enumerate(self.race.finished_horses, start=1):
+                desc_string += f'{i}. {horse.name}\n'
         else:
             desc_string = self.race.get_progress_string(20)
 
@@ -606,8 +655,6 @@ class EventRace(HasSettings):
         embed.add_field(
             name='Race Information',
             value=(
-                f'Purse: {self.purse}\n'
-                f'Stake: {self.stake}\n'
                 f'Type: {self.settings["type"].capitalize()}\n'
                 f'Horses: {self.max_horses}'
             )
