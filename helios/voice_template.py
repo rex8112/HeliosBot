@@ -111,8 +111,4 @@ class VoiceTemplate:
         }
 
     async def save(self):
-        if self._new:
-            resp = await self.bot.helios_http.post_template(self.serialize())
-        else:
-            resp = await self.bot.helios_http.patch_template(self.serialize())
-        return resp
+        await self.owner.save()

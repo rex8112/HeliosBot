@@ -4,12 +4,12 @@ from typing import TYPE_CHECKING
 from .abc import HasSettings, HasFlags
 from .exceptions import IdMismatchError
 from .tools.settings import Settings
+from .voice_template import VoiceTemplate
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
     from .server import Server
     from .member_manager import MemberManager
-    from .voice_template import VoiceTemplate
     from discord import Guild, Member
 
 
@@ -26,7 +26,7 @@ class HeliosMember(HasFlags, HasSettings):
         self._id = 0
         self.manager = manager
         self.member = member
-        self.templates: dict[int, 'VoiceTemplate'] = {}
+        self.templates: list['VoiceTemplate'] = []
         self.settings = Settings(self._default_settings, bot=self.bot, guild=self.guild)
         self.flags = []
 
@@ -57,6 +57,11 @@ class HeliosMember(HasFlags, HasSettings):
         self.settings.activity_points = amt
         self._changed = True
 
+    def create_template(self):
+        template = VoiceTemplate(self, name=self.member.name)
+        self.templates.append(template)
+        return template
+
     def _deserialize(self, data: dict):
         if self.member.id != data.get('member_id'):
             raise IdMismatchError('Member Ids do not match.')
@@ -64,6 +69,9 @@ class HeliosMember(HasFlags, HasSettings):
             raise IdMismatchError('Server Ids do not match.')
 
         self._id = data.get('id')
+        for temp in data.get('templates', []):
+            template = VoiceTemplate(self, temp['name'], data=temp)
+            self.templates.append(template)
         settings = {**self._default_settings, **data.get('settings', {})}
         self.settings = Settings(settings, bot=self.bot, guild=self.guild)
         self.flags = data.get('flags')
@@ -75,6 +83,7 @@ class HeliosMember(HasFlags, HasSettings):
             'id': self._id,
             'server': self.server.id,
             'member_id': self.member.id,
+            'templates': [x.serialize() for x in self.templates],
             'settings': self.settings.to_dict(),
             'flags': self.flags
         }
