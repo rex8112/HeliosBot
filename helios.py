@@ -1,13 +1,11 @@
 import asyncio
+import logging
 import os
 import sys
 
 import discord
-import logging
-from discord.ext import commands
 
 from helios import HeliosBot
-from helios.server import Server
 from helios.tools import Config
 
 logger = logging.getLogger('HeliosLogger')
@@ -15,6 +13,11 @@ logger.setLevel(logging.DEBUG)
 consoleHandler = logging.StreamHandler()
 consoleHandler.setLevel(logging.DEBUG)
 logger.addHandler(consoleHandler)
+
+logger2 = logging.getLogger('discord')
+logger2.setLevel(logging.INFO)
+logging.getLogger('discord.http').setLevel(logging.INFO)
+logger2.addHandler(consoleHandler)
 
 
 description = '''The beginnings of a new Helios'''
