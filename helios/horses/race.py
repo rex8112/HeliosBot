@@ -294,7 +294,7 @@ class EventRace(HasSettings):
         'max_horses': 6,
         'type': 'basic',
         'race_time': datetime.datetime.now().astimezone(),
-        'betting_time': 15 * 60,
+        'betting_time': 5 * 60,
         'phase': 0
     }
 
@@ -461,8 +461,8 @@ class EventRace(HasSettings):
             horse_string += (f'`{odds_ratio.numerator:3} to '
                              f'{odds_ratio.denominator:2}` | {h.name} - '
                              f'{owner.mention}\n')
-            place_string += f'{h.name}: {place:,}'
-            show_string += f'{h.name}: {show:,}'
+            place_string += f'{h.name}: {place:,}\n'
+            show_string += f'{h.name}: {show:,}\n'
         embed.add_field(name='Horses', value=horse_string)
         return embed
 
@@ -696,6 +696,9 @@ class EventRace(HasSettings):
                             member_bets[member.member] = [bet]
                         member.points += amount
                         tasks.append(member.save())
+                self.payout_horses()
+                for h in self.horses:
+                    tasks.append(h.save())
                 if len(tasks) > 0:
                     await asyncio.wait(tasks)
                 sends = []
