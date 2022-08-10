@@ -82,15 +82,15 @@ class PreRaceView(discord.ui.View):
         )
         win_value = ''
         for bet in win:
-            win_value += f'{self.race.stadium.horses[bet.horse_id].name} - **{bet.amount:,}**'
+            win_value += f'{self.race.stadium.horses[bet.horse_id].name} - **{bet.amount:,}**\n'
         embed.add_field(name='Win Bets', value=win_value if win_value else 'None')
         place_value = ''
         for bet in place:
-            place_value += f'{self.race.stadium.horses[bet.horse_id].name} - **{bet.amount:,}**'
+            place_value += f'{self.race.stadium.horses[bet.horse_id].name} - **{bet.amount:,}**\n'
         embed.add_field(name='Place Bets', value=place_value if place_value else 'None')
         show_value = ''
         for bet in show:
-            show_value += f'{self.race.stadium.horses[bet.horse_id].name} - **{bet.amount:,}**'
+            show_value += f'{self.race.stadium.horses[bet.horse_id].name} - **{bet.amount:,}**\n'
         embed.add_field(name='Show Bets', value=show_value if show_value else 'None')
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
