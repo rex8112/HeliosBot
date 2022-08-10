@@ -523,7 +523,6 @@ class EventRace(HasSettings):
 
                 if self.race.finished:
                     self.phase = 3
-                    await self.save()
                 await asyncio.sleep(1)
             elif self.phase == 3:
                 tasks = []
@@ -553,11 +552,17 @@ class EventRace(HasSettings):
                             f'{bet.type.name}.\n'
                             f'You received **{bet.amount_returned:,}**\n'
                         )
+                    if self.message:
+                        desc += f'\n[Race Link]({self.message.jump_url})'
                     embed = discord.Embed(
                         colour=discord.Colour.green(),
                         title=f'{self.name} Bet Summary',
                         description=desc
                     )
+                    horse_string = ''
+                    for i, h in enumerate(self.race.finished_horses, start=1):
+                        horse_string += f'{i}. {h.name}\n'
+                    embed.add_field(name='Horse Placings', value=horse_string)
                     sends.append(mem.send(embed=embed))
 
                 if len(sends) > 0:
