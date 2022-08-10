@@ -662,11 +662,13 @@ class EventRace(HasSettings):
         horse_string = ''
         for h in self.horses:
             owner = h.settings['owner']
+            odds = self.calculate_odds(h)
+            odds_ratio = Fraction(odds).limit_denominator()
             if not owner:
                 owner = self.stadium.owner
             else:
                 owner = owner.member
-            horse_string += f'{h.name} - {owner.mention}\n'
+            horse_string += f'`{odds_ratio.numerator:3} to {odds_ratio.denominator:2}` | {h.name} - {owner.mention}\n'
         embed.add_field(name='Horses', value=horse_string)
         embed.set_footer(text=f'Tick: {self.race.tick_number}')
 
