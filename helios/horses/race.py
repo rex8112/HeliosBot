@@ -277,10 +277,10 @@ class EventRace(HasSettings):
     _default_settings: EventRaceSettings = {
         'channel': None,
         'message': None,
-        'purse': 75000,
-        'stake': 4000,
+        'purse': 1000,
+        'stake': 50,
         'max_horses': 6,
-        'type': 'maiden',
+        'type': 'basic',
         'race_time': datetime.datetime.now().astimezone(),
         'betting_time': 15 * 60,
         'phase': 0
@@ -630,15 +630,21 @@ class EventRace(HasSettings):
             description=f'Betting is now available. Race begins <t:{int(self.settings["race_time"].timestamp())}:R>'
         )
         horse_string = ''
+        place_string = ''
+        show_string = ''
         for h in self.horses:
             owner = h.settings['owner']
             odds = self.calculate_odds(h)
+            place = self.get_horse_type_bets(BetType.place, h)
+            show = self.get_horse_type_bets(BetType.show, h)
             odds_ratio = Fraction(odds).limit_denominator()
             if not owner:
                 owner = self.stadium.owner
             else:
                 owner = owner.member
             horse_string += f'`{odds_ratio.numerator:3} to {odds_ratio.denominator:2}` | {h.name} - {owner.mention}\n'
+            place_string += f'{h.name}: {place:,}'
+            show_string += f'{h.name}: {show:,}'
         embed.add_field(name='Horses', value=horse_string)
         return embed
 
