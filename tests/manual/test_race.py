@@ -9,21 +9,21 @@ async def main():
     for t in range(1, 6):
         horses = []
         for n in range(6):
-            h = Horse.new(f'{t}.Horse{n}', 'unknown', None)
+            h = Horse.new(None, f'{t}.Horse{n}', 'unknown', None)
             horses.append(h)
         sorted_horses = sorted(horses, key=lambda xh: xh.quality, reverse=True)
         race_horses = [RaceHorse(h) for h in sorted_horses]
         race = Race()
         race.horses = race_horses
         print(f'======= Starting Race {t} =======')
-        print(race.get_progress_string())
+        print(race.get_progress_string(50))
         await asyncio.sleep(1)
         ticks = 0
         while race.phase == 0:
             ticks += 1
             race.tick()
-            print(race.get_progress_string())
-            await asyncio.sleep(1)
+            print(race.get_progress_string(50))
+            await asyncio.sleep(0.05)
         print(f'======= Finished Race {t} =======')
         print(f'Took {ticks} seconds to complete.')
         winning = ''

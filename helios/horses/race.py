@@ -9,12 +9,12 @@ import discord
 
 from .enumerations import BetType
 from .horse import Horse
+from .views import PreRaceView
 from ..abc import HasSettings
 from ..exceptions import IdMismatchError
 from ..tools.settings import Item
 from ..types.horses import MaxRaceHorses, RaceTypes
 from ..types.settings import EventRaceSettings
-from ..views import PreRaceView
 
 if TYPE_CHECKING:
     from ..stadium import Stadium
@@ -640,7 +640,7 @@ class EventRace(HasSettings):
             payout[0] += self.purse - sum(payout)
         return payout
 
-    def payout_horses(self):
+    async def payout_horses(self):
         payout = self.get_payout_amount(self.get_payout_structure())
         for i, h in enumerate(self.race.finished_horses):
             h.horse.pay(payout[i])
@@ -722,7 +722,7 @@ class EventRace(HasSettings):
                             member_bets[member.member] = [bet]
                         member.points += amount
                         tasks.append(member.save())
-                self.payout_horses()
+                await self.payout_horses()
                 for h in self.horses:
                     tasks.append(h.save())
                 if len(tasks) > 0:
