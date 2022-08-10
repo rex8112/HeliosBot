@@ -401,6 +401,18 @@ class VoiceChannel(Channel):
         )
         return embed
 
+    async def allow(self, member: discord.Member):
+        mem, perms = self.template.allow(member)
+        await self.channel.set_permissions(mem, overwrite=perms)
+
+    async def deny(self, member: discord.Member):
+        mem, perms = self.template.deny(member)
+        await self.channel.set_permissions(mem, overwrite=perms)
+
+    async def clear(self, member: discord.Member):
+        mem, perms = self.template.clear(member)
+        await self.channel.set_permissions(mem, overwrite=perms)
+
     async def change_name(self, name: str):
         await self.channel.edit(
             name=name
@@ -418,6 +430,22 @@ class VoiceChannel(Channel):
             nsfw=template.nsfw
         )
         await self.update_permissions(template)
+
+    async def save_template(self):
+        template = self.template
+        template.name = self.channel.name
+        template.nsfw = self.channel.nsfw
+        template.allowed.clear()
+        template.denied.clear()
+        for target, perms in self.channel.overwrites.items():
+            if isinstance(target, discord.Member):
+                if perms.view_channel:
+                    template.allowed[target.id] = target
+                elif perms.view_channel is None:
+                    ...
+                else:
+                    template.denied[target.id] = target
+        await template.save()
 
     async def update_permissions(self, template: 'VoiceTemplate'):
         for target, perms in template.permissions:

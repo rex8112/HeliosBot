@@ -19,5 +19,5 @@ class TopicCog(commands.Cog):
         await interaction.response.send_modal(TopicCreation())
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: 'HeliosBot'):
     await bot.add_cog(TopicCog(bot))
