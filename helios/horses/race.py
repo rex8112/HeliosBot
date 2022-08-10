@@ -720,7 +720,9 @@ class EventRace(HasSettings):
                     if mem.bot:
                         continue
                     desc = ''
+                    earned = 0
                     for bet in bets:
+                        earned += bet.amount_returned - bet.amount
                         desc += (
                             f'You bet **{bet.amount:,}** for '
                             f'{self.stadium.horses[bet.horse_id].name} to '
@@ -735,6 +737,8 @@ class EventRace(HasSettings):
                             )
                         else:
                             desc += '\n'
+
+                    desc += f'\nTotal Earnings: **{earned:,}**\n'
 
                     if self.message:
                         desc += f'\n[Race Link]({self.message.jump_url})'
