@@ -145,6 +145,7 @@ class RaceHorse:
         self.achieved_target = False
         self.stamina = horse.stamina
         self.tick_finished = None
+        self.sub_tick_finished = 0  # In order of finish mid-tick
 
     @property
     def max_speed(self) -> float:
@@ -242,14 +243,25 @@ class Race:
 
     def tick(self):
         self.tick_number += 1
+        to_finish = []
         for h in self.horses:
             if h.progress < self.length:
                 h.tick()
-            elif h not in self.finished_horses:
-                h.tick_finished = self.tick_number
-                self.finished_horses.append(h)
 
-        self.finished_horses.sort(key=lambda x: (x.tick_finished, -x.progress))
+            if h.progress >= self.length and h not in self.finished_horses:
+                to_finish.append(h)
+
+        # Sort based on time to finish using remaining distance / speed
+        to_finish.sort(
+            key=lambda x: (self.length - (x.progress - x.speed)) / x.speed)
+
+        for i, h in enumerate(to_finish):
+            h.tick_finished = self.tick_number
+            h.sub_tick_finished = i
+            self.finished_horses.append(h)
+
+        self.finished_horses.sort(key=lambda x: (x.tick_finished,
+                                                 x.sub_tick_finished))
 
         if len(self.finished_horses) >= len(self.horses) - 1:
             self.phase += 1
