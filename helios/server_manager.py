@@ -63,10 +63,13 @@ class ServerManager:
                 tasks.append(server.stadium.setup())
             else:
                 server = Server.new(self, guild)
+                tasks.append(server.channels.setup())
+                tasks.append(server.members.setup())
+                tasks.append(server.stadium.setup())
                 tasks.append(server.save())
             self.servers[server.id] = server
 
-        logger.info(f'{len(tasks)} Servers loaded in {time.time() - start_time} seconds')
+        logger.info(f'{len(self.bot.guilds)} Servers loaded in {time.time() - start_time} seconds')
         start_time = time.time()
         await asyncio.wait(tasks)
         logger.info(f'Channels and Members loaded in {time.time() - start_time} seconds')

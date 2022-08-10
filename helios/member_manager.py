@@ -62,7 +62,7 @@ class MemberManager:
 
     async def setup(self, member_data: list[dict] = None):
         if member_data is None:
-            member_data = await self.bot.helios_http.get_member(params={'server': self.server.id})
+            member_data = await self.bot.helios_http.get_member(server=self.server.id)
         tasks = []
         member_data_dict = {}
         for data in member_data:
