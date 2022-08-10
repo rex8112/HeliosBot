@@ -28,9 +28,13 @@ class Record:
         self.race_type = 'None'
         self.earnings = 0
         self.placing = 0
+        self.date = datetime.datetime.now().astimezone().date()
 
     @classmethod
-    def new(cls, horse: 'RaceHorse', event_race: 'EventRace', earnings: float):
+    def new(cls,
+            horse: 'RaceHorse',
+            event_race: 'EventRace',
+            earnings: float):
         if not event_race.finished:
             raise ValueError('event_race must be finished')
         record = cls()
@@ -57,7 +61,8 @@ class Record:
             'horse': self.horse_id,
             'type': self.race_type,
             'earnings': self.earnings,
-            'placing': self.placing
+            'placing': self.placing,
+            'date': Item.serialize(self.date)
         }
 
     def _deserialize(self, data: dict):
@@ -66,6 +71,13 @@ class Record:
         self.race_type = data['type']
         self.earnings = data['earnings']
         self.placing = data['placing']
+        self.date = Item.deserialize(data['date'])
+
+    async def save(self):
+        if self.is_new:
+            ...
+        else:
+            ...
 
 
 class Bet:
@@ -620,6 +632,8 @@ class EventRace(HasSettings):
         payout = self.get_payout_amount(self.get_payout_structure())
         for i, h in enumerate(self.race.finished_horses):
             h.horse.pay(payout[i])
+            record = Record.new(h, self, payout[i])
+            await record.save()
 
     async def run(self):
         cont = True
