@@ -725,8 +725,17 @@ class EventRace(HasSettings):
                             f'You bet **{bet.amount:,}** for '
                             f'{self.stadium.horses[bet.horse_id].name} to '
                             f'{bet.type.name}.\n'
-                            f'You received **{bet.amount_returned:,}**\n'
+                            f'You received **{bet.amount_returned:,}**'
                         )
+                        if bet.amount_returned > 0:
+                            desc += (
+                                f' | '
+                                f'**{bet.amount_returned - bet.amount:,}**'
+                                f' + Your bet of **{bet.amount:,}**\n'
+                            )
+                        else:
+                            desc += '\n'
+
                     if self.message:
                         desc += f'\n[Race Link]({self.message.jump_url})'
                     embed = discord.Embed(
