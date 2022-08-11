@@ -29,6 +29,17 @@ class SettingsCog(commands.GroupCog, name='settings'):
         await server.save()
         await interaction.response.send_message('Setting Changed', ephemeral=True)
 
+    @app_commands.command(name='privatecategory',
+                          description='Set the private voice category')
+    @app_commands.checks.has_permissions(administrator=True)
+    async def archive_category(self, interaction: discord.Interaction,
+                               private_channel: discord.VoiceChannel):
+        server = self.bot.servers.get(guild_id=interaction.guild_id)
+        server.settings.private_create = private_channel
+        await server.save()
+        await interaction.response.send_message('Setting Changed',
+                                                ephemeral=True)
+
 
 async def setup(bot: 'HeliosBot'):
     await bot.add_cog(SettingsCog(bot))

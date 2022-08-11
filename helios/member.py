@@ -93,10 +93,10 @@ class HeliosMember(HasFlags, HasSettings):
 
     def check_voice(self, amt: int, partial: int = 4) -> bool:
         """
-        Check if member is in a non-afk voice channel and apply amt per minute since last check.
+        Check if user is in a non-afk voice channel and apply amt per minute since last check.
         :param amt: Amount to apply per minute of being in a channel.
         :param partial: Amount of times required to get amt if alone.
-        :return: Whether the member was given points or partial points.
+        :return: Whether the user was given points or partial points.
         """
         now = get_floor_now()
         delta = now - self._last_check

@@ -368,7 +368,7 @@ class VoiceChannel(Channel):
         return self.owner in self.channel.members
 
     @property
-    def owner(self) -> Optional[HeliosMember]:
+    def owner(self) -> Optional['HeliosMember']:
         owner_id = self.settings.owner
         if owner_id:
             return self.server.members.get(member_id=owner_id)

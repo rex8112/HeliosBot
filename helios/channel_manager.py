@@ -9,6 +9,7 @@ from .channel import Channel_Dict, Channel
 if TYPE_CHECKING:
     from .server import Server
     from .helios_bot import HeliosBot
+    from .member import HeliosMember
     from .types import HeliosChannel
     from .voice_template import VoiceTemplate
 logger = logging.getLogger('HeliosLogger')
@@ -85,7 +86,7 @@ class ChannelManager:
         else:
             return False, 'This server does not have `Topic Channel Creation` enabled.'
 
-    async def create_private_voice(self, owner: discord.User, *, template: 'VoiceTemplate'):
+    async def create_private_voice(self, owner: 'HeliosMember', *, template: 'VoiceTemplate'):
         if self.server.private_create_channel:
             category = self.server.private_create_channel.category
             channel = await category.create_voice_channel(
@@ -93,7 +94,7 @@ class ChannelManager:
                 overwrites=template.permissions
             )
             voice = Channel_Dict.get('private_voice').new(self, channel.id)
-            voice.settings.owner = owner.id
+            voice.settings.owner = owner.member.id
             voice.settings.template_name = template.name
 
             return voice
