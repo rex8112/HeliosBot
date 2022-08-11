@@ -33,7 +33,8 @@ class BetModal(ui.Modal, title=f'Bet'):
     amount = ui.TextInput(label='Amount', required=True)
 
     def __init__(self, er: 'EventRace', member: 'HeliosMember'):
-        super().__init__(title=f'{er.name} Bet', timeout=er.time_until_race.seconds)
+        super().__init__(title=f'{er.name} Bet',
+                         timeout=er.time_until_race.seconds)
         self.race = er
         self.member = member
 
@@ -53,7 +54,9 @@ class BetModal(ui.Modal, title=f'Bet'):
         if horse is None:
             raise BetError('You must type a valid horse name that is registered to this race.')
         if self.member.points < amt:
-            raise BetError(f'You only have {self.member.points} points')
+            raise BetError(f'You only have {self.member.points} points.')
+        elif amt <= 0:
+            raise BetError('You have to actually bet something.')
         self.race.bet(types[self.type.value.lower()], self.member, horse, amt)
         self.member.points -= amt
         await self.member.save()

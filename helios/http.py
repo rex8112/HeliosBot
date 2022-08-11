@@ -149,3 +149,16 @@ class HTTPClient:
     async def del_race(self, race_id: int):
         resp = await self.request(f'races/{race_id}/', method='DELETE')
         return resp
+
+    async def post_record(self, json_data: Union[dict, list]):
+        resp = await self.request(f'records/', method='POST', json=json_data)
+        return resp
+
+    async def patch_record(self, json_data: Union[dict, list]):
+        resp = await self.request(f'records/{json_data["id"]}/',
+                                  method='PATCH', json=json_data)
+        return resp
+
+    async def del_record(self, record_id: int):
+        resp = await self.request(f'records/{record_id}/', method='DELETE')
+        return resp

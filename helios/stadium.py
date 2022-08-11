@@ -39,7 +39,7 @@ class Stadium(HasSettings):
         self.settings: StadiumSettings = self._default_settings.copy()
 
         self._running = False
-        self._task = None
+        self._task: Optional[asyncio.Task] = None
 
     @property
     def id(self) -> int:
@@ -47,7 +47,7 @@ class Stadium(HasSettings):
 
     @property
     def running(self) -> bool:
-        return self._running
+        return self._task is not None and not self._task.done()
 
     @property
     def guild(self) -> discord.Guild:
@@ -187,7 +187,7 @@ class Stadium(HasSettings):
         self.create_run_task()
 
     def create_run_task(self):
-        if not self._task:
+        if not self._task or self._task.done():
             self._task = self.server.bot.loop.create_task(self.run())
 
     async def run(self):
