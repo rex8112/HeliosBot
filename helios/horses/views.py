@@ -19,9 +19,11 @@ class PreRaceView(discord.ui.View):
         if self.race.phase == 1:
             self.bet.disabled = False
             self.show_bets.disabled = False
+            self.decimals.disabled = False
         else:
             self.bet.disabled = True
             self.show_bets.disabled = True
+            self.decimals.disabled = True
 
     @discord.ui.button(label='Bet', style=discord.ButtonStyle.blurple,
                        disabled=True)
@@ -83,16 +85,17 @@ class PreRaceView(discord.ui.View):
         # TODO: Call register view
 
     @discord.ui.button(label='Math is Hard', style=discord.ButtonStyle.red,
-                       disabled=True)
+                       disabled=True, row=1)
     async def decimals(self, interaction: discord.Interaction,
                        button: discord.Button):
         desc = ''
         for h in self.race.horses:
             odds = self.race.calculate_odds(h)
             fraction = Fraction(odds).limit_denominator(10)
-            desc += (f'`{fraction.numerator:3} / {fraction.denominator:2} = '
-                     f'{fraction.numerator / fraction.denominator:4.1}` '
-                     f'{h.name}')
+            desc += (
+                f'`{fraction.numerator:3} / {fraction.denominator:2} = '
+                f'{int(fraction.numerator) / int(fraction.denominator):4.1f}` '
+                f'{h.name}\n')
         embed = discord.Embed(
             colour=discord.Colour.red(),
             title=self.race.name,
