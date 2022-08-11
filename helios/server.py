@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING, Dict, Optional
 
 import discord
 
@@ -16,6 +16,7 @@ class Server:
     _default_settings = {
         'archive_category': None,
         'topic_category': None,
+        'voice_controller': None,
         'partial': 4,
         'points_per_minute': 1
     }
@@ -30,6 +31,7 @@ class Server:
         self.stadium = Stadium(self)
         self.private_voice_channels = {}
         self.topics = {}
+        self.voice_controllers = []
         self.settings = Settings(self._default_settings, bot=self.bot, guild=self.guild)
         self.flags = []
 
@@ -43,6 +45,13 @@ class Server:
     @property
     def id(self):
         return self.guild.id
+
+    @property
+    def voice_controller_role(self) -> Optional[discord.Role]:
+        roles = self.guild.roles
+        for role in roles:
+            if role.name == 'VoiceControlled':
+                return role
 
     @classmethod
     def new(cls, manager: 'ServerManager', guild: discord.Guild):
