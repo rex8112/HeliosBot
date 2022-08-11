@@ -577,8 +577,11 @@ class EventRace(HasSettings):
                 return int(winning) + bet.amount
             return 0
 
+    def is_running(self) -> bool:
+        return self._task and not self._task.done()
+
     def create_run_task(self):
-        if not self._task:
+        if not self.is_running():
             self._task = self.stadium.server.bot.loop.create_task(self.run())
         else:
             print('This is bad')
