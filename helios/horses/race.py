@@ -426,7 +426,9 @@ class EventRace(HasSettings):
             desc_string = f'{self.race.finished_horses[0].name} ' \
                           f'has won the race!\n\n'
             for i, horse in enumerate(self.race.finished_horses, start=1):
-                desc_string += f'{i}. {horse.name}\n'
+                desc_string += (f'{i}. {horse.name} finished in '
+                                f'**{horse.tick_finished}.'
+                                f'{horse.sub_tick_finished:02}** Seconds\n')
         else:
             desc_string = self.race.get_progress_string(20)
 
