@@ -25,6 +25,7 @@ class Record:
     def __init__(self):
         self.id = 0
         self.horse_id = 0
+        self.race_id = 0
         self.race_type = 'None'
         self.earnings = 0
         self.placing = 0
@@ -40,6 +41,7 @@ class Record:
         record = cls()
         record.id = 0
         record.horse_id = horse.horse.id
+        record.race_id = event_race.id
         record.race_type = event_race.settings['type']
         record.earnings = earnings
         record.placing = event_race.race.finished_horses.index(horse)
@@ -59,25 +61,21 @@ class Record:
         return {
             'id': self.id,
             'horse': self.horse_id,
+            'race': self.race_id,
             'type': self.race_type,
             'earnings': self.earnings,
             'placing': self.placing,
-            'date': Item.serialize(self.date)
+            'date': self.date.isoformat()
         }
 
     def _deserialize(self, data: dict):
         self.id = data['id']
         self.horse_id = data['horse']
+        self.race_id = data['race']
         self.race_type = data['type']
         self.earnings = data['earnings']
         self.placing = data['placing']
-        self.date = Item.deserialize(data['date'])
-
-    async def save(self):
-        if self.is_new:
-            ...
-        else:
-            ...
+        self.date = datetime.date.fromisoformat(data['data'])
 
 
 class Bet:
@@ -485,9 +483,11 @@ class EventRace(HasSettings):
             horse_string += (f'`{odds_ratio.numerator:3} to '
                              f'{odds_ratio.denominator:2}` | {h.name} - '
                              f'{owner.mention}\n')
-            place_string += f'{h.name}: {place:,}\n'
-            show_string += f'{h.name}: {show:,}\n'
+            place_string += f'`{place:6,}` - {h.name}\n'
+            show_string += f'`{show:6,}` - {h.name}\n'
         embed.add_field(name='Horses', value=horse_string)
+        embed.add_field(name='Places', value=place_string)
+        embed.add_field(name='Shows', value=show_string)
         return embed
 
     def inflate_bets(self, amt_to_inflate: int):
@@ -645,7 +645,7 @@ class EventRace(HasSettings):
         for i, h in enumerate(self.race.finished_horses):
             h.horse.pay(payout[i])
             record = Record.new(h, self, payout[i])
-            await record.save()
+            await self.save_record(record)
 
     async def run(self):
         cont = True
@@ -670,7 +670,7 @@ class EventRace(HasSettings):
                     view = PreRaceView(self)
                 view.check_race_status()
                 if len(self.bets) == 0:
-                    self.inflate_bets(1000)
+                    self.inflate_bets(10000)
                     await self.save()
                 await self.send_or_edit_message(embed=self.get_betting_embed(),
                                                 view=view)
@@ -743,9 +743,8 @@ class EventRace(HasSettings):
                         )
                         if bet.amount_returned > 0:
                             desc += (
-                                f' | '
-                                f'**{bet.amount_returned - bet.amount:,}**'
-                                f' + Your bet of **{bet.amount:,}**\n'
+                                f' ( **{bet.amount_returned - bet.amount:,}**'
+                                f' + Your bet of **{bet.amount:,}** )\n'
                             )
                         else:
                             desc += '\n'
@@ -801,6 +800,17 @@ class EventRace(HasSettings):
         else:
             await self.stadium.server.bot.helios_http.patch_race(
                 self.serialize())
+
+    async def save_record(self, record: Record):
+        if record.is_new:
+            resp = await self.stadium.server.bot.helios_http.post_record(
+                record.serialize()
+            )
+            record.id = resp['id']
+        else:
+            await self.stadium.server.bot.helios_http.patch_record(
+                record.serialize()
+            )
 
     def serialize(self):
         return {
