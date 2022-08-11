@@ -1,3 +1,4 @@
+from fractions import Fraction
 from typing import TYPE_CHECKING
 
 import discord
@@ -80,3 +81,21 @@ class PreRaceView(discord.ui.View):
         for i, h in enumerate(horses):
             horse_strings.append(f'{i}. {h.name}')
         # TODO: Call register view
+
+    @discord.ui.button(label='Math is Hard', style=discord.ButtonStyle.red,
+                       disabled=True)
+    async def decimals(self, interaction: discord.Interaction,
+                       button: discord.Button):
+        desc = ''
+        for h in self.race.horses:
+            odds = self.race.calculate_odds(h)
+            fraction = Fraction(odds).limit_denominator(10)
+            desc += (f'`{fraction.numerator:3} / {fraction.denominator:2} = '
+                     f'{fraction.numerator / fraction.denominator:4.1}` '
+                     f'{h.name}')
+        embed = discord.Embed(
+            colour=discord.Colour.red(),
+            title=self.race.name,
+            description=desc
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)

@@ -446,7 +446,7 @@ class EventRace(HasSettings):
         for h in self.horses:
             owner = h.settings['owner']
             odds = self.calculate_odds(h)
-            odds_ratio = Fraction(odds).limit_denominator()
+            odds_ratio = Fraction(odds).limit_denominator(10)
             if not owner:
                 owner = self.stadium.owner
             else:
