@@ -198,7 +198,9 @@ class Stadium(HasSettings):
                 cont = False
                 break
             if self.settings['announcement_id'] == 0:
-                await self.announcement_channel.send(embed=self._get_new_stadium_embed())
+                await self.announcement_channel.send(
+                    embed=self._get_new_stadium_embed()
+                )
                 self.settings['announcement_id'] = 1
             cur_day = self.get_day()
             if cur_day != self.day:
@@ -208,7 +210,13 @@ class Stadium(HasSettings):
                     await self.batch_create_horses(100)
                     await self.save()
 
-            basic_races = list(filter(lambda r: r.settings['type'] == 'basic', self.races))
+            # Ensure all races are still running and restart them if not
+            for race in self.races:
+                if not race.is_running():
+                    race.create_run_task()
+
+            basic_races = list(filter(lambda r: r.settings['type'] == 'basic',
+                                      self.races))
             if len(basic_races) < 1:
                 self.new_basic_race()
                 await self.save()
