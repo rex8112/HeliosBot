@@ -37,9 +37,9 @@ async def main():
         for x in range(len(winnings)):
             horse = winnings[x][i]
             if horse.tick_finished:
-                line += f'{horse.name}:{horse.tick_finished:4}:{horse.progress:5.2f} - '
+                line += f'{horse.name}:{horse.tick_finished + horse.sub_tick_finished:7.3f} - '
             else:
-                line += f'{horse.name}: DNF:{horse.progress:6.2f} - '
+                line += f'{horse.name}: DNF:{horse.sub_tick_finished:6.2f} - '
         final_message += f'{line}\n'
     print(final_message)
 

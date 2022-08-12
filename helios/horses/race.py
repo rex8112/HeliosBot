@@ -247,21 +247,15 @@ class BasicRace:
                 h.tick()
 
             if h.progress >= self.length and h not in self.finished_horses:
-                to_finish.append(h)
-
-        # Sort based on time to finish using remaining distance / speed
-        to_finish.sort(
-            key=lambda x: (self.length - (x.progress - x.speed)) / x.speed)
-
-        for i, h in enumerate(to_finish):
-            h.tick_finished = self.tick_number
-            h.sub_tick_finished = i
-            self.finished_horses.append(h)
+                h.tick_finished = self.tick_number
+                h.sub_tick_finished = ((self.length - (h.progress - h.speed))
+                                       / h.speed)
+                self.finished_horses.append(h)
 
         self.finished_horses.sort(key=lambda x: (x.tick_finished,
                                                  x.sub_tick_finished))
 
-        if len(self.finished_horses) >= len(self.horses) - 1:
+        if len(self.finished_horses) >= len(self.horses):
             self.phase += 1
             if len(self.finished_horses) == len(self.horses) - 1:
                 for h in self.horses:
@@ -431,9 +425,10 @@ class Race(HasSettings):
             desc_string = f'{self.race.finished_horses[0].name} ' \
                           f'has won the race!\n\n'
             for i, horse in enumerate(self.race.finished_horses, start=1):
-                desc_string += (f'{i}. {horse.name} finished in '
-                                f'**{horse.tick_finished}.'
-                                f'{horse.sub_tick_finished:02}** Seconds\n')
+                desc_string += (
+                    f'{i}. {horse.name} finished in '
+                    f'**{horse.tick_finished + horse.sub_tick_finished:7.3f}'
+                    f'** Seconds\n')
         else:
             desc_string = self.race.get_progress_string(20)
 
