@@ -32,7 +32,7 @@ class PrivateVoiceCog(commands.Cog):
                                     after: discord.VoiceState):
         if not after:
             return
-        server = self.bot.servers.get(member.id)
+        server = self.bot.servers.get(member.guild.id)
         mem = server.members.get(member.id)
         create_channel = server.private_create_channel
         if after.channel == create_channel:
