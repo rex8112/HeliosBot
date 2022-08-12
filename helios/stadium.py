@@ -72,12 +72,14 @@ class Stadium(HasSettings):
     @property
     def announcement_channel(self) -> Optional[discord.TextChannel]:
         if self.category:
-            return next(filter(lambda x: x.name == 'announcements', self.category.channels))
+            return next(filter(lambda x: x.name == 'announcements',
+                               self.category.channels))
 
     @property
     def basic_channel(self) -> Optional[discord.TextChannel]:
         if self.category:
-            return next(filter(lambda x: x.name == 'basic-races', self.category.channels))
+            return next(filter(lambda x: x.name == 'basic-races',
+                               self.category.channels))
 
     @staticmethod
     def get_day():
@@ -107,7 +109,8 @@ class Stadium(HasSettings):
             er = Race.new(self, self.basic_channel, 'basic', next_slot)
             er.name = 'Quarter Hourly'
             er.settings['betting_time'] = 300
-            er.horses = random.sample(list(self.horses.values()), k=er.max_horses)
+            er.horses = random.sample(list(self.horses.values()),
+                                      k=er.max_horses)
             self.races.append(er)
             self.server.bot.loop.create_task(er.run())
             return True
@@ -122,7 +125,8 @@ class Stadium(HasSettings):
 
     def _deserialize(self, data: StadiumSerializable):
         if data['server'] != self.server.id:
-            raise IdMismatchError('This stadium does not belong to this server.')
+            raise IdMismatchError(
+                'This stadium does not belong to this server.')
         self.day = data['day']
         self.settings = Item.deserialize_dict(
             {**self._default_settings, **data['settings']},
@@ -139,7 +143,8 @@ class Stadium(HasSettings):
     async def batch_create_horses(self, count: int):
         tasks = []
         used_names = [x.name for x in self.horses.values()]
-        random_names = await self.server.bot.helios_http.request_names(count + 20)
+        random_names = await self.server.bot.helios_http.request_names(
+            count + 20)
         for _ in range(count):
             name = random_names[-1]
             random_names.pop()
@@ -156,7 +161,8 @@ class Stadium(HasSettings):
         category = self.category
         if category:
             for channel_name in self.required_channels:
-                channels = list(filter(lambda x: x.name == channel_name, category.channels))
+                channels = list(filter(lambda x: x.name == channel_name,
+                                       category.channels))
                 if len(channels) > 0:
                     channel = channels[0]
                 else:
@@ -166,17 +172,21 @@ class Stadium(HasSettings):
 
     async def setup(self, data: StadiumSerializable = None):
         if data is None:
-            data = await self.server.bot.helios_http.get_stadium(stadium_id=self.server.id)
+            data = await self.server.bot.helios_http.get_stadium(
+                stadium_id=self.server.id)
         if data is None:
             await self.save(new=True)
         else:
             self._deserialize(data)
-            horse_data: List[Dict] = await self.server.bot.helios_http.get_horse(server=self.server.id)
+            horse_data: List[
+                Dict] = await self.server.bot.helios_http.get_horse(
+                server=self.server.id)
             for hdata in horse_data:
                 h = Horse.from_dict(self, hdata)
                 self.horses[h.id] = h
 
-            race_data: List[Dict] = await self.server.bot.helios_http.get_race(server=self.server.id)
+            race_data: List[Dict] = await self.server.bot.helios_http.get_race(
+                server=self.server.id)
             for rdata in race_data:
                 if rdata['settings']['phase'] >= 4:
                     continue
@@ -228,33 +238,47 @@ class Stadium(HasSettings):
             colour=discord.Colour.orange(),
             title='Welcome to the Helios Stadium!',
             description=(
-                'This is your one stop shop for anything horse racing. Want to bet on an unimportant but always '
-                f'happening race? Head to {self.basic_channel.mention}. Low on cash? Try /daily. Be sure to hang out, '
-                'upcoming features will use activity points which are now being accumulated via voice channels.'
+                'This is your one stop shop for anything horse racing. Want to'
+                ' bet on an unimportant but always '
+                f'happening race? Head to {self.basic_channel.mention}. Low on'
+                ' cash? Try /daily. Be sure to hang out, '
+                'upcoming features will use activity points which are now '
+                'being accumulated via voice channels.'
             )
         )
         embed.add_field(
             name='Bet Types',
             value=(
-                'In horse racing you are always betting against other bettors, not the house, therefore '
-                'the odds of your bets are affected by the amount of other bets.\n\n'
+                'In horse racing you are always betting against other bettors,'
+                ' not the house, therefore '
+                'the odds of your bets are affected by the amount of other '
+                'bets.\n\n'
                 'Curious what win, place, and show mean? Let me explain:\n\n'
-                '**Win**: This one is pretty self explanatory, you are betting on your horse to win first place '
-                'in the race. Your payout is based on the listed odds on the betting screen at the time the race '
+                '**Win**: This one is pretty self explanatory, you are betting'
+                ' on your horse to win first place '
+                'in the race. Your payout is based on the listed odds on the '
+                'betting screen at the time the race '
                 'starts, not at the time of the bet.\n'
-                '**Place**: You are betting on your horse getting either first or second place. The payout is usually '
-                'much lower than a win bet because the winning pool is split amongst the bettors of the two horses '
-                'in first and second. But depending on amounts bet, this could theoretically be higher.\n'
-                '**Show**: This is nearly identical to a place bet except for first, second, and third positions.'
+                '**Place**: You are betting on your horse getting either first'
+                ' or second place. The payout is usually '
+                'much lower than a win bet because the winning pool is split '
+                'amongst the bettors of the two horses '
+                'in first and second. But depending on amounts bet, this could'
+                ' theoretically be higher.\n'
+                '**Show**: This is nearly identical to a place bet except for '
+                'first, second, and third positions.'
             ),
             inline=False
         )
         embed.add_field(
             name='Features to look forward to',
             value=(
-                'In its current state, the Stadium allows for betting on Quarter Hourly races but that is not where it '
-                'is going to end. There are many features planned for the Stadium, including but not limited to: '
-                'Tournaments, Track Records, Horse and Jockey Ownership, and Horse Breeding.'
+                'In its current state, the Stadium allows for betting on '
+                'Quarter Hourly races but that is not where it '
+                'is going to end. There are many features planned for the '
+                'Stadium, including but not limited to: '
+                'Tournaments, Track Records, Horse and Jockey Ownership, '
+                'and Horse Breeding.'
             )
         )
         return embed
