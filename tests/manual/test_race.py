@@ -1,6 +1,6 @@
 import asyncio
 
-from helios.horses import Horse, RaceHorse, Race
+from helios.horses import Horse, RaceHorse, BasicRace
 
 
 async def main():
@@ -13,7 +13,7 @@ async def main():
             horses.append(h)
         sorted_horses = sorted(horses, key=lambda xh: xh.quality, reverse=True)
         race_horses = [RaceHorse(h) for h in sorted_horses]
-        race = Race()
+        race = BasicRace()
         race.horses = race_horses
         print(f'======= Starting Race {t} =======')
         print(race.get_progress_string(50))

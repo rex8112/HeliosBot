@@ -7,11 +7,11 @@ from .enumerations import BetType
 from ..modals import BetModal
 
 if TYPE_CHECKING:
-    from .race import EventRace
+    from .race import Race
 
 
 class PreRaceView(discord.ui.View):
-    def __init__(self, er: 'EventRace'):
+    def __init__(self, er: 'Race'):
         super().__init__(timeout=er.time_until_race.seconds)
         self.race = er
 

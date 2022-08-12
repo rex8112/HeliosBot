@@ -9,7 +9,7 @@ from .horses.enumerations import BetType
 if TYPE_CHECKING:
     from .server import Server
     from .member import HeliosMember
-    from .horses.race import EventRace
+    from .horses.race import Race
     from .helios_bot import HeliosBot
 
 
@@ -32,7 +32,7 @@ class BetModal(ui.Modal, title=f'Bet'):
     horse_name = ui.TextInput(label='Horse', placeholder='HorsesName', required=True)
     amount = ui.TextInput(label='Amount', required=True)
 
-    def __init__(self, er: 'EventRace', member: 'HeliosMember'):
+    def __init__(self, er: 'Race', member: 'HeliosMember'):
         super().__init__(title=f'{er.name} Bet',
                          timeout=er.time_until_race.seconds)
         self.race = er

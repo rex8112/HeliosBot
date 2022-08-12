@@ -34,7 +34,7 @@ class Record:
     @classmethod
     def new(cls,
             horse: 'RaceHorse',
-            event_race: 'EventRace',
+            event_race: 'Race',
             earnings: float):
         if not event_race.finished:
             raise ValueError('event_race must be finished')
@@ -226,7 +226,7 @@ class RaceHorse:
         return self.speed
 
 
-class Race:
+class BasicRace:
     def __init__(self):
         self._id = 0
         self.horses: list[RaceHorse] = []
@@ -307,7 +307,7 @@ class Race:
         return progress_string
 
 
-class EventRace(HasSettings):
+class Race(HasSettings):
     _default_settings: EventRaceSettings = {
         'channel': None,
         'message': None,
@@ -324,11 +324,11 @@ class EventRace(HasSettings):
         self.stadium = stadium
         self._id = 0
         self.name = ''
-        self.race: Optional[Race] = None
+        self.race: Optional[BasicRace] = None
         self.horses: list[Horse] = []
         self.bets: List[Bet] = []
 
-        self.settings: EventRaceSettings = EventRace._default_settings.copy()
+        self.settings: EventRaceSettings = Race._default_settings.copy()
 
         self._task = None
 
@@ -620,8 +620,8 @@ class EventRace(HasSettings):
     def set_race_time(self, dt: datetime.datetime):
         self.settings['race_time'] = dt
 
-    def generate_race(self) -> Race:
-        race = Race()
+    def generate_race(self) -> BasicRace:
+        race = BasicRace()
         race.set_horses(self.horses)
         self.race = race
         return race

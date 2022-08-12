@@ -8,7 +8,7 @@ import discord
 from .abc import HasSettings
 from .exceptions import IdMismatchError
 from .horses.horse import Horse
-from .horses.race import EventRace
+from .horses.race import Race
 from .member import HeliosMember
 from .tools.settings import Item
 from .types.horses import StadiumSerializable
@@ -34,7 +34,7 @@ class Stadium(HasSettings):
     def __init__(self, server: 'Server'):
         self.server = server
         self.horses: dict[int, 'Horse'] = {}
-        self.races: list['EventRace'] = []
+        self.races: list['Race'] = []
         self.day = 0
         self.settings: StadiumSettings = self._default_settings.copy()
 
@@ -104,7 +104,7 @@ class Stadium(HasSettings):
         if delta.seconds < 360:
             next_slot = next_slot + datetime.timedelta(minutes=15)
         if self.basic_channel:
-            er = EventRace.new(self, self.basic_channel, 'basic', next_slot)
+            er = Race.new(self, self.basic_channel, 'basic', next_slot)
             er.name = 'Quarter Hourly'
             er.settings['betting_time'] = 300
             er.horses = random.sample(list(self.horses.values()), k=er.max_horses)
@@ -181,7 +181,7 @@ class Stadium(HasSettings):
                 if rdata['settings']['phase'] >= 4:
                     continue
                 else:
-                    r = EventRace.from_dict(self, rdata)
+                    r = Race.from_dict(self, rdata)
                     self.races.append(r)
                     r.create_run_task()
         self.create_run_task()
