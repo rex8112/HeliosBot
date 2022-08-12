@@ -32,8 +32,8 @@ class SettingsCog(commands.GroupCog, name='settings'):
     @app_commands.command(name='privatecategory',
                           description='Set the private voice category')
     @app_commands.checks.has_permissions(administrator=True)
-    async def archive_category(self, interaction: discord.Interaction,
-                               private_channel: discord.VoiceChannel):
+    async def private_channel(self, interaction: discord.Interaction,
+                              private_channel: discord.VoiceChannel):
         server = self.bot.servers.get(guild_id=interaction.guild_id)
         server.settings.private_create = private_channel
         await server.save()
