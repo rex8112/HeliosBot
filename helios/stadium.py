@@ -109,7 +109,7 @@ class Stadium(HasSettings):
             er.settings['betting_time'] = 300
             er.horses = random.sample(list(self.horses.values()), k=er.max_horses)
             self.races.append(er)
-            self.server.bot.loop.create_task(er.run())
+            er.create_run_task()
             return True
         return False
 
