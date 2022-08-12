@@ -8,7 +8,7 @@ import discord
 from .abc import HasSettings
 from .exceptions import IdMismatchError
 from .horses.horse import Horse
-from .horses.race import Race
+from .horses.race import Race, Record
 from .member import HeliosMember
 from .tools.settings import Item
 from .types.horses import StadiumSerializable
@@ -156,6 +156,27 @@ class Stadium(HasSettings):
             await h.save()
             self.horses[h.id] = h
             used_names.append(name)
+
+    async def build_records(self, *, horse: 'Horse' = None,
+                            allow_basic: bool = False,
+                            after: Optional[datetime.datetime] = None) -> Dict[
+                            int, List[Record]]:
+        params = {}
+        if horse:
+            params['horse'] = horse.id
+        if allow_basic:
+            params['basic'] = True
+        if after:
+            params['after'] = after.isoformat()
+        resp = await self.server.bot.helios_http.get_record(**params)
+        records = {}
+        for data in resp:
+            record = Record.from_data(data)
+            if records.get(record.horse_id):
+                records[record.horse_id].append(record)
+            else:
+                records[record.horse_id] = [record]
+        return records
 
     async def build_channels(self):
         category = self.category
