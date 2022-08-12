@@ -1,7 +1,7 @@
 import asyncio
 import datetime
 import random
-from typing import TYPE_CHECKING, Optional, Dict, List
+from typing import TYPE_CHECKING, Optional, Dict, List, Tuple
 
 import discord
 
@@ -86,6 +86,24 @@ class Stadium(HasSettings):
         epoch_day = Stadium.epoch_day
         delta = datetime.datetime.now() - epoch_day
         return delta.days
+
+    @staticmethod
+    def get_win_loss(records: List[Record]) -> Tuple[int, int]:
+        win = 0
+        loss = 0
+        for record in records:
+            if record.placing == 0:
+                win += 1
+            else:
+                loss += 1
+        return win, loss
+
+    @staticmethod
+    def get_earnings(records: List[Record]) -> int:
+        earnings = 0
+        for record in records:
+            earnings += record.earnings
+        return earnings
 
     def get_owner_horses(self, member: 'HeliosMember') -> Dict[int, 'Horse']:
         horses = filter(lambda h: h.owner == member, self.horses.values())
