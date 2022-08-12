@@ -23,7 +23,7 @@ class HorseSettings(TypedDict):
     wins: int
 
 
-class EventRaceSettings(TypedDict):
+class RaceSettings(TypedDict):
     channel: Optional['TextChannel']
     message: Optional['Message']
     purse: int
@@ -33,6 +33,7 @@ class EventRaceSettings(TypedDict):
     race_time: datetime.datetime
     betting_time: int
     phase: int
+    can_run: bool
 
 
 class StadiumSettings(TypedDict):

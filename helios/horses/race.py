@@ -14,7 +14,7 @@ from ..abc import HasSettings
 from ..exceptions import IdMismatchError
 from ..tools.settings import Item
 from ..types.horses import MaxRaceHorses, RaceTypes
-from ..types.settings import EventRaceSettings
+from ..types.settings import RaceSettings
 
 if TYPE_CHECKING:
     from ..stadium import Stadium
@@ -308,7 +308,7 @@ class BasicRace:
 
 
 class Race(HasSettings):
-    _default_settings: EventRaceSettings = {
+    _default_settings: RaceSettings = {
         'channel': None,
         'message': None,
         'purse': 1000,
@@ -317,7 +317,8 @@ class Race(HasSettings):
         'type': 'basic',
         'race_time': datetime.datetime.now().astimezone(),
         'betting_time': 5 * 60,
-        'phase': 0
+        'phase': 0,
+        'can_run': True
     }
 
     def __init__(self, stadium: 'Stadium'):
@@ -328,7 +329,7 @@ class Race(HasSettings):
         self.horses: list[Horse] = []
         self.bets: List[Bet] = []
 
-        self.settings: EventRaceSettings = Race._default_settings.copy()
+        self.settings: RaceSettings = Race._default_settings.copy()
 
         self._task = None
 
@@ -339,6 +340,10 @@ class Race(HasSettings):
     @property
     def is_new(self):
         return self._id == 0
+
+    @property
+    def can_run(self):
+        return self.settings['can_run']
 
     @property
     def finished(self) -> bool:
