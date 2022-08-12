@@ -1,8 +1,11 @@
+import datetime
 from typing import Union, TYPE_CHECKING, Any
 
 from discord.abc import Snowflake
+from discord import Message, PartialMessage
 
 from ..exceptions import DecodingError
+from ..types.settings import ItemSerializable
 
 if TYPE_CHECKING:
     from ..helios_bot import HeliosBot
@@ -17,7 +20,7 @@ class Settings:
                     raise AttributeError(f'Attribute {k} already exists')
             except AttributeError:
                 ...
-            if isinstance(v, tuple):
+            if isinstance(v, list):
                 try:
                     self.__setattr__(k, Item.deserialize(v, bot=bot, guild=guild))
                 except DecodingError:
@@ -38,17 +41,31 @@ class Settings:
 
 class Item:
     @staticmethod
-    def serialize(o: Any):
+    def serialize(o: Any) -> Union[ItemSerializable, Any]:
         name = type(o).__name__
-        if isinstance(o, Snowflake):
+        if isinstance(o, (Message, PartialMessage)):
+            data = [o.channel.id, o.id]
+        elif isinstance(o, Snowflake):
             data = o.id
+        elif isinstance(o, (int, float, str, bool)) or o is None:
+            return o
+        elif isinstance(o, (datetime.datetime, datetime.date, datetime.time)):
+            data = o.isoformat()
         else:
-            raise DecodingError(f'Can not serialize object of type {type(o).__name__}')
+            try:
+                data = o.id
+            except AttributeError:
+                try:
+                    data = o.serialize()
+                except AttributeError:
+                    raise DecodingError(f'Can not serialize object of type {type(o).__name__}')
         return name, data
 
     @staticmethod
-    def deserialize(o: tuple[str, Union[str, int]], *, bot: 'HeliosBot' = None, guild: 'Guild' = None):
-        name, data = o
+    def deserialize(o: ItemSerializable, *, bot: 'HeliosBot' = None, guild: 'Guild' = None):
+        if isinstance(o, (int, float, str, bool)):
+            return o
+        name, data = tuple(o)
         if name == 'Member':
             if not guild:
                 raise ValueError(f'Argument guild required for type {name}.')
@@ -57,5 +74,69 @@ class Item:
             if not guild:
                 raise ValueError(f'Argument guild required for type {name}.')
             return guild.get_channel(data)
+        elif name == 'HeliosMember':
+            if not guild or not bot:
+                raise ValueError(f'Argument guild and bot required for type {name}')
+            server = bot.servers.get(guild.id)
+            return server.members.get(data)
+        elif name in ['CategoryChannel', 'TextChannel', 'VoiceChannel']:
+            if not guild:
+                raise ValueError(f'Argument guild required for type {name}')
+            return guild.get_channel(data)
+        elif name in ['Message', 'PartialMessage']:
+            if not guild:
+                raise ValueError(f'Argument guild required for type {name}')
+            channel = guild.get_channel(data[0])
+            return channel.get_partial_message(data[1])
+        elif name == 'Horse':
+            if not guild or not bot:
+                raise ValueError(f'Argument guild and bot required for type {name}')
+            server = bot.servers.get(guild.id)
+            horse = None
+            if server:
+                stadium = server.stadium
+                horse = stadium.horses.get(data)
+            return horse
+        elif name in ['str', 'int', 'float', 'bool']:
+            return data
+        elif name == 'NoneType':
+            return None
+        elif name == 'date':
+            return datetime.date.fromisoformat(data)
+        elif name == 'time':
+            return datetime.time.fromisoformat(data)
+        elif name == 'datetime':
+            return datetime.datetime.fromisoformat(data)
         else:
-            raise NotImplemented
+            raise NotImplementedError(f'Can not deserialize type: {name}: {data}')
+
+    @staticmethod
+    def serialize_list(el: list[Any]) -> list[ItemSerializable]:
+        new_list = []
+        for o in el:
+            new_list.append(Item.serialize(o))
+        return new_list
+
+    @staticmethod
+    def deserialize_list(el: list[ItemSerializable], *, bot: 'HeliosBot' = None, guild: 'Guild' = None) -> list[Any]:
+        new_list = []
+        for o in el:
+            new_list.append(Item.deserialize(o, bot=bot, guild=guild))
+        return new_list
+
+    @staticmethod
+    def serialize_dict(d: dict[str, Any]) -> dict[str, ItemSerializable]:
+        new_d = {}
+        for k, v in d.items():
+            new_d[k] = Item.serialize(v)
+        return new_d
+
+    @staticmethod
+    def deserialize_dict(d: dict[str, ItemSerializable], *, bot: 'HeliosBot' = None, guild: 'Guild' = None):
+        new_d = {}
+        for k, v in d.items():
+            if isinstance(v, list):
+                new_d[k] = Item.deserialize(v, bot=bot, guild=guild)
+            else:
+                new_d[k] = v
+        return new_d

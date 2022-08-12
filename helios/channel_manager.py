@@ -21,6 +21,8 @@ class ChannelManager:
         self.server = server
         self.channels: dict[int, 'HeliosChannel'] = {}
 
+        self._task = None
+
     def get(self, channel_id: int) -> Optional[Channel]:
         return self.channels.get(channel_id)
 
@@ -32,13 +34,14 @@ class ChannelManager:
             raise NotImplemented
         self.channels[channel.id] = channel
 
+    def create_run_task(self):
+        if not self._task:
+            self._task = self.bot.loop.create_task(self.manage_channels(), name=f'{self.server.id}: Channel Manager')
+
     async def manage_channels(self):
         await self.bot.wait_until_ready()
-        while True:
-            await self.purge_dead_channels()
-            await self.manage_topics()
-
-            await asyncio.sleep(60)
+        await self.purge_dead_channels()
+        await self.manage_topics()
 
     async def purge_dead_channels(self):
         deletes = []
@@ -68,6 +71,17 @@ class ChannelManager:
             logger.debug(f'{self.server.name}: Evaluating Topic States')
             await asyncio.wait(e_state)
             await asyncio.wait(e_save)
+
+    async def add_topic(self, channel: discord.TextChannel, owner: discord.User, tier=1) -> tuple[bool, str]:
+        if self.channels.get(channel.id):
+            return False, 'This channel already exists.'
+        channel_type = Channel_Dict.get('topic')
+        ch = channel_type.new(self, channel.id)
+        ch.settings.creator = owner.id
+        ch.settings.tier = tier
+        self._add_channel(ch)
+        await ch.save()
+        return True, 'Created Successfully!'
 
     async def create_topic(self, name: str, owner: discord.User) -> tuple[bool, str]:
         topics = self.get_type('topic')
@@ -115,4 +129,4 @@ class ChannelManager:
         if len(deletes) > 0:
             await asyncio.wait(deletes)
         logger.debug(f'Adding {self.server.id}: Channel Manager to event loop')
-        self.bot.loop.create_task(self.manage_channels(), name=f'{self.server.id}: Channel Manager')
+        #  self.create_run_task()

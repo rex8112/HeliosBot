@@ -3,6 +3,8 @@ import logging
 import time
 from typing import TYPE_CHECKING, Optional
 
+import discord
+
 from .server import Server
 
 if TYPE_CHECKING:
@@ -18,6 +20,28 @@ class ServerManager:
 
     def get(self, guild_id: int) -> Optional[Server]:
         return self.servers.get(guild_id)
+
+    async def add_server(self, guild: discord.Guild):
+        tasks = []
+        server = Server.new(self, guild)
+        await server.save()
+        tasks.append(server.channels.setup())
+        tasks.append(server.members.setup())
+        tasks.append(server.stadium.setup())
+        await asyncio.wait(tasks)
+        self.servers[guild.id] = server
+        return server
+
+    async def manage_servers(self):
+        cont = True
+        while cont:
+            for server in self.servers.values():
+                tasks = [
+                    server.members.manage_members(),
+                    server.channels.manage_channels()
+                ]
+                await asyncio.wait(tasks)
+            await asyncio.sleep(60)
 
     async def setup(self):
         start_time = time.time()
@@ -36,12 +60,17 @@ class ServerManager:
                 member_data = data.get('members')
                 tasks.append(server.channels.setup(channel_data))
                 tasks.append(server.members.setup(member_data))
+                tasks.append(server.stadium.setup())
             else:
                 server = Server.new(self, guild)
+                tasks.append(server.channels.setup())
+                tasks.append(server.members.setup())
+                tasks.append(server.stadium.setup())
                 tasks.append(server.save())
             self.servers[server.id] = server
 
-        logger.info(f'{len(tasks)} Servers loaded in {time.time() - start_time} seconds')
+        logger.info(f'{len(self.bot.guilds)} Servers loaded in {time.time() - start_time} seconds')
         start_time = time.time()
         await asyncio.wait(tasks)
         logger.info(f'Channels and Members loaded in {time.time() - start_time} seconds')
+        self.bot.loop.create_task(self.manage_servers())

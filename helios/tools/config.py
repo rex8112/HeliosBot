@@ -10,6 +10,7 @@ class Config:
         self.file_path = 'config.json'
         self.api_username = 'admin'
         self.api_password = '123'
+        self.randomname_api_key = 'asdfsdf'
 
     # Class Methods
     @classmethod
@@ -41,7 +42,8 @@ class Config:
             'owner': self.owner,
             'api_url': self.api_url,
             'api_username': self.api_username,
-            'api_password': self.api_password
+            'api_password': self.api_password,
+            'randomname_api_key': self.randomname_api_key
         }
         self._serialize(data)
 

@@ -198,6 +198,11 @@ class TopicChannel(Channel):
                 await self.post_archive_message(embed=self._get_marked_embed(), view=TopicView(self.bot))
             else:
                 await self.post_archive_message(embed=self._get_saved_embed())
+        if state:
+            await self.channel.edit(name=f'🛑{self.channel.name}')
+        else:
+            if '🛑' in self.channel.name:
+                await self.channel.edit(name=self.channel.name.replace('🛑', ''))
 
     async def set_archive(self, state: bool, post=True) -> None:
         self.set_flag('ARCHIVED', state)
@@ -215,7 +220,9 @@ class TopicChannel(Channel):
         elif self.get_flag('MARKED'):
             await self.set_marked(False, post=post)
         if not post:
-            await interaction.response.edit_message(embed=self._get_saved_embed(), view=None)
+            embed = self._get_saved_embed()
+            embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar.url)
+            await interaction.response.edit_message(embed=embed, view=None)
         self.settings.archive_message_id = None
 
     async def evaluate_tier(self, change=True, allow_degrade=False) -> int:
@@ -269,7 +276,14 @@ class TopicChannel(Channel):
         Returns whether the channel is eligible to be marked for archival
         """
         if self.channel.last_message_id:
-            last_message = await self.channel.fetch_message(self.channel.last_message_id)
+            try:
+                last_message = await self.channel.fetch_message(self.channel.last_message_id)
+            except discord.NotFound:
+                messages = [message async for message in self.channel.history(limit=1)]
+                if len(messages) > 0:
+                    last_message = messages[0]
+                else:
+                    last_message = None
         else:
             last_message = None
         if last_message is None:
