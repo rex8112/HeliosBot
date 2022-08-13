@@ -33,10 +33,19 @@ class Event:
         }
 
     @property
+    def is_new(self):
+        return self._id == 0
+
+    @property
     def races(self):
         races = list(filter(lambda x: x.id in self.race_ids,
                             self.stadium.races))
         return races
+
+    @property
+    def betting_time(self):
+        return (self.settings['start_time']
+                - datetime.timedelta(seconds=self.settings['betting_time']))
 
     def create_maiden_race(self, race_time: datetime.datetime):
         race = Race.new(self.stadium, self.channel, 'maiden', race_time)
@@ -85,18 +94,33 @@ class Event:
         races = []
         for _ in range(maiden_races):
             race = self.create_maiden_race(start_time)
+            delta = start_time - self.betting_time
+            race.settings['betting_time'] = delta.seconds
             races.append(race)
             start_time = start_time + datetime.timedelta(
                 minutes=self.settings['buffer'])
 
         for _ in range(allowed_races - maiden_races - 1):
             race = self.create_interim_race(start_time)
+            delta = start_time - self.betting_time
+            race.settings['betting_time'] = delta.seconds
             races.append(race)
             start_time = start_time + datetime.timedelta(
                 minutes=self.settings['buffer'])
 
         for _ in range(allowed_races - len(races)):
             race = self.create_stake_race(start_time)
+            delta = start_time - self.betting_time
+            race.settings['betting_time'] = delta.seconds
             races.append(race)
             start_time = start_time + datetime.timedelta(
                 minutes=self.settings['buffer'])
+
+        await self.stadium.bulk_add_races(races)
+        for race in races:
+            self.race_ids.append(race.id)
+        await self.save()
+
+    async def save(self):
+        if self.is_new:
+            ...

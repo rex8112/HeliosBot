@@ -152,6 +152,20 @@ class Stadium(HasSettings):
             guild=self.guild
         )
 
+    async def add_race(self, race: 'Race'):
+        self.races.append(race)
+        await race.save()
+        await self.save()
+
+    async def bulk_add_races(self, races: List['Race']):
+        data = [x.serialize() for x in races]
+        tasks = []
+        for race in races:
+            self.races.append(race)
+            tasks.append(race.save())
+        tasks.append(self.save())
+        await asyncio.wait(tasks)
+
     async def save(self, new=False):
         if new:
             await self.server.bot.helios_http.post_stadium(self.serialize())
