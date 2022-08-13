@@ -28,7 +28,8 @@ class Event:
             'betting_time': betting_time,
             'registration_time': registration_time,
             'announcement_time': announcement_time,
-            'races': races
+            'races': races,
+            'buffer': 5
         }
 
     @property
@@ -41,6 +42,18 @@ class Event:
         race = Race.new(self.stadium, self.channel, 'maiden', race_time)
         race.settings['can_run'] = False
         race.name = f'{self.name} Race {len(self.race_ids) + 1}: Maiden Race'
+        return race
+
+    def create_interim_race(self, race_time: datetime.datetime):
+        race = Race.new(self.stadium, self.channel, 'interim', race_time)
+        race.settings['can_run'] = False
+        race.name = f'{self.name} Race {len(self.race_ids) + 1}: Interim Race'
+        return race
+
+    def create_stake_race(self, race_time: datetime.datetime):
+        race = Race.new(self.stadium, self.channel, 'stake', race_time)
+        race.settings['can_run'] = False
+        race.name = f'{self.name} Race {len(self.race_ids) + 1}: Stakes Race'
         return race
 
     async def maidens_available(self):
@@ -69,7 +82,21 @@ class Event:
             maiden_races = maiden_races_allowed
 
         start_time = self.settings['start_time']
+        races = []
         for _ in range(maiden_races):
-            self.create_maiden_race(start_time)
-            start_time = start_time + datetime.timedelta(minutes=5)
-        ...
+            race = self.create_maiden_race(start_time)
+            races.append(race)
+            start_time = start_time + datetime.timedelta(
+                minutes=self.settings['buffer'])
+
+        for _ in range(allowed_races - maiden_races - 1):
+            race = self.create_interim_race(start_time)
+            races.append(race)
+            start_time = start_time + datetime.timedelta(
+                minutes=self.settings['buffer'])
+
+        for _ in range(allowed_races - len(races)):
+            race = self.create_stake_race(start_time)
+            races.append(race)
+            start_time = start_time + datetime.timedelta(
+                minutes=self.settings['buffer'])
