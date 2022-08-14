@@ -324,6 +324,8 @@ class Race(HasSettings):
         self.bets: List[Bet] = []
 
         self.settings: RaceSettings = Race._default_settings.copy()
+        self._can_run_event = asyncio.Event()
+        self._can_run_event.set()  # Start true like setting
 
         self._task = None
 
@@ -338,6 +340,14 @@ class Race(HasSettings):
     @property
     def can_run(self):
         return self.settings['can_run']
+
+    @can_run.setter
+    def can_run(self, value: bool):
+        self.settings['can_run'] = value
+        if value:
+            self._can_run_event.set()
+        else:
+            self._can_run_event.clear()
 
     @property
     def finished(self) -> bool:
@@ -657,6 +667,7 @@ class Race(HasSettings):
         view = None
         last_tick = None
         await self.save()
+        await self._can_run_event.wait()
         while cont:
             if self.phase == 0:
                 if view is None:
