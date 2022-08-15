@@ -7,6 +7,7 @@ import discord
 
 from .abc import HasSettings
 from .exceptions import IdMismatchError
+from .horses.event import Event
 from .horses.horse import Horse
 from .horses.race import Race, Record
 from .member import HeliosMember
@@ -35,6 +36,7 @@ class Stadium(HasSettings):
         self.server = server
         self.horses: dict[int, 'Horse'] = {}
         self.races: list['Race'] = []
+        self.events: list['Event'] = []
         self.day = 0
         self.settings: StadiumSettings = self._default_settings.copy()
 
@@ -138,7 +140,8 @@ class Stadium(HasSettings):
         return {
             'server': self.server.id,
             'day': self.day,
-            'settings': Item.serialize_dict(self.settings)
+            'settings': Item.serialize_dict(self.settings),
+            'events': Item.serialize_list(self.events)
         }
 
     def _deserialize(self, data: StadiumSerializable):
@@ -151,6 +154,9 @@ class Stadium(HasSettings):
             bot=self.server.bot,
             guild=self.guild
         )
+        self.events = Item.deserialize_list(data['events'],
+                                            bot=self.server.bot,
+                                            guild=self.guild)
 
     async def add_race(self, race: 'Race'):
         self.races.append(race)

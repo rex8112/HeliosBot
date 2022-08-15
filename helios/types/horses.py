@@ -20,3 +20,4 @@ class StadiumSerializable(TypedDict):
     server: int
     day: int
     settings: dict
+    events: list
