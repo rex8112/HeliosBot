@@ -263,6 +263,7 @@ class Stadium(HasSettings):
         self._running = True
         cont = True
         while cont:
+            changed = False
             if self.category is None:
                 cont = False
                 break
@@ -277,7 +278,12 @@ class Stadium(HasSettings):
                 # Check if horses need to be added to the pool
                 if len(self.horses) < 100:
                     await self.batch_create_horses(100)
-                    await self.save()
+                    changed = True
+
+            for event in self.events:
+                result = await event.manage_event()
+                if result:
+                    changed = True
 
             # Ensure all races are still running and restart them if not
             for race in self.races:
@@ -288,6 +294,8 @@ class Stadium(HasSettings):
                                       self.races))
             if len(basic_races) < 1:
                 self.new_basic_race()
+                changed = True
+            if changed:
                 await self.save()
             await asyncio.sleep(60)
         self._running = False

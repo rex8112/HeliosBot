@@ -851,3 +851,5 @@ class Race(HasSettings):
         self.settings = Item.deserialize_dict(settings,
                                               guild=self.stadium.guild,
                                               bot=self.stadium.server.bot)
+        if not self.can_run:
+            self._can_run_event.clear()
