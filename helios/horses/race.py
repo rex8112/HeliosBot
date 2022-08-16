@@ -242,7 +242,6 @@ class BasicRace:
 
     def tick(self):
         self.tick_number += 1
-        to_finish = []
         for h in self.horses:
             if h.progress < self.length:
                 h.tick()
@@ -253,8 +252,8 @@ class BasicRace:
                                        / h.speed)
                 self.finished_horses.append(h)
 
-        self.finished_horses.sort(key=lambda x: (x.tick_finished,
-                                                 x.sub_tick_finished))
+        self.finished_horses.sort(key=lambda x: (x.tick_finished
+                                                 + x.sub_tick_finished))
 
         if len(self.finished_horses) >= len(self.horses):
             self.phase += 1
@@ -630,8 +629,34 @@ class Race(HasSettings):
         :param horse: The horse to check
         :return: Whether the horse is allowed to race.
         """
-        f'{self.name} {horse.name}'
-        return True
+        if self.settings['type'] == 'basic':
+            return not horse.get_flag('QUALIFIED')
+        elif self.settings['type'] == 'maiden':
+            earnings = 0
+            for rec in horse.records:
+                # If you won first place in a non-basic race
+                if rec.race_type != 'basic' and rec.placing == 0:
+                    return False
+                # If you won first place in a basic race
+                if rec.placing == 0:
+                    return True
+                earnings += rec.earnings
+                if earnings >= 600:
+                    return True
+            return False
+        elif self.settings['type'] == 'stakes':
+            for rec in horse.records:
+                # If you won first place in ANY race
+                if rec.placing == 0:
+                    return True
+            return False
+        elif self.settings['type'] == 'listed':
+            for rec in horse.records:
+                # If horse has won any non basic races
+                if rec.race_type != 'basic' and rec.placing == 0:
+                    return True
+            return False
+        return False
 
     def set_race_time(self, dt: datetime.datetime):
         self.settings['race_time'] = dt
