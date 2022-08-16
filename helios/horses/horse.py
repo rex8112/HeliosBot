@@ -69,12 +69,11 @@ class Horse(HasSettings, HasFlags):
 
     @property
     def quality(self) -> float:
-        total = 0
-        quantity = 0
-        for v in self.stats.stats.values():
-            total += v.value
-            quantity += 1
-        return round(total / quantity, 2)
+        wins, losses = self.stadium.get_win_loss(self.records)
+        total = wins + losses
+        if losses <= 0:
+            losses = 1
+        return round((wins/losses) * (total*0.5), 2)
 
     @classmethod
     def new(cls, stadium: 'Stadium', name: str, breed: str, owner: Optional['HeliosMember'], *, num: int = None):
