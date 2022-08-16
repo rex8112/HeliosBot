@@ -27,6 +27,7 @@ class Stadium(HasSettings):
     }
     required_channels = [
         'announcements',
+        'daily-events',
         'basic-races'
     ]
     epoch_day = datetime.datetime(2022, 8, 1, 1, 0, 0)
@@ -81,6 +82,12 @@ class Stadium(HasSettings):
     def basic_channel(self) -> Optional[discord.TextChannel]:
         if self.category:
             return next(filter(lambda x: x.name == 'basic-races',
+                               self.category.channels))
+
+    @property
+    def daily_channel(self) -> Optional[discord.TextChannel]:
+        if self.category:
+            return next(filter(lambda x: x.name == 'daily-events',
                                self.category.channels))
 
     @staticmethod
@@ -141,7 +148,7 @@ class Stadium(HasSettings):
             'server': self.server.id,
             'day': self.day,
             'settings': Item.serialize_dict(self.settings),
-            'events': Item.serialize_list(self.events)
+            'events': [x.serialize() for x in self.events]
         }
 
     def _deserialize(self, data: StadiumSerializable):
@@ -154,9 +161,7 @@ class Stadium(HasSettings):
             bot=self.server.bot,
             guild=self.guild
         )
-        self.events = Item.deserialize_list(data['events'],
-                                            bot=self.server.bot,
-                                            guild=self.guild)
+        self.events = [Event.from_data(self, x) for x in data['events']]
 
     async def add_race(self, race: 'Race'):
         self.races.append(race)
@@ -203,7 +208,7 @@ class Stadium(HasSettings):
         if horse:
             params['horse'] = horse.id
         if allow_basic:
-            params['basic'] = True
+            params['basic'] = 1
         if after:
             params['after'] = after.isoformat()
         resp = await self.server.bot.helios_http.get_record(**params)
@@ -253,6 +258,7 @@ class Stadium(HasSettings):
                     r = Race.from_dict(self, rdata)
                     self.races.append(r)
                     r.create_run_task()
+        await self.build_channels()
         self.create_run_task()
 
     def create_run_task(self):
@@ -279,6 +285,23 @@ class Stadium(HasSettings):
                 if len(self.horses) < 100:
                     await self.batch_create_horses(100)
                     changed = True
+
+            daily_events = list(filter(lambda e: e.settings['type'] == 'daily',
+                                       self.events))
+            if len(daily_events) < 1:
+                now = datetime.datetime.now().astimezone()
+                start_time = now.replace(hour=21, minute=0, second=0,
+                                         microsecond=0)
+                if now + datetime.timedelta(hours=1) >= start_time:
+                    start_time += datetime.timedelta(days=1)
+
+                new_event = Event(self, self.daily_channel,
+                                  event_type='daily',
+                                  start_time=start_time,
+                                  races=4)
+                new_event.name = f'{start_time.strftime("%A")} Daily Event'
+                self.events.append(new_event)
+                changed = True
 
             for event in self.events:
                 result = await event.manage_event()
