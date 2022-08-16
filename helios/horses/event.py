@@ -87,16 +87,16 @@ class Event:
         race.name = f'{self.name} Race {index}: Maiden Race'
         return race
 
-    def create_interim_race(self, race_time: datetime.datetime, index):
-        race = Race.new(self.stadium, self.channel, 'interim', race_time)
-        race.can_run = False
-        race.name = f'{self.name} Race {index}: Interim Race'
-        return race
-
     def create_stake_race(self, race_time: datetime.datetime, index):
         race = Race.new(self.stadium, self.channel, 'stake', race_time)
         race.can_run = False
         race.name = f'{self.name} Race {index}: Stakes Race'
+        return race
+
+    def create_listed_race(self, race_time: datetime.datetime, index):
+        race = Race.new(self.stadium, self.channel, 'listed', race_time)
+        race.can_run = False
+        race.name = f'{self.name} Race {index}: Listed Stakes Race'
         return race
 
     async def announce_event(self):
@@ -167,7 +167,7 @@ class Event:
                 minutes=self.settings['buffer'])
 
         for _ in range(allowed_races - maiden_races - 1):
-            race = self.create_interim_race(start_time, index)
+            race = self.create_stake_race(start_time, index)
             index += 1
             delta = start_time - self.betting_time
             race.settings['betting_time'] = delta.seconds
@@ -176,7 +176,7 @@ class Event:
                 minutes=self.settings['buffer'])
 
         for _ in range(allowed_races - len(races)):
-            race = self.create_stake_race(start_time, index)
+            race = self.create_listed_race(start_time, index)
             index += 1
             delta = start_time - self.betting_time
             race.settings['betting_time'] = delta.seconds
