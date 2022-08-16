@@ -41,6 +41,14 @@ class Event:
         return races
 
     @property
+    def horses(self):
+        races = self.races
+        horses = []
+        for r in races:
+            horses.extend(r.horses)
+        return horses
+
+    @property
     def phase(self):
         return self.settings['phase']
 
