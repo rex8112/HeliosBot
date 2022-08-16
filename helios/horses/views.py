@@ -83,7 +83,7 @@ class PreRaceView(discord.ui.View):
         # TODO: Call register view
 
     @discord.ui.button(label='Math is Hard', style=discord.ButtonStyle.red,
-                       disabled=True)
+                       disabled=True, row=1)
     async def decimals(self, interaction: discord.Interaction,
                        button: discord.Button):
         desc = ''
