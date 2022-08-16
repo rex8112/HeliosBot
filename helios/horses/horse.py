@@ -14,6 +14,7 @@ from ..types.settings import HorseSettings
 if TYPE_CHECKING:
     from ..member import HeliosMember
     from ..stadium import Stadium
+    from .race import Record
 
 
 class Horse(HasSettings):
@@ -35,6 +36,7 @@ class Horse(HasSettings):
         self.stats['speed'] = Stat('speed', 0)
         self.stats['acceleration'] = Stat('acceleration', 0)
         self.settings: HorseSettings = self._default_settings.copy()
+        self.records: list['Record'] = []
 
         self._new = True
         self._changed = False

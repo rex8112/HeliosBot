@@ -219,6 +219,8 @@ class Stadium(HasSettings):
                 records[record.horse_id].append(record)
             else:
                 records[record.horse_id] = [record]
+        for horse in self.horses.values():
+            horse.records = records.get(horse.id, list())
         return records
 
     async def build_channels(self):

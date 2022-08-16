@@ -668,6 +668,7 @@ class Race(HasSettings):
         for i, h in enumerate(self.race.finished_horses):
             h.horse.pay(payout[i])
             record = Record.new(h, self, payout[i])
+            h.horse.records.append(record)
             await self.save_record(record)
 
     async def run(self):
