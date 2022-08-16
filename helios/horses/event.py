@@ -66,6 +66,20 @@ class Event:
                     seconds=self.settings['announcement_time']
                 ))
 
+    @property
+    def races_finished(self):
+        for race in self.races:
+            if not race.finished:
+                return False
+        return True
+
+    @classmethod
+    def from_data(cls, stadium: 'Stadium', data: dict):
+        event = cls(stadium, data['channel'], start_time=data['settings'],
+                    races=4)
+        event._deserialize(data)
+        return event
+
     def create_maiden_race(self, race_time: datetime.datetime):
         race = Race.new(self.stadium, self.channel, 'maiden', race_time)
         race.settings['can_run'] = False
@@ -168,7 +182,11 @@ class Event:
         elif now >= self.registration_time and self.phase == 1:
             for race in self.races:
                 race.can_run = True
+                await race.save()
             self.phase += 1
+            return True
+        elif self.races_finished:
+            self.stadium.events.remove(self)
             return True
         return False
 
