@@ -49,6 +49,13 @@ class Stadium(HasSettings):
         return self.server.id
 
     @property
+    def event_race_ids(self) -> List[int]:
+        ids = []
+        for event in self.events:
+            ids.extend(event.race_ids)
+        return ids
+
+    @property
     def running(self) -> bool:
         return self._task is not None and not self._task.done()
 
@@ -257,7 +264,8 @@ class Stadium(HasSettings):
             race_data: List[Dict] = await self.server.bot.helios_http.get_race(
                 server=self.server.id)
             for rdata in race_data:
-                if rdata['settings']['phase'] >= 4:
+                if (rdata['settings']['phase'] >= 4
+                        and rdata['id'] not in self.event_race_ids):
                     continue
                 else:
                     r = Race.from_dict(self, rdata)
@@ -268,7 +276,7 @@ class Stadium(HasSettings):
         self.create_run_task()
 
     def create_run_task(self):
-        if not self._task or self._task.done():
+        if self._task and not self._task.done():
             self._task = self.server.bot.loop.create_task(self.run())
 
     async def run(self):

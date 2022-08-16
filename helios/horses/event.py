@@ -124,6 +124,8 @@ class Event:
                          f'{self.settings["winner_string"]}')
         )
         await self.channel.send(embed=embed)
+        for race in self.races:
+            self.stadium.races.remove(race)
         self.stadium.events.remove(self)
 
     async def maidens_available(self):

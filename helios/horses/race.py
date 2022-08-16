@@ -601,10 +601,8 @@ class Race(HasSettings):
         return self._task and not self._task.done()
 
     def create_run_task(self):
-        if not self.is_running():
+        if not self.is_running() and self.phase < 4:
             self._task = self.stadium.server.bot.loop.create_task(self.run())
-        else:
-            print('This is bad')
 
     def bet(self, bet_type: BetType, member: 'HeliosMember', horse: 'Horse',
             amount: int):
@@ -815,8 +813,9 @@ class Race(HasSettings):
                 await self.save()
             else:
                 # Everything is over. GG.
-                self.stadium.races.remove(self)
-                await self.stadium.save()
+                if not self.event:
+                    self.stadium.races.remove(self)
+                    await self.stadium.save()
                 cont = False
 
     async def send_or_edit_message(self, content=None, *, embed=None,
