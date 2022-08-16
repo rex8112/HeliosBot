@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Optional
 
 from .breed import Breed
 from .stats import StatContainer, Stat
-from ..abc import HasSettings
+from ..abc import HasSettings, HasFlags
 from ..exceptions import IdMismatchError
 from ..tools.settings import Item
 from ..types.horses import HorseSerializable
@@ -17,13 +17,15 @@ if TYPE_CHECKING:
     from .race import Record
 
 
-class Horse(HasSettings):
+class Horse(HasSettings, HasFlags):
     _default_settings: HorseSettings = {
         'gender': 'male',
         'age': 0,
-        'owner': None,
-        'wins': 0
+        'owner': None
     }
+    _allowed_flags = [
+        'QUALIFIED'
+    ]
     base_stat = 10
 
     def __init__(self, stadium: 'Stadium'):

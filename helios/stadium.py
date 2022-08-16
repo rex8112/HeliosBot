@@ -219,8 +219,11 @@ class Stadium(HasSettings):
                 records[record.horse_id].append(record)
             else:
                 records[record.horse_id] = [record]
-        for horse in self.horses.values():
-            horse.records = records.get(horse.id, list())
+        for h in self.horses.values():
+            recs = records.get(horse.id, list())
+            if h.get_flag('QUALIFIED') and horse is None:
+                recs = list(filter(lambda r: r.race_type != 'basic', recs))
+            h.records = recs
         return records
 
     async def build_channels(self):
@@ -260,6 +263,7 @@ class Stadium(HasSettings):
                     r = Race.from_dict(self, rdata)
                     self.races.append(r)
                     r.create_run_task()
+        await self.build_records()
         await self.build_channels()
         self.create_run_task()
 

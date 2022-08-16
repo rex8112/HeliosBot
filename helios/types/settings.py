@@ -20,7 +20,6 @@ class HorseSettings(TypedDict):
     gender: str
     age: int
     owner: Optional['HeliosMember']
-    wins: int
 
 
 class RaceSettings(TypedDict):
