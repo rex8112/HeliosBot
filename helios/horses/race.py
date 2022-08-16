@@ -75,7 +75,7 @@ class Record:
         self.race_type = data['type']
         self.earnings = data['earnings']
         self.placing = data['placing']
-        self.date = datetime.date.fromisoformat(data['data'])
+        self.date = datetime.date.fromisoformat(data['date'])
 
 
 class Bet:
@@ -351,7 +351,7 @@ class Race(HasSettings):
 
     @property
     def finished(self) -> bool:
-        return self.race and self.race.finished
+        return (self.race and self.race.finished) or self.phase == 4
 
     @property
     def purse(self) -> int:
@@ -678,6 +678,13 @@ class Race(HasSettings):
                 if self.time_until_betting > datetime.timedelta(seconds=0):
                     wait_for = self.time_until_betting.seconds
                     await asyncio.sleep(wait_for)
+                if len(self.horses) < self.max_horses:
+                    delta = self.max_horses - len(self.horses)
+                    new_horses = random.sample(
+                        list(self.stadium.horses.values()),
+                        k=delta)
+                    for h in new_horses:
+                        self.horses.append(h)
                 self.phase = 1
                 await self.save()
             elif self.phase == 1:
