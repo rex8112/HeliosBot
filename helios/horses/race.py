@@ -17,6 +17,7 @@ from ..types.horses import MaxRaceHorses, RaceTypes
 from ..types.settings import RaceSettings
 
 if TYPE_CHECKING:
+    from .event import Event
     from ..stadium import Stadium
     from ..member import HeliosMember
 
@@ -404,6 +405,13 @@ class Race(HasSettings):
     def phase(self, value: int):
         self.settings['phase'] = value
 
+    @property
+    def event(self) -> Optional['Event']:
+        for e in self.stadium.events:
+            if self.id in e.race_ids:
+                return e
+        return None
+
     @classmethod
     def new(cls, stadium: 'Stadium', channel: discord.TextChannel,
             race_type: RaceTypes, race_time: datetime.datetime):
@@ -735,6 +743,11 @@ class Race(HasSettings):
 
                 if self.race.finished:
                     self.phase = 3
+                    event = self.event
+                    if event:
+                        winner = self.race.finished_horse[0]
+                        event.settings['winner_string'] += (f'{self.name}: '
+                                                            f'{winner.name}\n')
                 await asyncio.sleep(1)
             elif self.phase == 3:
                 # Race over, time to calculate winnings for racers and betters.

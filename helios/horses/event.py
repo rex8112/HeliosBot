@@ -30,7 +30,8 @@ class Event:
             'announcement_time': announcement_time,
             'races': races,
             'buffer': 5,
-            'phase': 0
+            'phase': 0,
+            'winner_string': ''
         }
 
     @property
@@ -116,6 +117,15 @@ class Event:
         await self.channel.send(embed=embed)
         self.phase += 1
 
+    async def close_event(self):
+        embed = discord.Embed(
+            title=f'{self.name} has Ended!',
+            description=('Congratulate our winners!\n\n'
+                         f'{self.settings["winner_string"]}')
+        )
+        await self.channel.send(embed=embed)
+        self.stadium.events.remove(self)
+
     async def maidens_available(self):
         records = await self.stadium.build_records(allow_basic=True)
         maidens = 0
@@ -193,7 +203,7 @@ class Event:
             return True
         elif self.races_finished:
             try:
-                self.stadium.events.remove(self)
+                await self.close_event()
             except ValueError:
                 return False
             else:
