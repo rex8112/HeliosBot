@@ -675,9 +675,21 @@ class Race(HasSettings):
                 view.check_race_status()
                 await self.send_or_edit_message(
                     embed=self._get_registration_embed(), view=view)
+
+                if not self.thread:
+                    if self.settings['type'] == 'basic':
+                        thread_time = 60
+                    else:
+                        thread_time = 1440
+                    await self.message.create_thread(
+                        name=f'{self.name}-{self.race_time.strftime("%H:%M")}',
+                        auto_archive_duration=thread_time
+                    )
+
                 if self.time_until_betting > datetime.timedelta(seconds=0):
                     wait_for = self.time_until_betting.seconds
                     await asyncio.sleep(wait_for)
+
                 if len(self.horses) < self.max_horses:
                     delta = self.max_horses - len(self.horses)
                     new_horses = random.sample(
@@ -697,11 +709,6 @@ class Race(HasSettings):
                     await self.save()
                 await self.send_or_edit_message(embed=self.get_betting_embed(),
                                                 view=view)
-                if not self.thread:
-                    await self.message.create_thread(
-                        name=f'{self.name}-{self.race_time.strftime("%H:%M")}',
-                        auto_archive_duration=60
-                    )
                 if self.time_until_race > datetime.timedelta(seconds=0):
                     wait_for = self.time_until_race.seconds
                     await asyncio.sleep(wait_for)
