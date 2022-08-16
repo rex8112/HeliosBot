@@ -29,7 +29,7 @@ class TopicCreation(ui.Modal, title='New Topic'):
 
 class BetModal(ui.Modal, title=f'Bet'):
     type = ui.TextInput(label='Bet Type', placeholder='win, place, show', required=True)
-    horse_name = ui.TextInput(label='Horse', placeholder='HorsesName', required=True)
+    horse_name = ui.TextInput(label='Horse', placeholder='HorsesName or #', required=True)
     amount = ui.TextInput(label='Amount', required=True)
 
     def __init__(self, er: 'Race', member: 'HeliosMember'):
@@ -50,9 +50,14 @@ class BetModal(ui.Modal, title=f'Bet'):
             amt = int(self.amount.value)
         except ValueError:
             raise BetError('Must input a valid number.')
-        horse = self.race.find_horse(self.horse_name.value)
+        try:
+            horse_index = int(self.horse_name.value)
+            horse = self.race.horses[horse_index - 1]
+        except (ValueError, IndexError):
+            horse = self.race.find_horse(self.horse_name.value)
         if horse is None:
-            raise BetError('You must type a valid horse name that is registered to this race.')
+            raise BetError('You must type a valid horse name or number that '
+                           'is registered to this race.')
         if self.member.points < amt:
             raise BetError(f'You only have {self.member.points} points.')
         elif amt <= 0:
