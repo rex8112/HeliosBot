@@ -454,19 +454,8 @@ class Race(HasSettings):
                 f'Horses: {self.max_horses}'
             )
         )
-        horse_string = ''
-        for h in self.horses:
-            owner = h.settings['owner']
-            odds = self.calculate_odds(h)
-            odds_ratio = Fraction(odds).limit_denominator(10)
-            if not owner:
-                owner = self.stadium.owner
-            else:
-                owner = owner.member
-            horse_string += (f'`{odds_ratio.numerator:3} to '
-                             f'{odds_ratio.denominator:2}` | {h.name} - '
-                             f'{owner.mention}\n')
-        embed.add_field(name='Horses', value=horse_string)
+        embed.add_field(name='Horses',
+                        value=self.horse_list_string(show_odds=True))
         embed.set_footer(text=f'Tick: {self.race.tick_number}')
 
         return embed
@@ -479,28 +468,39 @@ class Race(HasSettings):
                          f'<t:{int(self.settings["race_time"].timestamp())}'
                          f':R>')
         )
-        horse_string = ''
         place_string = ''
         show_string = ''
-        for h in self.horses:
-            owner = h.settings['owner']
-            odds = self.calculate_odds(h)
+        for i, h in enumerate(self.horses, start=1):
             place = self.get_horse_type_bets(BetType.place, h)
             show = self.get_horse_type_bets(BetType.show, h)
+            place_string += f'`{place:6,}` - #{i} {h.name}\n'
+            show_string += f'`{show:6,}` - #{i} {h.name}\n'
+        embed.add_field(name='Horses',
+                        value=self.horse_list_string(show_odds=True),
+                        inline=False)
+        embed.add_field(name='Places', value=place_string)
+        embed.add_field(name='Shows', value=show_string)
+        return embed
+
+    def horse_list_string(self, *, show_odds=False, show_owner=True):
+        horse_string = ''
+        for i, h in enumerate(self.horses, start=1):
+            owner = h.settings['owner']
+            odds = self.calculate_odds(h)
             odds_ratio = Fraction(odds).limit_denominator()
             if not owner:
                 owner = self.stadium.owner
             else:
                 owner = owner.member
-            horse_string += (f'`{odds_ratio.numerator:3} to '
-                             f'{odds_ratio.denominator:2}` | {h.name} - '
-                             f'{owner.mention}\n')
-            place_string += f'`{place:6,}` - {h.name}\n'
-            show_string += f'`{show:6,}` - {h.name}\n'
-        embed.add_field(name='Horses', value=horse_string)
-        embed.add_field(name='Places', value=place_string)
-        embed.add_field(name='Shows', value=show_string)
-        return embed
+            if show_odds:
+                horse_string += (f'`{odds_ratio.numerator:3} to '
+                                 f'{odds_ratio.denominator:2}` | ')
+            horse_string += f'#{i} {h.name}'
+            if show_owner:
+                horse_string += (' - '
+                                 f'{owner.mention}')
+            horse_string += '\n'
+        return horse_string
 
     def inflate_bets(self, amt_to_inflate: int):
         horse_qualities = [x.quality for x in self.horses]
