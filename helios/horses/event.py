@@ -35,8 +35,8 @@ class Event:
 
     @property
     def races(self):
-        races = list(filter(lambda x: x.id in self.race_ids,
-                            self.stadium.races))
+        races = filter(lambda x: x.id in self.race_ids, self.stadium.races)
+        races = list(sorted(races, key=lambda x: x.race_time))
         return races
 
     @property
@@ -80,22 +80,22 @@ class Event:
         event._deserialize(data)
         return event
 
-    def create_maiden_race(self, race_time: datetime.datetime):
+    def create_maiden_race(self, race_time: datetime.datetime, index):
         race = Race.new(self.stadium, self.channel, 'maiden', race_time)
-        race.settings['can_run'] = False
-        race.name = f'{self.name} Race {len(self.race_ids) + 1}: Maiden Race'
+        race.can_run = False
+        race.name = f'{self.name} Race {index}: Maiden Race'
         return race
 
-    def create_interim_race(self, race_time: datetime.datetime):
+    def create_interim_race(self, race_time: datetime.datetime, index):
         race = Race.new(self.stadium, self.channel, 'interim', race_time)
-        race.settings['can_run'] = False
-        race.name = f'{self.name} Race {len(self.race_ids) + 1}: Interim Race'
+        race.can_run = False
+        race.name = f'{self.name} Race {index}: Interim Race'
         return race
 
-    def create_stake_race(self, race_time: datetime.datetime):
+    def create_stake_race(self, race_time: datetime.datetime, index):
         race = Race.new(self.stadium, self.channel, 'stake', race_time)
-        race.settings['can_run'] = False
-        race.name = f'{self.name} Race {len(self.race_ids) + 1}: Stakes Race'
+        race.can_run = False
+        race.name = f'{self.name} Race {index}: Stakes Race'
         return race
 
     async def announce_event(self):
@@ -142,17 +142,21 @@ class Event:
             maiden_races = maiden_races_allowed
 
         start_time = self.settings['start_time']
+        index = 1
         races = []
         for _ in range(maiden_races):
-            race = self.create_maiden_race(start_time)
+            race = self.create_maiden_race(start_time, index)
+            index += 1
             delta = start_time - self.betting_time
             race.settings['betting_time'] = delta.seconds
+            race.settings['max_horses'] = 12
             races.append(race)
             start_time = start_time + datetime.timedelta(
                 minutes=self.settings['buffer'])
 
         for _ in range(allowed_races - maiden_races - 1):
-            race = self.create_interim_race(start_time)
+            race = self.create_interim_race(start_time, index)
+            index += 1
             delta = start_time - self.betting_time
             race.settings['betting_time'] = delta.seconds
             races.append(race)
@@ -160,7 +164,8 @@ class Event:
                 minutes=self.settings['buffer'])
 
         for _ in range(allowed_races - len(races)):
-            race = self.create_stake_race(start_time)
+            race = self.create_stake_race(start_time, index)
+            index += 1
             delta = start_time - self.betting_time
             race.settings['betting_time'] = delta.seconds
             races.append(race)
@@ -173,21 +178,26 @@ class Event:
 
     async def manage_event(self):
         now = datetime.datetime.now().astimezone()
-        if self.phase > 1:
-            return False
         if now >= self.announcement_time and self.phase == 0:
             await self.generate_races()
             await self.announce_event()
             return True
         elif now >= self.registration_time and self.phase == 1:
             for race in self.races:
+                embed = discord.Embed(title='Building Race')
+                placeholder = await self.channel.send(embed=embed)
+                race.settings['message'] = placeholder
                 race.can_run = True
                 await race.save()
             self.phase += 1
             return True
         elif self.races_finished:
-            self.stadium.events.remove(self)
-            return True
+            try:
+                self.stadium.events.remove(self)
+            except ValueError:
+                return False
+            else:
+                return True
         return False
 
     def serialize(self):
