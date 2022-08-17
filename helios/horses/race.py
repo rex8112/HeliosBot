@@ -719,6 +719,9 @@ class Race(HasSettings):
             record = Record.new(h, self, payout[i])
             h.horse.records.append(record)
             await self.save_record(record)
+            if record.race_type != 'basic' and record.placing == 0:
+                h.horse.set_flag('QUALIFIED', True)
+                await h.horse.save()
 
     async def run(self):
         cont = True
