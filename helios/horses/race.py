@@ -786,8 +786,9 @@ class Race(HasSettings):
                     event = self.event
                     if event:
                         winner = self.race.finished_horses[0]
-                        event.settings['winner_string'] += (f'{self.name}: '
-                                                            f'{winner.name}\n')
+                        event.settings['winner_string'] += (
+                            f'{self.name.replace(event.name, "")}: '
+                            f'**{winner.name}**\n')
                 await asyncio.sleep(1)
             elif self.phase == 3:
                 # Race over, time to calculate winnings for racers and betters.
