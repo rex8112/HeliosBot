@@ -658,18 +658,7 @@ class Race(HasSettings):
         if self.settings['type'] == 'basic':
             return not horse.get_flag('QUALIFIED')
         elif self.settings['type'] == 'maiden':
-            earnings = 0
-            for rec in horse.records:
-                # If you won first place in a non-basic race
-                if rec.race_type != 'basic' and rec.placing == 0:
-                    return False
-                # If you won first place in a basic race
-                if rec.placing == 0:
-                    return True
-                earnings += rec.earnings
-                if earnings >= 600:
-                    return True
-            return False
+            return horse.is_maiden()
         elif self.settings['type'] == 'stakes':
             for rec in horse.records:
                 # If you won first place in ANY race

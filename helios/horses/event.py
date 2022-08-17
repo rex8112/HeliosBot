@@ -137,14 +137,9 @@ class Event:
         self.stadium.events.remove(self)
 
     async def maidens_available(self):
-        records = await self.stadium.build_records(allow_basic=True)
         maidens = 0
-        for h_id, record_list in records.items():
-            is_maiden = True
-            for record in record_list:
-                if record.placing == 0:
-                    is_maiden = False
-                    break
+        for horse in self.stadium.horses.values():
+            is_maiden = horse.is_maiden()
             if is_maiden:
                 maidens += 1
         return maidens

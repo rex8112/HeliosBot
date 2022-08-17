@@ -95,6 +95,19 @@ class Horse(HasSettings, HasFlags):
     def pay(self, amount: float):
         ...
 
+    def is_maiden(self):
+        earnings = 0
+        for rec in self.records:
+            if rec.race_type != 'basic' and rec.placing == 0:
+                return False
+            # If you won first place in a basic race
+            if rec.placing == 0:
+                return True
+            earnings += rec.earnings
+            if earnings >= 600:
+                return True
+        return False
+
     def get_calculated_stat(self, stat: str):
         return (Horse.base_stat + self.stats[stat].value) * self.breed.stat_multiplier[stat]
 
