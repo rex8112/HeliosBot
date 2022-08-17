@@ -780,7 +780,16 @@ class Race(HasSettings):
                     view = PreRaceView(self)
                 view.check_race_status()
                 if len(self.bets) == 0:
-                    self.inflate_bets(10000)
+                    t = self.settings['type']
+                    if t == 'maiden':
+                        amt = 15_000
+                    elif t == 'stakes':
+                        amt = 20_000
+                    elif t == 'listed':
+                        amt = 30_000
+                    else:
+                        amt = 10_000
+                    self.inflate_bets(amt)
                     await self.save()
                 await self.send_or_edit_message(embed=self.get_betting_embed(),
                                                 view=view)
