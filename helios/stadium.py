@@ -320,8 +320,12 @@ class Stadium(HasSettings):
             if cur_day != self.day:
                 self.day = cur_day
                 # Check if horses need to be added to the pool
-                if len(self.horses) < 100:
-                    await self.batch_create_horses(100)
+                unqualified_horses = list(filter(
+                    lambda x: not x.get_flag('QUALIFIED'),
+                    self.horses.values()))
+                need_horses = 100 - len(unqualified_horses)
+                if need_horses > 0:
+                    await self.batch_create_horses(need_horses)
                     changed = True
 
             daily_events = list(filter(lambda e: e.settings['type'] == 'daily',
