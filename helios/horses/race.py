@@ -510,10 +510,27 @@ class Race(HasSettings):
         return horse_string
 
     def inflate_bets(self, amt_to_inflate: int):
-        horse_qualities = [x.quality for x in self.horses]
-        sum_qualities = sum(horse_qualities)
-        for i, h in enumerate(self.horses):
-            quality_percent = horse_qualities[i] / sum_qualities
+        multipliers = [10, 7, 4, 4, 3, 3, 3, 2, 2, 2, 2, 1]
+        horse_qualities = []
+        for h in self.horses:
+            horse_qualities.append((h, h.quality))
+        sorted_horse_qualities = sorted(horse_qualities,
+                                        key=lambda h_q: h_q[1],
+                                        reverse=True)
+        horses = [x[0] for x in sorted_horse_qualities]
+        qualities = [x[1] for x in sorted_horse_qualities]
+        minimum = min(qualities) - 10
+        qualities = [x - minimum for x in qualities]
+        horse_sum = sum(qualities)
+
+        new_qualities = []
+        for i, q in enumerate(qualities):
+            p = q / horse_sum
+            new_qualities.append(p * multipliers[i])
+        sum_qualities = sum(new_qualities)
+
+        for i, h in enumerate(horses):
+            quality_percent = new_qualities[i] / sum_qualities
             amt_to_bet = amt_to_inflate * quality_percent
             self.bet(BetType.win, self.stadium.owner_member, h,
                      int(amt_to_bet))
@@ -572,6 +589,8 @@ class Race(HasSettings):
     def calculate_pool_odds(self, t: BetType):
         total = self.get_total_type_bets(t)
         winning = self.get_winning_type_bets(t)
+        if winning <= 0:
+            winning = 1
         diff = total - winning
         odds = diff / winning
         return math.floor(odds * 10) / 10
@@ -702,7 +721,8 @@ class Race(HasSettings):
         cont = True
         view = None
         last_tick = None
-        await self.save()
+        if self.phase != 3:
+            await self.save()
         await self._can_run_event.wait()
         while cont:
             if self.phase == 0:

@@ -211,7 +211,7 @@ class Event:
                 await race.save()
             self.phase += 1
             return True
-        elif self.races_finished:
+        elif self.races_finished and self.phase >= 2:
             try:
                 await self.close_event()
             except ValueError:
