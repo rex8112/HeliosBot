@@ -138,6 +138,12 @@ class Stadium(HasSettings):
             earnings += record.earnings
         return earnings
 
+    def is_running(self) -> bool:
+        if self._task:
+            result = self._task.done()
+            return not result
+        return False
+
     def get_owner_horses(self, member: 'HeliosMember') -> Dict[int, 'Horse']:
         horses = filter(lambda h: h.owner == member, self.horses.values())
         horse_dict = {}
@@ -291,7 +297,7 @@ class Stadium(HasSettings):
         self.create_run_task()
 
     def create_run_task(self):
-        if not (self._task and not self._task.done()):
+        if not self.is_running():
             self._task = self.server.bot.loop.create_task(self.run())
 
     async def run(self):

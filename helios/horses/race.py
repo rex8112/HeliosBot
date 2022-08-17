@@ -616,7 +616,10 @@ class Race(HasSettings):
             return 0
 
     def is_running(self) -> bool:
-        return self._task and not self._task.done()
+        if self._task:
+            result = self._task.done()
+            return not result
+        return False
 
     def create_run_task(self):
         if not self.is_running() and self.phase < 4:
