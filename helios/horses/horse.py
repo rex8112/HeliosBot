@@ -48,6 +48,10 @@ class Horse(HasSettings, HasFlags):
         return self._id
 
     @property
+    def owner(self) -> Optional['HeliosMember']:
+        return self.settings['owner']
+
+    @property
     def is_new(self) -> bool:
         return self.id == 0
 

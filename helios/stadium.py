@@ -138,6 +138,13 @@ class Stadium(HasSettings):
             earnings += record.earnings
         return earnings
 
+    def unowned_horses(self) -> Dict[int, Horse]:
+        horses = {}
+        for key, horse in self.horses.items():
+            if horse.owner is None:
+                horses[key] = horse
+        return horses
+
     def is_running(self) -> bool:
         if self._task:
             result = self._task.done()

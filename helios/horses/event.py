@@ -1,4 +1,5 @@
 import datetime
+import random
 from typing import TYPE_CHECKING
 
 import discord
@@ -156,6 +157,16 @@ class Event:
         if maiden_races > maiden_races_allowed:
             maiden_races = maiden_races_allowed
 
+        horses = list(self.stadium.unowned_horses().values())
+        stakes_qualified = list(filter(
+            lambda x: Race.check_qualification('stake', x),
+            self.stadium.horses.values()))
+        listed_qualified = list(filter(
+            lambda x: Race.check_qualification('listed', x),
+            self.stadium.horses.values()))
+        stakes_races = len(stakes_qualified) // 6
+        listed_races = len(listed_qualified) // 6
+
         start_time = self.settings['start_time']
         index = 1
         races = []
@@ -169,7 +180,7 @@ class Event:
             start_time = start_time + datetime.timedelta(
                 minutes=self.settings['buffer'])
 
-        for _ in range(allowed_races - maiden_races - 1):
+        for _ in range(min([allowed_races - len(races) - 1, stakes_races])):
             race = self.create_stake_race(start_time, index)
             index += 1
             delta = start_time - self.betting_time
@@ -178,7 +189,7 @@ class Event:
             start_time = start_time + datetime.timedelta(
                 minutes=self.settings['buffer'])
 
-        for _ in range(allowed_races - len(races)):
+        for _ in range(min([allowed_races - len(races), listed_races])):
             race = self.create_listed_race(start_time, index)
             index += 1
             delta = start_time - self.betting_time
@@ -187,6 +198,11 @@ class Event:
             start_time = start_time + datetime.timedelta(
                 minutes=self.settings['buffer'])
 
+        for race in reversed(races):
+            qualified = list(filter(lambda x: race.is_qualified(),
+                                    horses))
+            qualified_horses = random.sample(qualified, race.max_horses)
+            race.horses = qualified_horses
         await self.stadium.bulk_add_races(races)
         for race in races:
             self.race_ids.append(race.id)

@@ -426,6 +426,32 @@ class Race(HasSettings):
         erace._deserialize(data)
         return erace
 
+    @staticmethod
+    def check_qualification(race_type: RaceTypes, horse: Horse):
+        """
+        Check whether a horse is eligible for this race.
+        :param race_type: The type of race to check
+        :param horse: The horse to check
+        :return: Whether the horse is allowed to race.
+        """
+        if race_type == 'basic':
+            return not horse.get_flag('QUALIFIED')
+        elif race_type == 'maiden':
+            return horse.is_maiden()
+        elif race_type == 'stakes':
+            for rec in horse.records:
+                # If you won first place in ANY race
+                if rec.placing == 0:
+                    return True
+            return False
+        elif race_type == 'listed':
+            for rec in horse.records:
+                # If horse has won any non-basic races
+                if rec.race_type != 'basic' and rec.placing == 0:
+                    return True
+            return False
+        return False
+
     def _get_registration_embed(self) -> discord.Embed:
         embed = discord.Embed(
             colour=discord.Colour.blue(),
@@ -647,7 +673,8 @@ class Race(HasSettings):
 
     def is_qualified(self, horse: 'Horse') -> bool:
         """
-        Check whether a horse is eligible for this race.
+        Shortcut for Race.check_qualification while also checking for event
+        doubling
         :param horse: The horse to check
         :return: Whether the horse is allowed to race.
         """
@@ -655,23 +682,7 @@ class Race(HasSettings):
         if self.event and horse in self.event.horses:
             return False
 
-        if self.settings['type'] == 'basic':
-            return not horse.get_flag('QUALIFIED')
-        elif self.settings['type'] == 'maiden':
-            return horse.is_maiden()
-        elif self.settings['type'] == 'stakes':
-            for rec in horse.records:
-                # If you won first place in ANY race
-                if rec.placing == 0:
-                    return True
-            return False
-        elif self.settings['type'] == 'listed':
-            for rec in horse.records:
-                # If horse has won any non basic races
-                if rec.race_type != 'basic' and rec.placing == 0:
-                    return True
-            return False
-        return False
+        return self.check_qualification(self.settings['type'], horse)
 
     def set_race_time(self, dt: datetime.datetime):
         self.settings['race_time'] = dt
