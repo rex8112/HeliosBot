@@ -145,6 +145,13 @@ class Stadium(HasSettings):
                 horses[key] = horse
         return horses
 
+    def racing_horses(self) -> List[Horse]:
+        horses = []
+        for race in self.races:
+            if race.phase < 4:
+                horses.extend(race.horses)
+        return horses
+
     def is_running(self) -> bool:
         if self._task:
             result = self._task.done()

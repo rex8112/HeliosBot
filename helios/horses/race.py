@@ -683,8 +683,8 @@ class Race(HasSettings):
         :param horse: The horse to check
         :return: Whether the horse is allowed to race.
         """
-        # Prevent doubling up in events
-        if self.event and horse in self.event.horses:
+        # Prevent doubling up
+        if horse in self.stadium.racing_horses():
             return False
 
         return self.check_qualification(self.settings['type'], horse)
