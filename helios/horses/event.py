@@ -94,18 +94,24 @@ class Event:
         race = Race.new(self.stadium, self.channel, 'maiden', race_time)
         race.can_run = False
         race.name = f'{self.name} Race {index}: Maiden Race'
+        race.settings['purse'] = 1100
+        race.settings['stake'] = int(1100 * 0.1)
         return race
 
     def create_stake_race(self, race_time: datetime.datetime, index):
         race = Race.new(self.stadium, self.channel, 'stake', race_time)
         race.can_run = False
         race.name = f'{self.name} Race {index}: Stakes Race'
+        race.settings['purse'] = 1500
+        race.settings['stake'] = int(1500 * 0.1)
         return race
 
     def create_listed_race(self, race_time: datetime.datetime, index):
         race = Race.new(self.stadium, self.channel, 'listed', race_time)
         race.can_run = False
         race.name = f'{self.name} Race {index}: Listed Stakes Race'
+        race.settings['purse'] = 2000
+        race.settings['stake'] = int(2000 * 0.1)
         return race
 
     async def announce_event(self):
@@ -115,7 +121,7 @@ class Event:
             schedule_string += (f'<t:{int(start_time.timestamp())}:t> - '
                                 f'{race.max_horses} Horse {race.name}\n')
         embed = discord.Embed(
-            colour=discord.Colour.blue(),
+            colour=discord.Colour.green(),
             title=f'Announcing the {self.name}',
             description=(f'Registration opens for all races '
                          f'<t:{int(self.registration_time.timestamp())}:R>\n'
@@ -128,6 +134,7 @@ class Event:
 
     async def close_event(self):
         embed = discord.Embed(
+            colour=discord.Colour.red(),
             title=f'{self.name} has Ended!',
             description=('Congratulate our winners!\n\n'
                          f'{self.settings["winner_string"]}')

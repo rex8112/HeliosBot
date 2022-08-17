@@ -483,7 +483,7 @@ class Race(HasSettings):
         embed.add_field(
             name='Race Information',
             value=(
-                f'Type: {self.settings["type"].capitalize()}\n'
+                f'Purse: {self.settings["purse"]:,}\n'
                 f'Horses: {self.max_horses}'
             )
         )
