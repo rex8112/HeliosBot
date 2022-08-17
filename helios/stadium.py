@@ -181,7 +181,7 @@ class Stadium(HasSettings):
             er.name = 'Quarter Hourly'
             er.settings['betting_time'] = 300
             self.races.append(er)
-            self.server.bot.loop.create_task(er.run())
+            er.create_run_task()
             return True
         return False
 
