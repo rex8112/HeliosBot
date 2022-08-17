@@ -509,13 +509,15 @@ class Race(HasSettings):
             place_string += f'`{place:6,}` - #{i} {h.name}\n'
             show_string += f'`{show:6,}` - #{i} {h.name}\n'
         embed.add_field(name='Horses',
-                        value=self.horse_list_string(show_odds=True),
+                        value=self.horse_list_string(show_odds=True,
+                                                     show_wr=True),
                         inline=False)
         embed.add_field(name='Places', value=place_string)
         embed.add_field(name='Shows', value=show_string)
         return embed
 
-    def horse_list_string(self, *, show_odds=False, show_owner=True):
+    def horse_list_string(self, *, show_odds=False, show_owner=True,
+                          show_wr=False):
         horse_string = ''
         for i, h in enumerate(self.horses, start=1):
             owner = h.settings['owner']
@@ -532,6 +534,9 @@ class Race(HasSettings):
             if show_owner:
                 horse_string += (' - '
                                  f'{owner.mention}')
+            if show_wr:
+                win, loss = self.stadium.get_win_loss(h.records)
+                horse_string += f' - {win}/{loss}'
             horse_string += '\n'
         return horse_string
 
