@@ -749,11 +749,24 @@ class Race(HasSettings):
                     wait_for = self.time_until_betting.seconds
                     await asyncio.sleep(wait_for)
 
-                if len(self.horses) < self.max_horses:
+                remaining_horses = self.max_horses - len(self.horses)
+                if remaining_horses > 0:
                     delta = self.max_horses - len(self.horses)
+                    horses = list(
+                        filter(lambda x: self.is_qualified(x),
+                               self.stadium.unowned_horses().values()))
                     new_horses = random.sample(
-                        list(self.stadium.horses.values()),
-                        k=delta)
+                        horses,
+                        k=min([delta, len(horses)]))
+                    # If there were not enough qualified horses, say fuck it
+                    if len(new_horses) < remaining_horses:
+                        new_horses.extend(
+                            random.sample(
+                                list(filter(lambda x: x not in new_horses,
+                                            horses)),
+                                k=remaining_horses - len(new_horses)
+                            )
+                        )
                     for h in new_horses:
                         self.horses.append(h)
                 self.phase = 1
