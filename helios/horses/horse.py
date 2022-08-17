@@ -69,11 +69,14 @@ class Horse(HasSettings, HasFlags):
 
     @property
     def quality(self) -> float:
-        wins, losses = self.stadium.get_win_loss(self.records)
-        total = wins + losses
-        if losses <= 0:
-            losses = 1
-        return round((wins/losses) * (total*0.5), 2)
+        win, place, show, loss = self.stadium.get_win_place_show_loss(
+            self.records)
+        mmr = 3_000
+        mmr += win * 15
+        mmr += place * 10
+        mmr += show * 5
+        mmr += loss * -15
+        return mmr
 
     @classmethod
     def new(cls, stadium: 'Stadium', name: str, breed: str, owner: Optional['HeliosMember'], *, num: int = None):
@@ -117,7 +120,8 @@ class Horse(HasSettings, HasFlags):
             'breed': self.breed.name,
             'stats': self.stats.serialize(),
             'born': Item.serialize(self.date_born),
-            'settings': Item.serialize_dict(self.settings)
+            'settings': Item.serialize_dict(self.settings),
+            'flags': self.flags
         }
         if self._new:
             data['id'] = None
@@ -132,6 +136,7 @@ class Horse(HasSettings, HasFlags):
         self.stats = StatContainer.from_dict(data['stats'])
         self.date_born = Item.deserialize(data['born'])
         self.settings = Item.deserialize_dict(data['settings'], guild=self.stadium.guild)
+        self.flags = data['flags']
         self._new = False
 
     async def save(self):

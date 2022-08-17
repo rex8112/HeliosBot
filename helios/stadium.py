@@ -1,6 +1,5 @@
 import asyncio
 import datetime
-import random
 from typing import TYPE_CHECKING, Optional, Dict, List, Tuple
 
 import discord
@@ -115,6 +114,24 @@ class Stadium(HasSettings):
         return win, loss
 
     @staticmethod
+    def get_win_place_show_loss(records: List[Record]) -> Tuple[int, int, int,
+                                                                int]:
+        win = 0
+        place = 0
+        show = 0
+        loss = 0
+        for record in records:
+            if record.placing == 0:
+                win += 1
+            elif record.placing == 1:
+                place += 1
+            elif record.placing == 2:
+                show += 1
+            else:
+                loss += 1
+        return win, place, show, loss
+
+    @staticmethod
     def get_earnings(records: List[Record]) -> int:
         earnings = 0
         for record in records:
@@ -143,8 +160,6 @@ class Stadium(HasSettings):
             er = Race.new(self, self.basic_channel, 'basic', next_slot)
             er.name = 'Quarter Hourly'
             er.settings['betting_time'] = 300
-            er.horses = random.sample(list(self.horses.values()),
-                                      k=er.max_horses)
             self.races.append(er)
             self.server.bot.loop.create_task(er.run())
             return True
@@ -227,7 +242,7 @@ class Stadium(HasSettings):
             else:
                 records[record.horse_id] = [record]
         for h in self.horses.values():
-            recs = records.get(horse.id, list())
+            recs = records.get(h.id, list())
             if h.get_flag('QUALIFIED') and horse is None:
                 recs = list(filter(lambda r: r.race_type != 'basic', recs))
             h.records = recs
@@ -276,7 +291,7 @@ class Stadium(HasSettings):
         self.create_run_task()
 
     def create_run_task(self):
-        if self._task and not self._task.done():
+        if not (self._task and not self._task.done()):
             self._task = self.server.bot.loop.create_task(self.run())
 
     async def run(self):
