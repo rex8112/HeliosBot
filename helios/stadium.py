@@ -315,11 +315,7 @@ class Stadium(HasSettings):
             if self.category is None:
                 cont = False
                 break
-            if self.settings['announcement_id'] == 0:
-                await self.announcement_channel.send(
-                    embed=self._get_new_stadium_embed()
-                )
-                self.settings['announcement_id'] = 1
+            await self.manage_announcements()
             cur_day = self.get_day()
             if cur_day != self.day:
                 self.day = cur_day
@@ -365,6 +361,56 @@ class Stadium(HasSettings):
             await asyncio.sleep(60)
         self._running = False
 
+    async def manage_announcements(self):
+        if self.settings['announcement_id'] == 0:
+            await self.announcement_channel.send(
+                embed=self._get_new_stadium_embed()
+            )
+            self.settings['announcement_id'] = 2
+        elif self.settings['announcement_id'] == 1:
+            embed = discord.Embed(
+                colour=discord.Colour.orange(),
+                title='Daily Events Release',
+                description=(
+                    'What are events? An event is a series of important races '
+                    'that occur in quick succession. These races require '
+                    'specific qualifications in order to race and also draw in'
+                    ' more bets. While an event means less until horse '
+                    'ownership is implemented, this can still affect you '
+                    'greatly as once horses start winning races in the events '
+                    'they will no longer show up in quarter hourly races.\n'
+                    'Registration and Betting occur at the same time for every'
+                    ' race in the event. Registration opens up six hours early'
+                    ' at <t:1659384000:t>. Betting opens up an hour early at '
+                    '<t:1659402000:t>. The races begin at <t:1659405600:t>.'
+                )
+            )
+            embed.add_field(
+                name='How Horses Qualify',
+                value=(
+                    'Events currently only consist of three possible races: '
+                    '**Maiden, Stakes, and Listed Grade Stakes**. Each type'
+                    'comes with better rewards for the horses, respectively.\n'
+                    '**Maiden**: These races are the most simple race. Horses '
+                    'who have never won an event race can race in a Maiden '
+                    'race. However, to prevent flooding from new horses, a '
+                    'horse must have earned 300 points from Quarter Hourly '
+                    'races before they are considered eligible.\n'
+                    '**Stakes**: These races are for any horse who have won '
+                    'at least once, it does not matter if this was a Quarter '
+                    'Hourly race or a Maiden race.\n'
+                    '**Listed Grade Stakes**: The first tier of Graded Stakes.'
+                    ' To qualify for this race, you must have won any single '
+                    'event race, whether it be Maiden or Stakes. '
+                    'Coincidentally, if a horse qualifies for a Listed race '
+                    'it can no longer qualify for a Quarter Hourly.'
+                )
+            )
+            await self.announcement_channel.send(
+                embed=embed
+            )
+            self.settings['announcement_id'] = 2
+
     def _get_new_stadium_embed(self) -> discord.Embed:
         embed = discord.Embed(
             colour=discord.Colour.orange(),
@@ -375,7 +421,8 @@ class Stadium(HasSettings):
                 f'happening race? Head to {self.basic_channel.mention}. Low on'
                 ' cash? Try /daily. Be sure to hang out, '
                 'upcoming features will use activity points which are now '
-                'being accumulated via voice channels.'
+                'being accumulated via voice channels. Be sure to check out '
+                f'{self.daily_channel.mention} for Daily Events.'
             )
         )
         embed.add_field(
@@ -403,13 +450,34 @@ class Stadium(HasSettings):
             inline=False
         )
         embed.add_field(
+            name='Event Races',
+            value=(
+                'Events currently only consist of three possible races: '
+                '**Maiden, Stakes, and Listed Grade Stakes**. Each type'
+                'comes with better rewards for the horses, respectively.\n'
+                '**Maiden**: These races are the most simple race. Horses '
+                'who have never won an event race can race in a Maiden '
+                'race. However, to prevent flooding from new horses, a '
+                'horse must have earned 300 points from Quarter Hourly '
+                'races before they are considered eligible.\n'
+                '**Stakes**: These races are for any horse who have won '
+                'at least once, it does not matter if this was a Quarter '
+                'Hourly race or a Maiden race.\n'
+                '**Listed Grade Stakes**: The first tier of Graded Stakes.'
+                ' To qualify for this race, you must have won any single '
+                'event race, whether it be Maiden or Stakes. '
+                'Coincidentally, if a horse qualifies for a Listed race '
+                'it can no longer qualify for a Quarter Hourly.'
+            )
+        )
+        embed.add_field(
             name='Features to look forward to',
             value=(
                 'In its current state, the Stadium allows for betting on '
                 'Quarter Hourly races but that is not where it '
                 'is going to end. There are many features planned for the '
-                'Stadium, including but not limited to: '
-                'Tournaments, Track Records, Horse and Jockey Ownership, '
+                'Stadium, including but not limited to '
+                'Horse and Jockey Ownership, '
                 'and Horse Breeding.'
             )
         )
