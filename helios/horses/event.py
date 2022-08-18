@@ -171,8 +171,9 @@ class Event:
         listed_qualified = list(filter(
             lambda x: Race.check_qualification('listed', x),
             self.stadium.horses.values()))
-        stakes_races = len(stakes_qualified) // 6
-        listed_races = len(listed_qualified) // 6
+        listed_races = min([len(listed_qualified) // 6, 1])
+        stakes_races = min([len(stakes_qualified) // 6,
+                            allowed_races - listed_races - maiden_races])
 
         start_time = self.settings['start_time']
         index = 1
@@ -187,7 +188,7 @@ class Event:
             start_time = start_time + datetime.timedelta(
                 minutes=self.settings['buffer'])
 
-        for _ in range(min([allowed_races - len(races) - 1, stakes_races])):
+        for _ in range(stakes_races):
             race = self.create_stake_race(start_time, index)
             index += 1
             delta = start_time - self.betting_time
@@ -196,7 +197,7 @@ class Event:
             start_time = start_time + datetime.timedelta(
                 minutes=self.settings['buffer'])
 
-        for _ in range(min([allowed_races - len(races), listed_races])):
+        for _ in range(listed_races):
             race = self.create_listed_race(start_time, index)
             index += 1
             delta = start_time - self.betting_time
@@ -206,7 +207,7 @@ class Event:
                 minutes=self.settings['buffer'])
 
         for race in reversed(races):
-            qualified = list(filter(lambda x: race.is_qualified(),
+            qualified = list(filter(lambda x: race.is_qualified(x),
                                     horses))
             qualified_horses = random.sample(qualified, race.max_horses)
             race.horses = qualified_horses

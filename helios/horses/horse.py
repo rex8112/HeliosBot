@@ -108,9 +108,13 @@ class Horse(HasSettings, HasFlags):
             if rec.placing == 0:
                 return True
             earnings += rec.earnings
-            if earnings >= 600:
+            if earnings >= 300:
                 return True
         return False
+
+    def clear_basic_records(self):
+        self.records = list(filter(lambda x: x.race_type != 'basic',
+                                   self.records))
 
     def get_calculated_stat(self, stat: str):
         return (Horse.base_stat + self.stats[stat].value) * self.breed.stat_multiplier[stat]

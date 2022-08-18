@@ -438,7 +438,7 @@ class Race(HasSettings):
             return not horse.get_flag('QUALIFIED')
         elif race_type == 'maiden':
             return horse.is_maiden()
-        elif race_type == 'stakes':
+        elif race_type == 'stake':
             for rec in horse.records:
                 # If you won first place in ANY race
                 if rec.placing == 0:
@@ -726,6 +726,7 @@ class Race(HasSettings):
             await self.save_record(record)
             if record.race_type != 'basic' and record.placing == 0:
                 h.horse.set_flag('QUALIFIED', True)
+                h.horse.clear_basic_records()
                 await h.horse.save()
 
     async def run(self):
@@ -748,10 +749,13 @@ class Race(HasSettings):
                         thread_time = 60
                     else:
                         thread_time = 1440
-                    await self.message.create_thread(
-                        name=f'{self.name}-{self.race_time.strftime("%H:%M")}',
-                        auto_archive_duration=thread_time
-                    )
+                    try:
+                        await self.message.create_thread(
+                            name=f'{self.name}-{self.race_time.strftime("%H:%M")}',
+                            auto_archive_duration=thread_time
+                        )
+                    except discord.HTTPException:
+                        ...
 
                 if self.time_until_betting > datetime.timedelta(seconds=0):
                     wait_for = self.time_until_betting.seconds
@@ -810,7 +814,7 @@ class Race(HasSettings):
                     self.generate_race()
                     await self.send_or_edit_message(
                         embed=self._get_race_embed())
-                    await asyncio.sleep(5)
+                    await asyncio.sleep(3)
                 if last_tick is None:
                     last_tick = datetime.datetime.now()
 

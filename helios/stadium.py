@@ -306,7 +306,7 @@ class Stadium(HasSettings):
                     r = Race.from_dict(self, rdata)
                     self.races.append(r)
                     r.create_run_task()
-        await self.build_records()
+        await self.build_records(allow_basic=True)
         await self.build_channels()
         self.create_run_task()
 
