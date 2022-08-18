@@ -206,10 +206,13 @@ class Event:
             start_time = start_time + datetime.timedelta(
                 minutes=self.settings['buffer'])
 
+        used_horses = []
         for race in reversed(races):
-            qualified = list(filter(lambda x: race.is_qualified(x),
-                                    horses))
+            qualified = list(filter(
+                lambda x: race.is_qualified(x) and x not in used_horses,
+                horses))
             qualified_horses = random.sample(qualified, race.max_horses)
+            used_horses.extend(qualified_horses)
             race.horses = qualified_horses
         await self.stadium.bulk_add_races(races)
         for race in races:
