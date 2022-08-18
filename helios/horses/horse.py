@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Optional
 
 from .breed import Breed
 from .stats import StatContainer, Stat
-from ..abc import HasSettings
+from ..abc import HasSettings, HasFlags
 from ..exceptions import IdMismatchError
 from ..tools.settings import Item
 from ..types.horses import HorseSerializable
@@ -14,15 +14,18 @@ from ..types.settings import HorseSettings
 if TYPE_CHECKING:
     from ..member import HeliosMember
     from ..stadium import Stadium
+    from .race import Record
 
 
-class Horse(HasSettings):
+class Horse(HasSettings, HasFlags):
     _default_settings: HorseSettings = {
         'gender': 'male',
         'age': 0,
-        'owner': None,
-        'wins': 0
+        'owner': None
     }
+    _allowed_flags = [
+        'QUALIFIED'
+    ]
     base_stat = 10
 
     def __init__(self, stadium: 'Stadium'):
@@ -35,6 +38,7 @@ class Horse(HasSettings):
         self.stats['speed'] = Stat('speed', 0)
         self.stats['acceleration'] = Stat('acceleration', 0)
         self.settings: HorseSettings = self._default_settings.copy()
+        self.records: list['Record'] = []
 
         self._new = True
         self._changed = False
@@ -42,6 +46,10 @@ class Horse(HasSettings):
     @property
     def id(self) -> int:
         return self._id
+
+    @property
+    def owner(self) -> Optional['HeliosMember']:
+        return self.settings['owner']
 
     @property
     def is_new(self) -> bool:
@@ -65,12 +73,14 @@ class Horse(HasSettings):
 
     @property
     def quality(self) -> float:
-        total = 0
-        quantity = 0
-        for v in self.stats.stats.values():
-            total += v.value
-            quantity += 1
-        return round(total / quantity, 2)
+        win, place, show, loss = self.stadium.get_win_place_show_loss(
+            self.records)
+        mmr = 3_000
+        mmr += win * 15
+        mmr += place * 10
+        mmr += show * 5
+        mmr += loss * -15
+        return mmr
 
     @classmethod
     def new(cls, stadium: 'Stadium', name: str, breed: str, owner: Optional['HeliosMember'], *, num: int = None):
@@ -88,6 +98,23 @@ class Horse(HasSettings):
 
     def pay(self, amount: float):
         ...
+
+    def is_maiden(self):
+        earnings = 0
+        for rec in self.records:
+            if rec.race_type != 'basic' and rec.placing == 0:
+                return False
+            # If you won first place in a basic race
+            if rec.placing == 0:
+                return True
+            earnings += rec.earnings
+            if earnings >= 300:
+                return True
+        return False
+
+    def clear_basic_records(self):
+        self.records = list(filter(lambda x: x.race_type != 'basic',
+                                   self.records))
 
     def get_calculated_stat(self, stat: str):
         return (Horse.base_stat + self.stats[stat].value) * self.breed.stat_multiplier[stat]
@@ -114,7 +141,8 @@ class Horse(HasSettings):
             'breed': self.breed.name,
             'stats': self.stats.serialize(),
             'born': Item.serialize(self.date_born),
-            'settings': Item.serialize_dict(self.settings)
+            'settings': Item.serialize_dict(self.settings),
+            'flags': self.flags
         }
         if self._new:
             data['id'] = None
@@ -129,6 +157,7 @@ class Horse(HasSettings):
         self.stats = StatContainer.from_dict(data['stats'])
         self.date_born = Item.deserialize(data['born'])
         self.settings = Item.deserialize_dict(data['settings'], guild=self.stadium.guild)
+        self.flags = data['flags']
         self._new = False
 
     async def save(self):

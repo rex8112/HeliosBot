@@ -150,6 +150,13 @@ class HTTPClient:
         resp = await self.request(f'races/{race_id}/', method='DELETE')
         return resp
 
+    async def get_record(self, *, record_id: int = None, **params):
+        if record_id:
+            resp = await self.request(f'records/{record_id}/')
+        else:
+            resp = await self.request(f'records/', params=params)
+        return resp
+
     async def post_record(self, json_data: Union[dict, list]):
         resp = await self.request(f'records/', method='POST', json=json_data)
         return resp
