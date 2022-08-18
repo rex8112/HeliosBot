@@ -791,11 +791,11 @@ class Race(HasSettings):
                 if len(self.bets) == 0:
                     t = self.settings['type']
                     if t == 'maiden':
-                        amt = 15_000
-                    elif t == 'stakes':
                         amt = 20_000
-                    elif t == 'listed':
+                    elif t == 'stake':
                         amt = 30_000
+                    elif t == 'listed':
+                        amt = 40_000
                     else:
                         amt = 10_000
                     self.inflate_bets(amt)
