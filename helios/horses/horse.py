@@ -39,6 +39,7 @@ class Horse(HasSettings, HasFlags):
         self.stats['acceleration'] = Stat('acceleration', 0)
         self.settings: HorseSettings = self._default_settings.copy()
         self.records: list['Record'] = []
+        self.flags = []
 
         self._new = True
         self._changed = False
