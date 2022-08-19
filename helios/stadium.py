@@ -229,7 +229,7 @@ class Stadium(HasSettings):
         tasks = []
         used_names = [x.name for x in self.horses.values()]
         random_names = await self.server.bot.helios_http.request_names(
-            count + 20)
+            count * 2)
         for _ in range(count):
             name = random_names[-1]
             random_names.pop()
@@ -237,6 +237,7 @@ class Stadium(HasSettings):
                 name = random_names[-1]
                 random_names.pop()
 
+            used_names.append(name)
             h = Horse.new(self, name, 'Unknown', None)
             await h.save()
             self.horses[h.id] = h
