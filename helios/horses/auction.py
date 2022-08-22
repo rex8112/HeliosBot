@@ -1,15 +1,16 @@
+import asyncio
 from datetime import datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..stadium import Stadium
+    from ..member import HeliosMember
 
 
 class Bid:
-    def __init__(self, bidder_id: int, listing_id: int, amount: int,
+    def __init__(self, bidder_id: int, amount: int,
                  time: datetime):
         self.bidder_id = bidder_id
-        self.listing_id = listing_id
         self.amount = amount
         self.time = time
 
@@ -17,13 +18,12 @@ class Bid:
     def from_data(cls, data: dict):
         return cls(
             bidder_id=data['bidder'],
-            listing_id=data['listing'],
             amount=data['amount'],
             time=datetime.fromisoformat(data['time'])
         )
 
     def __key(self):
-        return self.bidder_id, self.listing_id, self.amount
+        return self.bidder_id, self.amount
 
     def __hash__(self):
         return hash(self.__key())
@@ -40,14 +40,13 @@ class Bid:
     def serialize(self):
         return {
             'bidder': self.bidder_id,
-            'listing': self.listing_id,
             'amount': self.amount,
             'time': self.time.isoformat()
         }
 
 
 class HorseListing:
-    def __init__(self, auction: 'Auction', horse_id: int):
+    def __init__(self, auction: 'BasicAuction', horse_id: int):
         self.auction = auction
         self.horse_id = horse_id
         self.bids = []
@@ -56,11 +55,18 @@ class HorseListing:
     def horse(self):
         return self.auction.stadium.horses.get(self.horse_id)
 
+    def bid(self, member: 'HeliosMember', amount: int) -> Bid:
+        b = Bid(member.member.id, amount, datetime.now().astimezone())
+        self.bids.append(b)
+        return b
 
-class Auction:
+
+class BasicAuction:
     def __init__(self, house: 'AuctionHouse'):
         self.house = house
         self.listings = []
+
+        self.on_bid = asyncio.Event()
 
     @property
     def stadium(self):
