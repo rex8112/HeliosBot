@@ -2,6 +2,8 @@ import asyncio
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from ..exceptions import BidError
+
 if TYPE_CHECKING:
     from ..stadium import Stadium
     from ..member import HeliosMember
@@ -37,6 +39,24 @@ class Bid:
     def __ne__(self, o: object) -> bool:
         return not self.__eq__(o)
 
+    def __gt__(self, o: object) -> bool:
+        if isinstance(o, Bid):
+            return self.amount > o.amount
+        else:
+            return NotImplemented
+
+    def __ge__(self, o: object) -> bool:
+        if isinstance(o, Bid):
+            return self.amount >= o.amount
+        else:
+            return NotImplemented
+
+    def __lt__(self, o: object) -> bool:
+        return not self.__ge__(o)
+
+    def __le__(self, o: object) -> bool:
+        return not self.__gt__(o)
+
     def serialize(self):
         return {
             'bidder': self.bidder_id,
@@ -51,13 +71,26 @@ class HorseListing:
         self.horse_id = horse_id
         self.bids = []
 
+        self.new_bid = False
+
     @property
     def horse(self):
         return self.auction.stadium.horses.get(self.horse_id)
 
+    def get_highest_bidder(self):
+        if len(self.bids) < 1:
+            raise ValueError('Bids must not be empty')
+        return self.bids[-1]
+
+    def get_price_history(self):
+        return [b.amount for b in self.bids]
+
     def bid(self, member: 'HeliosMember', amount: int) -> Bid:
         b = Bid(member.member.id, amount, datetime.now().astimezone())
+        if len(self.bids) > 0 and b <= self.bids[-1]:
+            raise BidError('New bid must be higher')
         self.bids.append(b)
+        self.new_bid = True
         return b
 
 
