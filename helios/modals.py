@@ -33,7 +33,11 @@ class BetModal(ui.Modal, title=f'Bet'):
     amount = ui.TextInput(label='Amount', required=True)
 
     def __init__(self, er: 'Race', member: 'HeliosMember'):
-        super().__init__(title=f'{er.name} Bet',
+        if len(er.name) > 41:
+            name = er.name[:41]
+        else:
+            name = er.name
+        super().__init__(title=f'{name} Bet',
                          timeout=er.time_until_race.seconds)
         self.race = er
         self.member = member
