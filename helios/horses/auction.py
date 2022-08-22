@@ -22,11 +22,15 @@ class Bid:
             time=datetime.fromisoformat(data['time'])
         )
 
+    def __key(self):
+        return self.bidder_id, self.listing_id, self.amount
+
+    def __hash__(self):
+        return hash(self.__key())
+
     def __eq__(self, o: object) -> bool:
         if isinstance(o, Bid):
-            return (o.bidder_id == self.bidder_id
-                    and o.listing_id == self.listing_id
-                    and o.amount == self.amount)
+            return o.__key() == self.__key()
         else:
             return NotImplemented
 
