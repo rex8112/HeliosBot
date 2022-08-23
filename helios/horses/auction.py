@@ -220,6 +220,11 @@ class BasicAuction:
                 auction.message = channel.get_partial_message(message_id)
 
 
+class RotatingAuction(BasicAuction):
+    def __init__(self, house: 'AuctionHouse'):
+        super().__init__(house)
+
+
 class AuctionHouse:
     def __init__(self, stadium: 'Stadium'):
         self.stadium = stadium
