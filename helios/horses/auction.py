@@ -95,6 +95,35 @@ class HorseListing:
                 or now < self.get_highest_bidder_time() + snipe_time)
 
     @property
+    def embed(self):
+        horse = self.horse
+        desc = ''
+        if horse.get_flag('QUALIFIED'):
+            desc += f'This horse is **Qualified**\n'
+        win, loss = self.auction.stadium.get_win_loss(horse.records)
+        today = datetime.now().astimezone().date()
+        born = horse.date_born
+        age = today - born
+        desc += f'Raced in **{len(horse.records)}** eligible races.\n'
+        desc += f'Record: **{win}/{loss}**\n'
+        desc += f'Age: **{age.days}**\n'
+        embed = discord.Embed(
+            colour=discord.Colour.orange(),
+            title=f'{horse.name} Listing',
+            description=desc
+        )
+        bid = self.get_highest_bidder()
+        embed.add_field(name='Auction Info',
+                        value=(
+                            f'Current Bid: `{bid.amount:,}` by '
+                            f'<@{bid.bidder_id}>.\n'
+                            f'Buyout: {self.settings.get("max_bid", None)}\n'
+                            f'Time Left: '
+                            f'<t:{int(self.end_time.timestamp())}:R>\n'
+                        ))
+        return embed
+
+    @property
     def end_time(self):
         snipe_time = timedelta(seconds=self.settings['snipe_protection'])
         return max(self.settings['end_time'],
@@ -139,6 +168,11 @@ class HorseListing:
 
 
 class BasicAuction:
+    _default_settings = {
+        'start_time': datetime.now().astimezone(),
+        'buy': False
+    }
+
     def __init__(self, house: 'AuctionHouse'):
         self.house = house
         self.message: Optional[discord.Message] = None
