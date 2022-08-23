@@ -94,8 +94,7 @@ class HorseListing:
         return (now < self.settings['end_time']
                 or now < self.get_highest_bidder_time() + snipe_time)
 
-    @property
-    def embed(self):
+    def get_embed(self):
         horse = self.horse
         desc = ''
         if horse.get_flag('QUALIFIED'):
@@ -115,7 +114,7 @@ class HorseListing:
         bid = self.get_highest_bidder()
         embed.add_field(name='Auction Info',
                         value=(
-                            f'Current Bid: `{bid.amount:,}` by '
+                            f'Current Bid: `{bid.amount:9,}` by '
                             f'<@{bid.bidder_id}>.\n'
                             f'Buyout: {self.settings.get("max_bid", None)}\n'
                             f'Time Left: '
@@ -176,13 +175,32 @@ class BasicAuction:
     def __init__(self, house: 'AuctionHouse'):
         self.house = house
         self.message: Optional[discord.Message] = None
-        self.listings = []
+        self.listings: List[HorseListing] = []
 
         self.bid_update_list: List[List[discord.Message]] = []
 
     @property
     def stadium(self):
         return self.house.stadium
+
+    def get_summary(self, page: int = 1):
+        summary = (
+            '```\n'
+            'id  | Horse Name                 | Current   | Buyout    | '
+            'Duration    \n')
+        horses: List['Horse'] = [x.horse for x in self.listings]
+        longest = max([len(x.name) for x in horses])
+        for i, horse in enumerate(horses, start=1):
+            listing = self.listings[i-1]
+            delta = datetime.now().astimezone() - listing.end_time
+            hours = delta.total_seconds() // (60 * 60)
+            hours = '<1' if hours < 1 else hours
+            buyout = listing.settings.get('max_bid')
+            bid = listing.get_highest_bidder()
+            line = (f'{i:03} | {horse.name:{longest}} | {bid.amount:9,} | '
+                    f'{buyout:9,} | in {hours:3} hours\n')
+            summary += line
+        return summary
 
     def create_listings(self, horses: List['Horse']):
         for horse in horses:
