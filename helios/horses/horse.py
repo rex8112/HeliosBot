@@ -80,6 +80,8 @@ class Horse(HasSettings, HasFlags):
         mmr += place * 10
         mmr += show * 5
         mmr += loss * -5
+        if mmr < 5:
+            mmr = 5
         return mmr
 
     @classmethod
