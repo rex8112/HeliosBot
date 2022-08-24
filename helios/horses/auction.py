@@ -72,7 +72,7 @@ class HorseListing:
         'min_bid': 500,
         'max_bid': None,
         'snipe_protection': 300,
-        'end_time': datetime.now().astimezone()
+        'end_time': datetime.now().astimezone().isoformat()
     }
 
     def __init__(self, auction: 'BasicAuction', horse_id: int):
@@ -90,9 +90,22 @@ class HorseListing:
     @property
     def active(self):
         now = datetime.now().astimezone()
+        if self.settings['max_bid']:
+            bought = (self.get_highest_bidder().amount
+                      >= self.settings['max_bid'])
+        else:
+            bought = False
+        return now < self.end_time or bought
+
+    @property
+    def end_time(self):
         snipe_time = timedelta(seconds=self.settings['snipe_protection'])
-        return (now < self.settings['end_time']
-                or now < self.get_highest_bidder_time() + snipe_time)
+        return max(datetime.fromisoformat(self.settings['end_time']),
+                   self.get_highest_bidder_time() + snipe_time)
+
+    @end_time.setter
+    def end_time(self, value: datetime):
+        self.settings['end_time'] = value.isoformat()
 
     def get_embed(self):
         horse = self.horse
@@ -121,12 +134,6 @@ class HorseListing:
                             f'<t:{int(self.end_time.timestamp())}:R>\n'
                         ))
         return embed
-
-    @property
-    def end_time(self):
-        snipe_time = timedelta(seconds=self.settings['snipe_protection'])
-        return max(self.settings['end_time'],
-                   self.get_highest_bidder_time() + snipe_time)
 
     def get_highest_bidder(self) -> Bid:
         if len(self.bids) < 1:
@@ -168,20 +175,26 @@ class HorseListing:
 
 class BasicAuction:
     _default_settings = {
-        'start_time': datetime.now().astimezone(),
+        'start_time': datetime.now().astimezone().isoformat(),
         'buy': False
     }
+    _type = 'basic'
 
     def __init__(self, house: 'AuctionHouse'):
         self.house = house
         self.message: Optional[discord.Message] = None
         self.listings: List[HorseListing] = []
+        self.settings = self._default_settings.copy()
 
         self.bid_update_list: List[List[discord.Message]] = []
 
     @property
     def stadium(self):
         return self.house.stadium
+
+    @property
+    def start_time(self) -> datetime:
+        return datetime.fromisoformat(self.settings['start_time'])
 
     def get_summary(self, page: int = 1):
         summary = (
@@ -190,6 +203,7 @@ class BasicAuction:
             'Duration    \n')
         horses: List['Horse'] = [x.horse for x in self.listings]
         longest = max([len(x.name) for x in horses])
+        longest = max(longest, len('horse name'))
         for i, horse in enumerate(horses, start=1):
             listing = self.listings[i-1]
             delta = datetime.now().astimezone() - listing.end_time
@@ -200,6 +214,7 @@ class BasicAuction:
             line = (f'{i:03} | {horse.name:{longest}} | {bid.amount:9,} | '
                     f'{buyout:9,} | in {hours:3} hours\n')
             summary += line
+        summary += '```'
         return summary
 
     def create_listings(self, horses: List['Horse']):
@@ -217,8 +232,10 @@ class BasicAuction:
         else:
             message = None
         return {
+            'type': self._type,
             'server': self.house.server.id,
             'listings': [li.to_json() for li in self.listings],
+            'settings': self.settings,
             'message': message
         }
 
@@ -227,6 +244,9 @@ class BasicAuction:
         if data['server'] != house.server.id:
             raise IdMismatchError('Id does not match current server')
         auction = cls(house)
+        if data['type'] != auction._type:
+            raise ValueError(f'{auction._type} if not of type {data["type"]}')
+        auction.settings = {**auction._default_settings, **data['settings']}
         auction.listings = [HorseListing.from_json(auction, li)
                             for li in data['listings']]
         for _ in range(len(auction.listings)):
@@ -239,8 +259,42 @@ class BasicAuction:
 
 
 class RotatingAuction(BasicAuction):
+    _default_settings = {
+        **super()._default_settings,
+        'duration': 60 * 30
+    }
+    _type = 'rotating'
+
     def __init__(self, house: 'AuctionHouse'):
         super().__init__(house)
+        self.detail_message: Optional[discord.Message] = None
+
+    def create_listings(self, horses: List['Horse']):
+        super().create_listings(horses)
+        index = 1
+        for listing in self.listings:
+            duration = self.settings['duration']
+            end = self.start_time + timedelta(minutes=duration * index)
+            listing.end_time = end
+            index += 1
+
+    def get_schedule_embed(self):
+        desc = ''
+        for listing in self.listings:
+            start_time = self.get_start_time(listing)
+            desc += (f'<t:{int(start_time.timestamp())}:f> - '
+                     f'**{listing.horse.name}** - '
+                     f'Starting Price: **{listing.settings["min_bid"]:,}**\n')
+        embed = discord.Embed(
+            colour=discord.Colour.orange(),
+            title='Auction Schedule',
+            description=desc
+        )
+        return embed
+
+    def get_start_time(self, listing: HorseListing):
+        return (datetime.fromisoformat(listing.settings['end_time'])
+                - timedelta(minutes=self.settings['duration']))
 
 
 class AuctionHouse:
