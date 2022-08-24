@@ -541,7 +541,7 @@ class Race(HasSettings):
         return horse_string
 
     def inflate_bets(self, amt_to_inflate: int):
-        multipliers = [10, 7, 4, 4, 3, 3, 3, 2, 2, 2, 2, 1]
+        multipliers = [10, 8, 8, 7, 7, 7, 6, 6, 6, 6, 6, 6]
         horse_qualities = []
         for h in self.horses:
             horse_qualities.append((h, h.quality))
@@ -557,7 +557,7 @@ class Race(HasSettings):
         new_qualities = []
         for i, q in enumerate(qualities):
             p = q / horse_sum
-            new_qualities.append(p * multipliers[i])
+            new_qualities.append(p)
         sum_qualities = sum(new_qualities)
 
         for i, h in enumerate(horses):

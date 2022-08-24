@@ -75,11 +75,11 @@ class Horse(HasSettings, HasFlags):
     def quality(self) -> float:
         win, place, show, loss = self.stadium.get_win_place_show_loss(
             self.records)
-        mmr = 3_000
-        mmr += win * 15
+        mmr = 1_000
+        mmr += win * 30
         mmr += place * 10
         mmr += show * 5
-        mmr += loss * -15
+        mmr += loss * -5
         return mmr
 
     @classmethod
