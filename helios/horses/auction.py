@@ -261,13 +261,14 @@ class BasicAuction:
 class RotatingAuction(BasicAuction):
     _default_settings = {
         **super()._default_settings,
-        'duration': 60 * 30
+        'duration': 60 * 30,
+        'announcement': 3
     }
     _type = 'rotating'
 
     def __init__(self, house: 'AuctionHouse'):
         super().__init__(house)
-        self.detail_message: Optional[discord.Message] = None
+        self.detail_messages: List[discord.Message] = []
 
     def create_listings(self, horses: List['Horse']):
         super().create_listings(horses)
@@ -295,6 +296,9 @@ class RotatingAuction(BasicAuction):
     def get_start_time(self, listing: HorseListing):
         return (datetime.fromisoformat(listing.settings['end_time'])
                 - timedelta(minutes=self.settings['duration']))
+
+    async def run(self):
+        ...
 
 
 class AuctionHouse:
