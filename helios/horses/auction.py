@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, List, Dict, Optional
 
@@ -82,6 +83,8 @@ class HorseListing:
         self.settings = self._default_settings.copy()
 
         self.new_bid = False
+        self.done = False
+        self._task: Optional[asyncio.Task] = None
 
     @property
     def horse(self):
@@ -158,6 +161,26 @@ class HorseListing:
         self.new_bid = True
         return b
 
+    def create_run_task(self, update_list: List[discord.Message]):
+        if self._task is None or self._task.done():
+            self._task = self.auction.stadium.server.bot.loop.create_task(
+                self.run(update_list),
+                name=f'HorseListing:{self.horse_id}'
+            )
+
+    async def run(self, update_list: List[discord.Message]):
+        while self.done is False:
+            if self.new_bid or not self.active:
+                if not self.active:
+                    self.done = True
+                self.new_bid = False
+                tasks = []
+                for message in update_list:
+                    tasks.append(message.edit(embed=self.get_embed()))
+                if len(tasks) > 0:
+                    await asyncio.wait(tasks)
+            await asyncio.sleep(1)
+
     def to_json(self):
         return {
             'horse': self.horse_id,
@@ -180,8 +203,9 @@ class BasicAuction:
     }
     _type = 'basic'
 
-    def __init__(self, house: 'AuctionHouse'):
+    def __init__(self, house: 'AuctionHouse', channel: discord.TextChannel):
         self.house = house
+        self.channel = channel
         self.message: Optional[discord.Message] = None
         self.listings: List[HorseListing] = []
         self.settings = self._default_settings.copy()
@@ -236,6 +260,7 @@ class BasicAuction:
             'server': self.house.server.id,
             'listings': [li.to_json() for li in self.listings],
             'settings': self.settings,
+            'channel': self.channel.id,
             'message': message
         }
 
@@ -243,7 +268,8 @@ class BasicAuction:
     def from_json(cls, house: 'AuctionHouse', data: Dict):
         if data['server'] != house.server.id:
             raise IdMismatchError('Id does not match current server')
-        auction = cls(house)
+        channel = house.server.guild.get_channel(data['channel'])
+        auction = cls(house, channel)
         if data['type'] != auction._type:
             raise ValueError(f'{auction._type} if not of type {data["type"]}')
         auction.settings = {**auction._default_settings, **data['settings']}
@@ -262,20 +288,26 @@ class RotatingAuction(BasicAuction):
     _default_settings = {
         **super()._default_settings,
         'duration': 60 * 30,
-        'announcement': 3
+        'announcement': 60 * 60 * 24
     }
     _type = 'rotating'
 
-    def __init__(self, house: 'AuctionHouse'):
-        super().__init__(house)
-        self.detail_messages: List[discord.Message] = []
+    def __init__(self, house: 'AuctionHouse', channel: discord.TextChannel):
+        super().__init__(house, channel)
+        self.detail_messages: Dict[int, discord.Message] = {}
+
+    @property
+    def announcement_time(self) -> datetime:
+        return self.start_time - timedelta(
+            seconds=self.settings['announcement']
+        )
 
     def create_listings(self, horses: List['Horse']):
         super().create_listings(horses)
         index = 1
         for listing in self.listings:
             duration = self.settings['duration']
-            end = self.start_time + timedelta(minutes=duration * index)
+            end = self.start_time + timedelta(seconds=duration * index)
             listing.end_time = end
             index += 1
 
@@ -284,8 +316,12 @@ class RotatingAuction(BasicAuction):
         for listing in self.listings:
             start_time = self.get_start_time(listing)
             desc += (f'<t:{int(start_time.timestamp())}:f> - '
-                     f'**{listing.horse.name}** - '
-                     f'Starting Price: **{listing.settings["min_bid"]:,}**\n')
+                     f'**{listing.horse.name}** - ')
+            if listing.active:
+                desc += (f'Starting Price: **{listing.settings["min_bid"]:,}'
+                         '**\n')
+            else:
+                desc += f'Finished\n'
         embed = discord.Embed(
             colour=discord.Colour.orange(),
             title='Auction Schedule',
@@ -295,10 +331,36 @@ class RotatingAuction(BasicAuction):
 
     def get_start_time(self, listing: HorseListing):
         return (datetime.fromisoformat(listing.settings['end_time'])
-                - timedelta(minutes=self.settings['duration']))
+                - timedelta(seconds=self.settings['duration']))
 
     async def run(self):
-        ...
+        now = datetime.now().astimezone()
+        if now >= self.announcement_time:
+            if self.message is None:
+                self.message = await self.channel.send(
+                    embed=self.get_schedule_embed())
+            elif isinstance(self.message, discord.PartialMessage):
+                self.message = await self.message.fetch()
+            else:
+                await self.message.edit(embed=self.get_schedule_embed())
+        if now < self.start_time:
+            return  # Avoid looping before the auction is even ready.
+        for i, listing in enumerate(self.listings):
+            message = self.detail_messages.get(listing.horse_id)
+            start = self.get_start_time(listing)
+            end = listing.end_time
+            if start <= now < end:
+                if message is None:
+                    message = await self.channel.send(
+                        embed=listing.get_embed())
+                    self.detail_messages[listing.horse_id] = message
+                    self.bid_update_list[i].append(message)
+                    listing.create_run_task(self.bid_update_list[i])
+                elif isinstance(message, discord.PartialMessage):
+                    message = await message.fetch()
+                    self.detail_messages[listing.horse_id] = message
+                    self.bid_update_list[i].append(message)
+                    listing.create_run_task(self.bid_update_list[i])
 
 
 class AuctionHouse:
