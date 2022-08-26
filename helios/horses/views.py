@@ -1,3 +1,4 @@
+from datetime import datetime
 from fractions import Fraction
 from typing import TYPE_CHECKING
 
@@ -8,6 +9,7 @@ from ..modals import BetModal
 
 if TYPE_CHECKING:
     from .race import Race
+    from .auction import HorseListing
 
 
 class PreRaceView(discord.ui.View):
@@ -102,3 +104,46 @@ class PreRaceView(discord.ui.View):
             description=desc
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+class ListingView(discord.ui.View):
+    # noinspection PyTypeChecker
+    def __init__(self, listing: 'HorseListing'):
+        self.server = listing.auction.stadium.server
+        self.listing = listing
+        self.bid_amount = self.next_amount
+
+        now = datetime.now().astimezone()
+        time_left = listing.end_time - now
+        super().__init__(timeout=time_left.total_seconds())
+
+        button: discord.Button = next(
+            filter(lambda x: x.label.startswith('Bet'),
+                   self.children)
+        )
+        button.label = f'Bet {self.bid_amount}'
+
+    @property
+    def next_amount(self):
+        return self.listing.get_highest_bidder().amount + 100
+
+    @discord.ui.button(label='Bet', style=discord.ButtonStyle.green)
+    async def bid(self, interaction: discord.Interaction,
+                  button: discord.Button):
+        member = self.server.members.get(interaction.user.id)
+        next_amount = self.next_amount - 100
+        if self.bid_amount <= next_amount:
+            await interaction.response.send(
+                (f'The bid has already been increased to **{next_amount}**, '
+                 f'try again. Consider using set bet if this keeps happening'),
+                ephemeral=True
+            )
+        else:
+            await interaction.response.defer()
+            self.listing.bid(member, self.bid_amount)
+
+    @discord.ui.button(label='Set Bet', style=discord.ButtonStyle.gray)
+    async def set_bid(self, interaction: discord.Interaction,
+                      button: discord.Button):
+        member = self.server.members.get(interaction.user.id)
+        #  await interaction.response.send_modal()
