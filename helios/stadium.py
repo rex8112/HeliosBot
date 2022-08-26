@@ -348,7 +348,7 @@ class Stadium(HasSettings):
                 new_event = Event(self, self.daily_channel,
                                   event_type='daily',
                                   start_time=start_time,
-                                  races=4)
+                                  races=6)
                 new_event.name = f'{start_time.strftime("%A")} Daily Event'
                 self.events.append(new_event)
                 changed = True

@@ -1,8 +1,9 @@
 import datetime
-import random
+import math
 from typing import TYPE_CHECKING
 
 import discord
+import numpy
 
 from .race import Race
 from ..tools.settings import Item
@@ -211,7 +212,9 @@ class Event:
             qualified = list(filter(
                 lambda x: race.is_qualified(x) and x not in used_horses,
                 horses))
-            qualified_horses = random.sample(qualified, race.max_horses)
+            weights = [math.ceil(x.quality) for x in qualified]
+            qualified_horses = numpy.random.choice(qualified, race.max_horses,
+                                                   replace=False, p=weights)
             used_horses.extend(qualified_horses)
             race.horses = qualified_horses
         await self.stadium.bulk_add_races(races)
