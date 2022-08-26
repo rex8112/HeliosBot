@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, List, Dict, Optional
 
 import discord
 
+from .views import ListingView
 from ..exceptions import BidError, IdMismatchError
 
 if TYPE_CHECKING:
@@ -176,7 +177,8 @@ class HorseListing:
                 self.new_bid = False
                 tasks = []
                 for message in update_list:
-                    tasks.append(message.edit(embed=self.get_embed()))
+                    tasks.append(message.edit(embed=self.get_embed(),
+                                              view=ListingView(self)))
                 if len(tasks) > 0:
                     await asyncio.wait(tasks)
             await asyncio.sleep(1)
@@ -352,12 +354,13 @@ class RotatingAuction(BasicAuction):
             if start <= now < end:
                 if message is None:
                     message = await self.channel.send(
-                        embed=listing.get_embed())
+                        embed=listing.get_embed(), view=ListingView(listing))
                     self.detail_messages[listing.horse_id] = message
                     self.bid_update_list[i].append(message)
                     listing.create_run_task(self.bid_update_list[i])
                 elif isinstance(message, discord.PartialMessage):
                     message = await message.fetch()
+                    listing.new_bid = True
                     self.detail_messages[listing.horse_id] = message
                     self.bid_update_list[i].append(message)
                     listing.create_run_task(self.bid_update_list[i])
