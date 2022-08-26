@@ -1,4 +1,5 @@
 import asyncio
+import math
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, List, Dict, Optional
 
@@ -222,7 +223,11 @@ class BasicAuction:
     def start_time(self) -> datetime:
         return datetime.fromisoformat(self.settings['start_time'])
 
-    def get_summary(self, page: int = 1):
+    @property
+    def pages(self) -> int:
+        return math.ceil(len(self.listings) / 25)
+
+    def get_summary(self, page: int = 0):
         summary = (
             '```\n'
             'id  | Horse Name                 | Current   | Buyout    | '
@@ -230,7 +235,9 @@ class BasicAuction:
         horses: List['Horse'] = [x.horse for x in self.listings]
         longest = max([len(x.name) for x in horses])
         longest = max(longest, len('horse name'))
-        for i, horse in enumerate(horses, start=1):
+        page_num = 25 * page
+        for i, horse in enumerate(horses[page_num:25+page_num],
+                                  start=1 + page_num):
             listing = self.listings[i-1]
             delta = datetime.now().astimezone() - listing.end_time
             hours = delta.total_seconds() // (60 * 60)
