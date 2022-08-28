@@ -1,5 +1,6 @@
 import asyncio
 import math
+import random
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, List, Dict, Optional
 
@@ -129,11 +130,15 @@ class HorseListing:
             title=f'{horse.name} Listing',
             description=desc
         )
-        bid = self.get_highest_bidder()
+        if len(self.bids) > 0:
+            bid = self.get_highest_bidder()
+            cb = (f'Current Bid: `{bid.amount:9,}` by '
+                  f'<@{bid.bidder_id}>.\n')
+        else:
+            cb = ''
         embed.add_field(name='Auction Info',
                         value=(
-                            f'Current Bid: `{bid.amount:9,}` by '
-                            f'<@{bid.bidder_id}>.\n'
+                            f'{cb}'
                             f'Buyout: {self.settings.get("max_bid", None)}\n'
                             f'Time Left: '
                             f'<t:{int(self.end_time.timestamp())}:R>\n'
@@ -220,6 +225,10 @@ class BasicAuction:
         return self.house.stadium
 
     @property
+    def type(self):
+        return self._type
+
+    @property
     def start_time(self) -> datetime:
         return datetime.fromisoformat(self.settings['start_time'])
 
@@ -259,6 +268,9 @@ class BasicAuction:
         self.listings.append(listing)
         self.bid_update_list.append(list())
 
+    async def run(self):
+        ...
+
     def to_json(self):
         if self.message:
             message = (self.message.channel.id, self.message.id)
@@ -295,7 +307,7 @@ class BasicAuction:
 
 class RotatingAuction(BasicAuction):
     _default_settings = {
-        **super()._default_settings,
+        **BasicAuction._default_settings,
         'duration': 60 * 30,
         'announcement': 60 * 60 * 24
     }
@@ -376,7 +388,7 @@ class RotatingAuction(BasicAuction):
 class AuctionHouse:
     def __init__(self, stadium: 'Stadium'):
         self.stadium = stadium
-        self.auctions = []
+        self.auctions: List[BasicAuction, RotatingAuction] = []
 
     @property
     def server(self):
@@ -385,6 +397,18 @@ class AuctionHouse:
     @property
     def bot(self):
         return self.server.bot
+
+    async def run(self):
+        rotating = list(filter(lambda x: x.type == 'rotating', self.auctions))
+        if len(rotating) < 1:
+            horses = random.sample(list(self.stadium.horses.values()), k=5)
+            a = RotatingAuction(self, self.stadium.auction_channel)
+            a.settings['start_time'] = (datetime.now().astimezone()
+                                        + timedelta(minutes=1)).isoformat()
+            a.create_listings(horses)
+            self.auctions.append(a)
+        for auction in self.auctions:
+            await auction.run()
 
     async def setup(self):
         ...

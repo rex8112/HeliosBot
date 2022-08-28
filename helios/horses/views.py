@@ -125,7 +125,10 @@ class ListingView(discord.ui.View):
 
     @property
     def next_amount(self):
-        return self.listing.get_highest_bidder().amount + 100
+        if len(self.listing.bids) > 0:
+            return self.listing.get_highest_bidder().amount + 100
+        else:
+            return self.listing.settings['min_bid']
 
     @discord.ui.button(label='Bet', style=discord.ButtonStyle.green)
     async def bid(self, interaction: discord.Interaction,

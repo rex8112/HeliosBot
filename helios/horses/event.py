@@ -213,8 +213,19 @@ class Event:
                 lambda x: race.is_qualified(x) and x not in used_horses,
                 horses))
             weights = [math.ceil(x.quality) for x in qualified]
-            qualified_horses = numpy.random.choice(qualified, race.max_horses,
-                                                   replace=False, p=weights)
+            s = sum(weights)
+            weights = [x / s for x in weights]
+            diff = 1 - sum(weights)
+            if diff != 0 and len(weights) > 0:
+                weights[-1] += diff
+            if len(qualified) > 0:
+                qualified_horses = numpy.random.choice(qualified,
+                                                       min(race.max_horses,
+                                                           len(qualified)),
+                                                       replace=False,
+                                                       p=weights)
+            else:
+                qualified_horses = []
             used_horses.extend(qualified_horses)
             race.horses = qualified_horses
         await self.stadium.bulk_add_races(races)
