@@ -118,10 +118,10 @@ class ListingView(discord.ui.View):
         super().__init__(timeout=time_left.total_seconds())
 
         button: discord.Button = next(
-            filter(lambda x: x.label.startswith('Bet'),
+            filter(lambda x: x.label.startswith('Bid'),
                    self.children)
         )
-        button.label = f'Bet {self.bid_amount}'
+        button.label = f'Bid {self.bid_amount}'
 
     @property
     def next_amount(self):
@@ -130,14 +130,14 @@ class ListingView(discord.ui.View):
         else:
             return self.listing.settings['min_bid']
 
-    @discord.ui.button(label='Bet', style=discord.ButtonStyle.green)
+    @discord.ui.button(label='Bid', style=discord.ButtonStyle.green)
     async def bid(self, interaction: discord.Interaction,
                   button: discord.Button):
         member = self.server.members.get(interaction.user.id)
         next_amount = self.next_amount - 100
         if self.bid_amount <= next_amount:
             await interaction.response.send(
-                (f'The bid has already been increased to **{next_amount}**, '
+                (f'The bid has already been increased to **{next_amount:,}**, '
                  f'try again. Consider using set bet if this keeps happening'),
                 ephemeral=True
             )
@@ -145,7 +145,7 @@ class ListingView(discord.ui.View):
             await interaction.response.defer()
             self.listing.bid(member, self.bid_amount)
 
-    @discord.ui.button(label='Set Bet', style=discord.ButtonStyle.gray)
+    @discord.ui.button(label='Set Bid', style=discord.ButtonStyle.gray)
     async def set_bid(self, interaction: discord.Interaction,
                       button: discord.Button):
         member = self.server.members.get(interaction.user.id)

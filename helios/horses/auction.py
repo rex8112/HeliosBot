@@ -123,7 +123,7 @@ class HorseListing:
         born = horse.date_born
         age = today - born
         desc += f'Raced in **{len(horse.records)}** eligible races.\n'
-        desc += f'Record: **{win}/{loss}**\n'
+        desc += f'Record: **{win}W/{loss}L**\n'
         desc += f'Age: **{age.days}**\n'
         embed = discord.Embed(
             colour=discord.Colour.orange(),
@@ -132,7 +132,7 @@ class HorseListing:
         )
         if len(self.bids) > 0:
             bid = self.get_highest_bidder()
-            cb = (f'Current Bid: `{bid.amount:9,}` by '
+            cb = (f'Current Bid: {bid.amount:,} by '
                   f'<@{bid.bidder_id}>.\n')
         else:
             cb = ''
@@ -344,7 +344,7 @@ class RotatingAuction(BasicAuction):
             else:
                 desc += f'Finished\n'
         embed = discord.Embed(
-            colour=discord.Colour.orange(),
+            colour=discord.Colour.green(),
             title='Auction Schedule',
             description=desc
         )
