@@ -82,7 +82,7 @@ class HorseListing:
     def __init__(self, auction: 'BasicAuction', horse_id: int):
         self.auction = auction
         self.horse_id = horse_id
-        self.bids = []
+        self.bids: List[Bid] = []
         self.settings = self._default_settings.copy()
 
         self.new_bid = False
@@ -126,7 +126,8 @@ class HorseListing:
         desc += f'Record: **{win}W/{loss}L**\n'
         desc += f'Age: **{age.days}**\n'
         embed = discord.Embed(
-            colour=discord.Colour.orange(),
+            colour=(discord.Colour.orange()
+                    if self.active else discord.Colour.red()),
             title=f'{horse.name} Listing',
             description=desc
         )
@@ -149,6 +150,17 @@ class HorseListing:
         if len(self.bids) < 1:
             raise ValueError('Bids must not be empty')
         return self.bids[-1]
+
+    def get_highest_allowed_bid(self) -> Bid:
+        if len(self.bids) < 1:
+            raise ValueError('Bids must not be empty')
+        server = self.auction.stadium.server
+        for bid in reversed(self.bids):
+            mem = server.members.get(bid.bidder_id)
+            if mem:
+                if bid.amount >= mem.points:
+                    return bid
+        return self.bids[0]
 
     def get_highest_bidder_time(self) -> datetime:
         if len(self.bids) > 0:
@@ -178,13 +190,34 @@ class HorseListing:
     async def run(self, update_list: List[discord.Message]):
         while self.done is False:
             if self.new_bid or not self.active:
+                tasks = []
                 if not self.active:
+                    if len(self.bids) > 0:
+                        highest = self.get_highest_allowed_bid()
+                        mem = self.auction.stadium.server.members.get(
+                            highest.bidder_id
+                        )
+                        if mem.points >= highest.amount:
+                            horse = self.horse
+                            mem.points -= highest.amount
+                            horse.owner = mem
+                            tasks.append(mem.save())
+                            tasks.append(horse.save())
+                            try:
+                                await mem.member.send(
+                                    f'You have purchased **{horse.name}** for'
+                                    f' **{highest.amount:,}** points'
+                                )
+                            except discord.HTTPException:
+                                ...
                     self.done = True
                 self.new_bid = False
-                tasks = []
                 for message in update_list:
-                    tasks.append(message.edit(embed=self.get_embed(),
-                                              view=ListingView(self)))
+                    if self.active:
+                        tasks.append(message.edit(embed=self.get_embed(),
+                                                  view=ListingView(self)))
+                    else:
+                        tasks.append(message.edit(embed=self.get_embed()))
                 if len(tasks) > 0:
                     await asyncio.wait(tasks)
             await asyncio.sleep(1)
