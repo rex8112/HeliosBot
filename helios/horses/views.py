@@ -9,7 +9,7 @@ from ..modals import BetModal
 
 if TYPE_CHECKING:
     from .race import Race
-    from .auction import HorseListing
+    from .auction import HorseListing, GroupAuction
 
 
 class PreRaceView(discord.ui.View):
@@ -150,3 +150,19 @@ class ListingView(discord.ui.View):
                       button: discord.Button):
         member = self.server.members.get(interaction.user.id)
         #  await interaction.response.send_modal()
+
+
+class GroupAuctionView(discord.ui.View):
+    def __init__(self, auction: 'GroupAuction'):
+        now = datetime.now().astimezone()
+        delta = auction.end_time - now
+        super().__init__(timeout=delta.total_seconds())
+        self.auction = auction
+
+    async def select_horse(self, interaction: discord.Interaction,
+                           select: discord.SelectMenu):
+        ...
+
+    async def select_page(self, interaction: discord.Interaction,
+                          select: discord.SelectMenu):
+        ...

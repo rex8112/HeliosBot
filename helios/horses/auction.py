@@ -338,6 +338,30 @@ class BasicAuction:
                 auction.message = channel.get_partial_message(message_id)
 
 
+class GroupAuction(BasicAuction):
+    _default_settings = {
+        **BasicAuction._default_settings,
+        'duration': 60 * 60 * 24
+    }
+    _type = 'group'
+
+    def __init__(self, house: 'AuctionHouse', channel: discord.TextChannel):
+        super().__init__(house, channel)
+
+    @property
+    def end_time(self) -> datetime:
+        return self.start_time + timedelta(seconds=self.settings['duration'])
+
+    async def run(self):
+        summary = self.get_summary()
+        if self.message:
+            if isinstance(self.message, discord.PartialMessage):
+                self.message = await self.message.fetch()
+            await self.message.edit(content=summary)
+        else:
+            self.message = await self.channel.send(content=summary)
+
+
 class RotatingAuction(BasicAuction):
     _default_settings = {
         **BasicAuction._default_settings,
@@ -432,6 +456,7 @@ class AuctionHouse:
         return self.server.bot
 
     async def run(self):
+        cont = True
         rotating = list(filter(lambda x: x.type == 'rotating', self.auctions))
         if len(rotating) < 1:
             horses = random.sample(list(self.stadium.horses.values()), k=5)
@@ -440,8 +465,10 @@ class AuctionHouse:
                                         + timedelta(minutes=1)).isoformat()
             a.create_listings(horses)
             self.auctions.append(a)
-        for auction in self.auctions:
-            await auction.run()
+        while cont:
+            for auction in self.auctions:
+                await auction.run()
+            await asyncio.sleep(60)
 
     async def setup(self):
         ...
