@@ -4,6 +4,7 @@ import os
 import sys
 
 import discord
+from discord.utils import setup_logging
 
 from helios import HeliosBot
 from helios.tools import Config
@@ -53,6 +54,7 @@ async def load_extensions():
 
 async def main():
     async with bot:
+        setup_logging()
         await load_extensions()
         await bot.start(bot.settings.token)
         await asyncio.sleep(0.1)
