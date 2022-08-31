@@ -168,6 +168,12 @@ class Stadium(HasSettings):
             return not result
         return False
 
+    def get_horse_name(self, name: str) -> Optional['Horse']:
+        for horse in self.horses.values():
+            if horse.name.lower() == name.lower():
+                return horse
+        return None
+
     def get_owner_horses(self, member: 'HeliosMember') -> Dict[int, 'Horse']:
         horses = filter(lambda h: h.owner == member, self.horses.values())
         horse_dict = {}
