@@ -153,15 +153,43 @@ class ListingView(discord.ui.View):
 
 
 class GroupAuctionView(discord.ui.View):
-    def __init__(self, auction: 'GroupAuction'):
+    def __init__(self, auction: 'GroupAuction', *, page=0):
         now = datetime.now().astimezone()
         delta = auction.end_time - now
         super().__init__(timeout=delta.total_seconds())
         self.auction = auction
+        if auction.pages > 1:
+            page_num = 25*page
+            listings = self.auction[page_num:25+page_num]
+        else:
+            listings = self.auction.listings
+        options = []
+        for listing in listings:
+            option = discord.SelectOption(label=listing.horse.name,
+                                          value=str(listing.horse_id))
+            options.append(option)
+        horse_select = discord.ui.Select(placeholder='Select Horse',
+                                         options=options)
+        self.add_item(horse_select)
 
     async def select_horse(self, interaction: discord.Interaction,
-                           select: discord.SelectMenu):
-        ...
+                           select: discord.ui.Select):
+        selected_horse = select.values[0]
+        listing = discord.utils.find(lambda x: x.horse_id == selected_horse,
+                                     self.auction.listings)
+        try:
+            message = await interaction.user.send(embed=discord.Embed(
+                title='Building Listing'
+            ))
+            listing.update_list.append(message)
+            listing.new_bid = True
+            await interaction.response.send_message(f'{message.jump_url}',
+                                                    ephemeral=True)
+        except (discord.Forbidden, discord.HTTPException):
+            await interaction.response.send_message(
+                'Sorry, I could not send you a DM.',
+                ephemeral=True
+            )
 
     async def select_page(self, interaction: discord.Interaction,
                           select: discord.SelectMenu):

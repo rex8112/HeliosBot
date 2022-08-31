@@ -85,6 +85,8 @@ class HorseListing:
         self.bids: List[Bid] = []
         self.settings = self._default_settings.copy()
 
+        self.update_list: List[discord.Message] = []
+
         self.new_bid = False
         self.done = False
         self._task: Optional[asyncio.Task] = None
@@ -188,6 +190,7 @@ class HorseListing:
             )
 
     async def run(self, update_list: List[discord.Message]):
+        self.update_list = update_list
         while self.done is False:
             if self.new_bid or not self.active:
                 tasks = []
@@ -212,14 +215,24 @@ class HorseListing:
                                 ...
                     self.done = True
                 self.new_bid = False
-                for message in update_list:
-                    if self.active:
+                remove = []
+                for i, message in enumerate(self.update_list):
+                    thirty_minutes = (datetime.now().astimezone()
+                                      - timedelta(minutes=30))
+                    expired = (isinstance(message.channel, discord.DMChannel)
+                               and message.created_at < thirty_minutes)
+                    if self.active and not expired:
                         tasks.append(message.edit(embed=self.get_embed(),
                                                   view=ListingView(self)))
                     else:
                         tasks.append(message.edit(embed=self.get_embed()))
+                        remove.append(i)
+
                 if len(tasks) > 0:
                     await asyncio.wait(tasks)
+
+                for i in remove:
+                    self.update_list.pop(i)
             await asyncio.sleep(1)
 
     def to_json(self):
@@ -268,6 +281,12 @@ class BasicAuction:
     @property
     def pages(self) -> int:
         return math.ceil(len(self.listings) / 25)
+
+    def is_done(self) -> bool:
+        for listing in self.listings:
+            if listing.active:
+                return False
+        return True
 
     def get_summary(self, page: int = 0):
         summary = (
@@ -354,6 +373,8 @@ class GroupAuction(BasicAuction):
 
     async def run(self):
         summary = self.get_summary()
+        if datetime.now().astimezone() < self.start_time:
+            return
         if self.message:
             if isinstance(self.message, discord.PartialMessage):
                 self.message = await self.message.fetch()
@@ -458,6 +479,7 @@ class AuctionHouse:
     async def run(self):
         cont = True
         rotating = list(filter(lambda x: x.type == 'rotating', self.auctions))
+        group = list(filter(lambda x: x.type == 'group', self.auctions))
         if len(rotating) < 1:
             horses = random.sample(list(self.stadium.horses.values()), k=5)
             a = RotatingAuction(self, self.stadium.auction_channel)
@@ -465,9 +487,21 @@ class AuctionHouse:
                                         + timedelta(minutes=1)).isoformat()
             a.create_listings(horses)
             self.auctions.append(a)
+        if len(group) < 1:
+            horses = random.sample(list(self.stadium.horses.values()), k=10)
+            a = GroupAuction(self, self.stadium.auction_channel)
+            a.settings['start_time'] = datetime.now().astimezone().isoformat()
+            a.settings['duration'] = 60 * 60
+            a.create_listings(horses)
+            self.auctions.append(a)
         while cont:
-            for auction in self.auctions:
+            remove = []
+            for i, auction in enumerate(self.auctions):
                 await auction.run()
+                if auction.is_done():
+                    remove.append(i)
+            for i in remove:
+                self.auctions.pop(i)
             await asyncio.sleep(60)
 
     async def setup(self):
