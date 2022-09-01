@@ -63,12 +63,19 @@ class StadiumCog(commands.Cog):
         if horse:
             owner_id = (horse.owner.member.id
                         if horse.owner else horse.stadium.owner.id)
-            info = (f'Owner: <@{owner_id}>\n')
+            win, loss = server.stadium.get_win_loss(horse.records)
+            info = (f'Owner: <@{owner_id}>\n'
+                    f'Record: {win}W/{loss}L')
             embed = discord.Embed(
                 colour=discord.Colour.orange(),
                 title=horse.name,
                 description=info
             )
+            await interaction.response.send_message(embed=embed,
+                                                    ephemeral=True)
+        else:
+            await interaction.response.send_message('Horse not found',
+                                                    ephemeral=True)
 
 
 async def setup(bot: 'HeliosBot'):
