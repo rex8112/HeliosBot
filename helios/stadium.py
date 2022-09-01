@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import random
 from typing import TYPE_CHECKING, Optional, Dict, List, Tuple
 
 import discord
@@ -148,6 +149,13 @@ class Stadium(HasSettings):
             earnings += record.earnings
         return earnings
 
+    def scouting_horses(self) -> Dict[int, Horse]:
+        horses = {}
+        for key, horse in self.horses.items():
+            if not horse.get_flag('NEW') and not horse.get_flag('QUALIFIED'):
+                horses[key] = horse
+        return horses
+
     def unowned_horses(self) -> Dict[int, Horse]:
         horses = {}
         for key, horse in self.horses.items():
@@ -193,10 +201,21 @@ class Stadium(HasSettings):
         if delta.seconds < 360:
             next_slot = next_slot + datetime.timedelta(minutes=30)
         if self.basic_channel:
+            horses = list(self.scouting_horses().values())
+            if len(horses) < 6:
+                return False
+            random.shuffle(horses)
+            horses.sort(key=lambda h: len(h.records))
             er = Race.new(self, self.basic_channel, 'basic', next_slot)
             er.name = 'Scouting Race'
             er.settings['betting_time'] = 60 * 20
             er.settings['purse'] = 0
+            if len(horses) >= 12:
+                er.settings['max_horses'] = 12
+                er.horses = horses[:12]
+            else:
+                er.settings['max_horses'] = 6
+                er.horses = horses[:6]
             self.races.append(er)
             er.create_run_task()
             return True
@@ -337,64 +356,61 @@ class Stadium(HasSettings):
         self._running = True
         cont = True
         while cont:
-            try:
-                changed = False
-                if self.category is None:
-                    cont = False
-                    break
-                await self.manage_announcements()
-                cur_day = self.get_day()
-                if cur_day != self.day:
-                    self.day = cur_day
-                    # Check if horses need to be added to the pool
-                    unqualified_horses = list(filter(
-                        lambda x: not x.get_flag('QUALIFIED'),
-                        self.horses.values()))
-                    need_horses = 100 - len(unqualified_horses)
-                    if need_horses > 0:
-                        await self.batch_create_horses(need_horses)
-                        changed = True
-
-                daily_events = list(filter(lambda e: e.settings['type'] == 'daily',
-                                           self.events))
-                if len(daily_events) < 1:
-                    now = datetime.datetime.now().astimezone()
-                    start_time = now.replace(hour=21, minute=0, second=0,
-                                             microsecond=0)
-                    if now + datetime.timedelta(hours=1) >= start_time:
-                        start_time += datetime.timedelta(days=1)
-
-                    new_event = Event(self, self.daily_channel,
-                                      event_type='daily',
-                                      start_time=start_time,
-                                      races=6)
-                    new_event.name = f'{start_time.strftime("%A")} Daily Event'
-                    self.events.append(new_event)
+            changed = False
+            if self.category is None:
+                cont = False
+                break
+            await self.manage_announcements()
+            cur_day = self.get_day()
+            if cur_day != self.day:
+                self.day = cur_day
+                # Check if horses need to be added to the pool
+                unqualified_horses = list(filter(
+                    lambda x: not x.get_flag('QUALIFIED'),
+                    self.horses.values()))
+                need_horses = 100 - len(unqualified_horses)
+                if need_horses > 0:
+                    await self.batch_create_horses(need_horses)
                     changed = True
 
-                for event in self.events:
-                    result = await event.manage_event()
-                    if result:
-                        changed = True
+            daily_events = list(filter(lambda e: e.settings['type'] == 'daily',
+                                       self.events))
+            if len(daily_events) < 1:
+                now = datetime.datetime.now().astimezone()
+                start_time = now.replace(hour=21, minute=0, second=0,
+                                         microsecond=0)
+                if now + datetime.timedelta(hours=1) >= start_time:
+                    start_time += datetime.timedelta(days=1)
 
-                # Ensure all races are still running and restart them if not
-                for race in self.races:
-                    if not race.is_running():
-                        race.create_run_task()
+                new_event = Event(self, self.daily_channel,
+                                  event_type='daily',
+                                  start_time=start_time,
+                                  races=6)
+                new_event.name = f'{start_time.strftime("%A")} Daily Event'
+                self.events.append(new_event)
+                changed = True
 
-                basic_races = list(filter(lambda r: r.settings['type'] == 'basic',
-                                          self.races))
-                if len(basic_races) < 1:
-                    self.create_basic_race()
+            for event in self.events:
+                result = await event.manage_event()
+                if result:
                     changed = True
 
-                await self.auction_house.run()
+            # Ensure all races are still running and restart them if not
+            for race in self.races:
+                if not race.is_running():
+                    race.create_run_task()
 
-                if changed:
-                    await self.save()
-                await asyncio.sleep(60)
-            except Exception as e:
-                print(f'{type(e).__name__}: {e}')
+            basic_races = list(filter(lambda r: r.settings['type'] == 'basic',
+                                      self.races))
+            if len(basic_races) < 1:
+                if self.create_basic_race():
+                    changed = True
+
+            await self.auction_house.run()
+
+            if changed:
+                await self.save()
+            await asyncio.sleep(60)
         self._running = False
 
     async def manage_announcements(self):
