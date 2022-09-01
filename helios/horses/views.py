@@ -16,13 +16,17 @@ class PreRaceView(discord.ui.View):
     def __init__(self, er: 'Race'):
         super().__init__(timeout=er.time_until_race.seconds)
         self.race = er
+        if self.race.settings['type'] == 'basic':
+            self.remove_item(self.register)
 
     def check_race_status(self):
         if self.race.phase == 1:
+            self.register.disabled = True
             self.bet.disabled = False
             self.show_bets.disabled = False
             self.decimals.disabled = False
         else:
+            self.register.disabled = False
             self.bet.disabled = True
             self.show_bets.disabled = True
             self.decimals.disabled = True

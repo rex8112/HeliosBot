@@ -24,7 +24,9 @@ class Horse(HasSettings, HasFlags):
         'owner': None
     }
     _allowed_flags = [
-        'QUALIFIED'
+        'QUALIFIED',
+        'MAIDEN',
+        'NEW'
     ]
     base_stat = 10
 
@@ -39,7 +41,7 @@ class Horse(HasSettings, HasFlags):
         self.stats['acceleration'] = Stat('acceleration', 0)
         self.settings: HorseSettings = self._default_settings.copy()
         self.records: list['Record'] = []
-        self.flags = []
+        self.flags = ['MAIDEN']
 
         self._new = True
         self._changed = False
@@ -107,17 +109,7 @@ class Horse(HasSettings, HasFlags):
         ...
 
     def is_maiden(self):
-        earnings = 0
-        for rec in self.records:
-            if rec.race_type != 'basic' and rec.placing == 0:
-                return False
-            # If you won first place in a basic race
-            if rec.placing == 0:
-                return True
-            earnings += rec.earnings
-            if earnings >= 300:
-                return True
-        return False
+        return self.get_flag('MAIDEN')
 
     def clear_basic_records(self):
         self.records = list(filter(lambda x: x.race_type != 'basic',

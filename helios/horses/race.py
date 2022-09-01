@@ -434,9 +434,15 @@ class Race(HasSettings):
         :param horse: The horse to check
         :return: Whether the horse is allowed to race.
         """
-        if race_type == 'basic':
-            return not horse.get_flag('QUALIFIED')
-        elif race_type == 'maiden':
+        if horse.get_flag('NEW'):
+            return False
+        if horse.get_flag('QUALIFIED'):
+            if race_type == 'basic':
+                return False
+        else:
+            if race_type != 'basic':
+                return False
+        if race_type == 'maiden':
             return horse.is_maiden()
         elif race_type == 'stake':
             for rec in horse.records:
@@ -724,9 +730,8 @@ class Race(HasSettings):
             record = Record.new(h, self, payout[i])
             h.horse.records.append(record)
             await self.save_record(record)
-            if record.race_type != 'basic' and record.placing == 0:
-                h.horse.set_flag('QUALIFIED', True)
-                h.horse.clear_basic_records()
+            if record.race_type == 'maiden' and record.placing == 0:
+                h.horse.set_flag('MAIDEN', False)
                 await h.horse.save()
 
     async def run(self):

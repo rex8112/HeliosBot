@@ -181,21 +181,22 @@ class Stadium(HasSettings):
             horse_dict[h.id] = h
         return horse_dict
 
-    def new_basic_race(self) -> bool:
+    def create_basic_race(self) -> bool:
         now = datetime.datetime.now().astimezone()
-        next_slot = now + datetime.timedelta(minutes=15)
+        next_slot = now + datetime.timedelta(minutes=30)
         next_slot = next_slot - datetime.timedelta(
-            minutes=next_slot.minute % 15,
+            minutes=next_slot.minute % 30,
             seconds=next_slot.second,
             microseconds=next_slot.microsecond
         )
         delta = next_slot - now
         if delta.seconds < 360:
-            next_slot = next_slot + datetime.timedelta(minutes=15)
+            next_slot = next_slot + datetime.timedelta(minutes=30)
         if self.basic_channel:
             er = Race.new(self, self.basic_channel, 'basic', next_slot)
-            er.name = 'Quarter Hourly'
-            er.settings['betting_time'] = 300
+            er.name = 'Scouting Race'
+            er.settings['betting_time'] = 60 * 20
+            er.settings['purse'] = 0
             self.races.append(er)
             er.create_run_task()
             return True
@@ -384,7 +385,7 @@ class Stadium(HasSettings):
                 basic_races = list(filter(lambda r: r.settings['type'] == 'basic',
                                           self.races))
                 if len(basic_races) < 1:
-                    self.new_basic_race()
+                    self.create_basic_race()
                     changed = True
 
                 await self.auction_house.run()
