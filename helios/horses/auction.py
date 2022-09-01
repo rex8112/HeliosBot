@@ -13,6 +13,9 @@ if TYPE_CHECKING:
     from .horse import Horse
     from ..stadium import Stadium
     from ..member import HeliosMember
+    from ..types.settings import (HorseListingSettings, AuctionSettings,
+                                  GroupAuctionSettings,
+                                  RotatingAuctionSettings)
 
 
 class Bid:
@@ -72,7 +75,7 @@ class Bid:
 
 
 class HorseListing:
-    _default_settings = {
+    _default_settings: HorseListingSettings = {
         'min_bid': 500,
         'max_bid': None,
         'snipe_protection': 300,
@@ -83,7 +86,7 @@ class HorseListing:
         self.auction = auction
         self.horse_id = horse_id
         self.bids: List[Bid] = []
-        self.settings = self._default_settings.copy()
+        self.settings: HorseListingSettings = self._default_settings.copy()
 
         self.update_list: List[discord.Message] = []
 
@@ -251,7 +254,7 @@ class HorseListing:
 
 
 class BasicAuction:
-    _default_settings = {
+    _default_settings: AuctionSettings = {
         'start_time': datetime.now().astimezone().isoformat(),
         'buy': False
     }
@@ -262,7 +265,7 @@ class BasicAuction:
         self.channel = channel
         self.message: Optional[discord.Message] = None
         self.listings: List[HorseListing] = []
-        self.settings = self._default_settings.copy()
+        self.settings: AuctionSettings = self._default_settings.copy()
 
         self.bid_update_list: List[List[discord.Message]] = []
 
@@ -358,7 +361,7 @@ class BasicAuction:
 
 
 class GroupAuction(BasicAuction):
-    _default_settings = {
+    _default_settings: GroupAuctionSettings = {
         **BasicAuction._default_settings,
         'duration': 60 * 60 * 24
     }
@@ -366,6 +369,7 @@ class GroupAuction(BasicAuction):
 
     def __init__(self, house: 'AuctionHouse', channel: discord.TextChannel):
         super().__init__(house, channel)
+        self.settings: GroupAuctionSettings = self._default_settings.copy()
 
     @property
     def end_time(self) -> datetime:
@@ -384,7 +388,7 @@ class GroupAuction(BasicAuction):
 
 
 class RotatingAuction(BasicAuction):
-    _default_settings = {
+    _default_settings: RotatingAuctionSettings = {
         **BasicAuction._default_settings,
         'duration': 60 * 30,
         'announcement': 60 * 60 * 24
@@ -393,6 +397,7 @@ class RotatingAuction(BasicAuction):
 
     def __init__(self, house: 'AuctionHouse', channel: discord.TextChannel):
         super().__init__(house, channel)
+        self.settings: RotatingAuctionSettings = self._default_settings.copy()
         self.detail_messages: Dict[int, discord.Message] = {}
 
     @property
