@@ -445,17 +445,17 @@ class Race(HasSettings):
         if race_type == 'maiden':
             return horse.is_maiden()
         elif race_type == 'stake':
+            if not horse.is_maiden():
+                return True
+            earnings = 0
             for rec in horse.records:
-                # If you won first place in ANY race
-                if rec.placing == 0:
+                # If you won top three in up to two races, roughly
+                earnings += rec.earnings
+                if earnings >= 300:
                     return True
             return False
         elif race_type == 'listed':
-            for rec in horse.records:
-                # If horse has won any non-basic races
-                if rec.race_type != 'basic' and rec.placing == 0:
-                    return True
-            return False
+            return not horse.is_maiden()
         return False
 
     def _get_registration_embed(self) -> discord.Embed:
@@ -730,7 +730,7 @@ class Race(HasSettings):
             record = Record.new(h, self, payout[i])
             h.horse.records.append(record)
             await self.save_record(record)
-            if record.race_type == 'maiden' and record.placing == 0:
+            if record.race_type in ('maiden', 'stake') and record.placing == 0:
                 h.horse.set_flag('MAIDEN', False)
                 await h.horse.save()
 
