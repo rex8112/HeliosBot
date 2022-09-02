@@ -149,6 +149,13 @@ class Stadium(HasSettings):
             earnings += record.earnings
         return earnings
 
+    def new_horses(self) -> Dict[int, Horse]:
+        horses = {}
+        for key, horse in self.horses.items():
+            if horse.get_flag('NEW'):
+                horses[key] = horse
+        return horses
+
     def scouting_horses(self) -> Dict[int, Horse]:
         horses = {}
         for key, horse in self.horses.items():

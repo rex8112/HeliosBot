@@ -262,8 +262,9 @@ class BasicAuction:
     _type = 'basic'
 
     def __init__(self, house: 'AuctionHouse', channel: discord.TextChannel):
-        self.house = house
-        self.channel = channel
+        self.house: 'AuctionHouse' = house
+        self.channel: discord.TextChannel = channel
+        self.name: str = 'Auction'
         self.message: Optional[discord.Message] = None
         self.listings: List[HorseListing] = []
         self.settings: AuctionSettings = self._default_settings.copy()
@@ -282,9 +283,19 @@ class BasicAuction:
     def start_time(self) -> datetime:
         return datetime.fromisoformat(self.settings['start_time'])
 
+    @start_time.setter
+    def start_time(self, value: datetime):
+        self.settings['start_time'] = value.isoformat()
+
     @property
     def pages(self) -> int:
         return math.ceil(len(self.listings) / 25)
+
+    def is_active(self) -> bool:
+        now = datetime.now().astimezone()
+        if now >= self.start_time and not self.is_done():
+            return True
+        return False
 
     def is_done(self) -> bool:
         for listing in self.listings:
@@ -378,6 +389,7 @@ class GroupAuction(BasicAuction):
 
     async def run(self):
         summary = self.get_summary()
+        summary = f'**{self.name}**\n{summary}'
         if datetime.now().astimezone() < self.start_time:
             return
         if self.message:
@@ -429,7 +441,7 @@ class RotatingAuction(BasicAuction):
                 desc += f'Finished\n'
         embed = discord.Embed(
             colour=discord.Colour.green(),
-            title='Auction Schedule',
+            title=f'{self.name} Schedule',
             description=desc
         )
         return embed
@@ -470,6 +482,10 @@ class RotatingAuction(BasicAuction):
 
 
 class AuctionHouse:
+    NEW_AUCTION = 6
+    TOP_AUCTION = 5
+    DIE_AUCTION = 4
+
     def __init__(self, stadium: 'Stadium'):
         self.stadium = stadium
         self.auctions: List[BasicAuction, RotatingAuction] = []
@@ -484,6 +500,7 @@ class AuctionHouse:
 
     async def run(self):
         cont = True
+        # TESTING -------------------------------------------------------------
         rotating = list(filter(lambda x: x.type == 'rotating', self.auctions))
         group = list(filter(lambda x: x.type == 'group', self.auctions))
         if len(rotating) < 1:
@@ -500,6 +517,24 @@ class AuctionHouse:
             a.settings['duration'] = 60 * 60
             a.create_listings(horses)
             self.auctions.append(a)
+        # END TESTING ---------------------------------------------------------
+
+        now = datetime.now().astimezone()
+        day_of_week = now.weekday()
+        if day_of_week == self.NEW_AUCTION:
+            new_horses = list(self.stadium.new_horses().values())
+            auctions = math.ceil(len(new_horses) / 25)
+            for i in range(auctions):
+                end = (i + 1) * 25
+                horses = new_horses[i:end]
+                a = GroupAuction(self, self.stadium.auction_channel)
+                a.name = 'New Horse Auction'
+                a.start_time = now.replace(hour=12, minute=0,
+                                           second=0, microsecond=0)
+                a.settings['duration'] = 60 * 60 * 24
+                a.create_listings(horses)
+                self.auctions.append(a)
+
         while cont:
             remove = []
             for i, auction in enumerate(self.auctions):

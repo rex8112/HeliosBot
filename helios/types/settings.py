@@ -19,6 +19,7 @@ class HorseSettings(TypedDict):
     breed: str
     gender: str
     age: int
+    likes: int
     owner: Optional['HeliosMember']
 
 

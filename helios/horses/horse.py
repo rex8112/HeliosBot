@@ -21,6 +21,7 @@ class Horse(HasSettings, HasFlags):
     _default_settings: HorseSettings = {
         'gender': 'male',
         'age': 0,
+        'likes': 0,
         'owner': None
     }
     _allowed_flags = [
@@ -65,6 +66,14 @@ class Horse(HasSettings, HasFlags):
     @property
     def tier(self) -> int:
         return math.ceil(self.stats['speed'].value)
+
+    @property
+    def likes(self) -> int:
+        return self.settings['likes']
+
+    @likes.setter
+    def likes(self, value: int) -> None:
+        self.settings['likes'] = value
 
     @property
     def speed(self) -> float:
