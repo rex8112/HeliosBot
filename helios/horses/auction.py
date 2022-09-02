@@ -524,6 +524,10 @@ class AuctionHouse:
         if day_of_week == self.NEW_AUCTION:
             new_horses = list(self.stadium.new_horses().values())
             auctions = math.ceil(len(new_horses) / 25)
+            new_auctions = list(filter(lambda x: x.name == 'New Horse Auction',
+                                       self.auctions))
+            if len(new_auctions) > 0:
+                auctions = 0
             for i in range(auctions):
                 end = (i + 1) * 25
                 horses = new_horses[i:end]
