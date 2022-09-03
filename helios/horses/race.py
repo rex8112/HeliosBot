@@ -779,8 +779,10 @@ class Race(HasSettings):
                     if len(new_horses) < remaining_horses:
                         new_horses.extend(
                             random.sample(
-                                list(filter(lambda x: x not in new_horses,
-                                            horses)),
+                                list(filter(
+                                    lambda x: x not in new_horses,
+                                    self.stadium.unowned_horses().values()
+                                )),
                                 k=remaining_horses - len(new_horses)
                             )
                         )
