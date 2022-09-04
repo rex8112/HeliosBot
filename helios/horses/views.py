@@ -140,7 +140,7 @@ class ListingView(discord.ui.View):
         member = self.server.members.get(interaction.user.id)
         next_amount = self.next_amount - 100
         if self.bid_amount <= next_amount:
-            await interaction.response.send(
+            await interaction.response.send_message(
                 (f'The bid has already been increased to **{next_amount:,}**, '
                  f'try again. Consider using set bet if this keeps happening'),
                 ephemeral=True

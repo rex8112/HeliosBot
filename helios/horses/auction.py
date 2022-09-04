@@ -163,7 +163,7 @@ class HorseListing:
         for bid in reversed(self.bids):
             mem = server.members.get(bid.bidder_id)
             if mem:
-                if bid.amount >= mem.points:
+                if bid.amount <= mem.points:
                     return bid
         return self.bids[0]
 
