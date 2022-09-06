@@ -60,6 +60,17 @@ class Horse(HasSettings, HasFlags):
         self.settings['owner'] = value
 
     @property
+    def gender(self) -> str:
+        return self.settings['gender']
+
+    @property
+    def age(self) -> int:
+        today = datetime.datetime.now().astimezone().date()
+        born = self.date_born
+        age = today - born
+        return age.days
+
+    @property
     def is_new(self) -> bool:
         return self.id == 0
 

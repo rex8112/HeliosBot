@@ -124,12 +124,9 @@ class HorseListing:
         if horse.get_flag('QUALIFIED'):
             desc += f'This horse is **Qualified**\n'
         win, loss = self.auction.stadium.get_win_loss(horse.records)
-        today = datetime.now().astimezone().date()
-        born = horse.date_born
-        age = today - born
         desc += f'Raced in **{len(horse.records)}** eligible races.\n'
         desc += f'Record: **{win}W/{loss}L**\n'
-        desc += f'Age: **{age.days}**\n'
+        desc += f'Age: **{horse.age}**\n'
         embed = discord.Embed(
             colour=(discord.Colour.orange()
                     if self.active else discord.Colour.red()),

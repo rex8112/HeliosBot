@@ -65,7 +65,10 @@ class StadiumCog(commands.Cog):
                         if horse.owner else horse.stadium.owner.id)
             win, loss = server.stadium.get_win_loss(horse.records)
             info = (f'Owner: <@{owner_id}>\n'
-                    f'Record: {win}W/{loss}L')
+                    f'Record: {win}W/{loss}L\n'
+                    f'Breed: {horse.breed.name}\n'
+                    f'Gender: {horse.gender}\n'
+                    f'Age: {horse.age}')
             embed = discord.Embed(
                 colour=discord.Colour.orange(),
                 title=horse.name,
