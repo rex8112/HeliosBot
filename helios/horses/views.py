@@ -1,6 +1,6 @@
 from datetime import datetime
 from fractions import Fraction
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict
 
 import discord
 
@@ -10,6 +10,7 @@ from ..modals import BetModal
 
 if TYPE_CHECKING:
     from .race import Race
+    from .horse import Horse
     from .auction import HorseListing, GroupAuction
 
 
@@ -84,12 +85,29 @@ class PreRaceView(discord.ui.View):
                        button: discord.ui.Button):
         # Show register view, wait for its completion, fill values
         member = self.race.stadium.server.members.get(interaction.user.id)
-        horses = list(filter(lambda x: self.race.is_qualified(x),
-                             member.horses.values()))
-        horse_strings = []
-        for i, h in enumerate(horses):
-            horse_strings.append(f'{i}. {h.name}')
-        # TODO: Call register view
+        horses = {}
+        for key, horse in member.horses.items():
+            if self.race.is_qualified(horse):
+                horses[key] = horse
+        if len(horses) < 1:
+            await interaction.response.send_message(
+                'You do not currently have any qualifying horses.',
+                ephemeral=True
+            )
+        view = HorsePickerView(self.race, horses)
+        content = (f'Entry Cost: **{self.race.stake:,}**\n'
+                   f'Your Points: **{member.points:,}**')
+        message = await interaction.response.send_message(content, view=view,
+                                                          ephemeral=True)
+        await view.wait()
+        horse = view.horse
+        if horse is None:
+            return
+        if self.race.slots_left() < 1:
+            await message.edit(content='All slots have been filled', view=None)
+            return
+        await self.race.add_horse(horse)
+        await message.edit(content=f'{horse.name} added to race!', view=None)
 
     @discord.ui.button(label='Math is Hard', style=discord.ButtonStyle.red,
                        disabled=True, row=1)
@@ -109,6 +127,28 @@ class PreRaceView(discord.ui.View):
             description=desc
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+class HorsePickerView(discord.ui.View):
+    def __init__(self, race: 'Race', horses: Dict[int, 'Horse']):
+        self.race = race
+        self.horses = horses
+        self.horse = None
+        options = []
+        for key, horse in self.horses.items():
+            if len(options) < 25:
+                options.append(discord.SelectOption(label=horse.name,
+                                                    value=str(key)))
+        super().__init__(timeout=race.time_until_betting.total_seconds())
+        self.select_horse.options = options
+
+    @discord.ui.select(placeholder='Pick a horse')
+    async def select_horse(self, interaction: discord.Interaction,
+                           select: discord.SelectMenu):
+        val = int(self.select_horse.values[0])
+        self.horse = self.horses.get(val)
+        await interaction.response.defer()
+        self.stop()
 
 
 class ListingView(discord.ui.View):

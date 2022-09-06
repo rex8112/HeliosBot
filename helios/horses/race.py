@@ -676,6 +676,13 @@ class Race(HasSettings):
             bet = Bet(bet_type, horse.id, member.member.id, amount)
             self.bets.append(bet)
 
+    def slots_left(self):
+        left = self.max_horses
+        for horse in self.horses:
+            if horse.owner is None:
+                left -= 1
+        return left
+
     def find_horse(self, name: str) -> 'Horse':
         name = name.lower()
         for horse in self.horses:
@@ -722,6 +729,21 @@ class Race(HasSettings):
         if sum(payout) < self.purse:
             payout[0] += self.purse - sum(payout)
         return payout
+
+    async def add_horse(self, horse: 'Horse'):
+        if len(self.horses) < self.max_horses:
+            self.horses.append(horse)
+        else:
+            index_to_pop = None
+            for i, horse in enumerate(self.horses):
+                if horse.owner is None:
+                    index_to_pop = i
+                    break
+            if index_to_pop is None:
+                raise IndexError('No available room for horse')
+            self.horses.pop(index_to_pop)
+            self.horses.append(horse)
+        await self.save()
 
     async def payout_horses(self):
         payout = self.get_payout_amount(self.get_payout_structure())
