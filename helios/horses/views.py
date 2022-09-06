@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 import discord
 
 from .enumerations import BetType
+from .modals import SetBidModal
 from ..modals import BetModal
 
 if TYPE_CHECKING:
@@ -153,7 +154,8 @@ class ListingView(discord.ui.View):
     async def set_bid(self, interaction: discord.Interaction,
                       button: discord.Button):
         member = self.server.members.get(interaction.user.id)
-        #  await interaction.response.send_modal()
+        modal = SetBidModal(self.listing, member)
+        await interaction.response.send_modal(modal)
 
 
 class GroupAuctionView(discord.ui.View):
