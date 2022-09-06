@@ -128,7 +128,9 @@ class Horse(HasSettings, HasFlags):
         return h
 
     def pay(self, amount: float):
-        ...
+        owner = self.owner
+        if owner:
+            owner.points += amount
 
     def is_maiden(self):
         return self.get_flag('MAIDEN')

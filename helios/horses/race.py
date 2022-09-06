@@ -733,6 +733,24 @@ class Race(HasSettings):
             if record.race_type in ('maiden', 'stake') and record.placing == 0:
                 h.horse.set_flag('MAIDEN', False)
                 await h.horse.save()
+            owner = h.horse.owner
+            if owner:
+                await owner.save()
+                embed = discord.Embed(
+                    colour=discord.Colour.orange(),
+                    title=f'{h.horse.name} Race Results',
+                    description=(
+                        f'[{self.name}]({self.message.jump_url})\n'
+                        f'Placed Position: {i+1}\n'
+                        f'Earnings: **{payout[i]:,}**\n'
+                        f'Profit: **{payout[i] - self.stake:,}**'
+                    )
+                )
+                try:
+                    await owner.member.send(embed=embed)
+                except (discord.HTTPException, discord.Forbidden,
+                        discord.NotFound):
+                    ...
 
     async def run(self):
         cont = True
