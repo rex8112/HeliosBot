@@ -140,7 +140,7 @@ class ListingView(discord.ui.View):
         member = self.server.members.get(interaction.user.id)
         next_amount = self.next_amount - 100
         if self.bid_amount <= next_amount:
-            await interaction.response.send(
+            await interaction.response.send_message(
                 (f'The bid has already been increased to **{next_amount:,}**, '
                  f'try again. Consider using set bet if this keeps happening'),
                 ephemeral=True
@@ -172,13 +172,12 @@ class GroupAuctionView(discord.ui.View):
             option = discord.SelectOption(label=listing.horse.name,
                                           value=str(listing.horse_id))
             options.append(option)
-        horse_select = discord.ui.Select(placeholder='Select Horse',
-                                         options=options)
-        self.add_item(horse_select)
+        self.select_horse.options = options
 
+    @discord.ui.select()
     async def select_horse(self, interaction: discord.Interaction,
                            select: discord.ui.Select):
-        selected_horse = select.values[0]
+        selected_horse = int(select.values[0])
         listing = discord.utils.find(lambda x: x.horse_id == selected_horse,
                                      self.auction.listings)
         try:

@@ -27,8 +27,8 @@ class ServerManager:
         await server.save()
         tasks.append(server.channels.setup())
         tasks.append(server.members.setup())
-        tasks.append(server.stadium.setup())
         await asyncio.wait(tasks)
+        await server.stadium.setup()
         self.servers[guild.id] = server
         return server
 

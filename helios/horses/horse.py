@@ -53,11 +53,13 @@ class Horse(HasSettings, HasFlags):
 
     @property
     def owner(self) -> Optional['HeliosMember']:
-        return self.settings['owner']
+        if self.settings['owner']:
+            return self.stadium.server.members.get(self.settings['owner'])
+        return None
 
     @owner.setter
     def owner(self, value: 'HeliosMember'):
-        self.settings['owner'] = value
+        self.settings['owner'] = value.id
 
     @property
     def gender(self) -> str:
@@ -175,7 +177,10 @@ class Horse(HasSettings, HasFlags):
         self.breed = Breed(data['breed'])
         self.stats = StatContainer.from_dict(data['stats'])
         self.date_born = Item.deserialize(data['born'])
-        self.settings = Item.deserialize_dict(data['settings'], guild=self.stadium.guild)
+        settings = Item.deserialize_dict(data['settings'],
+                                         guild=self.stadium.guild,
+                                         bot=self.stadium.server.bot)
+        self.settings = {**self._default_settings, **settings}
         self.flags = data['flags']
         self._new = False
 

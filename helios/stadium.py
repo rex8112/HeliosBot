@@ -190,7 +190,7 @@ class Stadium(HasSettings):
         return None
 
     def get_owner_horses(self, member: 'HeliosMember') -> Dict[int, 'Horse']:
-        horses = filter(lambda h: h.owner == member, self.horses.values())
+        horses = filter(lambda x: x.owner == member, self.horses.values())
         horse_dict = {}
         for h in horses:
             horse_dict[h.id] = h
