@@ -29,11 +29,13 @@ class Stadium(HasSettings):
     required_channels = [
         'announcements',
         'auctions',
+        'special-auctions',
         'daily-events',
         'basic-races'
     ]
     epoch_day = datetime.datetime(2022, 8, 1, 1, 0, 0)
     daily_points = 100
+    keep_amount = 100
 
     def __init__(self, server: 'Server'):
         self.server = server
@@ -93,6 +95,12 @@ class Stadium(HasSettings):
     def auction_channel(self) -> Optional[discord.TextChannel]:
         if self.category:
             return next(filter(lambda x: x.name == 'auctions',
+                               self.category.channels))
+
+    @property
+    def special_auction_channel(self) -> Optional[discord.TextChannel]:
+        if self.category:
+            return next(filter(lambda x: x.name == 'special-auctions',
                                self.category.channels))
 
     @property
@@ -156,6 +164,13 @@ class Stadium(HasSettings):
                 horses[key] = horse
         return horses
 
+    def not_qualified_horses(self) -> Dict[int, Horse]:
+        horses = {}
+        for key, horse in self.horses.items():
+            if horse.get_flag('QUALIFIED'):
+                horses[key] = horse
+        return horses
+
     def scouting_horses(self) -> Dict[int, Horse]:
         horses = {}
         for key, horse in self.horses.items():
@@ -163,10 +178,10 @@ class Stadium(HasSettings):
                 horses[key] = horse
         return horses
 
-    def unowned_horses(self) -> Dict[int, Horse]:
+    def unowned_qualified_horses(self) -> Dict[int, Horse]:
         horses = {}
         for key, horse in self.horses.items():
-            if horse.owner is None:
+            if horse.owner is None and horse.get_flag('QUALIFIED'):
                 horses[key] = horse
         return horses
 

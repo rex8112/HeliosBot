@@ -165,7 +165,7 @@ class Event:
         if maiden_races > maiden_races_allowed:
             maiden_races = maiden_races_allowed
 
-        horses = list(self.stadium.unowned_horses().values())
+        horses = list(self.stadium.unowned_qualified_horses().values())
         stakes_qualified = list(filter(
             lambda x: Race.check_qualification('stake', x),
             self.stadium.horses.values()))

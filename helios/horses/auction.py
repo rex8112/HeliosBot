@@ -131,7 +131,8 @@ class HorseListing:
             colour=(discord.Colour.orange()
                     if self.active else discord.Colour.red()),
             title=f'{horse.name} Listing',
-            description=desc
+            description=desc,
+            timestamp=datetime.now().astimezone()
         )
         if len(self.bids) > 0:
             bid = self.get_highest_bidder()
@@ -227,13 +228,13 @@ class HorseListing:
                                                   view=ListingView(self)))
                     else:
                         tasks.append(message.edit(embed=self.get_embed()))
-                        remove.append(i)
+                        remove.append(message)
 
                 if len(tasks) > 0:
                     await asyncio.wait(tasks)
 
                 for i in remove:
-                    self.update_list.pop(i)
+                    self.update_list.remove(i)
             await asyncio.sleep(1)
 
     def to_json(self):
@@ -287,6 +288,19 @@ class BasicAuction:
     @property
     def pages(self) -> int:
         return math.ceil(len(self.listings) / 25)
+
+    def get_horse_ids(self) -> List[int]:
+        ids = []
+        for listing in self.listings:
+            ids.append(listing.horse_id)
+        return ids
+
+    def get_horses(self) -> Dict[int, 'Horse']:
+        horses = {}
+        for listing in self.listings:
+            horse = listing.horse
+            horses[horse.id] = horse
+        return horses
 
     def is_active(self) -> bool:
         now = datetime.now().astimezone()
@@ -424,7 +438,8 @@ class RotatingAuction(BasicAuction):
 
     def __init__(self, house: 'AuctionHouse', channel: discord.TextChannel):
         super().__init__(house, channel)
-        self.settings: 'RotatingAuctionSettings' = self._default_settings.copy()
+        self.settings: 'RotatingAuctionSettings' = \
+            self._default_settings.copy()
         self.detail_messages: Dict[int, discord.Message] = {}
 
     @property
@@ -513,6 +528,36 @@ class AuctionHouse:
     def bot(self):
         return self.server.bot
 
+    def get_horse_ids(self) -> List[int]:
+        ids = []
+        for auction in self.auctions:
+            ids.extend(auction.get_horse_ids())
+        return ids
+
+    def get_horses(self) -> Dict[int, 'Horse']:
+        horses = {}
+        for auction in self.auctions:
+            horses.update(auction.get_horses())
+        return horses
+
+    def create_top_auction(self):
+        now = datetime.now().astimezone()
+        amount_of_listings = 24
+        keep = self.stadium.keep_amount
+        horses = list(self.stadium.unowned_qualified_horses().values())
+        amount_of_listings = min(amount_of_listings, len(horses) - keep)
+        if amount_of_listings < 1:
+            return
+        random.shuffle(horses)
+        horses = sorted(horses, key=lambda x: x.likes, reverse=True)
+        a = RotatingAuction(self, self.stadium.special_auction_channel)
+        a.name = 'Weekly Top Auction'
+        a.start_time = (now.replace(hour=12, minute=0,
+                                    second=0, microsecond=0)
+                        + timedelta(days=1))
+        a.create_listings(horses[:amount_of_listings])
+        self.auctions.append(a)
+
     async def run(self):
         if self.once:
             self.once = False
@@ -535,33 +580,62 @@ class AuctionHouse:
                 self.auctions.append(a)
             # END TESTING ---------------------------------------------------------
 
-            now = datetime.now().astimezone()
-            day_of_week = now.weekday()
-            if day_of_week == self.NEW_AUCTION:
-                new_horses = list(self.stadium.new_horses().values())
-                auctions = math.ceil(len(new_horses) / 25)
-                new_auctions = list(filter(lambda x: x.name == 'New Horse Auction',
-                                           self.auctions))
-                if len(new_auctions) > 0:
-                    auctions = 0
-                for i in range(auctions):
-                    end = (i + 1) * 25
-                    horses = new_horses[i:end]
-                    a = GroupAuction(self, self.stadium.auction_channel)
-                    a.name = 'New Horse Auction'
-                    a.start_time = now.replace(hour=12, minute=0,
-                                               second=0, microsecond=0)
-                    a.settings['duration'] = 60 * 60 * 24
-                    a.create_listings(horses)
-                    self.auctions.append(a)
+        now = datetime.now().astimezone()
+        day_of_week = now.weekday()
+        if day_of_week == self.DIE_AUCTION:
+            # Create Last Chance Auctions
+            final_auctions = list(
+                filter(lambda x: x.name == 'Last Chance Auction',
+                       self.auctions)
+            )
+            if len(final_auctions) > 0:
+                unqualified = []
+                auctions = 0
+            else:
+                unqualified = list(
+                    self.stadium.not_qualified_horses().values()
+                )
+                auctions = math.ceil(len(unqualified) / 25)
+            for i in range(auctions):
+                end = (i + 1) * 25
+                horses = unqualified[i:end]
+                a = GroupAuction(self, self.stadium.auction_channel)
+                a.name = 'Last Chance Auction'
+                a.start_time = now.replace(hour=12, minute=0,
+                                           second=0, microsecond=0)
+                a.settings['duration'] = 60 * 60 * 24
+                a.create_listings(horses)
+                self.auctions.append(a)
+            # Create Top Auction
+            top_auctions = list(filter(lambda x: x.type == 'rotating',
+                                       self.auctions))
+            if len(top_auctions) == 0:
+                self.create_top_auction()
+        elif day_of_week == self.NEW_AUCTION:
+            new_horses = list(self.stadium.new_horses().values())
+            auctions = math.ceil(len(new_horses) / 25)
+            new_auctions = list(filter(lambda x: x.name == 'New Horse Auction',
+                                       self.auctions))
+            if len(new_auctions) > 0:
+                auctions = 0
+            for i in range(auctions):
+                end = (i + 1) * 25
+                horses = new_horses[i:end]
+                a = GroupAuction(self, self.stadium.auction_channel)
+                a.name = 'New Horse Auction'
+                a.start_time = now.replace(hour=12, minute=0,
+                                           second=0, microsecond=0)
+                a.settings['duration'] = 60 * 60 * 24
+                a.create_listings(horses)
+                self.auctions.append(a)
 
         remove = []
         for i, auction in enumerate(self.auctions):
             await auction.run()
             if auction.is_done():
-                remove.append(i)
+                remove.append(auction)
         for i in remove:
-            self.auctions.pop(i)
+            self.auctions.remove(i)
         await asyncio.sleep(60)
 
     async def setup(self):

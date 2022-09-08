@@ -812,7 +812,7 @@ class Race(HasSettings):
                     delta = self.max_horses - len(self.horses)
                     horses = list(
                         filter(lambda x: self.is_qualified(x),
-                               self.stadium.unowned_horses().values()))
+                               self.stadium.unowned_qualified_horses().values()))
                     new_horses = random.sample(
                         horses,
                         k=min([delta, len(horses)]))
@@ -822,7 +822,7 @@ class Race(HasSettings):
                             random.sample(
                                 list(filter(
                                     lambda x: x not in new_horses,
-                                    self.stadium.unowned_horses().values()
+                                    self.stadium.unowned_qualified_horses().values()
                                 )),
                                 k=remaining_horses - len(new_horses)
                             )
