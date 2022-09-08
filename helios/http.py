@@ -169,3 +169,23 @@ class HTTPClient:
     async def del_record(self, record_id: int):
         resp = await self.request(f'records/{record_id}/', method='DELETE')
         return resp
+
+    async def get_auction(self, *, auction_id: int = None, **params):
+        if auction_id:
+            resp = await self.request(f'auctions/{auction_id}/')
+        else:
+            resp = await self.request(f'auctions/', params=params)
+        return resp
+
+    async def post_auction(self, json_data: Union[dict, list]):
+        resp = await self.request(f'auctions/', method='POST', json=json_data)
+        return resp
+
+    async def patch_auction(self, json_data: Union[dict, list]):
+        resp = await self.request(f'auctions/{json_data["id"]}/',
+                                  method='PATCH', json=json_data)
+        return resp
+
+    async def del_auction(self, auction_id: int):
+        resp = await self.request(f'auctions/{auction_id}/', method='DELETE')
+        return resp

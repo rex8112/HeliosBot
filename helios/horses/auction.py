@@ -260,6 +260,7 @@ class BasicAuction:
     _type = 'basic'
 
     def __init__(self, house: 'AuctionHouse', channel: discord.TextChannel):
+        self._id = 0
         self.house: 'AuctionHouse' = house
         self.channel: discord.TextChannel = channel
         self.name: str = 'Auction'
@@ -268,6 +269,10 @@ class BasicAuction:
         self.settings: 'AuctionSettings' = self._default_settings.copy()
 
         self.bid_update_list: List[List[discord.Message]] = []
+
+    @property
+    def id(self) -> int:
+        return self._id
 
     @property
     def stadium(self):
@@ -288,6 +293,9 @@ class BasicAuction:
     @property
     def pages(self) -> int:
         return math.ceil(len(self.listings) / 25)
+
+    def is_new(self):
+        return self._id == 0
 
     def get_horse_ids(self) -> List[int]:
         ids = []
@@ -352,12 +360,16 @@ class BasicAuction:
     async def run(self):
         ...
 
+    async def delete(self):
+        return self.stadium.server.bot.helios_http.del_auction(self._id)
+
     def to_json(self):
         if self.message:
             message = (self.message.channel.id, self.message.id)
         else:
             message = None
         return {
+            'id': self._id,
             'type': self._type,
             'server': self.house.server.id,
             'listings': [li.to_json() for li in self.listings],
@@ -373,7 +385,7 @@ class BasicAuction:
         channel = house.server.guild.get_channel(data['channel'])
         auction = cls(house, channel)
         if data['type'] != auction._type:
-            raise ValueError(f'{auction._type} if not of type {data["type"]}')
+            raise ValueError(f'{auction._type} is not of type {data["type"]}')
         auction.settings = {**auction._default_settings, **data['settings']}
         auction.listings = [HorseListing.from_json(auction, li)
                             for li in data['listings']]
@@ -384,6 +396,22 @@ class BasicAuction:
             channel = house.server.guild.get_channel(channel_id)
             if channel:
                 auction.message = channel.get_partial_message(message_id)
+
+    @classmethod
+    async def from_id(cls, house: 'AuctionHouse', id: int):
+        data = await house.stadium.server.bot.helios_http.get_auction(
+            auction_id=id
+        )
+        return cls.from_json(house, data)
+
+    async def save(self):
+        data = self.to_json()
+        if self.is_new():
+            del data['id']
+            d = await self.stadium.server.bot.helios_http.post_auction(data)
+            self._id = d['id']
+        else:
+            await self.stadium.server.bot.helios_http.patch_auction(data)
 
 
 class GroupAuction(BasicAuction):
@@ -633,10 +661,22 @@ class AuctionHouse:
         for i, auction in enumerate(self.auctions):
             await auction.run()
             if auction.is_done():
+                await auction.delete()
                 remove.append(auction)
         for i in remove:
             self.auctions.remove(i)
         await asyncio.sleep(60)
 
-    async def setup(self):
-        ...
+    async def setup(self, auctions_data: Optional[List] = None):
+        if auctions_data is None:
+            auctions_data = await self.server.bot.helios_http.get_auction(
+                server=self.server.id
+            )
+        for data in auctions_data:
+            if data['type'] == 'rotating':
+                a = RotatingAuction.from_json(self, data)
+            elif data['type'] == 'group':
+                a = GroupAuction.from_json(self, data)
+            else:
+                continue
+            self.auctions.append(a)
