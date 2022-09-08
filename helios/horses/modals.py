@@ -34,12 +34,14 @@ class SetBidModal(ui.Modal):
             return
         if amount < cur_bid:
             await interaction.response.send_message(
-                f'You must bid at least {cur_bid:,} points.'
+                f'You must bid at least **{cur_bid:,}** points.',
+                ephemeral=True
             )
             return
         self.listing.bid(self.member, amount)
         await interaction.response.send_message(
-            f'You have bid **{amount:,}** points!'
+            f'You have bid **{amount:,}** points!',
+            ephemeral=True
         )
 
     async def on_error(self, interaction: Interaction,

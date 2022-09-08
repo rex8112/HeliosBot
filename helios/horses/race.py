@@ -526,7 +526,7 @@ class Race(HasSettings):
                           show_wr=False):
         horse_string = ''
         for i, h in enumerate(self.horses, start=1):
-            owner = h.settings['owner']
+            owner = h.owner
             odds = self.calculate_odds(h)
             odds_ratio = Fraction(odds).limit_denominator()
             if not owner:
@@ -803,8 +803,9 @@ class Race(HasSettings):
                         ...
 
                 if self.time_until_betting > datetime.timedelta(seconds=0):
-                    wait_for = self.time_until_betting.seconds
-                    await asyncio.sleep(wait_for)
+                    wait_for = self.time_until_betting.total_seconds()
+                    if wait_for > 0:
+                        await asyncio.sleep(wait_for)
 
                 remaining_horses = self.max_horses - len(self.horses)
                 if remaining_horses > 0:
@@ -850,8 +851,9 @@ class Race(HasSettings):
                 await self.send_or_edit_message(embed=self.get_betting_embed(),
                                                 view=view)
                 if self.time_until_race > datetime.timedelta(seconds=0):
-                    wait_for = self.time_until_race.seconds
-                    await asyncio.sleep(wait_for)
+                    wait_for = self.time_until_race.total_seconds()
+                    if wait_for > 0:
+                        await asyncio.sleep(wait_for)
                 self.phase = 2
                 await self.save()
                 view = None

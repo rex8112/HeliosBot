@@ -205,8 +205,8 @@ class HorseListing:
                             mem.points -= highest.amount
                             horse.owner = mem
                             horse.set_flag('QUALIFIED', True)
-                            tasks.append(mem.save())
-                            tasks.append(horse.save())
+                            await mem.save()
+                            await horse.save()
                             try:
                                 await mem.member.send(
                                     f'You have purchased **{horse.name}** for'
