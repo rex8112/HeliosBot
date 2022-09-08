@@ -167,7 +167,7 @@ class Stadium(HasSettings):
     def not_qualified_horses(self) -> Dict[int, Horse]:
         horses = {}
         for key, horse in self.horses.items():
-            if horse.get_flag('QUALIFIED'):
+            if not horse.get_flag('QUALIFIED'):
                 horses[key] = horse
         return horses
 
@@ -297,6 +297,7 @@ class Stadium(HasSettings):
 
             used_names.append(name)
             h = Horse.new(self, name, 'Unknown', None)
+            h.set_flag('NEW', True)
             await h.save()
             self.horses[h.id] = h
             used_names.append(name)
@@ -386,6 +387,22 @@ class Stadium(HasSettings):
             cur_day = self.get_day()
             if cur_day != self.day:
                 self.day = cur_day
+                now = datetime.datetime.now().astimezone()
+                day_of_week = now.weekday()
+                # On Friday, create Final Auction and Saturday Top Auction
+                if day_of_week == self.auction_house.DIE_AUCTION:
+                    horses = self.not_qualified_horses()
+                    tasks = []
+                    final_horses = []
+                    for horse in horses.values():
+                        if not horse.get_flag('QUALIFIED'):
+                            horse.set_flag('PENDING', True)
+                            final_horses.append(horse)
+                            tasks.append(horse.save())
+                    if len(final_horses) > 0:
+                        self.auction_house.create_final_auctions(final_horses)
+                        await asyncio.wait(tasks)
+
                 # Check if horses need to be added to the pool
                 unqualified_horses = list(filter(
                     lambda x: not x.get_flag('QUALIFIED'),

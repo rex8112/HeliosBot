@@ -27,7 +27,9 @@ class Horse(HasSettings, HasFlags):
     _allowed_flags = [
         'QUALIFIED',
         'MAIDEN',
-        'NEW'
+        'NEW',
+        'PENDING',
+        'DELETE'
     ]
     base_stat = 10
 
