@@ -91,6 +91,7 @@ class HorseListing:
         self.update_list: List[discord.Message] = []
 
         self.new_bid = False
+        self.canceled = False
         self.done = False
         self._task: Optional[asyncio.Task] = None
 
@@ -190,12 +191,18 @@ class HorseListing:
                 name=f'HorseListing:{self.horse_id}'
             )
 
+    def cancel(self):
+        self.canceled = True
+        self.done = True
+        self.bids.clear()
+
     async def run(self, update_list: List[discord.Message]):
         self.update_list = update_list
         while self.done is False:
             if self.new_bid or not self.active:
                 tasks = []
                 if not self.active:
+                    self.horse.likes = 0
                     if len(self.bids) > 0:
                         highest = self.get_highest_allowed_bid()
                         mem = self.auction.stadium.server.members.get(
@@ -207,7 +214,6 @@ class HorseListing:
                             horse.owner = mem
                             horse.set_flag('QUALIFIED', True)
                             await mem.save()
-                            await horse.save()
                             try:
                                 await mem.member.send(
                                     f'You have purchased **{horse.name}** for'
@@ -215,6 +221,7 @@ class HorseListing:
                                 )
                             except (discord.HTTPException, discord.Forbidden):
                                 ...
+                    await self.horse.save()
                     self.done = True
                 self.new_bid = False
                 remove = []
@@ -261,6 +268,7 @@ class BasicAuction:
 
     def __init__(self, house: 'AuctionHouse', channel: discord.TextChannel):
         self._id = 0
+        self._listings_done = 0
         self.house: 'AuctionHouse' = house
         self.channel: discord.TextChannel = channel
         self.name: str = 'Auction'
@@ -322,6 +330,20 @@ class BasicAuction:
                 return False
         return True
 
+    def amount_done(self) -> int:
+        done = 0
+        for listing in self.listings:
+            if not listing.active:
+                done += 1
+        return done
+
+    def should_save(self) -> bool:
+        new_done = self.amount_done()
+        if new_done != self._listings_done:
+            self._listings_done = new_done
+            return True
+        return False
+
     def get_summary(self, page: int = 0):
         summary = (
             '```\n'
@@ -358,7 +380,8 @@ class BasicAuction:
         self.bid_update_list.append(list())
 
     async def run(self):
-        ...
+        if self.should_save():
+            await self.save()
 
     async def delete(self):
         return self.stadium.server.bot.helios_http.del_auction(self._id)
@@ -396,6 +419,8 @@ class BasicAuction:
             channel = house.server.guild.get_channel(channel_id)
             if channel:
                 auction.message = channel.get_partial_message(message_id)
+        auction.should_save()
+        return auction
 
     @classmethod
     async def from_id(cls, house: 'AuctionHouse', id: int):
@@ -450,10 +475,12 @@ class GroupAuction(BasicAuction):
             await self.message.edit(content=summary, view=view)
         else:
             self.message = await self.channel.send(content=summary, view=view)
+            await self.save()
             new = True
         if new:
             for i, listing in enumerate(self.listings):
                 listing.create_run_task(self.bid_update_list[i])
+        await super().run()
 
 
 class RotatingAuction(BasicAuction):
@@ -536,6 +563,7 @@ class RotatingAuction(BasicAuction):
                     self.detail_messages[listing.horse_id] = message
                     self.bid_update_list[i].append(message)
                     listing.create_run_task(self.bid_update_list[i])
+            await super().run()
 
 
 class AuctionHouse:
