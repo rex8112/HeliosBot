@@ -194,6 +194,7 @@ class HorseListing:
     def cancel(self):
         self.canceled = True
         self.done = True
+        self.auction.settings['any_canceled'] = True
         self.bids.clear()
 
     async def run(self, update_list: List[discord.Message]):
@@ -256,13 +257,17 @@ class HorseListing:
         li = cls(auction, data['horse'])
         li.bids = [Bid.from_json(b) for b in data['bids']]
         li.settings = {**li._default_settings, **data['settings']}
+        now = datetime.now().astimezone()
+        if now + timedelta(minutes=10) > li.end_time:
+            li.cancel()
         return li
 
 
 class BasicAuction:
     _default_settings: 'AuctionSettings' = {
         'start_time': datetime.now().astimezone().isoformat(),
-        'buy': False
+        'buy': False,
+        'any_canceled': False
     }
     _type = 'basic'
 
@@ -380,6 +385,9 @@ class BasicAuction:
         self.bid_update_list.append(list())
 
     async def run(self):
+        if self.settings['any_canceled'] and self.is_done():
+            self.settings['any_canceled'] = False
+            self.house.redo_canceled_listings(self)
         if self.should_save():
             await self.save()
 
@@ -595,6 +603,19 @@ class AuctionHouse:
         for auction in self.auctions:
             horses.update(auction.get_horses())
         return horses
+
+    def redo_canceled_listings(self, auction: 'BasicAuction'):
+        canceled_horses = []
+        for listing in auction.listings:
+            if listing.canceled:
+                canceled_horses.append(listing.horse)
+        a = GroupAuction(self, self.stadium.auction_channel)
+        now = datetime.now().astimezone().replace(hour=11, minute=0,
+                                                  second=0, microsecond=0)
+        a.start_time = now + timedelta(days=1)
+        a.settings['duration'] = 60 * 60 * 6
+        a.name = 'Redo Auction'
+        self.auctions.append(a)
 
     def create_top_auction(self):
         now = datetime.now().astimezone()

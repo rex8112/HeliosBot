@@ -52,6 +52,7 @@ class HorseListingSettings(TypedDict):
 class AuctionSettings(TypedDict):
     start_time: str
     buy: bool
+    any_canceled: bool
 
 
 class GroupAuctionSettings(AuctionSettings):
