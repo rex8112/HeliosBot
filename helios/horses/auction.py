@@ -212,7 +212,7 @@ class HorseListing:
                                     f'You have purchased **{horse.name}** for'
                                     f' **{highest.amount:,}** points'
                                 )
-                            except discord.HTTPException:
+                            except (discord.HTTPException, discord.Forbidden):
                                 ...
                     self.done = True
                 self.new_bid = False
