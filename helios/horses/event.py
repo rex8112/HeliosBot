@@ -1,8 +1,9 @@
 import datetime
-import random
+import math
 from typing import TYPE_CHECKING
 
 import discord
+import numpy
 
 from .race import Race
 from ..tools.settings import Item
@@ -141,7 +142,10 @@ class Event:
         )
         await self.channel.send(embed=embed)
         for race in self.races:
-            self.stadium.races.remove(race)
+            try:
+                self.stadium.races.remove(race)
+            except ValueError:
+                ...
         self.stadium.events.remove(self)
 
     async def maidens_available(self):
@@ -164,7 +168,7 @@ class Event:
         if maiden_races > maiden_races_allowed:
             maiden_races = maiden_races_allowed
 
-        horses = list(self.stadium.unowned_horses().values())
+        horses = list(self.stadium.unowned_qualified_horses().values())
         stakes_qualified = list(filter(
             lambda x: Race.check_qualification('stake', x),
             self.stadium.horses.values()))
@@ -211,7 +215,20 @@ class Event:
             qualified = list(filter(
                 lambda x: race.is_qualified(x) and x not in used_horses,
                 horses))
-            qualified_horses = random.sample(qualified, race.max_horses)
+            weights = [math.ceil(x.quality) for x in qualified]
+            s = sum(weights)
+            weights = [x / s for x in weights]
+            diff = 1 - sum(weights)
+            if diff != 0 and len(weights) > 0:
+                weights[-1] += diff
+            if len(qualified) > 0:
+                qualified_horses = list(
+                    numpy.random.choice(qualified,
+                                        min(race.max_horses, len(qualified)),
+                                        replace=False,
+                                        p=weights))
+            else:
+                qualified_horses = []
             used_horses.extend(qualified_horses)
             race.horses = qualified_horses
         await self.stadium.bulk_add_races(races)

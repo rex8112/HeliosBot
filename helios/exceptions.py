@@ -25,3 +25,7 @@ class HorseError(HeliosException):
 
 class BetError(HorseError):
     ...
+
+
+class BidError(HorseError):
+    ...

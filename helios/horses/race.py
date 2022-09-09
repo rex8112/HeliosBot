@@ -434,22 +434,28 @@ class Race(HasSettings):
         :param horse: The horse to check
         :return: Whether the horse is allowed to race.
         """
-        if race_type == 'basic':
-            return not horse.get_flag('QUALIFIED')
-        elif race_type == 'maiden':
+        if horse.get_flag('NEW'):
+            return False
+        if horse.get_flag('QUALIFIED'):
+            if race_type == 'basic':
+                return False
+        else:
+            if race_type != 'basic':
+                return False
+        if race_type == 'maiden':
             return horse.is_maiden()
         elif race_type == 'stake':
+            if not horse.is_maiden():
+                return True
+            earnings = 0
             for rec in horse.records:
-                # If you won first place in ANY race
-                if rec.placing == 0:
+                # If you won top three in up to two races, roughly
+                earnings += rec.earnings
+                if earnings >= 300:
                     return True
             return False
         elif race_type == 'listed':
-            for rec in horse.records:
-                # If horse has won any non-basic races
-                if rec.race_type != 'basic' and rec.placing == 0:
-                    return True
-            return False
+            return not horse.is_maiden()
         return False
 
     def _get_registration_embed(self) -> discord.Embed:
@@ -520,7 +526,7 @@ class Race(HasSettings):
                           show_wr=False):
         horse_string = ''
         for i, h in enumerate(self.horses, start=1):
-            owner = h.settings['owner']
+            owner = h.owner
             odds = self.calculate_odds(h)
             odds_ratio = Fraction(odds).limit_denominator()
             if not owner:
@@ -541,7 +547,7 @@ class Race(HasSettings):
         return horse_string
 
     def inflate_bets(self, amt_to_inflate: int):
-        multipliers = [10, 7, 4, 4, 3, 3, 3, 2, 2, 2, 2, 1]
+        multipliers = [10, 8, 8, 7, 7, 7, 6, 6, 6, 6, 6, 6]
         horse_qualities = []
         for h in self.horses:
             horse_qualities.append((h, h.quality))
@@ -557,7 +563,7 @@ class Race(HasSettings):
         new_qualities = []
         for i, q in enumerate(qualities):
             p = q / horse_sum
-            new_qualities.append(p * multipliers[i])
+            new_qualities.append(p)
         sum_qualities = sum(new_qualities)
 
         for i, h in enumerate(horses):
@@ -670,6 +676,13 @@ class Race(HasSettings):
             bet = Bet(bet_type, horse.id, member.member.id, amount)
             self.bets.append(bet)
 
+    def slots_left(self):
+        left = self.max_horses
+        for horse in self.horses:
+            if horse.owner is None:
+                left -= 1
+        return left
+
     def find_horse(self, name: str) -> 'Horse':
         name = name.lower()
         for horse in self.horses:
@@ -717,6 +730,21 @@ class Race(HasSettings):
             payout[0] += self.purse - sum(payout)
         return payout
 
+    async def add_horse(self, horse: 'Horse'):
+        if len(self.horses) < self.max_horses:
+            self.horses.append(horse)
+        else:
+            index_to_pop = None
+            for i, horse in enumerate(self.horses):
+                if horse.owner is None:
+                    index_to_pop = i
+                    break
+            if index_to_pop is None:
+                raise IndexError('No available room for horse')
+            self.horses.pop(index_to_pop)
+            self.horses.append(horse)
+        await self.save()
+
     async def payout_horses(self):
         payout = self.get_payout_amount(self.get_payout_structure())
         for i, h in enumerate(self.race.finished_horses):
@@ -724,10 +752,38 @@ class Race(HasSettings):
             record = Record.new(h, self, payout[i])
             h.horse.records.append(record)
             await self.save_record(record)
-            if record.race_type != 'basic' and record.placing == 0:
-                h.horse.set_flag('QUALIFIED', True)
-                h.horse.clear_basic_records()
+            if record.race_type in ('maiden', 'stake') and record.placing == 0:
+                h.horse.set_flag('MAIDEN', False)
                 await h.horse.save()
+            owner = h.horse.owner
+            if owner:
+                await owner.save()
+                embed = discord.Embed(
+                    colour=discord.Colour.orange(),
+                    title=f'{h.horse.name} Race Results',
+                    description=(
+                        f'[{self.name}]({self.message.jump_url})\n'
+                        f'Placed Position: {i+1}\n'
+                        f'Earnings: **{payout[i]:,}**\n'
+                        f'Profit: **{payout[i] - self.stake:,}**'
+                    )
+                )
+                try:
+                    await owner.member.send(embed=embed)
+                except (discord.HTTPException, discord.Forbidden,
+                        discord.NotFound):
+                    ...
+
+    async def cancel(self):
+        self.phase = 4
+        embed = discord.Embed(
+            colour=discord.Colour.red(),
+            title=f'{self.name} Cancelled',
+            description=(f'This race only had {len(self.horses)} horses '
+                         'available to race and so it will not be finished.')
+        )
+        await self.send_or_edit_message(embed=embed)
+        await self.save()
 
     async def run(self):
         cont = True
@@ -758,29 +814,25 @@ class Race(HasSettings):
                         ...
 
                 if self.time_until_betting > datetime.timedelta(seconds=0):
-                    wait_for = self.time_until_betting.seconds
-                    await asyncio.sleep(wait_for)
+                    wait_for = self.time_until_betting.total_seconds()
+                    if wait_for > 0:
+                        await asyncio.sleep(wait_for)
 
                 remaining_horses = self.max_horses - len(self.horses)
                 if remaining_horses > 0:
                     delta = self.max_horses - len(self.horses)
                     horses = list(
                         filter(lambda x: self.is_qualified(x),
-                               self.stadium.unowned_horses().values()))
+                               self.stadium.unowned_qualified_horses().values()))
                     new_horses = random.sample(
                         horses,
                         k=min([delta, len(horses)]))
-                    # If there were not enough qualified horses, say fuck it
-                    if len(new_horses) < remaining_horses:
-                        new_horses.extend(
-                            random.sample(
-                                list(filter(lambda x: x not in new_horses,
-                                            horses)),
-                                k=remaining_horses - len(new_horses)
-                            )
-                        )
                     for h in new_horses:
                         self.horses.append(h)
+                    # If there were not enough qualified horses, say fuck it
+                    if len(self.horses) < self.max_horses // 2:
+                        await self.cancel()
+                        break
                 self.phase = 1
                 await self.save()
             elif self.phase == 1:
@@ -803,8 +855,9 @@ class Race(HasSettings):
                 await self.send_or_edit_message(embed=self.get_betting_embed(),
                                                 view=view)
                 if self.time_until_race > datetime.timedelta(seconds=0):
-                    wait_for = self.time_until_race.seconds
-                    await asyncio.sleep(wait_for)
+                    wait_for = self.time_until_race.total_seconds()
+                    if wait_for > 0:
+                        await asyncio.sleep(wait_for)
                 self.phase = 2
                 await self.save()
                 view = None

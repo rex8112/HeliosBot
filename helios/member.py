@@ -37,6 +37,18 @@ class HeliosMember(HasFlags, HasSettings):
         if data:
             self._deserialize(data)
 
+    def __eq__(self, o: object):
+        if isinstance(o, HeliosMember):
+            return self.id == o.id
+        elif o is None:
+            return False
+        else:
+            return NotImplemented
+
+    @property
+    def id(self):
+        return self.member.id
+
     @property
     def server(self) -> 'Server':
         return self.manager.server

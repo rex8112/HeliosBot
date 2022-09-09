@@ -21,10 +21,15 @@ class Horse(HasSettings, HasFlags):
     _default_settings: HorseSettings = {
         'gender': 'male',
         'age': 0,
+        'likes': 0,
         'owner': None
     }
     _allowed_flags = [
-        'QUALIFIED'
+        'QUALIFIED',
+        'MAIDEN',
+        'NEW',
+        'PENDING',
+        'DELETE'
     ]
     base_stat = 10
 
@@ -39,7 +44,7 @@ class Horse(HasSettings, HasFlags):
         self.stats['acceleration'] = Stat('acceleration', 0)
         self.settings: HorseSettings = self._default_settings.copy()
         self.records: list['Record'] = []
-        self.flags = []
+        self.flags = ['MAIDEN']
 
         self._new = True
         self._changed = False
@@ -50,7 +55,24 @@ class Horse(HasSettings, HasFlags):
 
     @property
     def owner(self) -> Optional['HeliosMember']:
-        return self.settings['owner']
+        if self.settings['owner']:
+            return self.stadium.server.members.get(self.settings['owner'])
+        return None
+
+    @owner.setter
+    def owner(self, value: 'HeliosMember'):
+        self.settings['owner'] = value.id
+
+    @property
+    def gender(self) -> str:
+        return self.settings['gender']
+
+    @property
+    def age(self) -> int:
+        today = datetime.datetime.now().astimezone().date()
+        born = self.date_born
+        age = today - born
+        return age.days
 
     @property
     def is_new(self) -> bool:
@@ -59,6 +81,14 @@ class Horse(HasSettings, HasFlags):
     @property
     def tier(self) -> int:
         return math.ceil(self.stats['speed'].value)
+
+    @property
+    def likes(self) -> int:
+        return self.settings['likes']
+
+    @likes.setter
+    def likes(self, value: int) -> None:
+        self.settings['likes'] = value
 
     @property
     def speed(self) -> float:
@@ -76,11 +106,13 @@ class Horse(HasSettings, HasFlags):
     def quality(self) -> float:
         win, place, show, loss = self.stadium.get_win_place_show_loss(
             self.records)
-        mmr = 3_000
-        mmr += win * 15
+        mmr = 1_000
+        mmr += win * 30
         mmr += place * 10
         mmr += show * 5
-        mmr += loss * -15
+        mmr += loss * -5
+        if mmr < 5:
+            mmr = 5
         return mmr
 
     @classmethod
@@ -98,20 +130,12 @@ class Horse(HasSettings, HasFlags):
         return h
 
     def pay(self, amount: float):
-        ...
+        owner = self.owner
+        if owner:
+            owner.points += amount
 
     def is_maiden(self):
-        earnings = 0
-        for rec in self.records:
-            if rec.race_type != 'basic' and rec.placing == 0:
-                return False
-            # If you won first place in a basic race
-            if rec.placing == 0:
-                return True
-            earnings += rec.earnings
-            if earnings >= 300:
-                return True
-        return False
+        return self.get_flag('MAIDEN')
 
     def clear_basic_records(self):
         self.records = list(filter(lambda x: x.race_type != 'basic',
@@ -157,7 +181,10 @@ class Horse(HasSettings, HasFlags):
         self.breed = Breed(data['breed'])
         self.stats = StatContainer.from_dict(data['stats'])
         self.date_born = Item.deserialize(data['born'])
-        self.settings = Item.deserialize_dict(data['settings'], guild=self.stadium.guild)
+        settings = Item.deserialize_dict(data['settings'],
+                                         guild=self.stadium.guild,
+                                         bot=self.stadium.server.bot)
+        self.settings = {**self._default_settings, **settings}
         self.flags = data['flags']
         self._new = False
 
@@ -169,3 +196,7 @@ class Horse(HasSettings, HasFlags):
             self._id = new_data['id']
         else:
             await self.stadium.server.bot.helios_http.patch_horse(self.serialize())
+
+    async def delete(self):
+        await self.stadium.server.bot.helios_http.del_horse(self._id)
+        del self.stadium.horses[self._id]

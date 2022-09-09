@@ -1,26 +1,34 @@
+from datetime import datetime
 from fractions import Fraction
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict
 
 import discord
 
 from .enumerations import BetType
+from .modals import SetBidModal
 from ..modals import BetModal
 
 if TYPE_CHECKING:
     from .race import Race
+    from .horse import Horse
+    from .auction import HorseListing, GroupAuction
 
 
 class PreRaceView(discord.ui.View):
     def __init__(self, er: 'Race'):
         super().__init__(timeout=er.time_until_race.seconds)
         self.race = er
+        if self.race.settings['type'] == 'basic':
+            self.remove_item(self.register)
 
     def check_race_status(self):
         if self.race.phase == 1:
+            self.register.disabled = True
             self.bet.disabled = False
             self.show_bets.disabled = False
             self.decimals.disabled = False
         else:
+            self.register.disabled = False
             self.bet.disabled = True
             self.show_bets.disabled = True
             self.decimals.disabled = True
@@ -77,12 +85,29 @@ class PreRaceView(discord.ui.View):
                        button: discord.ui.Button):
         # Show register view, wait for its completion, fill values
         member = self.race.stadium.server.members.get(interaction.user.id)
-        horses = list(filter(lambda x: self.race.is_qualified(x),
-                             member.horses.values()))
-        horse_strings = []
-        for i, h in enumerate(horses):
-            horse_strings.append(f'{i}. {h.name}')
-        # TODO: Call register view
+        horses = {}
+        for key, horse in member.horses.items():
+            if self.race.is_qualified(horse):
+                horses[key] = horse
+        if len(horses) < 1:
+            await interaction.response.send_message(
+                'You do not currently have any qualifying horses.',
+                ephemeral=True
+            )
+        view = HorsePickerView(self.race, horses)
+        content = (f'Entry Cost: **{self.race.stake:,}**\n'
+                   f'Your Points: **{member.points:,}**')
+        message = await interaction.response.send_message(content, view=view,
+                                                          ephemeral=True)
+        await view.wait()
+        horse = view.horse
+        if horse is None:
+            return
+        if self.race.slots_left() < 1:
+            await message.edit(content='All slots have been filled', view=None)
+            return
+        await self.race.add_horse(horse)
+        await message.edit(content=f'{horse.name} added to race!', view=None)
 
     @discord.ui.button(label='Math is Hard', style=discord.ButtonStyle.red,
                        disabled=True, row=1)
@@ -102,3 +127,116 @@ class PreRaceView(discord.ui.View):
             description=desc
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+class HorsePickerView(discord.ui.View):
+    def __init__(self, race: 'Race', horses: Dict[int, 'Horse']):
+        self.race = race
+        self.horses = horses
+        self.horse = None
+        options = []
+        for key, horse in self.horses.items():
+            if len(options) < 25:
+                options.append(discord.SelectOption(label=horse.name,
+                                                    value=str(key)))
+        super().__init__(timeout=race.time_until_betting.total_seconds())
+        self.select_horse.options = options
+
+    @discord.ui.select(placeholder='Pick a horse')
+    async def select_horse(self, interaction: discord.Interaction,
+                           select: discord.SelectMenu):
+        val = int(self.select_horse.values[0])
+        self.horse = self.horses.get(val)
+        await interaction.response.defer()
+        self.stop()
+
+
+class ListingView(discord.ui.View):
+    # noinspection PyTypeChecker
+    def __init__(self, listing: 'HorseListing'):
+        self.server = listing.auction.stadium.server
+        self.listing = listing
+        self.bid_amount = self.next_amount
+
+        now = datetime.now().astimezone()
+        time_left = listing.end_time - now
+        super().__init__(timeout=time_left.total_seconds())
+
+        button: discord.Button = next(
+            filter(lambda x: x.label.startswith('Bid'),
+                   self.children)
+        )
+        button.label = f'Bid {self.bid_amount}'
+
+    @property
+    def next_amount(self):
+        if len(self.listing.bids) > 0:
+            return self.listing.get_highest_bidder().amount + 100
+        else:
+            return self.listing.settings['min_bid']
+
+    @discord.ui.button(label='Bid', style=discord.ButtonStyle.green)
+    async def bid(self, interaction: discord.Interaction,
+                  button: discord.Button):
+        member = self.server.members.get(interaction.user.id)
+        next_amount = self.next_amount - 100
+        if self.bid_amount <= next_amount:
+            await interaction.response.send_message(
+                (f'The bid has already been increased to **{next_amount:,}**, '
+                 f'try again. Consider using set bet if this keeps happening'),
+                ephemeral=True
+            )
+        else:
+            await interaction.response.defer()
+            self.listing.bid(member, self.bid_amount)
+
+    @discord.ui.button(label='Set Bid', style=discord.ButtonStyle.gray)
+    async def set_bid(self, interaction: discord.Interaction,
+                      button: discord.Button):
+        member = self.server.members.get(interaction.user.id)
+        modal = SetBidModal(self.listing, member)
+        await interaction.response.send_modal(modal)
+
+
+class GroupAuctionView(discord.ui.View):
+    def __init__(self, auction: 'GroupAuction', *, page=0):
+        now = datetime.now().astimezone()
+        delta = auction.end_time - now
+        super().__init__(timeout=delta.total_seconds())
+        self.auction = auction
+        if auction.pages > 1:
+            page_num = 25*page
+            listings = self.auction[page_num:25+page_num]
+        else:
+            listings = self.auction.listings
+        options = []
+        for i, listing in enumerate(listings, start=1):
+            option = discord.SelectOption(label=listing.horse.name,
+                                          value=str(listing.horse_id),
+                                          description=f'ID: {i:03}')
+            options.append(option)
+        self.select_horse.options = options
+
+    @discord.ui.select()
+    async def select_horse(self, interaction: discord.Interaction,
+                           select: discord.ui.Select):
+        selected_horse = int(select.values[0])
+        listing = discord.utils.find(lambda x: x.horse_id == selected_horse,
+                                     self.auction.listings)
+        try:
+            message = await interaction.user.send(embed=discord.Embed(
+                title='Building Listing'
+            ))
+            listing.update_list.append(message)
+            listing.new_bid = True
+            await interaction.response.send_message(f'{message.jump_url}',
+                                                    ephemeral=True)
+        except (discord.Forbidden, discord.HTTPException):
+            await interaction.response.send_message(
+                'Sorry, I could not send you a DM.',
+                ephemeral=True
+            )
+
+    async def select_page(self, interaction: discord.Interaction,
+                          select: discord.SelectMenu):
+        ...
