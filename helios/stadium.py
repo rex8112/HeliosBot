@@ -288,6 +288,7 @@ class Stadium(HasSettings):
         used_names = [x.name for x in self.horses.values()]
         random_names = await self.server.bot.helios_http.request_names(
             count * 2)
+        horses = []
         for _ in range(count):
             name = random_names[-1]
             random_names.pop()
@@ -300,7 +301,9 @@ class Stadium(HasSettings):
             h.set_flag('NEW', True)
             await h.save()
             self.horses[h.id] = h
+            horses.append(h)
             used_names.append(name)
+        return horses
 
     async def build_records(self, *, horse: 'Horse' = None,
                             allow_basic: bool = False,
@@ -403,14 +406,16 @@ class Stadium(HasSettings):
                         self.auction_house.create_final_auctions(final_horses)
                         await asyncio.wait(tasks)
 
-                # Check if horses need to be added to the pool
-                unqualified_horses = list(filter(
-                    lambda x: not x.get_flag('QUALIFIED'),
-                    self.horses.values()))
-                need_horses = 100 - len(unqualified_horses)
-                if need_horses > 0:
-                    await self.batch_create_horses(need_horses)
+                    horses = self.unowned_qualified_horses().values()
+                    self.auction_house.create_top_auction(
+                        list(horses),
+                        keep=self.keep_amount
+                    )
+                # On Sunday, create New Auction
+                elif day_of_week == self.auction_house.NEW_AUCTION:
+                    new_horses = await self.batch_create_horses(50)
                     changed = True
+                    self.auction_house.create_new_auctions(new_horses)
 
             daily_events = list(filter(lambda e: e.settings['type'] == 'daily',
                                        self.events))

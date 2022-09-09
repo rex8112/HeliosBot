@@ -618,10 +618,9 @@ class AuctionHouse:
         a.name = 'Redo Auction'
         self.auctions.append(a)
 
-    def create_top_auction(self, horses: List['Horse']):
+    def create_top_auction(self, horses: List['Horse'], *, keep: int):
         now = datetime.now().astimezone()
         amount_of_listings = 24
-        keep = self.stadium.keep_amount
         horses = horses.copy()
         amount_of_listings = min(amount_of_listings, len(horses) - keep)
         if amount_of_listings < 1:
