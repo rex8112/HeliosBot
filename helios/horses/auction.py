@@ -227,6 +227,7 @@ class HorseListing:
                     self.done = True
                 self.new_bid = False
                 remove = []
+                self.auction.changed = True
                 for i, message in enumerate(self.update_list):
                     thirty_minutes = (datetime.now().astimezone()
                                       - timedelta(minutes=30))
@@ -283,6 +284,7 @@ class BasicAuction:
         self.settings: 'AuctionSettings' = self._default_settings.copy()
 
         self.bid_update_list: List[List[discord.Message]] = []
+        self.changed = False
 
     @property
     def id(self) -> int:
@@ -345,7 +347,8 @@ class BasicAuction:
 
     def should_save(self) -> bool:
         new_done = self.amount_done()
-        if new_done != self._listings_done:
+        if new_done != self._listings_done or self.changed:
+            self.changed = False
             self._listings_done = new_done
             return True
         return False
@@ -389,7 +392,7 @@ class BasicAuction:
         if self.settings['any_canceled'] and self.is_done():
             self.settings['any_canceled'] = False
             self.house.redo_canceled_listings(self)
-        if self.should_save():
+        if self.should_save() or self.is_new():
             await self.save()
 
     async def delete(self):
@@ -402,6 +405,7 @@ class BasicAuction:
             message = None
         return {
             'id': self._id,
+            'name': self.name,
             'type': self._type,
             'server': self.house.server.id,
             'listings': [li.to_json() for li in self.listings],
@@ -416,6 +420,7 @@ class BasicAuction:
             raise IdMismatchError('Id does not match current server')
         channel = house.server.guild.get_channel(data['channel'])
         auction = cls(house, channel)
+        auction.name = data['name']
         if data['type'] != auction._type:
             raise ValueError(f'{auction._type} is not of type {data["type"]}')
         auction.settings = {**auction._default_settings, **data['settings']}
@@ -473,6 +478,7 @@ class GroupAuction(BasicAuction):
     async def run(self):
         summary = self.get_summary()
         summary = f'**{self.name}**\n{summary}'
+        await super().run()
         if datetime.now().astimezone() < self.start_time:
             return
         view = GroupAuctionView(self)
@@ -489,7 +495,6 @@ class GroupAuction(BasicAuction):
         if new:
             for i, listing in enumerate(self.listings):
                 listing.create_run_task(self.bid_update_list[i])
-        await super().run()
 
 
 class RotatingAuction(BasicAuction):
@@ -553,6 +558,7 @@ class RotatingAuction(BasicAuction):
                 self.message = await self.message.fetch()
             else:
                 await self.message.edit(embed=self.get_schedule_embed())
+        await super().run()
         if now < self.start_time:
             return  # Avoid looping before the auction is even ready.
         for i, listing in enumerate(self.listings):
@@ -572,7 +578,6 @@ class RotatingAuction(BasicAuction):
                     self.detail_messages[listing.horse_id] = message
                     self.bid_update_list[i].append(message)
                     listing.create_run_task(self.bid_update_list[i])
-            await super().run()
 
 
 class AuctionHouse:
@@ -715,6 +720,8 @@ class AuctionHouse:
             auctions_data = await self.server.bot.helios_http.get_auction(
                 server=self.server.id
             )
+            if auctions_data is None:
+                auctions_data = []
         for data in auctions_data:
             if data['type'] == 'rotating':
                 a = RotatingAuction.from_json(self, data)

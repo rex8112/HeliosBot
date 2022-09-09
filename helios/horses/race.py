@@ -774,6 +774,17 @@ class Race(HasSettings):
                         discord.NotFound):
                     ...
 
+    async def cancel(self):
+        self.phase = 4
+        embed = discord.Embed(
+            colour=discord.Colour.red(),
+            title=f'{self.name} Cancelled',
+            description=(f'This race only had {len(self.horses)} horses '
+                         'available to race and so it will not be finished.')
+        )
+        await self.send_or_edit_message(embed=embed)
+        await self.save()
+
     async def run(self):
         cont = True
         view = None
@@ -816,19 +827,12 @@ class Race(HasSettings):
                     new_horses = random.sample(
                         horses,
                         k=min([delta, len(horses)]))
-                    # If there were not enough qualified horses, say fuck it
-                    if len(new_horses) < remaining_horses:
-                        new_horses.extend(
-                            random.sample(
-                                list(filter(
-                                    lambda x: x not in new_horses,
-                                    self.stadium.unowned_qualified_horses().values()
-                                )),
-                                k=remaining_horses - len(new_horses)
-                            )
-                        )
                     for h in new_horses:
                         self.horses.append(h)
+                    # If there were not enough qualified horses, say fuck it
+                    if len(self.horses) < self.max_horses // 2:
+                        await self.cancel()
+                        break
                 self.phase = 1
                 await self.save()
             elif self.phase == 1:
