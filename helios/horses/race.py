@@ -459,11 +459,19 @@ class Race(HasSettings):
         return False
 
     def _get_registration_embed(self) -> discord.Embed:
+        payout_structure = self.get_payout_structure()
+        payout_structure = [f'{x:%}' for x in payout_structure]
+        payout_structure = ', '.join(payout_structure)
         embed = discord.Embed(
             colour=discord.Colour.blue(),
             title=self.name + ' Registration',
             description='Betting will commence '
-                        f'<t:{int(self.betting_time.timestamp())}:R>'
+                        f'<t:{int(self.betting_time.timestamp())}:R>\n\n'
+                        f'Purse: **{self.purse:,}**\n'
+                        f'Stake to Enter: **{self.stake:,}**\n'
+                        f'Payout: {payout_structure}\n\n'
+                        f'Available Slots: {self.slots_left()}/'
+                        f'{self.max_horses}'
         )
         return embed
 
