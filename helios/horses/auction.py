@@ -420,6 +420,7 @@ class BasicAuction:
             raise IdMismatchError('Id does not match current server')
         channel = house.server.guild.get_channel(data['channel'])
         auction = cls(house, channel)
+        auction._id = data['id']
         auction.name = data['name']
         if data['type'] != auction._type:
             raise ValueError(f'{auction._type} is not of type {data["type"]}')

@@ -394,10 +394,9 @@ class Stadium(HasSettings):
                 day_of_week = now.weekday()
                 # On Friday, create Final Auction and Saturday Top Auction
                 if day_of_week == self.auction_house.DIE_AUCTION:
-                    horses = self.not_qualified_horses()
                     tasks = []
                     final_horses = []
-                    for horse in horses.values():
+                    for horse in self.horses.values():
                         if not horse.get_flag('QUALIFIED'):
                             horse.set_flag('PENDING', True)
                             final_horses.append(horse)
