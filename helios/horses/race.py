@@ -780,8 +780,13 @@ class Race(HasSettings):
             colour=discord.Colour.red(),
             title=f'{self.name} Cancelled',
             description=(f'This race only had {len(self.horses)} horses '
-                         'available to race and so it will not be finished.')
+                         'available to race and so it will not be finished. '
+                         'All stakes have been paid back.')
         )
+        for horse in self.horses:
+            if horse.owner:
+                horse.owner.points += self.stake
+                await horse.owner.save()
         await self.send_or_edit_message(embed=embed)
         await self.save()
 
