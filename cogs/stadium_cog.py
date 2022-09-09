@@ -63,18 +63,35 @@ class StadiumCog(commands.Cog):
         if horse:
             owner_id = (horse.owner.member.id
                         if horse.owner else horse.stadium.owner.id)
-            win, loss = server.stadium.get_win_loss(horse.records)
-            info = (f'Owner: <@{owner_id}>\n'
-                    f'Record: {win}W/{loss}L\n'
-                    f'Breed: {horse.breed.name}\n'
-                    f'Gender: {horse.gender}\n'
-                    f'Age: {horse.age}')
+            info = f'Owner: <@{owner_id}>\n'
+            if owner_id == interaction.user.id:
+                results = server.stadium.get_win_place_show_loss(horse.records)
+                info += (f'Record: {results[0]}W/{results[1]}P/'
+                         f'{results[2]}S/{results[3]}/L\n')
+            else:
+                win, loss = server.stadium.get_win_loss(horse.records)
+                info += f'Record: {win}W/{loss}L\n'
+            info += (f'Breed: {horse.breed.name}\n'
+                     f'Gender: {horse.gender}\n'
+                     f'Age: {horse.age}')
+            embeds = []
             embed = discord.Embed(
                 colour=discord.Colour.orange(),
                 title=horse.name,
                 description=info
             )
-            await interaction.response.send_message(embed=embed,
+            embeds.append(embed)
+            if horse.get_flag('DELETE'):
+                embed2 = discord.Embed(
+                    colour=discord.Colour.red(),
+                    title='PENDING DELETION',
+                    description=('This horse is being prepared to be '
+                                 '"let go." If you believe this is in error '
+                                 'please contact rex8112#1200 immediately as '
+                                 'the horse has limited time remaining.')
+                )
+                embeds.append(embed2)
+            await interaction.response.send_message(embeds=embeds,
                                                     ephemeral=True)
         else:
             await interaction.response.send_message('Horse not found',
