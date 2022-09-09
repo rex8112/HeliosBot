@@ -527,6 +527,7 @@ class RotatingAuction(BasicAuction):
         index = 1
         for listing in self.listings:
             duration = self.settings['duration']
+            listing.settings['min_bid'] = 1000
             end = self.start_time + timedelta(seconds=duration * index)
             listing.end_time = end
             index += 1
