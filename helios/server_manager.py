@@ -44,6 +44,7 @@ class ServerManager:
             await asyncio.sleep(60)
 
     async def setup(self):
+        await self.bot.wait_until_ready()
         start_time = time.time()
         tasks = []
         server_data = await self.bot.helios_http.get_server()
