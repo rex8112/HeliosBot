@@ -988,7 +988,7 @@ class Race(HasSettings):
                                                                view=view)
             await self.save()
         else:
-            if isinstance(self.message, discord.PartialMessage):
+            if type(self.message) == discord.PartialMessage:
                 self.settings['message'] = await self.message.fetch()
             try:
                 await self.message.edit(content=content, embed=embed,

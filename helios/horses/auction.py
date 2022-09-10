@@ -486,7 +486,7 @@ class GroupAuction(BasicAuction):
         view = GroupAuctionView(self)
         new = False
         if self.message:
-            if isinstance(self.message, discord.PartialMessage):
+            if type(self.message) == discord.PartialMessage:
                 self.message = await self.message.fetch()
                 new = True
             if self.is_done():
@@ -560,7 +560,7 @@ class RotatingAuction(BasicAuction):
             if self.message is None:
                 self.message = await self.channel.send(
                     embed=self.get_schedule_embed())
-            elif isinstance(self.message, discord.PartialMessage):
+            elif type(self.message) == discord.PartialMessage:
                 self.message = await self.message.fetch()
             else:
                 await self.message.edit(embed=self.get_schedule_embed())
@@ -578,7 +578,7 @@ class RotatingAuction(BasicAuction):
                     self.detail_messages[listing.horse_id] = message
                     self.bid_update_list[i].append(message)
                     listing.create_run_task(self.bid_update_list[i])
-                elif isinstance(message, discord.PartialMessage):
+                elif type(message) == discord.PartialMessage:
                     message = await message.fetch()
                     listing.new_bid = True
                     self.detail_messages[listing.horse_id] = message
