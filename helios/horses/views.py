@@ -83,7 +83,7 @@ class PreRaceView(discord.ui.View):
                        disabled=True)
     async def register(self, interaction: discord.Interaction,
                        button: discord.ui.Button):
-        # Show register view, wait for its completion, fill values
+        # Show register _view, wait for its completion, fill values
         member = self.race.stadium.server.members.get(interaction.user.id)
         horses = {}
         for key, horse in member.horses.items():
@@ -94,6 +94,7 @@ class PreRaceView(discord.ui.View):
                 'You do not currently have any qualifying horses.',
                 ephemeral=True
             )
+            return
         view = HorsePickerView(self.race, horses)
         content = (f'Entry Cost: **{self.race.stake:,}**\n'
                    f'Your Points: **{member.points:,}**')
@@ -104,10 +105,24 @@ class PreRaceView(discord.ui.View):
         if horse is None:
             return
         if self.race.slots_left() < 1:
-            await message.edit(content='All slots have been filled', view=None)
+            await interaction.edit_original_response(content='All slots have '
+                                                             'been filled',
+                                                     view=None)
             return
+        if member.points < self.race.stake:
+            await interaction.edit_original_response(
+                content=f'You need **{self.race.stake:,}** '
+                        f'points to register in this race.',
+                view=None
+            )
+            return
+        member.points -= self.race.stake
+        await member.save()
         await self.race.add_horse(horse)
-        await message.edit(content=f'{horse.name} added to race!', view=None)
+        await self.race.update_embed()
+        await interaction.edit_original_response(content=f'{horse.name} added '
+                                                         f'to race!',
+                                                 view=None)
 
     @discord.ui.button(label='Math is Hard', style=discord.ButtonStyle.red,
                        disabled=True, row=1)

@@ -327,6 +327,7 @@ class Race(HasSettings):
         self._can_run_event = asyncio.Event()
         self._can_run_event.set()  # Start true like setting
 
+        self._view = None
         self._task = None
 
     @property
@@ -458,12 +459,20 @@ class Race(HasSettings):
             return not horse.is_maiden()
         return False
 
-    def _get_registration_embed(self) -> discord.Embed:
+    def get_registration_embed(self) -> discord.Embed:
+        payout_structure = self.get_payout_structure()
+        payout_structure = [f'{x:.0%}' for x in payout_structure]
+        payout_structure = ', '.join(payout_structure)
         embed = discord.Embed(
             colour=discord.Colour.blue(),
             title=self.name + ' Registration',
             description='Betting will commence '
-                        f'<t:{int(self.betting_time.timestamp())}:R>'
+                        f'<t:{int(self.betting_time.timestamp())}:R>\n\n'
+                        f'Purse: **{self.purse:,}**\n'
+                        f'Stake to Enter: **{self.stake:,}**\n'
+                        f'Payout: {payout_structure}\n\n'
+                        f'Available Slots: {self.slots_left()}/'
+                        f'{self.max_horses}'
         )
         return embed
 
@@ -679,7 +688,7 @@ class Race(HasSettings):
     def slots_left(self):
         left = self.max_horses
         for horse in self.horses:
-            if horse.owner is None:
+            if horse.owner is not None:
                 left -= 1
         return left
 
@@ -735,8 +744,8 @@ class Race(HasSettings):
             self.horses.append(horse)
         else:
             index_to_pop = None
-            for i, horse in enumerate(self.horses):
-                if horse.owner is None:
+            for i, h in enumerate(self.horses):
+                if h.owner is None:
                     index_to_pop = i
                     break
             if index_to_pop is None:
@@ -780,25 +789,29 @@ class Race(HasSettings):
             colour=discord.Colour.red(),
             title=f'{self.name} Cancelled',
             description=(f'This race only had {len(self.horses)} horses '
-                         'available to race and so it will not be finished.')
+                         'available to race and so it will not be finished. '
+                         'All stakes have been paid back.')
         )
+        for horse in self.horses:
+            if horse.owner:
+                horse.owner.points += self.stake
+                await horse.owner.save()
         await self.send_or_edit_message(embed=embed)
         await self.save()
 
     async def run(self):
         cont = True
-        view = None
         last_tick = None
         if self.phase != 3:
             await self.save()
         await self._can_run_event.wait()
         while cont:
             if self.phase == 0:
-                if view is None:
-                    view = PreRaceView(self)
-                view.check_race_status()
+                if self._view is None:
+                    self._view = PreRaceView(self)
+                self._view.check_race_status()
                 await self.send_or_edit_message(
-                    embed=self._get_registration_embed(), view=view)
+                    embed=self.get_registration_embed(), view=self._view)
 
                 if not self.thread:
                     if self.settings['type'] == 'basic':
@@ -837,9 +850,9 @@ class Race(HasSettings):
                 await self.save()
             elif self.phase == 1:
                 # Registration complete, commence betting
-                if view is None:
-                    view = PreRaceView(self)
-                view.check_race_status()
+                if self._view is None:
+                    self._view = PreRaceView(self)
+                self._view.check_race_status()
                 if len(self.bets) == 0:
                     t = self.settings['type']
                     if t == 'maiden':
@@ -853,14 +866,14 @@ class Race(HasSettings):
                     self.inflate_bets(amt)
                     await self.save()
                 await self.send_or_edit_message(embed=self.get_betting_embed(),
-                                                view=view)
+                                                view=self._view)
                 if self.time_until_race > datetime.timedelta(seconds=0):
                     wait_for = self.time_until_race.total_seconds()
                     if wait_for > 0:
                         await asyncio.sleep(wait_for)
                 self.phase = 2
                 await self.save()
-                view = None
+                self._view = None
             elif self.phase == 2:
                 # RACE TIME
                 if self.race is None:
@@ -957,6 +970,15 @@ class Race(HasSettings):
                     self.stadium.races.remove(self)
                     await self.stadium.save()
                 cont = False
+
+    async def update_embed(self):
+        if self.phase == 0:
+            embed = self.get_registration_embed()
+        elif self.phase == 1:
+            embed = self.get_betting_embed()
+        else:
+            embed = self._get_race_embed()
+        await self.send_or_edit_message(embed=embed, view=self._view)
 
     async def send_or_edit_message(self, content=None, *, embed=None,
                                    view=None):
