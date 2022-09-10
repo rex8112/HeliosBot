@@ -67,7 +67,7 @@ class StadiumCog(commands.Cog):
             if owner_id == interaction.user.id:
                 results = server.stadium.get_win_place_show_loss(horse.records)
                 info += (f'Record: {results[0]}W/{results[1]}P/'
-                         f'{results[2]}S/{results[3]}/L\n')
+                         f'{results[2]}S/{results[3]}L\n')
             else:
                 win, loss = server.stadium.get_win_loss(horse.records)
                 info += f'Record: {win}W/{loss}L\n'
