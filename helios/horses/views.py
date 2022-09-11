@@ -201,6 +201,11 @@ class ListingView(discord.ui.View):
                  f'try again. Consider using set bet if this keeps happening'),
                 ephemeral=True
             )
+        elif member.points < self.bid_amount:
+            await interaction.response.send_message(
+                f'You do not have the available funds!',
+                ephemeral=True
+            )
         else:
             await interaction.response.defer()
             self.listing.bid(member, self.bid_amount)
