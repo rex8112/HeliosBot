@@ -208,6 +208,13 @@ class ListingView(discord.ui.View):
             )
         else:
             await interaction.response.defer()
+            highest = self.listing.get_highest_bidder()
+            if highest.bidder_id != member.id:
+                other = self.server.members.get(highest.bidder_id)
+                if other:
+                    await other.member.send(f'{interaction.user.name} has '
+                                            'outbid you on '
+                                            f'{self.listing.horse.name}!')
             self.listing.bid(member, self.bid_amount)
 
     @discord.ui.button(label='Set Bid', style=discord.ButtonStyle.gray)
