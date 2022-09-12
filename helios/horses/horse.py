@@ -176,6 +176,10 @@ class Horse(HasSettings, HasFlags):
     def is_maiden(self):
         return self.get_flag('MAIDEN')
 
+    def make_qualified(self):
+        self.set_flag('QUALIFIED', True)
+        self.clear_basic_records()
+
     def clear_basic_records(self):
         self.records = list(filter(lambda x: x.race_type != 'basic',
                                    self.records))

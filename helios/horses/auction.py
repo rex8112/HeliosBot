@@ -222,7 +222,7 @@ class HorseListing:
                                 horse = self.horse
                                 mem.points -= highest.amount
                                 horse.owner = mem
-                                horse.set_flag('QUALIFIED', True)
+                                horse.make_qualified()
                                 horse.set_flag('PENDING', False)
                                 await mem.save()
                                 try:
