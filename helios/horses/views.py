@@ -258,7 +258,7 @@ class GroupAuctionView(discord.ui.View):
                                      self.auction.listings)
         try:
             channel_ids = [x.channel.id for x in listing.update_list]
-            if interaction.user.dm_channel.id in channel_ids:
+            if interaction.user.id in channel_ids:
                 await interaction.response.send_message(
                     f'You already have a detailed listing in our DMs',
                     ephemeral=True
