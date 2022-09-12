@@ -446,15 +446,7 @@ class Race(HasSettings):
         if race_type == 'maiden':
             return horse.is_maiden()
         elif race_type == 'stake':
-            if not horse.is_maiden():
-                return True
-            earnings = 0
-            for rec in horse.records:
-                # If you won top three in up to two races, roughly
-                earnings += rec.earnings
-                if earnings >= 300:
-                    return True
-            return False
+            return True
         elif race_type == 'listed':
             return not horse.is_maiden()
         return False

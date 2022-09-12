@@ -96,7 +96,7 @@ class Event:
         race.can_run = False
         race.name = f'{self.name} Race {index}: Maiden Race'
         race.settings['purse'] = 1100
-        race.settings['stake'] = int(1100 * 0.1)
+        race.settings['stake'] = int(1100 * 0.05)
         return race
 
     def create_stake_race(self, race_time: datetime.datetime, index):
@@ -104,7 +104,7 @@ class Event:
         race.can_run = False
         race.name = f'{self.name} Race {index}: Stakes Race'
         race.settings['purse'] = 1500
-        race.settings['stake'] = int(1500 * 0.1)
+        race.settings['stake'] = int(1500 * 0.05)
         return race
 
     def create_listed_race(self, race_time: datetime.datetime, index):
@@ -112,7 +112,7 @@ class Event:
         race.can_run = False
         race.name = f'{self.name} Race {index}: Listed Stakes Race'
         race.settings['purse'] = 2000
-        race.settings['stake'] = int(2000 * 0.1)
+        race.settings['stake'] = int(2000 * 0.05)
         return race
 
     async def announce_event(self):
