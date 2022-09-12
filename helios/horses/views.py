@@ -89,7 +89,7 @@ class PreRaceView(discord.ui.View):
         member = self.race.stadium.server.members.get(interaction.user.id)
         horses = {}
         owners = [h.owner for h in self.race.horses]
-        if member in owners:
+        if member in owners and self.race.is_restricted():
             await interaction.response.send_message(
                 'You can only have one horse in a race.',
                 ephemeral=True

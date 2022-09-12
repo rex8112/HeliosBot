@@ -383,6 +383,11 @@ class Race(HasSettings):
         return self.settings['race_time']
 
     @property
+    def restrict_time(self) -> datetime.datetime:
+        duration = int(self.settings['betting_time'] * 0.1)
+        return self.race_time - datetime.timedelta(seconds=duration)
+
+    @property
     def betting_time(self) -> datetime.datetime:
         return self.race_time - datetime.timedelta(
             seconds=self.settings['betting_time'])
@@ -464,7 +469,9 @@ class Race(HasSettings):
                         f'Stake to Enter: **{self.stake:,}**\n'
                         f'Payout: {payout_structure}\n\n'
                         f'Available Slots: {self.slots_left()}/'
-                        f'{self.max_horses}'
+                        f'{self.max_horses}\n\n'
+                        f'Restrictions end '
+                        f'<t:{self.restrict_time.timestamp()}:R>'
         )
         return embed
 
@@ -652,6 +659,10 @@ class Race(HasSettings):
                 winning = bet.amount * odds
                 return int(winning) + bet.amount
             return 0
+
+    def is_restricted(self) -> bool:
+        now = datetime.datetime.now().astimezone()
+        return now < self.restrict_time
 
     def is_running(self) -> bool:
         if self._task:
