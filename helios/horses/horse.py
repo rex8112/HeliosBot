@@ -1,7 +1,9 @@
 import datetime
 import math
 import random
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, List
+
+import discord
 
 from .breed import Breed
 from .stats import StatContainer, Stat
@@ -131,6 +133,40 @@ class Horse(HasSettings, HasFlags):
         h = cls(stadium)
         h._deserialize(data)
         return h
+
+    def get_inspect_embeds(self, *,
+                           is_owner: bool = False) -> List[discord.Embed]:
+        owner_id = (self.owner.member.id
+                    if self.owner else self.stadium.owner.id)
+        info = f'Owner: <@{owner_id}>\n'
+        if is_owner:
+            results = self.stadium.get_win_place_show_loss(self.records)
+            info += (f'Record: {results[0]}W/{results[1]}P/'
+                     f'{results[2]}S/{results[3]}L\n')
+        else:
+            win, loss = self.stadium.get_win_loss(self.records)
+            info += f'Record: {win}W/{loss}L\n'
+        info += (f'Breed: {self.breed.name}\n'
+                 f'Gender: {self.gender}\n'
+                 f'Age: {self.age}')
+        embeds = []
+        embed = discord.Embed(
+            colour=discord.Colour.orange(),
+            title=self.name,
+            description=info
+        )
+        embeds.append(embed)
+        if self.get_flag('DELETE'):
+            embed2 = discord.Embed(
+                colour=discord.Colour.red(),
+                title='PENDING DELETION',
+                description=('This horse is being prepared to be '
+                             '"let go." If you believe this is in error '
+                             'please contact rex8112#1200 immediately as '
+                             'the horse has limited time remaining.')
+            )
+            embeds.append(embed2)
+        return embeds
 
     def pay(self, amount: float):
         owner = self.owner

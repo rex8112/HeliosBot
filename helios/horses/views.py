@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Dict
 import discord
 
 from .enumerations import BetType
-from .modals import SetBidModal
+from .modals import SetBidModal, NameChangeModal
 from ..modals import BetModal
 from ..views import YesNoView
 
@@ -328,7 +328,7 @@ class HorseOwnerView(discord.ui.View):
     async def change_name(self, interaction: discord.Interaction,
                           button: discord.Button):
         if self.horse.is_maiden():
-            ...  # TODO: Send NameChangeModal
+            await interaction.response.send_modal(NameChangeModal(self.horse))
         else:
             await interaction.response.send_message(f'{self.horse.name} can no'
                                                     f' longer have their name'
