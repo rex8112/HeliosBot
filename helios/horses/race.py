@@ -461,6 +461,11 @@ class Race(HasSettings):
         payout_structure = self.get_payout_structure()
         payout_structure = [f'{x:.0%}' for x in payout_structure]
         payout_structure = ', '.join(payout_structure)
+        if self.settings['betting_time'] >= self.settings['restrict_time']:
+            restriction = ''
+        else:
+            restriction = (f'Restrictions end '
+                           f'<t:{self.restrict_time.timestamp()}:R>')
         embed = discord.Embed(
             colour=discord.Colour.blue(),
             title=self.name + ' Registration',
@@ -471,8 +476,7 @@ class Race(HasSettings):
                         f'Payout: {payout_structure}\n\n'
                         f'Available Slots: {self.slots_left()}/'
                         f'{self.max_horses}\n\n'
-                        f'Restrictions end '
-                        f'<t:{self.restrict_time.timestamp()}:R>'
+                        f'{restriction}'
         )
         return embed
 
