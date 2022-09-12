@@ -237,11 +237,7 @@ class HorseListing:
                 remove = []
                 self.auction.changed = True
                 for i, message in enumerate(self.update_list):
-                    thirty_minutes = (datetime.now().astimezone()
-                                      - timedelta(minutes=30))
-                    expired = (isinstance(message.channel, discord.DMChannel)
-                               and message.created_at < thirty_minutes)
-                    if self.active and not expired:
+                    if self.active:
                         tasks.append(message.edit(embed=self.get_embed(),
                                                   view=ListingView(self)))
                     else:
