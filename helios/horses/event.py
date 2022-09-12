@@ -186,7 +186,8 @@ class Event:
             race = self.create_maiden_race(start_time, index)
             index += 1
             delta = start_time - self.betting_time
-            race.settings['betting_time'] = delta.seconds
+            race.settings['betting_time'] = delta.total_seconds()
+            race.settings['restrict_time'] = delta.total_seconds() + 60 * 60
             race.settings['max_horses'] = 12
             races.append(race)
             start_time = start_time + datetime.timedelta(
@@ -196,7 +197,9 @@ class Event:
             race = self.create_stake_race(start_time, index)
             index += 1
             delta = start_time - self.betting_time
-            race.settings['betting_time'] = delta.seconds
+            race.settings['betting_time'] = delta.total_seconds()
+            race.settings['restrict_time'] = delta.total_seconds() + 60 * 60
+            race.settings['max_horses'] = 12
             races.append(race)
             start_time = start_time + datetime.timedelta(
                 minutes=self.settings['buffer'])
@@ -205,7 +208,9 @@ class Event:
             race = self.create_listed_race(start_time, index)
             index += 1
             delta = start_time - self.betting_time
-            race.settings['betting_time'] = delta.seconds
+            race.settings['betting_time'] = delta.total_seconds()
+            race.settings['restrict_time'] = delta.total_seconds() + 60 * 60
+            race.settings['max_horses'] = 12
             races.append(race)
             start_time = start_time + datetime.timedelta(
                 minutes=self.settings['buffer'])

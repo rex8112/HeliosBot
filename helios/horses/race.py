@@ -311,6 +311,7 @@ class Race(HasSettings):
         'type': 'basic',
         'race_time': datetime.datetime.now().astimezone(),
         'betting_time': 5 * 60,
+        'restrict_time': 5 * 60,
         'phase': 0,
         'can_run': True
     }
@@ -384,8 +385,8 @@ class Race(HasSettings):
 
     @property
     def restrict_time(self) -> datetime.datetime:
-        duration = int(self.settings['betting_time'] * 0.1)
-        return self.race_time - datetime.timedelta(seconds=duration)
+        duration = datetime.timedelta(seconds=self.settings['restrict_time'])
+        return self.race_time - duration
 
     @property
     def betting_time(self) -> datetime.datetime:
