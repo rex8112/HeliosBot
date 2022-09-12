@@ -206,6 +206,11 @@ class ListingView(discord.ui.View):
                 f'You do not have the available funds!',
                 ephemeral=True
             )
+        elif not self.listing.can_bid(member, self.bid_amount):
+            await interaction.response.send_message(
+                f'You have achieved the maximum allowed horses.',
+                ephemeral=True
+            )
         else:
             await interaction.response.defer()
             highest = self.listing.get_highest_bidder()
