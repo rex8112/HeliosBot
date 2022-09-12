@@ -146,12 +146,17 @@ class HorseListing:
                   f'<@{bid.bidder_id}>.\n')
         else:
             cb = ''
+        time_string = f'<t:{int(self.end_time.timestamp())}:R>\n'
+        if not self.active:
+            winner = self.get_highest_allowed_bid()
+            cb = f'Winning Bid: {winner.amount:,} by <@{winner.bidder_id}>.\n'
+            time_string = '**Finished**\n'
         embed.add_field(name='Auction Info',
                         value=(
                             f'{cb}'
                             f'Buyout: {self.settings.get("max_bid", None)}\n'
                             f'Time Left: '
-                            f'<t:{int(self.end_time.timestamp())}:R>\n'
+                            f'{time_string}'
                         ))
         return embed
 
@@ -161,8 +166,6 @@ class HorseListing:
         return self.bids[-1]
 
     def get_highest_allowed_bid(self) -> Optional[Bid]:
-        if len(self.bids) < 1:
-            raise ValueError('Bids must not be empty')
         server = self.auction.stadium.server
         for bid in reversed(self.bids):
             mem = server.members.get(bid.bidder_id)
@@ -241,7 +244,8 @@ class HorseListing:
                         tasks.append(message.edit(embed=self.get_embed(),
                                                   view=ListingView(self)))
                     else:
-                        tasks.append(message.edit(embed=self.get_embed()))
+                        tasks.append(message.edit(embed=self.get_embed(),
+                                                  view=None))
                         remove.append(message)
 
                 if len(tasks) > 0:
@@ -377,8 +381,13 @@ class BasicAuction:
                 bid = listing.settings['min_bid']
             if buyout is None:
                 buyout = 0
+            duration = f'in {hours:3} hours'
+            if listing.canceled:
+                duration = 'cancelled   '
+            elif listing.done:
+                duration = 'finished    '
             line = (f'{i:03} | {horse.name:26} | {bid:9,} | '
-                    f'{buyout:9,} | in {hours:3} hours\n')
+                    f'{buyout:9,} | {duration}\n')
             summary += line
         summary += '```'
         return summary

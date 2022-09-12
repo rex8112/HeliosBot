@@ -32,6 +32,12 @@ class SetBidModal(ui.Modal):
                 ephemeral=True
             )
             return
+        elif not self.listing.can_bid(self.member, amount):
+            await interaction.response.send_message(
+                f'You have achieved the maximum allowed horses.',
+                ephemeral=True
+            )
+            return
         if amount < cur_bid:
             await interaction.response.send_message(
                 f'You must bid at least **{cur_bid:,}** points.',
