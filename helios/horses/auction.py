@@ -119,6 +119,11 @@ class HorseListing:
     def end_time(self, value: datetime):
         self.settings['end_time'] = value.isoformat()
 
+    @staticmethod
+    def can_bid(member: 'HeliosMember', amount: int) -> bool:
+        return (len(member.horses) < member.max_horses
+                and member.points >= amount)
+
     def get_embed(self):
         horse = self.horse
         desc = ''
@@ -141,12 +146,17 @@ class HorseListing:
                   f'<@{bid.bidder_id}>.\n')
         else:
             cb = ''
+        time_string = f'<t:{int(self.end_time.timestamp())}:R>\n'
+        if not self.active:
+            winner = self.get_highest_allowed_bid()
+            cb = f'Winning Bid: {winner.amount:,} by <@{winner.bidder_id}>.\n'
+            time_string = '**Finished**\n'
         embed.add_field(name='Auction Info',
                         value=(
                             f'{cb}'
                             f'Buyout: {self.settings.get("max_bid", None)}\n'
                             f'Time Left: '
-                            f'<t:{int(self.end_time.timestamp())}:R>\n'
+                            f'{time_string}'
                         ))
         return embed
 
@@ -155,16 +165,14 @@ class HorseListing:
             raise ValueError('Bids must not be empty')
         return self.bids[-1]
 
-    def get_highest_allowed_bid(self) -> Bid:
-        if len(self.bids) < 1:
-            raise ValueError('Bids must not be empty')
+    def get_highest_allowed_bid(self) -> Optional[Bid]:
         server = self.auction.stadium.server
         for bid in reversed(self.bids):
             mem = server.members.get(bid.bidder_id)
             if mem:
-                if bid.amount <= mem.points:
+                if self.can_bid(mem, bid.amount):
                     return bid
-        return self.bids[0]
+        return None
 
     def get_highest_bidder_time(self) -> datetime:
         if len(self.bids) > 0:
@@ -206,23 +214,25 @@ class HorseListing:
                     self.horse.likes = 0
                     if len(self.bids) > 0:
                         highest = self.get_highest_allowed_bid()
-                        mem = self.auction.stadium.server.members.get(
-                            highest.bidder_id
-                        )
-                        if mem.points >= highest.amount:
-                            horse = self.horse
-                            mem.points -= highest.amount
-                            horse.owner = mem
-                            horse.set_flag('QUALIFIED', True)
-                            horse.set_flag('PENDING', False)
-                            await mem.save()
-                            try:
-                                await mem.member.send(
-                                    f'You have purchased **{horse.name}** for'
-                                    f' **{highest.amount:,}** points'
-                                )
-                            except (discord.HTTPException, discord.Forbidden):
-                                ...
+                        if highest is not None:
+                            mem = self.auction.stadium.server.members.get(
+                                highest.bidder_id
+                            )
+                            if mem.points >= highest.amount:
+                                horse = self.horse
+                                mem.points -= highest.amount
+                                horse.owner = mem
+                                horse.set_flag('QUALIFIED', True)
+                                horse.set_flag('PENDING', False)
+                                await mem.save()
+                                try:
+                                    await mem.member.send(
+                                        f'You have purchased **{horse.name}** '
+                                        f'for **{highest.amount:,}** points'
+                                    )
+                                except (discord.HTTPException,
+                                        discord.Forbidden):
+                                    ...
                     self.horse.set_flag('NEW', False)
                     await self.horse.save()
                     self.done = True
@@ -230,15 +240,12 @@ class HorseListing:
                 remove = []
                 self.auction.changed = True
                 for i, message in enumerate(self.update_list):
-                    thirty_minutes = (datetime.now().astimezone()
-                                      - timedelta(minutes=30))
-                    expired = (isinstance(message.channel, discord.DMChannel)
-                               and message.created_at < thirty_minutes)
-                    if self.active and not expired:
+                    if self.active:
                         tasks.append(message.edit(embed=self.get_embed(),
                                                   view=ListingView(self)))
                     else:
-                        tasks.append(message.edit(embed=self.get_embed()))
+                        tasks.append(message.edit(embed=self.get_embed(),
+                                                  view=None))
                         remove.append(message)
 
                 if len(tasks) > 0:
@@ -374,8 +381,13 @@ class BasicAuction:
                 bid = listing.settings['min_bid']
             if buyout is None:
                 buyout = 0
+            duration = f'in {hours:3} hours'
+            if listing.canceled:
+                duration = 'cancelled   '
+            elif listing.done:
+                duration = 'finished    '
             line = (f'{i:03} | {horse.name:26} | {bid:9,} | '
-                    f'{buyout:9,} | in {hours:3} hours\n')
+                    f'{buyout:9,} | {duration}\n')
             summary += line
         summary += '```'
         return summary

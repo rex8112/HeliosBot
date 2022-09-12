@@ -30,6 +30,8 @@ class HeliosMember(HasFlags, HasSettings):
         self.settings = self._default_settings.copy()
         self.flags = []
 
+        self.max_horses = 8
+
         self._last_check = get_floor_now()
         self._partial = 0
         self._changed = False
