@@ -721,14 +721,15 @@ class Race(HasSettings):
         return race
 
     def get_payout_structure(self) -> list[float]:
-        if self.max_horses == 6:
-            structure = [.6, .2, .13, .05, .01, .01]
-        else:  # self.max_horses == 12:
-            structure = [.6, .18, .1, .04]
-            amount_to_spread = .01
-            for _ in range(12 - len(structure)):
-                structure.append(amount_to_spread)
-
+        structure = [.6, .2, .1, .05, .025]
+        remainder = 0.025
+        remainder_horses = self.max_horses - 5
+        if remainder_horses > 0:
+            per_horse = remainder / remainder_horses
+            per_horse = math.floor(per_horse * 10000) / 10000
+            per_horse = round(per_horse, 4)
+            for _ in range(remainder_horses):
+                structure.append(per_horse)
         return structure
 
     def get_payout_amount(self, structure: list[float]) -> list[float]:
