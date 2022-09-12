@@ -122,7 +122,7 @@ class HorseListing:
     @staticmethod
     def can_bid(member: 'HeliosMember', amount: int) -> bool:
         return (len(member.horses) < member.max_horses
-                and member.points <= amount)
+                and member.points >= amount)
 
     def get_embed(self):
         horse = self.horse

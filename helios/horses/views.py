@@ -203,7 +203,7 @@ class ListingView(discord.ui.View):
             )
         elif member.points < self.bid_amount:
             await interaction.response.send_message(
-                f'You do not have the available funds!',
+                f'You only have **{member.points:,}** points!',
                 ephemeral=True
             )
         elif not self.listing.can_bid(member, self.bid_amount):
@@ -213,13 +213,14 @@ class ListingView(discord.ui.View):
             )
         else:
             await interaction.response.defer()
-            highest = self.listing.get_highest_bidder()
-            if highest.bidder_id != member.id:
-                other = self.server.members.get(highest.bidder_id)
-                if other:
-                    await other.member.send(f'{interaction.user.name} has '
-                                            'outbid you on '
-                                            f'{self.listing.horse.name}!')
+            if len(self.listing.bids) > 0:
+                highest = self.listing.get_highest_bidder()
+                if highest.bidder_id != member.id:
+                    other = self.server.members.get(highest.bidder_id)
+                    if other:
+                        await other.member.send(f'{interaction.user.name} has '
+                                                'outbid you on '
+                                                f'{self.listing.horse.name}!')
             self.listing.bid(member, self.bid_amount)
 
     @discord.ui.button(label='Set Bid', style=discord.ButtonStyle.gray)
@@ -256,6 +257,13 @@ class GroupAuctionView(discord.ui.View):
         listing = discord.utils.find(lambda x: x.horse_id == selected_horse,
                                      self.auction.listings)
         try:
+            channel_ids = [x.channel.id for x in listing.update_list]
+            if interaction.user.dm_channel.id in channel_ids:
+                await interaction.response.send_message(
+                    f'You already have a detailed listing in our DMs',
+                    ephemeral=True
+                )
+                return
             message = await interaction.user.send(embed=discord.Embed(
                 title='Building Listing'
             ))
