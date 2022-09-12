@@ -7,8 +7,10 @@ import discord
 from .enumerations import BetType
 from .modals import SetBidModal
 from ..modals import BetModal
+from ..views import YesNoView
 
 if TYPE_CHECKING:
+    from ..member import HeliosMember
     from .race import Race
     from .horse import Horse
     from .auction import HorseListing, GroupAuction
@@ -312,3 +314,50 @@ class GroupAuctionView(discord.ui.View):
     async def select_page(self, interaction: discord.Interaction,
                           select: discord.SelectMenu):
         ...
+
+
+class HorseOwnerView(discord.ui.View):
+    def __init__(self, owner: 'HeliosMember', horse: 'Horse'):
+        super().__init__(timeout=60)
+        self.owner = owner
+        self.horse = horse
+        if not self.horse.is_maiden():
+            self.change_name.disabled = True
+
+    @discord.ui.button(label='Change Name', style=discord.ButtonStyle.gray)
+    async def change_name(self, interaction: discord.Interaction,
+                          button: discord.Button):
+        if self.horse.is_maiden():
+            ...  # TODO: Send NameChangeModal
+        else:
+            await interaction.response.send_message(f'{self.horse.name} can no'
+                                                    f' longer have their name'
+                                                    f' changed.',
+                                                    ephemeral=True)
+
+    @discord.ui.button(label='Sell', style=discord.ButtonStyle.red)
+    async def sell_horse(self, interaction: discord.Interaction,
+                         button: discord.Button):
+        sell_price = 250
+        view = YesNoView(self.owner.member, timeout=10)
+        await interaction.response.send_message(f'Would you like to sell '
+                                                f'**{self.horse.name}** for '
+                                                f'**{sell_price:,}** points?',
+                                                view=view,
+                                                ephemeral=True)
+        await view.wait()
+        if view.value is None or view.value is False:
+            try:
+                await interaction.edit_original_response(view=None)
+            except (discord.Forbidden, discord.HTTPException,
+                    discord.NotFound):
+                ...
+            finally:
+                return
+        self.stop()
+        self.horse.owner = None
+        self.owner.points += sell_price
+        await self.horse.save()
+        await self.owner.save()
+        await self.owner.member.send(f'You have sold **{self.horse.name}** '
+                                     f'for **{sell_price:,}**!')

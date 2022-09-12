@@ -61,7 +61,10 @@ class Horse(HasSettings, HasFlags):
 
     @owner.setter
     def owner(self, value: 'HeliosMember'):
-        self.settings['owner'] = value.id
+        if value is not None:
+            self.settings['owner'] = value.id
+        else:
+            self.settings['owner'] = None
 
     @property
     def gender(self) -> str:
