@@ -415,8 +415,11 @@ class Stadium(HasSettings):
                     deletable_horses = self.deletable_horses()
                     for horse in deletable_horses.values():
                         await horse.delete()
+                    # On Monday, new weekly season. Create Sunday event.
+                    if day_of_week == 0:
+                        ...
                     # On Friday, create Final Auction and Saturday Top Auction
-                    if day_of_week == self.auction_house.DIE_AUCTION:
+                    elif day_of_week == self.auction_house.DIE_AUCTION:
                         tasks = []
                         final_horses = []
                         for horse in self.horses.values():
