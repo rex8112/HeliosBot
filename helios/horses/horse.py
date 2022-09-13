@@ -31,7 +31,8 @@ class Horse(HasSettings, HasFlags):
         'MAIDEN',
         'NEW',
         'PENDING',
-        'DELETE'
+        'DELETE',
+        'REGISTERED'
     ]
     base_stat = 10
 
@@ -108,6 +109,10 @@ class Horse(HasSettings, HasFlags):
         return self.breed.stat_multiplier['stamina'] * 500
 
     @property
+    def registered(self) -> bool:
+        return self.get_flag('REGISTERED')
+
+    @property
     def value(self) -> int:
         value = 500
         if self.get_flag('QUALIFIED'):
@@ -176,6 +181,15 @@ class Horse(HasSettings, HasFlags):
             )
             embeds.append(embed2)
         return embeds
+
+    def get_graded_earnings_since(self, date: datetime.date) -> int:
+        earnings = 0
+        for rec in self.records:
+            if rec.date < date:
+                continue
+            if rec.race_type in ['grade3', 'grade2', 'grade1']:
+                earnings += rec.earnings
+        return earnings
 
     def pay(self, amount: float):
         owner = self.owner

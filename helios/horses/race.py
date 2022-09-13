@@ -457,6 +457,23 @@ class Race(HasSettings):
             return True
         elif race_type == 'listed':
             return not horse.is_maiden()
+        elif race_type == 'grade3':
+            if horse.owner:
+                monday = datetime.datetime.now().astimezone()
+                monday = monday - datetime.timedelta(days=monday.weekday())
+                monday = monday.date()
+                for rec in horse.records:
+                    if (rec.race_type == 'grade3' and monday <= rec.date
+                            and rec.placing == 0):
+                        return False
+                return horse.registered
+            else:
+                return Race.check_qualification('listed', horse)
+        elif race_type == 'grade2':
+            if horse.owner:
+                return horse.registered
+            else:
+                return Race.check_qualification('listed', horse)
         return False
 
     def get_registration_embed(self) -> discord.Embed:
@@ -784,7 +801,7 @@ class Race(HasSettings):
                     title=f'{h.horse.name} Race Results',
                     description=(
                         f'[{self.name}]({self.message.jump_url})\n'
-                        f'Placed Position: {i+1}\n'
+                        f'Placed Position: {i + 1}\n'
                         f'Earnings: **{payout[i]:,}**\n'
                         f'Profit: **{payout[i] - self.stake:,}**'
                     )
