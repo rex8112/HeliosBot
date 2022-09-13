@@ -467,7 +467,7 @@ class Race(HasSettings):
             restriction = ''
         else:
             restriction = (f'Restrictions end '
-                           f'<t:{self.restrict_time.timestamp()}:R>')
+                           f'<t:{int(self.restrict_time.timestamp())}:R>')
         embed = discord.Embed(
             colour=discord.Colour.blue(),
             title=self.name + ' Registration',
