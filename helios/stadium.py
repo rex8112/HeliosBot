@@ -384,6 +384,8 @@ class Stadium(HasSettings):
                     continue
                 else:
                     r = Race.from_dict(self, rdata)
+                    if r.race_time < datetime.datetime.now().astimezone():
+                        r.skip = True
                     self.races.append(r)
                     r.create_run_task()
         await self.build_records(allow_basic=True)

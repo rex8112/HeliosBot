@@ -44,7 +44,7 @@ class Record:
         record.horse_id = horse.horse.id
         record.race_id = event_race.id
         record.race_type = event_race.settings['type']
-        record.earnings = earnings
+        record.earnings = int(earnings)
         record.placing = event_race.race.finished_horses.index(horse)
         return record
 
@@ -323,8 +323,10 @@ class Race(HasSettings):
         self.race: Optional[BasicRace] = None
         self.horses: list[Horse] = []
         self.bets: List[Bet] = []
-
         self.settings: RaceSettings = Race._default_settings.copy()
+
+        self.skip = False
+
         self._can_run_event = asyncio.Event()
         self._can_run_event.set()  # Start true like setting
 
@@ -508,7 +510,8 @@ class Race(HasSettings):
         )
         embed.add_field(name='Horses',
                         value=self.horse_list_string(show_odds=True))
-        embed.set_footer(text=f'Tick: {self.race.tick_number}')
+        if self.skip:
+            embed.set_footer(text=f'This race was skipped to ease rate limits')
 
         return embed
 
@@ -745,7 +748,7 @@ class Race(HasSettings):
         for p in structure:
             payout.append(round(self.purse * p, 2))
         if sum(payout) < self.purse:
-            payout[0] += self.purse - sum(payout)
+            payout[0] += round(self.purse - sum(payout), 2)
         return payout
 
     async def add_horse(self, horse: 'Horse'):
@@ -895,9 +898,13 @@ class Race(HasSettings):
 
                 diff = datetime.datetime.now() - last_tick
                 seconds = int(diff.seconds)
+                if self.skip:
+                    seconds = 120
                 for _ in range(seconds):
                     if not self.race.finished:
                         self.race.tick()
+                    else:
+                        break
                 last_tick = datetime.datetime.now()
                 await self.send_or_edit_message(embed=self._get_race_embed())
 
