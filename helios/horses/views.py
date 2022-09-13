@@ -338,7 +338,7 @@ class HorseOwnerView(discord.ui.View):
     @discord.ui.button(label='Sell', style=discord.ButtonStyle.red)
     async def sell_horse(self, interaction: discord.Interaction,
                          button: discord.Button):
-        sell_price = 250
+        sell_price = int(self.horse.value * 0.25)
         view = YesNoView(self.owner.member, timeout=10)
         await interaction.response.send_message(f'Would you like to sell '
                                                 f'**{self.horse.name}** for '

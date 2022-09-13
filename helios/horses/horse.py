@@ -108,6 +108,15 @@ class Horse(HasSettings, HasFlags):
         return self.breed.stat_multiplier['stamina'] * 500
 
     @property
+    def value(self) -> int:
+        value = 0
+        if self.get_flag('QUALIFIED'):
+            value += 750
+        if not self.is_maiden():
+            value += 250
+        return value
+
+    @property
     def quality(self) -> float:
         win, place, show, loss = self.stadium.get_win_place_show_loss(
             self.records)
