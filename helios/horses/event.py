@@ -110,9 +110,25 @@ class Event:
     def create_listed_race(self, race_time: datetime.datetime, index):
         race = Race.new(self.stadium, self.channel, 'listed', race_time)
         race.can_run = False
-        race.name = f'{self.name} Race {index}: Listed Stakes Race'
+        race.name = f'{self.name} Race {index}: Listed Race'
         race.settings['purse'] = 2000
         race.settings['stake'] = int(2000 * 0.05)
+        return race
+
+    def create_grade3_race(self, race_time: datetime.datetime, index):
+        race = Race.new(self.stadium, self.channel, 'grade3', race_time)
+        race.can_run = False
+        race.name = f'{self.name} Race {index}: Grade 3 Race'
+        race.settings['purse'] = 4000
+        race.settings['stake'] = int(4000 * 0.05)
+        return race
+
+    def create_grade2_race(self, race_time: datetime.datetime, index):
+        race = Race.new(self.stadium, self.channel, 'grade2', race_time)
+        race.can_run = False
+        race.name = f'{self.name} Race {index}: Grade 2 Race'
+        race.settings['purse'] = 10000
+        race.settings['stake'] = 0
         return race
 
     async def announce_event(self):
