@@ -32,6 +32,7 @@ class RaceSettings(TypedDict):
     type: 'RaceTypes'
     race_time: datetime.datetime
     betting_time: int
+    restrict_time: int
     phase: int
     can_run: bool
 

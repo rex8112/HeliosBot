@@ -44,7 +44,7 @@ class Record:
         record.horse_id = horse.horse.id
         record.race_id = event_race.id
         record.race_type = event_race.settings['type']
-        record.earnings = earnings
+        record.earnings = int(earnings)
         record.placing = event_race.race.finished_horses.index(horse)
         return record
 
@@ -311,6 +311,7 @@ class Race(HasSettings):
         'type': 'basic',
         'race_time': datetime.datetime.now().astimezone(),
         'betting_time': 5 * 60,
+        'restrict_time': 5 * 60,
         'phase': 0,
         'can_run': True
     }
@@ -322,8 +323,10 @@ class Race(HasSettings):
         self.race: Optional[BasicRace] = None
         self.horses: list[Horse] = []
         self.bets: List[Bet] = []
-
         self.settings: RaceSettings = Race._default_settings.copy()
+
+        self.skip = False
+
         self._can_run_event = asyncio.Event()
         self._can_run_event.set()  # Start true like setting
 
@@ -381,6 +384,11 @@ class Race(HasSettings):
     @property
     def race_time(self) -> datetime.datetime:
         return self.settings['race_time']
+
+    @property
+    def restrict_time(self) -> datetime.datetime:
+        duration = datetime.timedelta(seconds=self.settings['restrict_time'])
+        return self.race_time - duration
 
     @property
     def betting_time(self) -> datetime.datetime:
@@ -446,15 +454,7 @@ class Race(HasSettings):
         if race_type == 'maiden':
             return horse.is_maiden()
         elif race_type == 'stake':
-            if not horse.is_maiden():
-                return True
-            earnings = 0
-            for rec in horse.records:
-                # If you won top three in up to two races, roughly
-                earnings += rec.earnings
-                if earnings >= 300:
-                    return True
-            return False
+            return True
         elif race_type == 'listed':
             return not horse.is_maiden()
         return False
@@ -463,6 +463,11 @@ class Race(HasSettings):
         payout_structure = self.get_payout_structure()
         payout_structure = [f'{x:.0%}' for x in payout_structure]
         payout_structure = ', '.join(payout_structure)
+        if self.settings['betting_time'] >= self.settings['restrict_time']:
+            restriction = ''
+        else:
+            restriction = (f'Restrictions end '
+                           f'<t:{self.restrict_time.timestamp()}:R>')
         embed = discord.Embed(
             colour=discord.Colour.blue(),
             title=self.name + ' Registration',
@@ -472,7 +477,8 @@ class Race(HasSettings):
                         f'Stake to Enter: **{self.stake:,}**\n'
                         f'Payout: {payout_structure}\n\n'
                         f'Available Slots: {self.slots_left()}/'
-                        f'{self.max_horses}'
+                        f'{self.max_horses}\n\n'
+                        f'{restriction}'
         )
         return embed
 
@@ -504,7 +510,8 @@ class Race(HasSettings):
         )
         embed.add_field(name='Horses',
                         value=self.horse_list_string(show_odds=True))
-        embed.set_footer(text=f'Tick: {self.race.tick_number}')
+        if self.skip:
+            embed.set_footer(text=f'This race was skipped to ease rate limits')
 
         return embed
 
@@ -661,6 +668,10 @@ class Race(HasSettings):
                 return int(winning) + bet.amount
             return 0
 
+    def is_restricted(self) -> bool:
+        now = datetime.datetime.now().astimezone()
+        return now < self.restrict_time
+
     def is_running(self) -> bool:
         if self._task:
             result = self._task.done()
@@ -721,14 +732,15 @@ class Race(HasSettings):
         return race
 
     def get_payout_structure(self) -> list[float]:
-        if self.max_horses == 6:
-            structure = [.6, .2, .13, .05, .01, .01]
-        else:  # self.max_horses == 12:
-            structure = [.6, .18, .1, .04]
-            amount_to_spread = .01
-            for _ in range(12 - len(structure)):
-                structure.append(amount_to_spread)
-
+        structure = [.6, .2, .1, .05, .025]
+        remainder = 0.025
+        remainder_horses = self.max_horses - 5
+        if remainder_horses > 0:
+            per_horse = remainder / remainder_horses
+            per_horse = math.floor(per_horse * 10000) / 10000
+            per_horse = round(per_horse, 4)
+            for _ in range(remainder_horses):
+                structure.append(per_horse)
         return structure
 
     def get_payout_amount(self, structure: list[float]) -> list[float]:
@@ -736,7 +748,7 @@ class Race(HasSettings):
         for p in structure:
             payout.append(round(self.purse * p, 2))
         if sum(payout) < self.purse:
-            payout[0] += self.purse - sum(payout)
+            payout[0] += round(self.purse - sum(payout), 2)
         return payout
 
     async def add_horse(self, horse: 'Horse'):
@@ -886,9 +898,13 @@ class Race(HasSettings):
 
                 diff = datetime.datetime.now() - last_tick
                 seconds = int(diff.seconds)
+                if self.skip:
+                    seconds = 120
                 for _ in range(seconds):
                     if not self.race.finished:
                         self.race.tick()
+                    else:
+                        break
                 last_tick = datetime.datetime.now()
                 await self.send_or_edit_message(embed=self._get_race_embed())
 

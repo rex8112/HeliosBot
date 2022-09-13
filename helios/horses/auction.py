@@ -222,7 +222,7 @@ class HorseListing:
                                 horse = self.horse
                                 mem.points -= highest.amount
                                 horse.owner = mem
-                                horse.set_flag('QUALIFIED', True)
+                                horse.make_qualified()
                                 horse.set_flag('PENDING', False)
                                 await mem.save()
                                 try:
@@ -395,6 +395,9 @@ class BasicAuction:
     def create_listings(self, horses: List['Horse']):
         for horse in horses:
             li = HorseListing(self, horse.id)
+            li.settings['min_bid'] = horse.value
+            if self.settings['buy']:
+                li.settings['max_bid'] = li.settings['min_bid']
             self.add_listing(li)
 
     def add_listing(self, listing: HorseListing):
@@ -539,7 +542,6 @@ class RotatingAuction(BasicAuction):
         index = 1
         for listing in self.listings:
             duration = self.settings['duration']
-            listing.settings['min_bid'] = 1000
             end = self.start_time + timedelta(seconds=duration * index)
             listing.end_time = end
             index += 1

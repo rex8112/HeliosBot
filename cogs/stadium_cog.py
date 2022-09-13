@@ -5,6 +5,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from helios.horses.views import HorseOwnerView
+
 if TYPE_CHECKING:
     from helios import HeliosBot
 
@@ -63,39 +65,53 @@ class StadiumCog(commands.Cog):
         if horse:
             owner_id = (horse.owner.member.id
                         if horse.owner else horse.stadium.owner.id)
-            info = f'Owner: <@{owner_id}>\n'
-            if owner_id == interaction.user.id:
-                results = server.stadium.get_win_place_show_loss(horse.records)
-                info += (f'Record: {results[0]}W/{results[1]}P/'
-                         f'{results[2]}S/{results[3]}L\n')
-            else:
-                win, loss = server.stadium.get_win_loss(horse.records)
-                info += f'Record: {win}W/{loss}L\n'
-            info += (f'Breed: {horse.breed.name}\n'
-                     f'Gender: {horse.gender}\n'
-                     f'Age: {horse.age}')
-            embeds = []
-            embed = discord.Embed(
-                colour=discord.Colour.orange(),
-                title=horse.name,
-                description=info
-            )
-            embeds.append(embed)
-            if horse.get_flag('DELETE'):
-                embed2 = discord.Embed(
-                    colour=discord.Colour.red(),
-                    title='PENDING DELETION',
-                    description=('This horse is being prepared to be '
-                                 '"let go." If you believe this is in error '
-                                 'please contact rex8112#1200 immediately as '
-                                 'the horse has limited time remaining.')
-                )
-                embeds.append(embed2)
+            owner = owner_id == interaction.user.id
+            embeds = horse.get_inspect_embeds(is_owner=owner)
+            view = HorseOwnerView(horse.owner, horse) if owner else None
             await interaction.response.send_message(embeds=embeds,
-                                                    ephemeral=True)
+                                                    ephemeral=True,
+                                                    view=view)
         else:
             await interaction.response.send_message('Horse not found',
                                                     ephemeral=True)
+
+    @app_commands.command(name='like',
+                          description=('Like a horse, making it more likely '
+                                       'to show up in auctions.'))
+    @app_commands.guild_only()
+    async def like(self, interaction: discord.Interaction, horse_name: str):
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        horse = server.stadium.get_horse_name(horse_name)
+        if horse:
+            if horse.owner is not None:
+                await interaction.response.send_message(
+                    (f'This horse is already owned by <@{horse.owner.id}>, '
+                     f'so liking it has zero effect.'),
+                    ephemeral=True
+                )
+                return
+
+            if member.settings['day_liked'] == server.stadium.day:
+                await interaction.response.send_message(
+                    ('You have already liked a horse today, try again '
+                     'tomorrow!'),
+                    ephemeral=True
+                )
+            else:
+                member.settings['day_liked'] = server.stadium.day
+                horse.likes += 1
+                await horse.save()
+                await member.save(force=True)
+                await interaction.response.send_message(
+                    f'Successfully liked **{horse.name}**',
+                    ephemeral=True
+                )
+        else:
+            await interaction.response.send_message(
+                f'**{horse_name}** does not exist!',
+                ephemeral=True
+            )
 
 
 async def setup(bot: 'HeliosBot'):

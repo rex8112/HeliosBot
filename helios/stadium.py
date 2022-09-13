@@ -36,7 +36,7 @@ class Stadium(HasSettings):
     epoch_day = datetime.datetime(2022, 8, 1, 1, 0, 0)
     daily_points = 100
     keep_amount = 100
-    build_amount = 150
+    build_amount = 350
 
     def __init__(self, server: 'Server'):
         self.server = server
@@ -384,6 +384,8 @@ class Stadium(HasSettings):
                     continue
                 else:
                     r = Race.from_dict(self, rdata)
+                    if r.race_time < datetime.datetime.now().astimezone():
+                        r.skip = True
                     self.races.append(r)
                     r.create_run_task()
         await self.build_records(allow_basic=True)
@@ -462,7 +464,7 @@ class Stadium(HasSettings):
                     new_event = Event(self, self.daily_channel,
                                       event_type='daily',
                                       start_time=start_time,
-                                      races=6)
+                                      races=12)
                     new_event.name = f'{start_time.strftime("%A")} Daily Event'
                     self.events.append(new_event)
                     changed = True

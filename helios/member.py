@@ -17,7 +17,8 @@ class HeliosMember(HasFlags, HasSettings):
     _default_settings = {
         'activity_points': 0,
         'points': 0,
-        'day_claimed': 0
+        'day_claimed': 0,
+        'day_liked': 0
     }
     _allowed_flags = [
         'FORBIDDEN'

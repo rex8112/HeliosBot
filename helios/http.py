@@ -29,7 +29,7 @@ class HTTPClient:
     async def request(self, url_end: str, method='GET', **params):
         url = f'/api/{url_end}'
         resp = await self._session.request(method, url, **params)
-        if resp.status not in [200, 201, 404]:
+        if resp.status not in [200, 201, 204, 404]:
             raise HTTPError(resp.status, await resp.text())
         j = await self.json_or_none(resp)
         return j

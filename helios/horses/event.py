@@ -96,7 +96,7 @@ class Event:
         race.can_run = False
         race.name = f'{self.name} Race {index}: Maiden Race'
         race.settings['purse'] = 1100
-        race.settings['stake'] = int(1100 * 0.1)
+        race.settings['stake'] = int(1100 * 0.05)
         return race
 
     def create_stake_race(self, race_time: datetime.datetime, index):
@@ -104,7 +104,7 @@ class Event:
         race.can_run = False
         race.name = f'{self.name} Race {index}: Stakes Race'
         race.settings['purse'] = 1500
-        race.settings['stake'] = int(1500 * 0.1)
+        race.settings['stake'] = int(1500 * 0.05)
         return race
 
     def create_listed_race(self, race_time: datetime.datetime, index):
@@ -112,7 +112,7 @@ class Event:
         race.can_run = False
         race.name = f'{self.name} Race {index}: Listed Stakes Race'
         race.settings['purse'] = 2000
-        race.settings['stake'] = int(2000 * 0.1)
+        race.settings['stake'] = int(2000 * 0.05)
         return race
 
     async def announce_event(self):
@@ -186,7 +186,8 @@ class Event:
             race = self.create_maiden_race(start_time, index)
             index += 1
             delta = start_time - self.betting_time
-            race.settings['betting_time'] = delta.seconds
+            race.settings['betting_time'] = delta.total_seconds()
+            race.settings['restrict_time'] = delta.total_seconds() + 60 * 60
             race.settings['max_horses'] = 12
             races.append(race)
             start_time = start_time + datetime.timedelta(
@@ -196,7 +197,9 @@ class Event:
             race = self.create_stake_race(start_time, index)
             index += 1
             delta = start_time - self.betting_time
-            race.settings['betting_time'] = delta.seconds
+            race.settings['betting_time'] = delta.total_seconds()
+            race.settings['restrict_time'] = delta.total_seconds() + 60 * 60
+            race.settings['max_horses'] = 12
             races.append(race)
             start_time = start_time + datetime.timedelta(
                 minutes=self.settings['buffer'])
@@ -205,7 +208,9 @@ class Event:
             race = self.create_listed_race(start_time, index)
             index += 1
             delta = start_time - self.betting_time
-            race.settings['betting_time'] = delta.seconds
+            race.settings['betting_time'] = delta.total_seconds()
+            race.settings['restrict_time'] = delta.total_seconds() + 60 * 60
+            race.settings['max_horses'] = 12
             races.append(race)
             start_time = start_time + datetime.timedelta(
                 minutes=self.settings['buffer'])

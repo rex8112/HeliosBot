@@ -1,10 +1,12 @@
 import datetime
+import re
 import traceback
 from typing import TYPE_CHECKING
 
 from discord import ui, Interaction
 
 if TYPE_CHECKING:
+    from .horse import Horse
     from .auction import HorseListing
     from ..member import HeliosMember
 
@@ -55,4 +57,36 @@ class SetBidModal(ui.Modal):
         traceback.print_exc()
         await interaction.response.send_message(
             'Sorry, something unexpected went wrong.', ephemeral=True
+        )
+
+
+class NameChangeModal(ui.Modal):
+    name = ui.TextInput(label='New Name', max_length=26, min_length=3)
+
+    def __init__(self, horse: 'Horse'):
+        self.horse = horse
+        super().__init__(title=f'Horse Name Change', timeout=30)
+
+    async def on_submit(self, interaction: Interaction) -> None:
+        matches = re.search(r"^[\w\- ']+$", self.name.value)
+        if matches is None:
+            await interaction.response.send_message('Please use alphanumeric '
+                                                    'characters')
+            return
+        name = matches[0]
+        if len(name) < 3:
+            await interaction.response.send_message('Name must be longer than '
+                                                    '3 characters')
+            return
+        horse = self.horse.stadium.get_horse_name(name)
+        if horse:
+            await interaction.response.send_message('Name is already taken.',
+                                                    ephemeral=True)
+            return
+        self.horse.name = name
+        await interaction.response.defer(ephemeral=True)
+        await self.horse.save()
+        await interaction.edit_original_response(
+            content='Name changed successfully!',
+            embeds=self.horse.get_inspect_embeds(is_owner=True)
         )
