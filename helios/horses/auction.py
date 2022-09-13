@@ -364,8 +364,8 @@ class BasicAuction:
     def get_summary(self, page: int = 0):
         summary = (
             '```\n'
-            'id  | Horse Name                 | Current   | Buyout    | '
-            'Duration    \n')
+            'id  | Horse Name                 | Current   | Starting  | '
+            'Buyout    | Duration    \n')
         horses: List['Horse'] = [x.horse for x in self.listings]
         page_num = 25 * page
         for i, horse in enumerate(horses[page_num:25+page_num],
@@ -378,7 +378,8 @@ class BasicAuction:
             if len(listing.bids) > 0:
                 bid = listing.get_highest_bidder().amount
             else:
-                bid = listing.settings['min_bid']
+                bid = 0
+            start = listing.settings['min_bid']
             if buyout is None:
                 buyout = 0
             duration = f'in {hours:3} hours'
@@ -387,7 +388,7 @@ class BasicAuction:
             elif listing.done:
                 duration = 'finished    '
             line = (f'{i:03} | {horse.name:26} | {bid:9,} | '
-                    f'{buyout:9,} | {duration}\n')
+                    f'{start:9,} | {buyout:9,} | {duration}\n')
             summary += line
         summary += '```'
         return summary
