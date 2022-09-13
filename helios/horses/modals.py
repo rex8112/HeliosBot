@@ -78,9 +78,15 @@ class NameChangeModal(ui.Modal):
             await interaction.response.send_message('Name must be longer than '
                                                     '3 characters')
             return
+        horse = self.horse.stadium.get_horse_name(name)
+        if horse:
+            await interaction.response.send_message('Name is already taken.',
+                                                    ephemeral=True)
+            return
         self.horse.name = name
         await interaction.response.defer(ephemeral=True)
         await self.horse.save()
         await interaction.edit_original_response(
-            content='Name changed successfully'
+            content='Name changed successfully!',
+            embeds=self.horse.get_inspect_embeds(is_owner=True)
         )
