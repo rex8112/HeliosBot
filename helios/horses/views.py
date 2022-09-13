@@ -186,11 +186,11 @@ class ListingView(discord.ui.View):
         time_left = listing.end_time - now
         super().__init__(timeout=time_left.total_seconds())
 
-        button: discord.Button = next(
-            filter(lambda x: x.label.startswith('Bid'),
-                   self.children)
-        )
-        button.label = f'Bid {self.bid_amount}'
+        if self.bid_amount >= self.listing.settings['max_bid']:
+            self.bid_amount = self.listing.settings['max_bid']
+            self.bid.label = f'Buy {self.bid_amount}'
+        else:
+            self.bid.label = f'Bid {self.bid_amount}'
 
     @property
     def next_amount(self):
