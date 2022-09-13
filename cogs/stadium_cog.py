@@ -75,6 +75,44 @@ class StadiumCog(commands.Cog):
             await interaction.response.send_message('Horse not found',
                                                     ephemeral=True)
 
+    @app_commands.command(name='like',
+                          description=('Like a horse, making it more likely '
+                                       'to show up in auctions.'))
+    @app_commands.guild_only()
+    async def like(self, interaction: discord.Interaction, horse_name: str):
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        horse = server.stadium.get_horse_name(horse_name)
+        if horse:
+            if horse.owner is not None:
+                await interaction.response.send_message(
+                    (f'This horse is already owned by <@{horse.owner.id}>, '
+                     f'so liking it has zero effect.'),
+                    ephemeral=True
+                )
+                return
+
+            if member.settings['day_liked'] == server.stadium.day:
+                await interaction.response.send_message(
+                    ('You have already liked a horse today, try again '
+                     'tomorrow!'),
+                    ephemeral=True
+                )
+            else:
+                member.settings['day_liked'] = server.stadium.day
+                horse.likes += 1
+                await horse.save()
+                await member.save(force=True)
+                await interaction.response.send_message(
+                    f'Successfully liked **{horse.name}**',
+                    ephemeral=True
+                )
+        else:
+            await interaction.response.send_message(
+                f'**{horse_name}** does not exist!',
+                ephemeral=True
+            )
+
 
 async def setup(bot: 'HeliosBot'):
     await bot.add_cog(StadiumCog(bot))

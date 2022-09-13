@@ -109,9 +109,9 @@ class Horse(HasSettings, HasFlags):
 
     @property
     def value(self) -> int:
-        value = 0
+        value = 500
         if self.get_flag('QUALIFIED'):
-            value += 750
+            value += 250
         if not self.is_maiden():
             value += 250
         return value
