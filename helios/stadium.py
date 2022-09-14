@@ -433,7 +433,8 @@ class Stadium(HasSettings):
                             list(horses),
                             keep=self.keep_amount
                         )
-                    # On Sunday, create New Auction
+                    # On Sunday, create New Auction and deal with pending from
+                    # die auction
                     elif day_of_week == self.auction_house.NEW_AUCTION:
                         amount_to_take = (self.build_amount
                                           - len(self.unowned_qualified_horses()))
@@ -461,8 +462,10 @@ class Stadium(HasSettings):
                         changed = True
                         self.auction_house.create_new_auctions(new_horses)
 
-                daily_events = list(filter(lambda e: e.settings['type'] == 'daily',
-                                           self.events))
+                daily_events = list(filter(
+                    lambda e: e.settings['type'] == 'daily',
+                    self.events)
+                )
                 if len(daily_events) < 1:
                     now = datetime.datetime.now().astimezone()
                     start_time = now.replace(hour=21, minute=0, second=0,
@@ -488,8 +491,10 @@ class Stadium(HasSettings):
                     if not race.is_running():
                         race.create_run_task()
 
-                basic_races = list(filter(lambda r: r.settings['type'] == 'basic',
-                                          self.races))
+                basic_races = list(filter(
+                    lambda r: r.settings['type'] == 'basic',
+                    self.races)
+                )
                 if len(basic_races) < 1:
                     if self.create_basic_race():
                         changed = True
