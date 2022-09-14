@@ -5,6 +5,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from helios.horses.auction import GroupAuction
 from helios.horses.views import HorseOwnerView
 
 if TYPE_CHECKING:
@@ -112,6 +113,13 @@ class StadiumCog(commands.Cog):
                 f'**{horse_name}** does not exist!',
                 ephemeral=True
             )
+
+    @app_commands.command(name='test_group_auction')
+    @app_commands.guilds(466060673651310593)
+    async def test_group_auction(self, interaction: discord.Interaction,
+                                 seconds: int):
+        server = self.bot.servers.get(interaction.guild_id)
+        a = GroupAuction(server.stadium.auction_house, interaction.channel)
 
 
 async def setup(bot: 'HeliosBot'):
