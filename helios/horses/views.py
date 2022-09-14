@@ -186,7 +186,8 @@ class ListingView(discord.ui.View):
         time_left = listing.end_time - now
         super().__init__(timeout=time_left.total_seconds())
 
-        if self.bid_amount >= self.listing.settings['max_bid']:
+        if (self.listing.settings['max_bid']
+                and self.bid_amount >= self.listing.settings['max_bid']):
             self.bid_amount = self.listing.settings['max_bid']
             self.bid.label = f'Buy {self.bid_amount}'
         else:
@@ -276,7 +277,7 @@ class GroupAuctionView(discord.ui.View):
                     ephemeral=True
                 )
                 return
-            if listing.canceled:
+            if listing.cancelled:
                 await interaction.response.send_message(
                     f'This listing was cancelled due to a bot issue, '
                     f'they should be resold tomorrow.',
