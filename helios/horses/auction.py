@@ -420,7 +420,7 @@ class BasicAuction:
     async def run(self):
         if self.settings['any_canceled'] and self.is_done():
             self.settings['any_canceled'] = False
-            self.house.redo_canceled_listings(self)
+            # self.house.redo_canceled_listings(self)
         if self.should_save() or self.is_new():
             await self.save()
 
