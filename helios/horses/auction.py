@@ -677,6 +677,7 @@ class AuctionHouse:
             a.start_time = now.replace(hour=12, minute=0,
                                        second=0, microsecond=0)
             a.settings['duration'] = 60 * 60 * 24
+            a.settings['buy'] = True
             a.create_listings(horses)
             self.auctions.append(a)
 
