@@ -364,7 +364,7 @@ class BasicAuction:
     def get_summary(self, page: int = 0):
         summary = (
             '```\n'
-            'id  | Horse Name                 | Current   | Starting  | '
+            'id  | Horse Name    | W/L   | Current   | Starting  | '
             'Buyout    | Duration    \n')
         horses: List['Horse'] = [x.horse for x in self.listings]
         page_num = 25 * page
@@ -373,8 +373,14 @@ class BasicAuction:
             listing = self.listings[i-1]
             delta = listing.end_time - datetime.now().astimezone()
             hours = int(delta.total_seconds() // (60 * 60))
-            hours = '<1' if hours < 1 else hours
+            hours = ' <1' if hours < 1 else hours
             buyout = listing.settings.get('max_bid')
+            if len(horse.name) > 13:
+                name = f'{horse.name[:10]}...'
+            else:
+                name = horse.name
+            win, loss = self.stadium.get_win_loss(horse.records)
+            ratio = win / min(loss, 1)
             if len(listing.bids) > 0:
                 bid = listing.get_highest_bidder().amount
             else:
@@ -387,7 +393,7 @@ class BasicAuction:
                 duration = 'cancelled   '
             elif listing.done:
                 duration = 'finished    '
-            line = (f'{i:03} | {horse.name:26} | {bid:9,} | '
+            line = (f'{i:03} | {name:13} | {ratio:5.2} | {bid:9,} | '
                     f'{start:9,} | {buyout:9,} | {duration}\n')
             summary += line
         summary += '```'
