@@ -71,18 +71,18 @@ class Event:
                  betting_time: int = 60 * 60 * 1,
                  registration_time: int = 60 * 60 * 6,
                  announcement_time: int = 60 * 60 * 12,
-                 races: int, ):
+                 races: RaceTypeCount):
         self.name = 'Unnamed Event'
         self.stadium = stadium
         self.channel = channel
         self.race_ids = []
         self.settings = {
             'type': event_type,
-            'start_time': start_time,
+            'start_time': start_time.isoformat(),
             'betting_time': betting_time,
             'registration_time': registration_time,
             'announcement_time': announcement_time,
-            'races': races,
+            'races': races.to_json(),
             'buffer': 5,
             'phase': 0,
             'winner_string': ''
@@ -93,6 +93,14 @@ class Event:
         races = filter(lambda x: x.id in self.race_ids, self.stadium.races)
         races = list(sorted(races, key=lambda x: x.race_time))
         return races
+
+    @property
+    def race_types(self) -> RaceTypeCount:
+        return RaceTypeCount.from_json(self.settings['races'])
+
+    @race_types.setter
+    def race_types(self, value: RaceTypeCount):
+        self.settings['races'] = value.to_json()
 
     @property
     def horses(self):
@@ -111,20 +119,34 @@ class Event:
         self.settings['phase'] = value
 
     @property
-    def betting_time(self):
-        return (self.settings['start_time']
+    def start_time(self) -> datetime.datetime:
+        if isinstance(self.settings['start_time'], list):
+            # noinspection PyTypeChecker
+            return Item.deserialize(self.settings['start_time'],
+                                    guild=self.stadium.guild,
+                                    bot=self.stadium.server.bot)
+        else:
+            return datetime.datetime.fromisoformat(self.settings['start_time'])
+
+    @start_time.setter
+    def start_time(self, value: datetime.datetime):
+        self.settings['start_time'] = value.isoformat()
+
+    @property
+    def betting_time(self) -> datetime.datetime:
+        return (self.start_time
                 - datetime.timedelta(seconds=self.settings['betting_time']))
 
     @property
-    def registration_time(self):
-        return (self.settings['start_time']
+    def registration_time(self) -> datetime.datetime:
+        return (self.start_time
                 - datetime.timedelta(
                     seconds=self.settings['registration_time']
                 ))
 
     @property
-    def announcement_time(self):
-        return (self.settings['start_time']
+    def announcement_time(self) -> datetime.datetime:
+        return (self.start_time
                 - datetime.timedelta(
                     seconds=self.settings['announcement_time']
                 ))
@@ -135,13 +157,6 @@ class Event:
             if not race.finished:
                 return False
         return True
-
-    @classmethod
-    def from_data(cls, stadium: 'Stadium', data: dict):
-        event = cls(stadium, data['channel'], start_time=data['settings'],
-                    races=4)
-        event._deserialize(data)
-        return event
 
     def create_maiden_race(self, race_time: datetime.datetime, index):
         race = Race.new(self.stadium, self.channel, 'maiden', race_time)
@@ -225,7 +240,7 @@ class Event:
         return maidens
 
     async def generate_races(self):
-        allowed_races = self.settings['races']
+        allowed_races = self.race_types.get_total()
         maidens = await self.maidens_available()
         maiden_percentage = maidens / len(self.stadium.horses)
         maiden_races_allowed = maidens // 12
@@ -247,7 +262,7 @@ class Event:
         stakes_races = min([len(stakes_qualified) // 6,
                             allowed_races - listed_races - maiden_races])
 
-        start_time = self.settings['start_time']
+        start_time = self.start_time
         index = 1
         races = []
         for _ in range(maiden_races):
@@ -332,20 +347,26 @@ class Event:
                 return True
         return False
 
-    def serialize(self):
+    def to_json(self):
         return {
             'name': self.name,
-            'channel': Item.serialize(self.channel),
+            'channel': self.channel.id,
             'race_ids': self.race_ids,
-            'settings': Item.serialize_dict(self.settings)
+            'settings': self.settings
         }
 
-    def _deserialize(self, data: dict):
-        self.name = data['name']
-        self.channel = Item.deserialize(data['channel'],
-                                        bot=self.stadium.server.bot,
-                                        guild=self.stadium.guild)
-        self.race_ids = data['race_ids']
-        self.settings = Item.deserialize_dict(data['settings'],
-                                              bot=self.stadium.server.bot,
-                                              guild=self.stadium.guild)
+    @classmethod
+    def from_json(cls, stadium: 'Stadium', data: dict):
+        event = cls(stadium, data['channel'], start_time=data['settings'],
+                    races=RaceTypeCount())
+        event.name = data['name']
+        event.race_ids = data['race_ids']
+        if isinstance(data['channel'], list):
+            event.channel = Item.deserialize(data['channel'],
+                                             bot=event.stadium.server.bot,
+                                             guild=event.stadium.guild)
+        else:
+            event.channel = stadium.server.bot.get_channel(data['channel'])
+
+        event.settings = data['settings']
+        return event

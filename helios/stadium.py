@@ -265,7 +265,7 @@ class Stadium(HasSettings):
             'server': self.server.id,
             'day': self.day,
             'settings': Item.serialize_dict(self.settings),
-            'events': [x.serialize() for x in self.events]
+            'events': [x.to_json() for x in self.events]
         }
 
     def _deserialize(self, data: StadiumSerializable):
@@ -278,7 +278,7 @@ class Stadium(HasSettings):
             bot=self.server.bot,
             guild=self.guild
         )
-        self.events = [Event.from_data(self, x) for x in data['events']]
+        self.events = [Event.from_json(self, x) for x in data['events']]
 
     async def add_race(self, race: 'Race'):
         self.races.append(race)
