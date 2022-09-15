@@ -12,6 +12,58 @@ if TYPE_CHECKING:
     from ..stadium import Stadium
 
 
+class RaceTypeCount:
+    def __init__(self, *,
+                 maidens: int = 0,
+                 stakes: int = 0,
+                 listed: int = 0,
+                 grade3: int = 0,
+                 grade2: int = 0,
+                 grade1: int = 0) -> None:
+        """
+        Represents the quantity of each type of race that the event should
+        have.
+
+        :param maidens: Amount of Maiden Races
+        :param stakes: Amount of Stakes Races
+        :param listed: Amount of Listed Grade Stakes Races
+        :param grade3: Amount of Grade 3 Stakes Races
+        :param grade2: Amount of Grade 2 Stakes Races
+        :param grade1: Amount of Grade 1 Stakes Races
+        """
+        self.maidens: int = maidens
+        self.stakes: int = stakes
+        self.listed: int = listed
+        self.grade3: int = grade3
+        self.grade2: int = grade2
+        self.grade1: int = grade1
+
+    def get_total(self) -> int:
+        return sum(self.to_json())
+
+    def to_json(self) -> list[int]:
+        return [
+            self.maidens,
+            self.stakes,
+            self.listed,
+            self.grade3,
+            self.grade2,
+            self.grade1
+        ]
+
+    @classmethod
+    def from_json(cls, data: list[int]):
+        c = cls(
+            maidens=data[0],
+            stakes=data[1],
+            listed=data[2],
+            grade3=data[3],
+            grade2=data[4],
+            grade1=data[5]
+        )
+        return c
+
+
 class Event:
     def __init__(self, stadium: 'Stadium', channel: discord.TextChannel, *,
                  event_type: str = 'daily',
