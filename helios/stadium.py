@@ -8,7 +8,7 @@ import discord
 from .abc import HasSettings
 from .exceptions import IdMismatchError
 from .horses.auction import AuctionHouse
-from .horses.event import Event
+from .horses.event import Event, RaceTypeCount
 from .horses.horse import Horse
 from .horses.race import Race, Record
 from .member import HeliosMember
@@ -260,6 +260,21 @@ class Stadium(HasSettings):
             return True
         return False
 
+    def create_daily_event(self) -> Optional[Event]:
+        now = datetime.datetime.now().astimezone()
+        start_time = now.replace(hour=21, minute=0, second=0,
+                                 microsecond=0)
+        if now + datetime.timedelta(hours=1) >= start_time:
+            start_time += datetime.timedelta(days=1)
+
+        races = RaceTypeCount()
+        new_event = Event(self, self.daily_channel,
+                          event_type='daily',
+                          start_time=start_time,
+                          races=races)
+        new_event.name = f'{start_time.strftime("%A")} Daily Event'
+        return new_event
+
     def serialize(self) -> StadiumSerializable:
         return {
             'server': self.server.id,
@@ -458,17 +473,7 @@ class Stadium(HasSettings):
                 daily_events = list(filter(lambda e: e.settings['type'] == 'daily',
                                            self.events))
                 if len(daily_events) < 1:
-                    now = datetime.datetime.now().astimezone()
-                    start_time = now.replace(hour=21, minute=0, second=0,
-                                             microsecond=0)
-                    if now + datetime.timedelta(hours=1) >= start_time:
-                        start_time += datetime.timedelta(days=1)
-
-                    new_event = Event(self, self.daily_channel,
-                                      event_type='daily',
-                                      start_time=start_time,
-                                      races=12)
-                    new_event.name = f'{start_time.strftime("%A")} Daily Event'
+                    new_event = self.create_daily_event()
                     self.events.append(new_event)
                     changed = True
 
