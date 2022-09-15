@@ -477,13 +477,10 @@ class Stadium(HasSettings):
                     if result:
                         changed = True
 
-                # Ensure all races are still running and restart them if not
-                for race in self.races:
-                    if not race.is_running():
-                        race.create_run_task()
-
-                basic_races = list(filter(lambda r: r.settings['type'] == 'basic',
-                                          self.races))
+                basic_races = list(filter(
+                    lambda r: r.settings['type'] == 'basic',
+                    self.races)
+                )
                 if len(basic_races) < 1:
                     if self.create_basic_race():
                         changed = True
@@ -493,6 +490,12 @@ class Stadium(HasSettings):
                 if changed:
                     await self.save()
                 await asyncio.sleep(60)
+
+                # Ensure all races are still running and restart them if not
+                # This is done after the sleep to ease rate limits on startup
+                for race in self.races:
+                    if not race.is_running():
+                        race.create_run_task()
             except Exception as e:
                 print(type(e).__name__, e)
         self._running = False
