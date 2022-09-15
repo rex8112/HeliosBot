@@ -240,32 +240,11 @@ class Event:
         return maidens
 
     async def generate_races(self):
-        allowed_races = self.race_types.get_total()
-        maidens = await self.maidens_available()
-        maiden_percentage = maidens / len(self.stadium.horses)
-        maiden_races_allowed = maidens // 12
-        if maiden_percentage > 0.5:
-            maiden_races = allowed_races // 2
-        else:
-            maiden_races = allowed_races // 4
-        if maiden_races > maiden_races_allowed:
-            maiden_races = maiden_races_allowed
-
-        horses = list(self.stadium.unowned_qualified_horses().values())
-        stakes_qualified = list(filter(
-            lambda x: Race.check_qualification('stake', x),
-            self.stadium.horses.values()))
-        listed_qualified = list(filter(
-            lambda x: Race.check_qualification('listed', x),
-            self.stadium.horses.values()))
-        listed_races = min([len(listed_qualified) // 6, 1])
-        stakes_races = min([len(stakes_qualified) // 6,
-                            allowed_races - listed_races - maiden_races])
-
+        race_types = self.race_types
         start_time = self.start_time
         index = 1
         races = []
-        for _ in range(maiden_races):
+        for _ in range(race_types.maidens):
             race = self.create_maiden_race(start_time, index)
             index += 1
             delta = start_time - self.betting_time
@@ -276,7 +255,7 @@ class Event:
             start_time = start_time + datetime.timedelta(
                 minutes=self.settings['buffer'])
 
-        for _ in range(stakes_races):
+        for _ in range(race_types.stakes):
             race = self.create_stake_race(start_time, index)
             index += 1
             delta = start_time - self.betting_time
@@ -287,7 +266,7 @@ class Event:
             start_time = start_time + datetime.timedelta(
                 minutes=self.settings['buffer'])
 
-        for _ in range(listed_races):
+        for _ in range(race_types.listed):
             race = self.create_listed_race(start_time, index)
             index += 1
             delta = start_time - self.betting_time
@@ -298,6 +277,7 @@ class Event:
             start_time = start_time + datetime.timedelta(
                 minutes=self.settings['buffer'])
 
+        horses = self.stadium.unowned_qualified_horses().values()
         used_horses = []
         for race in reversed(races):
             qualified = list(filter(
