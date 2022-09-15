@@ -267,7 +267,25 @@ class Stadium(HasSettings):
         if now + datetime.timedelta(hours=1) >= start_time:
             start_time += datetime.timedelta(days=1)
 
-        races = RaceTypeCount()
+        eligible_horses = self.unowned_qualified_horses()
+        maiden_horses = []
+        listed_horses = []
+        for horse in eligible_horses.values():
+            if horse.get_flag('MAIDEN'):
+                maiden_horses.append(horse)
+            else:
+                listed_horses.append(horse)
+        possible_races = len(eligible_horses) // 12
+        possible_maidens = len(maiden_horses) // 12
+        possible_listed = len(listed_horses) // 12
+        max_races = 12
+        races_to_run = min(max_races, possible_races)
+
+        maidens = min(3, possible_maidens)
+        listed = min(1, possible_listed)
+        stakes = races_to_run - listed - maidens
+
+        races = RaceTypeCount(maidens=maidens, stakes=stakes, listed=listed)
         new_event = Event(self, self.daily_channel,
                           event_type='daily',
                           start_time=start_time,
@@ -470,12 +488,15 @@ class Stadium(HasSettings):
                         changed = True
                         self.auction_house.create_new_auctions(new_horses)
 
-                daily_events = list(filter(lambda e: e.settings['type'] == 'daily',
-                                           self.events))
-                if len(daily_events) < 1:
-                    new_event = self.create_daily_event()
-                    self.events.append(new_event)
-                    changed = True
+                    # Check once a day to ensure weekly was made above first
+                    daily_events = list(filter(
+                        lambda e: e.settings['type'] == 'daily',
+                        self.events)
+                    )
+                    if len(daily_events) < 1:
+                        new_event = self.create_daily_event()
+                        self.events.append(new_event)
+                        changed = True
 
                 for event in self.events:
                     result = await event.manage_event()
