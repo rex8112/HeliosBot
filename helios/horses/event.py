@@ -240,27 +240,66 @@ class Event:
                 maidens += 1
         return maidens
 
-    async def prefill_races(self,
-                            races: list[Race],
-                            horses: list['Horse']) -> list['Horse']:
+    @staticmethod
+    def prefill_races(races: list[Race],
+                      horses: list['Horse']) -> list['Horse']:
         """
         Put random horses into the race that qualify
         :param races: A lit of races to be filled
         :param horses: A list of horses to choose from
-        :return: A list of all the horses that were used
+        :return: A copied list with the used horses removed
         """
-        ...
+        for race in races:
+            qualified = list(filter(
+                lambda x: race.is_qualified(x),
+                horses))
+            if len(qualified) > 0:
+                qualified_horses = list(
+                    numpy.random.choice(qualified,
+                                        min(race.max_horses, len(qualified)),
+                                        replace=False))
+            else:
+                qualified_horses = []
+            race.horses = qualified_horses
+            unused_horses = list(filter(
+                lambda x: x not in qualified_horses,
+                horses
+            ))
+            return unused_horses
 
-    async def prefill_races_weighted(self,
-                                     races: list[Race],
-                                     horses: list['Horse']) -> list['Horse']:
+    @staticmethod
+    def prefill_races_weighted(races: list[Race],
+                               horses: list['Horse']) -> list['Horse']:
         """
         Put random horses into the race that qualify, weighted by their quality
         :param races: A lit of races to be filled
         :param horses: A list of horses to choose from
-        :return: A list of all the horses that were used
+        :return: A copied list with the used horses removed
         """
-        ...
+        for race in races:
+            qualified = list(filter(
+                lambda x: race.is_qualified(x),
+                horses))
+            weights = [math.ceil(x.quality) for x in qualified]
+            s = sum(weights)
+            weights = [x / s for x in weights]
+            diff = 1 - sum(weights)
+            if diff != 0 and len(weights) > 0:
+                weights[-1] += diff
+            if len(qualified) > 0:
+                qualified_horses = list(
+                    numpy.random.choice(qualified,
+                                        min(race.max_horses, len(qualified)),
+                                        replace=False,
+                                        p=weights))
+            else:
+                qualified_horses = []
+            race.horses = qualified_horses
+            unused_horses = list(filter(
+                lambda x: x not in qualified_horses,
+                horses
+            ))
+            return unused_horses
 
     async def generate_races(self):
         race_types = self.race_types
@@ -300,7 +339,6 @@ class Event:
             start_time = start_time + datetime.timedelta(
                 minutes=self.settings['buffer'])
 
-        horses = self.stadium.unowned_qualified_horses().values()
         maiden_races = []
         listed_races = []
         other_races = []
@@ -312,56 +350,13 @@ class Event:
             else:
                 other_races.append(race)
 
-        used_horses = []
+        horses = list(self.stadium.unowned_qualified_horses().values())
         # Loop through maiden races
-        for race in maiden_races:
-            qualified = list(filter(
-                lambda x: race.is_qualified(x) and x not in used_horses,
-                horses))
-            if len(qualified) > 0:
-                qualified_horses = list(
-                    numpy.random.choice(qualified,
-                                        min(race.max_horses, len(qualified)),
-                                        replace=False))
-            else:
-                qualified_horses = []
-            used_horses.extend(qualified_horses)
-            race.horses = qualified_horses
+        horses = self.prefill_races(maiden_races, horses)
         # Loop through listed races
-        for race in listed_races:
-            qualified = list(filter(
-                lambda x: race.is_qualified(x) and x not in used_horses,
-                horses))
-            weights = [math.ceil(x.quality) for x in qualified]
-            s = sum(weights)
-            weights = [x / s for x in weights]
-            diff = 1 - sum(weights)
-            if diff != 0 and len(weights) > 0:
-                weights[-1] += diff
-            if len(qualified) > 0:
-                qualified_horses = list(
-                    numpy.random.choice(qualified,
-                                        min(race.max_horses, len(qualified)),
-                                        replace=False,
-                                        p=weights))
-            else:
-                qualified_horses = []
-            used_horses.extend(qualified_horses)
-            race.horses = qualified_horses
+        horses = self.prefill_races_weighted(listed_races, horses)
         # Loop through other races
-        for race in other_races:
-            qualified = list(filter(
-                lambda x: race.is_qualified(x) and x not in used_horses,
-                horses))
-            if len(qualified) > 0:
-                qualified_horses = list(
-                    numpy.random.choice(qualified,
-                                        min(race.max_horses, len(qualified)),
-                                        replace=False))
-            else:
-                qualified_horses = []
-            used_horses.extend(qualified_horses)
-            race.horses = qualified_horses
+        horses = self.prefill_races(other_races, horses)
         await self.stadium.bulk_add_races(races)
         for race in races:
             self.race_ids.append(race.id)
