@@ -676,14 +676,14 @@ class AuctionHouse:
     def create_new_auctions(self, horses: List['Horse']):
         now = datetime.now().astimezone()
         new_horses = horses
-        auctions = math.ceil(len(new_horses) / 24)
+        auctions = math.ceil(len(new_horses) / 20)
         new_auctions = list(filter(lambda x: x.name == 'New Horse Auction',
                                    self.auctions))
         if len(new_auctions) > 0:
             auctions = 0
         for i in range(auctions):
-            end = (i + 1) * 24
-            horses = new_horses[i*24:end]
+            end = (i + 1) * 20
+            horses = new_horses[i*20:end]
             a = GroupAuction(self, self.stadium.auction_channel)
             a.name = 'New Horse Auction'
             a.start_time = now.replace(hour=12, minute=0,
@@ -704,10 +704,10 @@ class AuctionHouse:
         if len(final_auctions) > 0:
             auctions = 0
         else:
-            auctions = math.ceil(len(horses) / 24)
+            auctions = math.ceil(len(horses) / 20)
         for i in range(auctions):
-            end = (i + 1) * 24
-            tmp_horses = horses[i*24:end]
+            end = (i + 1) * 20
+            tmp_horses = horses[i*20:end]
             a = GroupAuction(self, self.stadium.auction_channel)
             a.name = 'Last Chance Auction'
             a.start_time = now.replace(hour=12, minute=0,
