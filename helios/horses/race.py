@@ -342,6 +342,10 @@ class Race(HasSettings):
         return self._id == 0
 
     @property
+    def type(self) -> RaceTypes:
+        return self.settings['type']
+
+    @property
     def can_run(self):
         return self.settings['can_run']
 
