@@ -214,6 +214,7 @@ class HorseListing:
                             mem.points -= highest.amount
                             horse.owner = mem
                             horse.set_flag('QUALIFIED', True)
+                            horse.set_flag('PENDING', False)
                             await mem.save()
                             try:
                                 await mem.member.send(
@@ -364,7 +365,7 @@ class BasicAuction:
                                   start=1 + page_num):
             listing = self.listings[i-1]
             delta = listing.end_time - datetime.now().astimezone()
-            hours = delta.total_seconds() // (60 * 60)
+            hours = int(delta.total_seconds() // (60 * 60))
             hours = '<1' if hours < 1 else hours
             buyout = listing.settings.get('max_bid')
             if len(listing.bids) > 0:
@@ -396,13 +397,13 @@ class BasicAuction:
             await self.save()
 
     async def delete(self):
-        return self.stadium.server.bot.helios_http.del_auction(self._id)
+        return await self.stadium.server.bot.helios_http.del_auction(self._id)
 
     def to_json(self):
         if self.message:
             message = (self.message.channel.id, self.message.id)
         else:
-            message = None
+            message = tuple()
         return {
             'id': self._id,
             'name': self.name,
@@ -488,7 +489,10 @@ class GroupAuction(BasicAuction):
             if isinstance(self.message, discord.PartialMessage):
                 self.message = await self.message.fetch()
                 new = True
-            await self.message.edit(content=summary, view=view)
+            if self.is_done():
+                await self.message.edit(content=summary, view=None)
+            else:
+                await self.message.edit(content=summary, view=view)
         else:
             self.message = await self.channel.send(content=summary, view=view)
             await self.save()
@@ -651,7 +655,7 @@ class AuctionHouse:
             auctions = 0
         for i in range(auctions):
             end = (i + 1) * 25
-            horses = new_horses[i:end]
+            horses = new_horses[i*25:end]
             a = GroupAuction(self, self.stadium.auction_channel)
             a.name = 'New Horse Auction'
             a.start_time = now.replace(hour=12, minute=0,
@@ -674,7 +678,7 @@ class AuctionHouse:
             auctions = math.ceil(len(horses) / 25)
         for i in range(auctions):
             end = (i + 1) * 25
-            tmp_horses = horses[i:end]
+            tmp_horses = horses[i*25:end]
             a = GroupAuction(self, self.stadium.auction_channel)
             a.name = 'Last Chance Auction'
             a.start_time = now.replace(hour=12, minute=0,
@@ -686,26 +690,6 @@ class AuctionHouse:
         return auction_list
 
     async def run(self):
-        if self.once:
-            self.once = False
-            # TESTING -------------------------------------------------------------
-            rotating = list(filter(lambda x: x.type == 'rotating', self.auctions))
-            group = list(filter(lambda x: x.type == 'group', self.auctions))
-            if len(rotating) < 1:
-                horses = random.sample(list(self.stadium.horses.values()), k=5)
-                a = RotatingAuction(self, self.stadium.auction_channel)
-                a.settings['start_time'] = (datetime.now().astimezone()
-                                            + timedelta(minutes=1)).isoformat()
-                a.create_listings(horses)
-                self.auctions.append(a)
-            if len(group) < 1:
-                horses = random.sample(list(self.stadium.horses.values()), k=10)
-                a = GroupAuction(self, self.stadium.auction_channel)
-                a.settings['start_time'] = datetime.now().astimezone().isoformat()
-                a.settings['duration'] = 60 * 60
-                a.create_listings(horses)
-                self.auctions.append(a)
-            # END TESTING ---------------------------------------------------------
         remove = []
         for i, auction in enumerate(self.auctions):
             await auction.run()
@@ -713,8 +697,10 @@ class AuctionHouse:
                 await auction.delete()
                 remove.append(auction)
         for i in remove:
-            self.auctions.remove(i)
-        await asyncio.sleep(60)
+            try:
+                self.auctions.remove(i)
+            except ValueError:
+                ...
 
     async def setup(self, auctions_data: Optional[List] = None):
         if auctions_data is None:

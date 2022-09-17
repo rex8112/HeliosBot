@@ -142,7 +142,10 @@ class Event:
         )
         await self.channel.send(embed=embed)
         for race in self.races:
-            self.stadium.races.remove(race)
+            try:
+                self.stadium.races.remove(race)
+            except ValueError:
+                ...
         self.stadium.events.remove(self)
 
     async def maidens_available(self):

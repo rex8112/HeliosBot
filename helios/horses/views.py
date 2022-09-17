@@ -210,9 +210,10 @@ class GroupAuctionView(discord.ui.View):
         else:
             listings = self.auction.listings
         options = []
-        for listing in listings:
+        for i, listing in enumerate(listings, start=1):
             option = discord.SelectOption(label=listing.horse.name,
-                                          value=str(listing.horse_id))
+                                          value=str(listing.horse_id),
+                                          description=f'ID: {i:03}')
             options.append(option)
         self.select_horse.options = options
 

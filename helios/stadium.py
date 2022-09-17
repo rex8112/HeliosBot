@@ -36,6 +36,7 @@ class Stadium(HasSettings):
     epoch_day = datetime.datetime(2022, 8, 1, 1, 0, 0)
     daily_points = 100
     keep_amount = 100
+    build_amount = 150
 
     def __init__(self, server: 'Server'):
         self.server = server
@@ -174,7 +175,9 @@ class Stadium(HasSettings):
     def scouting_horses(self) -> Dict[int, Horse]:
         horses = {}
         for key, horse in self.horses.items():
-            if not horse.get_flag('NEW') and not horse.get_flag('QUALIFIED'):
+            if (not horse.get_flag('NEW') and not horse.get_flag('QUALIFIED')
+                    and not horse.get_flag('PENDING')
+                    and not horse.get_flag('DELETE')):
                 horses[key] = horse
         return horses
 
@@ -182,6 +185,20 @@ class Stadium(HasSettings):
         horses = {}
         for key, horse in self.horses.items():
             if horse.owner is None and horse.get_flag('QUALIFIED'):
+                horses[key] = horse
+        return horses
+
+    def pending_horses(self) -> Dict[int, Horse]:
+        horses = {}
+        for key, horse in self.horses.items():
+            if horse.get_flag('PENDING'):
+                horses[key] = horse
+        return horses
+
+    def deletable_horses(self) -> Dict[int, Horse]:
+        horses = {}
+        for key, horse in self.horses.items():
+            if horse.get_flag('DELETE'):
                 horses[key] = horse
         return horses
 
@@ -382,78 +399,97 @@ class Stadium(HasSettings):
         self._running = True
         cont = True
         while cont:
-            changed = False
-            if self.category is None:
-                cont = False
-                break
-            await self.manage_announcements()
-            cur_day = self.get_day()
-            if cur_day != self.day:
-                self.day = cur_day
-                now = datetime.datetime.now().astimezone()
-                day_of_week = now.weekday()
-                # On Friday, create Final Auction and Saturday Top Auction
-                if day_of_week == self.auction_house.DIE_AUCTION:
-                    tasks = []
-                    final_horses = []
-                    for horse in self.horses.values():
-                        if not horse.get_flag('QUALIFIED'):
-                            horse.set_flag('PENDING', True)
-                            final_horses.append(horse)
-                            tasks.append(horse.save())
-                    if len(final_horses) > 0:
-                        self.auction_house.create_final_auctions(final_horses)
-                        await asyncio.wait(tasks)
+            try:
+                changed = False
+                if self.category is None:
+                    cont = False
+                    break
+                await self.manage_announcements()
+                cur_day = self.get_day()
+                if cur_day != self.day:
+                    self.day = cur_day
+                    now = datetime.datetime.now().astimezone()
+                    day_of_week = now.weekday()
+                    deletable_horses = self.deletable_horses()
+                    for horse in deletable_horses.values():
+                        await horse.delete()
+                    # On Friday, create Final Auction and Saturday Top Auction
+                    if day_of_week == self.auction_house.DIE_AUCTION:
+                        tasks = []
+                        final_horses = []
+                        for horse in self.horses.values():
+                            if not horse.get_flag('QUALIFIED'):
+                                horse.set_flag('PENDING', True)
+                                final_horses.append(horse)
+                                tasks.append(horse.save())
+                        if len(final_horses) > 0:
+                            self.auction_house.create_final_auctions(final_horses)
+                            await asyncio.wait(tasks)
 
-                    horses = self.unowned_qualified_horses().values()
-                    self.auction_house.create_top_auction(
-                        list(horses),
-                        keep=self.keep_amount
-                    )
-                # On Sunday, create New Auction
-                elif day_of_week == self.auction_house.NEW_AUCTION:
-                    new_horses = await self.batch_create_horses(50)
+                        horses = self.unowned_qualified_horses().values()
+                        self.auction_house.create_top_auction(
+                            list(horses),
+                            keep=self.keep_amount
+                        )
+                    # On Sunday, create New Auction
+                    elif day_of_week == self.auction_house.NEW_AUCTION:
+                        amount_to_take = (self.build_amount
+                                          - len(self.unowned_qualified_horses()))
+                        counter = 0
+                        pending = sorted(self.pending_horses().values(),
+                                         key=lambda x: x.quality, reverse=True)
+                        for horse in pending:
+                            counter += 1
+                            horse.set_flag('PENDING', False)
+                            if counter <= amount_to_take:
+                                horse.set_flag('QUALIFIED', True)
+                            else:
+                                horse.set_flag('DELETE', True)
+                            await horse.save()
+                        new_horses = await self.batch_create_horses(50)
+                        changed = True
+                        self.auction_house.create_new_auctions(new_horses)
+
+                daily_events = list(filter(lambda e: e.settings['type'] == 'daily',
+                                           self.events))
+                if len(daily_events) < 1:
+                    now = datetime.datetime.now().astimezone()
+                    start_time = now.replace(hour=21, minute=0, second=0,
+                                             microsecond=0)
+                    if now + datetime.timedelta(hours=1) >= start_time:
+                        start_time += datetime.timedelta(days=1)
+
+                    new_event = Event(self, self.daily_channel,
+                                      event_type='daily',
+                                      start_time=start_time,
+                                      races=6)
+                    new_event.name = f'{start_time.strftime("%A")} Daily Event'
+                    self.events.append(new_event)
                     changed = True
-                    self.auction_house.create_new_auctions(new_horses)
 
-            daily_events = list(filter(lambda e: e.settings['type'] == 'daily',
-                                       self.events))
-            if len(daily_events) < 1:
-                now = datetime.datetime.now().astimezone()
-                start_time = now.replace(hour=21, minute=0, second=0,
-                                         microsecond=0)
-                if now + datetime.timedelta(hours=1) >= start_time:
-                    start_time += datetime.timedelta(days=1)
+                for event in self.events:
+                    result = await event.manage_event()
+                    if result:
+                        changed = True
 
-                new_event = Event(self, self.daily_channel,
-                                  event_type='daily',
-                                  start_time=start_time,
-                                  races=6)
-                new_event.name = f'{start_time.strftime("%A")} Daily Event'
-                self.events.append(new_event)
-                changed = True
+                # Ensure all races are still running and restart them if not
+                for race in self.races:
+                    if not race.is_running():
+                        race.create_run_task()
 
-            for event in self.events:
-                result = await event.manage_event()
-                if result:
-                    changed = True
+                basic_races = list(filter(lambda r: r.settings['type'] == 'basic',
+                                          self.races))
+                if len(basic_races) < 1:
+                    if self.create_basic_race():
+                        changed = True
 
-            # Ensure all races are still running and restart them if not
-            for race in self.races:
-                if not race.is_running():
-                    race.create_run_task()
+                await self.auction_house.run()
 
-            basic_races = list(filter(lambda r: r.settings['type'] == 'basic',
-                                      self.races))
-            if len(basic_races) < 1:
-                if self.create_basic_race():
-                    changed = True
-
-            await self.auction_house.run()
-
-            if changed:
-                await self.save()
-            await asyncio.sleep(60)
+                if changed:
+                    await self.save()
+                await asyncio.sleep(60)
+            except Exception as e:
+                print(type(e).__name__, e)
         self._running = False
 
     async def manage_announcements(self):

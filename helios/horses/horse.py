@@ -196,3 +196,7 @@ class Horse(HasSettings, HasFlags):
             self._id = new_data['id']
         else:
             await self.stadium.server.bot.helios_http.patch_horse(self.serialize())
+
+    async def delete(self):
+        await self.stadium.server.bot.helios_http.del_horse(self._id)
+        del self.stadium.horses[self._id]
