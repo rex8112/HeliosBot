@@ -1,10 +1,13 @@
-import datetime
+import random
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 import discord
 from discord import app_commands
 from discord.ext import commands
+from discord.utils import MISSING
 
+from helios.horses.auction import GroupAuction
 from helios.horses.views import HorseOwnerView
 
 if TYPE_CHECKING:
@@ -36,9 +39,9 @@ class StadiumCog(commands.Cog):
             await interaction.followup.send(f'Claimed **{server.stadium.daily_points:,}** points!')
         else:
             epoch_time = server.stadium.epoch_day.time()
-            tomorrow = datetime.datetime.now().astimezone() + datetime.timedelta(days=1)
+            tomorrow = datetime.now().astimezone() + timedelta(days=1)
             tomorrow = tomorrow.date()
-            tomorrow = datetime.datetime.combine(tomorrow, epoch_time)
+            tomorrow = datetime.combine(tomorrow, epoch_time)
             await interaction.response.send_message(f'Check back <t:{int(tomorrow.timestamp())}:R>', ephemeral=True)
 
     @app_commands.command(name='horses', description='Show current horses.')
@@ -67,7 +70,7 @@ class StadiumCog(commands.Cog):
                         if horse.owner else horse.stadium.owner.id)
             owner = owner_id == interaction.user.id
             embeds = horse.get_inspect_embeds(is_owner=owner)
-            view = HorseOwnerView(horse.owner, horse) if owner else None
+            view = HorseOwnerView(horse.owner, horse) if owner else MISSING
             await interaction.response.send_message(embeds=embeds,
                                                     ephemeral=True,
                                                     view=view)
@@ -112,6 +115,20 @@ class StadiumCog(commands.Cog):
                 f'**{horse_name}** does not exist!',
                 ephemeral=True
             )
+
+    @app_commands.command(name='test_group_auction')
+    @app_commands.guilds(466060673651310593)
+    async def test_group_auction(self, interaction: discord.Interaction,
+                                 seconds: int):
+        server = self.bot.servers.get(interaction.guild_id)
+        a = GroupAuction(server.stadium.auction_house, interaction.channel)
+        a.settings['duration'] = seconds
+        a.settings['start_time'] = datetime.now().astimezone().isoformat()
+        horses = random.sample(list(server.stadium.horses.values()), 10)
+        a.create_listings(horses)
+        server.stadium.auction_house.auctions.append(a)
+        await interaction.response.send_message('Auction Created',
+                                                ephemeral=True)
 
 
 async def setup(bot: 'HeliosBot'):

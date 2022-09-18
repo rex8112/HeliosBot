@@ -469,7 +469,8 @@ class Stadium(HasSettings):
                             list(horses),
                             keep=self.keep_amount
                         )
-                    # On Sunday, create New Auction
+                    # On Sunday, create New Auction and deal with pending from
+                    # die auction
                     elif day_of_week == self.auction_house.NEW_AUCTION:
                         amount_to_take = (self.build_amount
                                           - len(self.unowned_qualified_horses()))
@@ -484,7 +485,16 @@ class Stadium(HasSettings):
                             else:
                                 horse.set_flag('DELETE', True)
                             await horse.save()
-                        new_horses = await self.batch_create_horses(50)
+                        want_diff = self.build_amount - len(self.horses)
+                        needed_horses = max(50, want_diff)
+                        overlap = needed_horses % 25
+                        if overlap < 10:
+                            needed_horses -= overlap
+                        else:
+                            needed_horses += 25 - overlap
+                        new_horses = await self.batch_create_horses(
+                            needed_horses
+                        )
                         changed = True
                         self.auction_house.create_new_auctions(new_horses)
 

@@ -91,7 +91,7 @@ class HorseListing:
         self.update_list: List[discord.Message] = []
 
         self.new_bid = False
-        self.canceled = False
+        self.cancelled = False
         self.done = False
         self._task: Optional[asyncio.Task] = None
 
@@ -103,11 +103,14 @@ class HorseListing:
     def active(self):
         now = datetime.now().astimezone()
         if self.settings['max_bid']:
-            bought = (self.get_highest_bidder().amount
-                      >= self.settings['max_bid'])
+            try:
+                bought = (self.get_highest_bidder().amount
+                          >= self.settings['max_bid'])
+            except ValueError:
+                bought = False
         else:
             bought = False
-        return now < self.end_time or bought
+        return now < self.end_time and not bought and not self.cancelled
 
     @property
     def end_time(self):
@@ -200,7 +203,7 @@ class HorseListing:
             )
 
     def cancel(self):
-        self.canceled = True
+        self.cancelled = True
         self.done = True
         self.auction.settings['any_canceled'] = True
         self.bids.clear()
@@ -208,52 +211,55 @@ class HorseListing:
     async def run(self, update_list: List[discord.Message]):
         self.update_list = update_list
         while self.done is False:
-            if self.new_bid or not self.active:
-                tasks = []
-                if not self.active:
-                    self.horse.likes = 0
-                    if len(self.bids) > 0:
-                        highest = self.get_highest_allowed_bid()
-                        if highest is not None:
-                            mem = self.auction.stadium.server.members.get(
-                                highest.bidder_id
-                            )
-                            if mem.points >= highest.amount:
-                                horse = self.horse
-                                mem.points -= highest.amount
-                                horse.owner = mem
-                                horse.make_qualified()
-                                horse.set_flag('PENDING', False)
-                                await mem.save()
-                                try:
-                                    await mem.member.send(
-                                        f'You have purchased **{horse.name}** '
-                                        f'for **{highest.amount:,}** points'
-                                    )
-                                except (discord.HTTPException,
-                                        discord.Forbidden):
-                                    ...
-                    self.horse.set_flag('NEW', False)
-                    await self.horse.save()
-                    self.done = True
-                self.new_bid = False
-                remove = []
-                self.auction.changed = True
-                for i, message in enumerate(self.update_list):
-                    if self.active:
-                        tasks.append(message.edit(embed=self.get_embed(),
-                                                  view=ListingView(self)))
-                    else:
-                        tasks.append(message.edit(embed=self.get_embed(),
-                                                  view=None))
-                        remove.append(message)
+            try:
+                if self.new_bid or not self.active:
+                    tasks = []
+                    if not self.active:
+                        self.horse.likes = 0
+                        if len(self.bids) > 0:
+                            highest = self.get_highest_allowed_bid()
+                            if highest is not None:
+                                mem = self.auction.stadium.server.members.get(
+                                    highest.bidder_id
+                                )
+                                if mem.points >= highest.amount:
+                                    horse = self.horse
+                                    mem.points -= highest.amount
+                                    horse.owner = mem
+                                    horse.make_qualified()
+                                    horse.set_flag('PENDING', False)
+                                    await mem.save()
+                                    try:
+                                        await mem.member.send(
+                                            f'You have purchased **{horse.name}** '
+                                            f'for **{highest.amount:,}** points'
+                                        )
+                                    except (discord.HTTPException,
+                                            discord.Forbidden):
+                                        ...
+                        self.horse.set_flag('NEW', False)
+                        await self.horse.save()
+                        self.done = True
+                    self.new_bid = False
+                    remove = []
+                    self.auction.changed = True
+                    for i, message in enumerate(self.update_list):
+                        if self.active:
+                            tasks.append(message.edit(embed=self.get_embed(),
+                                                      view=ListingView(self)))
+                        else:
+                            tasks.append(message.edit(embed=self.get_embed(),
+                                                      view=None))
+                            remove.append(message)
 
-                if len(tasks) > 0:
-                    await asyncio.wait(tasks)
+                    if len(tasks) > 0:
+                        await asyncio.wait(tasks)
 
-                for i in remove:
-                    self.update_list.remove(i)
-            await asyncio.sleep(1)
+                    for i in remove:
+                        self.update_list.remove(i)
+                await asyncio.sleep(1)
+            except Exception as e:
+                print(type(e).__name__, e)
 
     def to_json(self):
         return {
@@ -268,7 +274,7 @@ class HorseListing:
         li.bids = [Bid.from_json(b) for b in data['bids']]
         li.settings = {**li._default_settings, **data['settings']}
         now = datetime.now().astimezone()
-        if now + timedelta(minutes=10) > li.end_time:
+        if now > li.end_time - timedelta(minutes=10):
             li.cancel()
         return li
 
@@ -364,8 +370,8 @@ class BasicAuction:
     def get_summary(self, page: int = 0):
         summary = (
             '```\n'
-            'id  | Horse Name                 | Current   | Buyout    | '
-            'Duration    \n')
+            'id  | Horse Name    | W/L   | Current   | Starting  | '
+            'Buyout    | Duration    \n')
         horses: List['Horse'] = [x.horse for x in self.listings]
         page_num = 25 * page
         for i, horse in enumerate(horses[page_num:25+page_num],
@@ -373,21 +379,31 @@ class BasicAuction:
             listing = self.listings[i-1]
             delta = listing.end_time - datetime.now().astimezone()
             hours = int(delta.total_seconds() // (60 * 60))
-            hours = '<1' if hours < 1 else hours
+            hours = ' <1' if hours < 1 else hours
             buyout = listing.settings.get('max_bid')
+            if len(horse.name) > 13:
+                name = f'{horse.name[:10]}...'
+            else:
+                name = horse.name
+            win, loss = self.stadium.get_win_loss(horse.records)
+            try:
+                ratio = win / len(horse.records)
+            except ZeroDivisionError:
+                ratio = 0
             if len(listing.bids) > 0:
                 bid = listing.get_highest_bidder().amount
             else:
-                bid = listing.settings['min_bid']
+                bid = 0
+            start = listing.settings['min_bid']
             if buyout is None:
                 buyout = 0
             duration = f'in {hours:3} hours'
-            if listing.canceled:
+            if listing.cancelled:
                 duration = 'cancelled   '
             elif listing.done:
                 duration = 'finished    '
-            line = (f'{i:03} | {horse.name:26} | {bid:9,} | '
-                    f'{buyout:9,} | {duration}\n')
+            line = (f'{i:03} | {name:13} | {ratio:5.0%} | {bid:9,} | '
+                    f'{start:9,} | {buyout:9,} | {duration}\n')
             summary += line
         summary += '```'
         return summary
@@ -407,7 +423,7 @@ class BasicAuction:
     async def run(self):
         if self.settings['any_canceled'] and self.is_done():
             self.settings['any_canceled'] = False
-            self.house.redo_canceled_listings(self)
+            # self.house.redo_canceled_listings(self)
         if self.should_save() or self.is_new():
             await self.save()
 
@@ -514,7 +530,8 @@ class GroupAuction(BasicAuction):
             new = True
         if new:
             for i, listing in enumerate(self.listings):
-                listing.create_run_task(self.bid_update_list[i])
+                if listing.active or listing.horse.owner is None:
+                    listing.create_run_task(self.bid_update_list[i])
 
 
 class RotatingAuction(BasicAuction):
@@ -633,7 +650,7 @@ class AuctionHouse:
     def redo_canceled_listings(self, auction: 'BasicAuction'):
         canceled_horses = []
         for listing in auction.listings:
-            if listing.canceled:
+            if listing.cancelled:
                 canceled_horses.append(listing.horse)
         a = GroupAuction(self, self.stadium.auction_channel)
         now = datetime.now().astimezone().replace(hour=11, minute=0,
@@ -663,19 +680,20 @@ class AuctionHouse:
     def create_new_auctions(self, horses: List['Horse']):
         now = datetime.now().astimezone()
         new_horses = horses
-        auctions = math.ceil(len(new_horses) / 25)
+        auctions = math.ceil(len(new_horses) / 20)
         new_auctions = list(filter(lambda x: x.name == 'New Horse Auction',
                                    self.auctions))
         if len(new_auctions) > 0:
             auctions = 0
         for i in range(auctions):
-            end = (i + 1) * 25
-            horses = new_horses[i*25:end]
+            end = (i + 1) * 20
+            horses = new_horses[i*20:end]
             a = GroupAuction(self, self.stadium.auction_channel)
             a.name = 'New Horse Auction'
             a.start_time = now.replace(hour=12, minute=0,
                                        second=0, microsecond=0)
             a.settings['duration'] = 60 * 60 * 24
+            a.settings['buy'] = True
             a.create_listings(horses)
             self.auctions.append(a)
 
@@ -690,10 +708,10 @@ class AuctionHouse:
         if len(final_auctions) > 0:
             auctions = 0
         else:
-            auctions = math.ceil(len(horses) / 25)
+            auctions = math.ceil(len(horses) / 20)
         for i in range(auctions):
-            end = (i + 1) * 25
-            tmp_horses = horses[i*25:end]
+            end = (i + 1) * 20
+            tmp_horses = horses[i*20:end]
             a = GroupAuction(self, self.stadium.auction_channel)
             a.name = 'Last Chance Auction'
             a.start_time = now.replace(hour=12, minute=0,
