@@ -103,8 +103,11 @@ class HorseListing:
     def active(self):
         now = datetime.now().astimezone()
         if self.settings['max_bid']:
-            bought = (self.get_highest_bidder().amount
-                      >= self.settings['max_bid'])
+            try:
+                bought = (self.get_highest_bidder().amount
+                          >= self.settings['max_bid'])
+            except ValueError:
+                bought = False
         else:
             bought = False
         return now < self.end_time and not bought and not self.cancelled
