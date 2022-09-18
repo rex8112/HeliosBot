@@ -246,6 +246,7 @@ class Horse(HasSettings, HasFlags):
             del data['id']
             new_data = await self.stadium.server.bot.helios_http.post_horse(data)
             self._id = new_data['id']
+            self._new = False
         else:
             await self.stadium.server.bot.helios_http.patch_horse(self.serialize())
 
