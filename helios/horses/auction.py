@@ -530,7 +530,8 @@ class GroupAuction(BasicAuction):
             new = True
         if new:
             for i, listing in enumerate(self.listings):
-                listing.create_run_task(self.bid_update_list[i])
+                if listing.active or listing.horse.owner is None:
+                    listing.create_run_task(self.bid_update_list[i])
 
 
 class RotatingAuction(BasicAuction):
