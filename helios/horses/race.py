@@ -6,6 +6,7 @@ from fractions import Fraction
 from typing import Optional, TYPE_CHECKING, List, Dict
 
 import discord
+from discord.utils import MISSING
 
 from .enumerations import BetType
 from .horse import Horse
@@ -1017,8 +1018,8 @@ class Race(HasSettings):
             embed = self._get_race_embed()
         await self.send_or_edit_message(embed=embed, view=self._view)
 
-    async def send_or_edit_message(self, content=None, *, embed=None,
-                                   view=None):
+    async def send_or_edit_message(self, content=MISSING, *, embed=MISSING,
+                                   view=MISSING):
         if self.message is None:
             self.settings['message'] = await self.channel.send(content=content,
                                                                embed=embed,
@@ -1028,6 +1029,14 @@ class Race(HasSettings):
             if type(self.message) == discord.PartialMessage:
                 self.settings['message'] = await self.message.fetch()
             try:
+                if self.message.content == content:
+                    content = MISSING
+                if self.message.embeds == [embed]:
+                    embed = MISSING
+                if view and self.message.components == view.children:
+                    view = MISSING
+                if content == MISSING and embed == MISSING and view == MISSING:
+                    return
                 await self.message.edit(content=content, embed=embed,
                                         view=view)
             except discord.NotFound:
