@@ -89,3 +89,10 @@ class EventManager:
     def add_event(self, event: Event):
         if event not in self.events:
             self.events.append(event)
+
+    def remove_event(self, event: Event):
+        """Remove event from manager, silently ignores value errors"""
+        try:
+            self.events.remove(event)
+        except ValueError:
+            ...

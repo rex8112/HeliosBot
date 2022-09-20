@@ -253,7 +253,7 @@ class Event:
                 self.stadium.races.remove(race)
             except ValueError:
                 ...
-        self.manager.events.remove(self)
+        self.manager.remove_event(self)
 
     async def maidens_available(self):
         maidens = 0
