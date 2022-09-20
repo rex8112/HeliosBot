@@ -125,6 +125,13 @@ class PreRaceView(discord.ui.View):
                 view=None
             )
             return
+        if not self.race.is_qualified(horse):
+            await interaction.edit_original_response(
+                content='This horse is no longer qualified. This most likely '
+                        'means that you already put this horse in a race.',
+                view=None
+            )
+            return
         member.points -= self.race.stake
         await member.save()
         await self.race.add_horse(horse)
