@@ -264,7 +264,7 @@ class Event:
             race.horses = qualified_horses
             for horse in qualified_horses:
                 horses.pop(horse.id)
-            return horses
+        return horses
 
     @staticmethod
     def prefill_races_weighted(races: list[Race],
@@ -298,7 +298,7 @@ class Event:
             race.horses = qualified_horses
             for horse in qualified_horses:
                 horses.pop(horse.id)
-            return horses
+        return horses
 
     async def generate_races(self):
         race_types = self.race_types
