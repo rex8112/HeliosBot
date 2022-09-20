@@ -93,7 +93,7 @@ class Event:
         }
 
     def __key(self):
-        return self.channel.id, self.settings['start_time'], self.race_ids
+        return self.channel.id, self.settings['start_time'], self.type
 
     def __hash__(self):
         return hash(self.__key())
