@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
+from dateutil.relativedelta import *
+
 from .event import Event, RaceTypeCount
 
 if TYPE_CHECKING:
@@ -58,6 +60,11 @@ class EventManager:
                           races=races)
         new_event.name = f'{start_time.strftime("%A")} Daily Event'
         return new_event
+
+    def create_weekly_event(self, horses: dict[int, 'Horse']):
+        now = datetime.now().astimezone()
+        sunday = now + relativedelta(days=+1, weekday=SU)
+
 
     async def new_day(self):
         ...
