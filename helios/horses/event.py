@@ -9,7 +9,6 @@ from .race import Race
 from ..tools.settings import Item
 
 if TYPE_CHECKING:
-    from ..stadium import Stadium
     from .horse import Horse
     from .event_manager import EventManager
 
@@ -411,8 +410,9 @@ class Event:
         }
 
     @classmethod
-    def from_json(cls, stadium: 'Stadium', data: dict):
-        event = cls(stadium, data['channel'], start_time=data['settings'],
+    def from_json(cls, manager: 'EventManager', data: dict):
+        event = cls(manager, data['channel'],
+                    start_time=data['settings'],
                     races=RaceTypeCount())
         event.name = data['name']
         event.race_ids = data['race_ids']
@@ -421,7 +421,7 @@ class Event:
                                              bot=event.stadium.server.bot,
                                              guild=event.stadium.guild)
         else:
-            event.channel = stadium.server.bot.get_channel(data['channel'])
+            event.channel = manager.bot.get_channel(data['channel'])
 
         event.settings = data['settings']
         return event

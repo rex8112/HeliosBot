@@ -71,7 +71,7 @@ class EventManager:
         return [x.to_json() for x in self.events]
 
     def fill_events_from_json(self, data: list):
-        self.events.extend([Event.from_json(self.stadium, x) for x in data])
+        self.events.extend([Event.from_json(self, x) for x in data])
 
     @classmethod
     def from_json(cls, stadium: 'Stadium', data: list):
