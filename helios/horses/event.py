@@ -1,6 +1,6 @@
 import datetime
 import math
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterable
 
 import discord
 import numpy
@@ -263,7 +263,7 @@ class Event:
         return maidens
 
     @staticmethod
-    def prefill_races(races: list[Race],
+    def prefill_races(races: Iterable[Race],
                       horses: dict[int, 'Horse']) -> dict[int, 'Horse']:
         """
         Put random horses into the race that qualify
@@ -289,7 +289,7 @@ class Event:
         return horses
 
     @staticmethod
-    def prefill_races_weighted(races: list[Race],
+    def prefill_races_weighted(races: Iterable[Race],
                                horses: dict[int, 'Horse']
                                ) -> dict[int, 'Horse']:
         """
@@ -366,11 +366,23 @@ class Event:
             start_time = start_time + datetime.timedelta(
                 minutes=self.settings['buffer'])
 
+        for _ in range(race_types.grade3):
+            race = self.create_grade3_race(start_time, index)
+            index += 1
+            delta = start_time - self.betting_time
+            race.settings['betting_time'] = delta.total_seconds()
+            race.settings['restrict_time'] = delta.total_seconds() + 60 * 60
+            race.settings['max_horses'] = 12
+            races.append(race)
+            listed_races.append(race)
+            start_time = start_time + datetime.timedelta(
+                minutes=self.settings['buffer'])
+
         horses = self.stadium.unowned_qualified_horses()
         # Loop through maiden races
         self.prefill_races(maiden_races, horses)
         # Loop through listed races
-        self.prefill_races_weighted(listed_races, horses)
+        self.prefill_races_weighted(reversed(listed_races), horses)
         # Loop through other races
         self.prefill_races(other_races, horses)
         await self.stadium.bulk_add_races(races)

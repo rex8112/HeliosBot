@@ -44,9 +44,14 @@ class EventManager:
 
         maidens = min(3, possible_maidens)
         listed = min(1, possible_listed)
-        stakes = races_to_run - listed - maidens
+        if len(self.get_weekly_events()) > 0:
+            grade3 = 1
+        else:
+            grade3 = 0
+        stakes = races_to_run - grade3 - listed - maidens
 
-        races = RaceTypeCount(maidens=maidens, stakes=stakes, listed=listed)
+        races = RaceTypeCount(maidens=maidens, stakes=stakes, listed=listed,
+                              grade3=grade3)
         new_event = Event(self, self.stadium.daily_channel,
                           event_type='daily',
                           start_time=start_time,
@@ -85,6 +90,13 @@ class EventManager:
             if event.type == 'daily':
                 daily_events.append(event)
         return daily_events
+
+    def get_weekly_events(self):
+        weekly_events = []
+        for event in self.events:
+            if event.type == 'weekly':
+                weekly_events.append(event)
+        return weekly_events
 
     def add_event(self, event: Event):
         if event not in self.events:
