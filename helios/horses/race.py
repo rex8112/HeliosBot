@@ -420,7 +420,7 @@ class Race(HasSettings):
 
     @property
     def event(self) -> Optional['Event']:
-        for e in self.stadium.events:
+        for e in self.stadium.events.events:
             if self.id in e.race_ids:
                 return e
         return None

@@ -8,7 +8,7 @@ import discord
 from .abc import HasSettings
 from .exceptions import IdMismatchError
 from .horses.auction import AuctionHouse
-from .horses.event import Event, RaceTypeCount
+from .horses.event_manager import EventManager
 from .horses.horse import Horse
 from .horses.race import Race, Record
 from .member import HeliosMember
@@ -42,7 +42,7 @@ class Stadium(HasSettings):
         self.server = server
         self.horses: dict[int, 'Horse'] = {}
         self.races: list['Race'] = []
-        self.events: list['Event'] = []
+        self.events: EventManager = EventManager(self)
         self.day = 0
         self.settings: StadiumSettings = self._default_settings.copy()
 
@@ -58,7 +58,7 @@ class Stadium(HasSettings):
     @property
     def event_race_ids(self) -> List[int]:
         ids = []
-        for event in self.events:
+        for event in self.events.events:
             ids.extend(event.race_ids)
         return ids
 
@@ -260,45 +260,12 @@ class Stadium(HasSettings):
             return True
         return False
 
-    def create_daily_event(self) -> Optional[Event]:
-        now = datetime.datetime.now().astimezone()
-        start_time = now.replace(hour=21, minute=0, second=0,
-                                 microsecond=0)
-        if now + datetime.timedelta(hours=1) >= start_time:
-            start_time += datetime.timedelta(days=1)
-
-        eligible_horses = self.unowned_qualified_horses()
-        maiden_horses = []
-        listed_horses = []
-        for horse in eligible_horses.values():
-            if horse.get_flag('MAIDEN'):
-                maiden_horses.append(horse)
-            else:
-                listed_horses.append(horse)
-        possible_races = len(eligible_horses) // 12
-        possible_maidens = len(maiden_horses) // 12
-        possible_listed = len(listed_horses) // 12
-        max_races = 12
-        races_to_run = min(max_races, possible_races)
-
-        maidens = min(3, possible_maidens)
-        listed = min(1, possible_listed)
-        stakes = races_to_run - listed - maidens
-
-        races = RaceTypeCount(maidens=maidens, stakes=stakes, listed=listed)
-        new_event = Event(self, self.daily_channel,
-                          event_type='daily',
-                          start_time=start_time,
-                          races=races)
-        new_event.name = f'{start_time.strftime("%A")} Daily Event'
-        return new_event
-
     def serialize(self) -> StadiumSerializable:
         return {
             'server': self.server.id,
             'day': self.day,
             'settings': Item.serialize_dict(self.settings),
-            'events': [x.to_json() for x in self.events]
+            'events': self.events.to_json()
         }
 
     def _deserialize(self, data: StadiumSerializable):
@@ -311,7 +278,7 @@ class Stadium(HasSettings):
             bot=self.server.bot,
             guild=self.guild
         )
-        self.events = [Event.from_json(self, x) for x in data['events']]
+        self.events = EventManager.from_json(self, data['events'])
 
     async def add_race(self, race: 'Race'):
         self.races.append(race)
@@ -499,19 +466,16 @@ class Stadium(HasSettings):
                         self.auction_house.create_new_auctions(new_horses)
 
                     # Check once a day to ensure weekly was made above first
-                    daily_events = list(filter(
-                        lambda e: e.settings['type'] == 'daily',
-                        self.events)
-                    )
+                    daily_events = self.events.get_daily_events()
                     if len(daily_events) < 1:
-                        new_event = self.create_daily_event()
-                        self.events.append(new_event)
+                        new_event = self.events.create_daily_event(
+                            self.unowned_qualified_horses()
+                        )
+                        self.events.add_event(new_event)
                         changed = True
 
-                for event in self.events:
-                    result = await event.manage_event()
-                    if result:
-                        changed = True
+                if await self.events.manage():
+                    changed = True
 
                 basic_races = list(filter(
                     lambda r: r.settings['type'] == 'basic',

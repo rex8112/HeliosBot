@@ -11,6 +11,7 @@ from ..tools.settings import Item
 if TYPE_CHECKING:
     from ..stadium import Stadium
     from .horse import Horse
+    from .event_manager import EventManager
 
 
 class RaceTypeCount:
@@ -66,7 +67,10 @@ class RaceTypeCount:
 
 
 class Event:
-    def __init__(self, stadium: 'Stadium', channel: discord.TextChannel, *,
+    def __init__(self,
+                 event_manager: 'EventManager',
+                 channel: discord.TextChannel,
+                 *,
                  event_type: str = 'daily',
                  start_time: datetime.datetime,
                  betting_time: int = 60 * 60 * 1,
@@ -74,7 +78,7 @@ class Event:
                  announcement_time: int = 60 * 60 * 12,
                  races: RaceTypeCount):
         self.name = 'Unnamed Event'
-        self.stadium = stadium
+        self.manager = event_manager
         self.channel = channel
         self.race_ids = []
         self.settings = {
@@ -89,11 +93,30 @@ class Event:
             'winner_string': ''
         }
 
+    def __key(self):
+        return self.channel.id, self.settings['start_time'], self.race_ids
+
+    def __hash__(self):
+        return hash(self.__key())
+
+    def __eq__(self, other):
+        if isinstance(other, Event):
+            return self.__key() == other.__key()
+        return NotImplemented
+
+    @property
+    def stadium(self):
+        return self.manager.stadium
+
     @property
     def races(self):
         races = filter(lambda x: x.id in self.race_ids, self.stadium.races)
         races = list(sorted(races, key=lambda x: x.race_time))
         return races
+
+    @property
+    def type(self):
+        return self.settings['type']
 
     @property
     def race_types(self) -> RaceTypeCount:
@@ -230,7 +253,7 @@ class Event:
                 self.stadium.races.remove(race)
             except ValueError:
                 ...
-        self.stadium.events.remove(self)
+        self.manager.events.remove(self)
 
     async def maidens_available(self):
         maidens = 0
