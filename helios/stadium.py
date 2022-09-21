@@ -195,6 +195,13 @@ class Stadium(HasSettings):
                 horses[key] = horse
         return horses
 
+    def registered_horses(self) -> Dict[int, Horse]:
+        horses = {}
+        for key, horse in self.horses.items():
+            if horse.get_flag('REGISTERED'):
+                horses[key] = horse
+        return horses
+
     def pending_horses(self) -> Dict[int, Horse]:
         horses = {}
         for key, horse in self.horses.items():
