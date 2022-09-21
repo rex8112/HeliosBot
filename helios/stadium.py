@@ -30,6 +30,7 @@ class Stadium(HasSettings):
         'announcements',
         'auctions',
         'special-auctions',
+        'events',
         'daily-events',
         'basic-races'
     ]
@@ -114,6 +115,12 @@ class Stadium(HasSettings):
     def daily_channel(self) -> Optional[discord.TextChannel]:
         if self.category:
             return next(filter(lambda x: x.name == 'daily-events',
+                               self.category.channels))
+
+    @property
+    def event_channel(self) -> Optional[discord.TextChannel]:
+        if self.category:
+            return next(filter(lambda x: x.name == 'events',
                                self.category.channels))
 
     @staticmethod
