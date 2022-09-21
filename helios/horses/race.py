@@ -803,6 +803,11 @@ class Race(HasSettings):
             if record.race_type in ('maiden', 'stake') and record.placing == 0:
                 h.horse.set_flag('MAIDEN', False)
                 await h.horse.save()
+            if (record.race_type in ('grade3', 'grade2', 'grade1')
+                    and record.placing < 4):
+                point_payout = [10, 4, 2, 1]
+                record.points = point_payout[record.placing]
+
             owner = h.horse.owner
             if owner:
                 await owner.save()
