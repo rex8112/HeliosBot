@@ -31,13 +31,15 @@ class Record:
         self.race_type = 'None'
         self.earnings = 0
         self.placing = 0
+        self.points = 0
         self.date = datetime.datetime.now().astimezone().date()
 
     @classmethod
     def new(cls,
             horse: 'RaceHorse',
             event_race: 'Race',
-            earnings: float):
+            earnings: float,
+            points: int = 0):
         if not event_race.finished:
             raise ValueError('event_race must be finished')
         record = cls()
@@ -46,6 +48,7 @@ class Record:
         record.race_id = event_race.id
         record.race_type = event_race.settings['type']
         record.earnings = int(earnings)
+        record.points = points
         record.placing = event_race.race.finished_horses.index(horse)
         return record
 
@@ -67,6 +70,7 @@ class Record:
             'type': self.race_type,
             'earnings': self.earnings,
             'placing': self.placing,
+            'points': self.points,
             'date': self.date.isoformat()
         }
 
@@ -77,6 +81,7 @@ class Record:
         self.race_type = data['type']
         self.earnings = data['earnings']
         self.placing = data['placing']
+        self.points = data.get('points', 0)
         self.date = datetime.date.fromisoformat(data['date'])
 
 
