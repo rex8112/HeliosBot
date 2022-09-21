@@ -64,7 +64,48 @@ class EventManager:
     def create_weekly_event(self, horses: dict[int, 'Horse']):
         now = datetime.now().astimezone()
         sunday = now + relativedelta(days=+1, weekday=SU)
+        start_time = sunday.replace(hour=20, minute=0, second=0, microsecond=0)
 
+        maiden_horses = []
+        graded_horses = []
+        registered_horses = []
+        for horse in horses.values():
+            if horse.get_flag('MAIDEN'):
+                maiden_horses.append(horse)
+            else:
+                graded_horses.append(horse)
+                if horse.owner is None or horse.get_flag('REGISTERED'):
+                    registered_horses.append(horse)
+        possible_maidens = len(maiden_horses) // 12
+        possible_graded = len(graded_horses) // 12
+        possible_registered = len(registered_horses) // 12
+        max_races = 24
+
+        maiden_races = min(6, possible_maidens)
+        listed_races = min(2, possible_graded)
+        if possible_graded > 2:
+            grade3_races = min(2, possible_graded)
+        else:
+            grade3_races = 0
+        grade2_races = min(1, possible_registered)
+        stakes_races = (max_races
+                        - grade2_races
+                        - grade3_races
+                        - listed_races
+                        - maiden_races)
+
+        races = RaceTypeCount(maidens=maiden_races, stakes=stakes_races,
+                              listed=listed_races, grade3=grade3_races,
+                              grade2=grade2_races)
+        event = Event(self, self.stadium.event_channel,
+                      event_type='weekly',
+                      start_time=start_time,
+                      races=races)
+        event.settings['announcement_time'] = 60 * 60 * 36
+        event.settings['registration_time'] = 60 * 60 * 24
+        event.settings['betting_time'] = 60 * 60 * 2
+        event.name = f'{start_time.strftime("%b %d")} Weekly Event'
+        return event
 
     async def new_day(self):
         ...
