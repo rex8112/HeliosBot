@@ -6,6 +6,7 @@ from fractions import Fraction
 from typing import Optional, TYPE_CHECKING, List, Dict
 
 import discord
+from dateutil.relativedelta import *
 from discord.utils import MISSING
 
 from .enumerations import BetType
@@ -470,7 +471,7 @@ class Race(HasSettings):
         elif race_type == 'grade3':
             if horse.owner:
                 monday = datetime.datetime.now().astimezone()
-                monday = monday - datetime.timedelta(days=monday.weekday())
+                monday = monday - relativedelta(weekday=MO)
                 monday = monday.date()
                 for rec in horse.records:
                     if (rec.race_type == 'grade3' and monday <= rec.date
