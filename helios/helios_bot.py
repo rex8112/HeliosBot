@@ -4,6 +4,7 @@ from typing import Optional
 import discord
 from discord.ext import commands
 
+from .horses.views import SeasonRegistration
 from .http import HTTPClient
 from .server_manager import ServerManager
 from .tools import Config
@@ -31,6 +32,7 @@ class HeliosBot(commands.Bot):
             name_api_key=self.settings.randomname_api_key
         )
         self.add_view(TopicView(self))
+        self.add_view(SeasonRegistration(self))
 
     async def on_ready(self):
         logger.info(f'Logged in as {self.user} (ID: {self.user.id})')

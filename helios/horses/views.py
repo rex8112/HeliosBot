@@ -11,6 +11,7 @@ from ..views import YesNoView
 
 if TYPE_CHECKING:
     from ..member import HeliosMember
+    from ..helios_bot import HeliosBot
     from .race import Race
     from .horse import Horse
     from .auction import HorseListing, GroupAuction
@@ -104,7 +105,7 @@ class PreRaceView(discord.ui.View):
                 ephemeral=True
             )
             return
-        view = HorsePickerView(self.race, horses)
+        view = RaceHorsePickerView(self.race, horses)
         content = (f'Entry Cost: **{self.race.stake:,}**\n'
                    f'Your Points: **{member.points:,}**')
         message = await interaction.response.send_message(content, view=view,
@@ -161,6 +162,32 @@ class PreRaceView(discord.ui.View):
 
 
 class HorsePickerView(discord.ui.View):
+    def __init__(self, horses: Dict[int, 'Horse'], *,
+                 min_horses=1, max_horses=1):
+        self.horses = horses
+        self.horses_selected = []
+        options = []
+        for key, horse in self.horses.items():
+            if len(options) < 25:
+                options.append(discord.SelectOption(label=horse.name,
+                                                    value=str(key)))
+        super().__init__(timeout=30)
+        self.select_horse.min_values = min_horses
+        self.select_horse.max_values = max_horses
+        self.select_horse.options = options
+
+    @discord.ui.select(placeholder='Pick a horse')
+    async def select_horse(self, interaction: discord.Interaction,
+                           select: discord.SelectMenu):
+        for val in self.select_horse.values:
+            horse = self.horses.get(int(val))
+            if horse:
+                self.horses_selected.append(horse)
+        await interaction.response.defer()
+        self.stop()
+
+
+class RaceHorsePickerView(discord.ui.View):
     def __init__(self, race: 'Race', horses: Dict[int, 'Horse']):
         self.race = race
         self.horses = horses
@@ -369,3 +396,61 @@ class HorseOwnerView(discord.ui.View):
         await self.owner.save()
         await self.owner.member.send(f'You have sold **{self.horse.name}** '
                                      f'for **{sell_price:,}**!')
+
+
+class SeasonRegistration(discord.ui.View):
+    def __init__(self, bot: 'HeliosBot'):
+        super().__init__(timeout=None)
+        self.bot = bot
+
+    @discord.ui.button(label='Register', style=discord.ButtonStyle.green,
+                       custom_id='horseseasonregister')
+    async def register(self, interaction: discord.Interaction,
+                       button: discord.Button):
+        stadium = self.bot.servers.get(interaction.guild_id).stadium
+        member = stadium.server.members.get(interaction.user.id)
+        horses = {}
+        for key, horse in member.horses.items():
+            if (stadium.check_qualification('listed', horse)
+                    and not horse.get_flag('REGISTERED')):
+                horses[key] = horse
+        if len(horses) < 1:
+            await interaction.response.send_message(
+                'You do not have any registrable horses, they must be '
+                'eligible to race in a listed race.',
+                ephemeral=True
+            )
+            return
+        horse_view = HorsePickerView(horses, max_horses=member.max_horses)
+        await interaction.response.send_message(
+            'Registration costs **500** points and lasts until Monday!\n'
+            'Please select the horses to register.',
+            ephemeral=True,
+            view=horse_view
+        )
+        await horse_view.wait()
+        selected = horse_view.horses_selected.copy()
+        if len(selected) < 1:
+            await interaction.edit_original_response(content='View Timed Out',
+                                                     view=None)
+            return
+        points_to_take = 500 * len(selected)
+        if member.points < points_to_take:
+            await interaction.edit_original_response(
+                content=f'You selected **{len(selected)}** horses which costs '
+                        f'**{points_to_take:,}** and you only have '
+                        f'**{member.points:,}**!',
+                view=None
+            )
+            return
+        member.points -= points_to_take
+        await member.save()
+        for horse in selected:
+            horse.set_flag('REGISTERED', True)
+            await horse.save()
+        await interaction.edit_original_response(
+            content=f'Successfully registered '
+                    f'**{", ".join(x.name for x in selected)}** for '
+                    f'**{points_to_take:,}** points!',
+            view=None
+        )
