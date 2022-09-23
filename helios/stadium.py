@@ -4,6 +4,7 @@ import random
 from typing import TYPE_CHECKING, Optional, Dict, List, Tuple
 
 import discord
+from dateutil.relativedelta import *
 
 from .abc import HasSettings
 from .exceptions import IdMismatchError
@@ -13,7 +14,7 @@ from .horses.horse import Horse
 from .horses.race import Race, Record
 from .member import HeliosMember
 from .tools.settings import Item
-from .types.horses import StadiumSerializable
+from .types.horses import StadiumSerializable, RaceTypes
 from .types.settings import StadiumSettings
 
 if TYPE_CHECKING:
@@ -164,6 +165,47 @@ class Stadium(HasSettings):
         for record in records:
             earnings += record.earnings
         return earnings
+
+    @staticmethod
+    def check_qualification(race_type: RaceTypes, horse: Horse):
+        """
+        Check whether a horse is eligible for this race.
+        :param race_type: The type of race to check
+        :param horse: The horse to check
+        :return: Whether the horse is allowed to race.
+        """
+        if horse.get_flag('NEW'):
+            return False
+        if horse.get_flag('QUALIFIED'):
+            if race_type == 'basic':
+                return False
+        else:
+            if race_type != 'basic':
+                return False
+        if race_type == 'maiden':
+            return horse.is_maiden()
+        elif race_type == 'stake':
+            return True
+        elif race_type == 'listed':
+            return not horse.is_maiden()
+        elif race_type == 'grade3':
+            if horse.owner:
+                monday = datetime.datetime.now().astimezone()
+                monday = monday - relativedelta(weekday=MO)
+                monday = monday.date()
+                for rec in horse.records:
+                    if (rec.race_type == 'grade3' and monday <= rec.date
+                            and rec.placing == 0):
+                        return False
+                return horse.registered
+            else:
+                return Stadium.check_qualification('listed', horse)
+        elif race_type == 'grade2':
+            if horse.owner:
+                return horse.registered
+            else:
+                return Stadium.check_qualification('listed', horse)
+        return False
 
     def new_horses(self) -> Dict[int, Horse]:
         horses = {}

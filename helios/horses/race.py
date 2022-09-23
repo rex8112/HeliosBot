@@ -6,7 +6,6 @@ from fractions import Fraction
 from typing import Optional, TYPE_CHECKING, List, Dict
 
 import discord
-from dateutil.relativedelta import *
 from discord.utils import MISSING
 
 from .enumerations import BetType
@@ -446,47 +445,6 @@ class Race(HasSettings):
         erace._deserialize(data)
         return erace
 
-    @staticmethod
-    def check_qualification(race_type: RaceTypes, horse: Horse):
-        """
-        Check whether a horse is eligible for this race.
-        :param race_type: The type of race to check
-        :param horse: The horse to check
-        :return: Whether the horse is allowed to race.
-        """
-        if horse.get_flag('NEW'):
-            return False
-        if horse.get_flag('QUALIFIED'):
-            if race_type == 'basic':
-                return False
-        else:
-            if race_type != 'basic':
-                return False
-        if race_type == 'maiden':
-            return horse.is_maiden()
-        elif race_type == 'stake':
-            return True
-        elif race_type == 'listed':
-            return not horse.is_maiden()
-        elif race_type == 'grade3':
-            if horse.owner:
-                monday = datetime.datetime.now().astimezone()
-                monday = monday - relativedelta(weekday=MO)
-                monday = monday.date()
-                for rec in horse.records:
-                    if (rec.race_type == 'grade3' and monday <= rec.date
-                            and rec.placing == 0):
-                        return False
-                return horse.registered
-            else:
-                return Race.check_qualification('listed', horse)
-        elif race_type == 'grade2':
-            if horse.owner:
-                return horse.registered
-            else:
-                return Race.check_qualification('listed', horse)
-        return False
-
     def get_registration_embed(self) -> discord.Embed:
         payout_structure = self.get_payout_structure()
         payout_structure = [f'{x:.0%}' for x in payout_structure]
@@ -748,7 +706,7 @@ class Race(HasSettings):
         if horse in self.stadium.racing_horses():
             return False
 
-        return self.check_qualification(self.settings['type'], horse)
+        return self.stadium.check_qualification(self.settings['type'], horse)
 
     def set_race_time(self, dt: datetime.datetime):
         self.settings['race_time'] = dt
