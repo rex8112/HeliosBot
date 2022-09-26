@@ -219,6 +219,7 @@ class Event:
         race.name = f'{self.name} Race {index}: Grade 2 Race'
         race.settings['purse'] = 10000
         race.settings['stake'] = 0
+        race.settings['invite_only'] = True
         return race
 
     async def announce_event(self):
@@ -322,6 +323,9 @@ class Event:
                 horses.pop(horse.id)
         return horses
 
+    def prefill_all_races(self) -> None:
+        ...  # TODO: Prefill all races with logic used in generate_races
+
     async def generate_races(self):
         race_types = self.race_types
         start_time = self.start_time
@@ -378,13 +382,16 @@ class Event:
             start_time = start_time + datetime.timedelta(
                 minutes=self.settings['buffer'])
 
-        horses = self.stadium.unowned_qualified_horses()
-        # Loop through maiden races
-        self.prefill_races(maiden_races, horses)
-        # Loop through listed races
-        self.prefill_races_weighted(reversed(listed_races), horses)
-        # Loop through other races
-        self.prefill_races(other_races, horses)
+        for _ in range(race_types.grade2):
+            race = self.create_grade2_race(start_time, index)
+            index += 1
+            delta = start_time - self.betting_time
+            race.settings['betting_time'] = delta.total_seconds()
+            race.settings['max_horses'] = 12
+            races.append(race)
+            start_time = start_time + datetime.timedelta(
+                minutes=self.settings['buffer'])
+
         await self.stadium.bulk_add_races(races)
         for race in races:
             self.race_ids.append(race.id)
@@ -396,6 +403,7 @@ class Event:
             await self.announce_event()
             return True
         elif now >= self.registration_time and self.phase == 1:
+            self.prefill_all_races()
             for race in self.races:
                 embed = discord.Embed(title='Building Race')
                 placeholder = await self.channel.send(embed=embed)
