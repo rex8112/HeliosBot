@@ -35,6 +35,7 @@ class RaceSettings(TypedDict):
     restrict_time: int
     phase: int
     can_run: bool
+    invite_only: bool
 
 
 class StadiumSettings(TypedDict):

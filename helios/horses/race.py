@@ -319,7 +319,8 @@ class Race(HasSettings):
         'betting_time': 5 * 60,
         'restrict_time': 5 * 60,
         'phase': 0,
-        'can_run': True
+        'can_run': True,
+        'invite_only': False
     }
 
     def __init__(self, stadium: 'Stadium'):
@@ -424,6 +425,14 @@ class Race(HasSettings):
         self.settings['phase'] = value
 
     @property
+    def invite_only(self):
+        return self.settings['invite_only']
+
+    @invite_only.setter
+    def invite_only(self, value: bool):
+        self.settings['invite_only'] = value
+
+    @property
     def event(self) -> Optional['Event']:
         for e in self.stadium.events.events:
             if self.id in e.race_ids:
@@ -465,6 +474,17 @@ class Race(HasSettings):
                         f'Available Slots: {self.slots_left()}/'
                         f'{self.max_horses}\n\n'
                         f'{restriction}'
+        )
+        return embed
+
+    def _get_invite_only_embed(self) -> discord.Embed:
+        horse_string = self.horse_list_string()
+        embed = discord.Embed(
+            colour=discord.Colour.blue(),
+            title=f'{self.name} Lineup',
+            description=f'{horse_string}\nBetting will commence '
+                        f'<t:{int(self.betting_time.timestamp())}:R>\n\n'
+                        f'Purse: **{self.purse:,}**\n'
         )
         return embed
 
@@ -529,13 +549,13 @@ class Race(HasSettings):
         horse_string = ''
         for i, h in enumerate(self.horses, start=1):
             owner = h.owner
-            odds = self.calculate_odds(h)
-            odds_ratio = Fraction(odds).limit_denominator()
             if not owner:
                 owner = self.stadium.owner
             else:
                 owner = owner.member
             if show_odds:
+                odds = self.calculate_odds(h)
+                odds_ratio = Fraction(odds).limit_denominator()
                 horse_string += (f'`{odds_ratio.numerator:3} to '
                                  f'{odds_ratio.denominator:2}` | ')
             horse_string += f'#{i} {h.name}'
@@ -813,8 +833,12 @@ class Race(HasSettings):
                 if self._view is None:
                     self._view = PreRaceView(self)
                 self._view.check_race_status()
+                if self.invite_only:
+                    embed = self._get_invite_only_embed()
+                else:
+                    embed = self.get_registration_embed()
                 await self.send_or_edit_message(
-                    embed=self.get_registration_embed(), view=self._view)
+                    embed=embed, view=self._view)
 
                 if not self.thread:
                     if self.settings['type'] == 'basic':
