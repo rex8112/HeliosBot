@@ -35,7 +35,7 @@ class Stadium(HasSettings):
         'daily-events',
         'basic-races'
     ]
-    epoch_day = datetime.datetime(2022, 8, 1, 1, 0, 0)
+    epoch_day = datetime.datetime(2022, 8, 1, 0, 0, 0)
     daily_points = 100
     keep_amount = 100
     build_amount = 350
