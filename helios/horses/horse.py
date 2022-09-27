@@ -182,14 +182,13 @@ class Horse(HasSettings, HasFlags):
             embeds.append(embed2)
         return embeds
 
-    def get_graded_earnings_since(self, date: datetime.date) -> int:
-        earnings = 0
+    def get_graded_points_since(self, date: datetime.date) -> int:
+        points = 0
         for rec in self.records:
             if rec.date < date:
                 continue
-            if rec.race_type in ['grade3', 'grade2', 'grade1']:
-                earnings += rec.earnings
-        return earnings
+            points += rec.points
+        return points
 
     def pay(self, amount: float):
         owner = self.owner

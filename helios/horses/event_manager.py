@@ -23,6 +23,13 @@ class EventManager:
     def bot(self):
         return self.server.bot
 
+    @staticmethod
+    def get_start_of_week() -> datetime:
+        monday = datetime.now().astimezone()
+        monday = monday - relativedelta(weekday=MO)
+        monday = monday.replace(hour=0, minute=0, second=0, microsecond=0)
+        return monday
+
     def create_daily_event(self, horses: dict[int, 'Horse']):
         now = datetime.now().astimezone()
         start_time = now.replace(hour=21, minute=0, second=0,

@@ -323,8 +323,53 @@ class Event:
                 horses.pop(horse.id)
         return horses
 
+    @staticmethod
+    def prefill_races_point_sorted(races: Iterable[Race],
+                                   horses: dict[int, 'Horse'],
+                                   since: datetime.datetime
+                                   ) -> dict[int, 'Horse']:
+        """
+        Put horses into the race, sorted by their comp points
+        :param since: When to use the starting point for points
+        :param races: A lit of races to be filled
+        :param horses: A dict of horses to choose from
+        :return: A copied dict with the used horses removed
+        """
+        horses = horses.copy()
+        horses_list = sorted([x for x in horses.values()],
+                             key=lambda x: x.get_graded_points_since(since))
+        for race in races:
+            qualified = horses_list
+            if len(qualified) > 0:
+                qualified_horses = qualified[:race.max_horses]
+            else:
+                qualified_horses = []
+            race.horses = qualified_horses
+            for horse in qualified_horses:
+                horses.pop(horse.id)
+        return horses
+
     def prefill_all_races(self) -> None:
-        ...  # TODO: Prefill all races with logic used in generate_races
+        invite_races = []
+        listed_races = []
+        maiden_races = []
+        stakes_races = []
+        for race in self.races:
+            if race.invite_only:
+                invite_races.append(race)
+            elif race.type in ('listed', 'grade3'):
+                listed_races.append(race)
+            elif race.type == 'maiden':
+                maiden_races.append(race)
+            elif race.type == 'stake':
+                stakes_races.append(race)
+        invite_horses = self.stadium.registered_horses()
+        self.prefill_races_point_sorted(invite_races, invite_horses,
+                                        self.manager.get_start_of_week())
+        horses = self.stadium.unowned_qualified_horses()
+        horses = self.prefill_races_weighted(listed_races, horses)
+        horses = self.prefill_races(maiden_races, horses)
+        self.prefill_races(stakes_races, horses)
 
     async def generate_races(self):
         race_types = self.race_types
