@@ -73,7 +73,7 @@ class PreRaceView(discord.ui.View):
         )
         if await horse_view.wait():
             return
-        modal = AmountModal()
+        modal = AmountModal(default=100)
         await horse_view.last_interaction.response.send_modal(modal)
         if await modal.wait():
             return

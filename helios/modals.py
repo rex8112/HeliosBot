@@ -30,8 +30,10 @@ class TopicCreation(ui.Modal, title='New Topic'):
 class AmountModal(ui.Modal, title='Amount'):
     amount = ui.TextInput(label='Amount', required=True)
 
-    def __init__(self, timeout=30):
+    def __init__(self, *, default=None, timeout=30):
         super().__init__(timeout=timeout)
+        if default:
+            self.amount.default = default
         self.amount_selected = None
 
     async def on_submit(self, interaction: Interaction) -> None:
