@@ -66,6 +66,7 @@ class PreRaceView(discord.ui.View):
 
         horse_view = HorsePickerView(horses, max_horses=len(horses))
         await interaction.response.send_message(
+            f'__**{self.race.name}**__\n'
             'Please select the horses you would like to place this bet on.',
             view=horse_view,
             ephemeral=True
@@ -182,7 +183,8 @@ class PreRaceView(discord.ui.View):
             )
             return
         view = RaceHorsePickerView(self.race, horses)
-        content = (f'Entry Cost: **{self.race.stake:,}**\n'
+        content = (f'__**{self.race.name}**__\n'
+                   f'Entry Cost: **{self.race.stake:,}**\n'
                    f'Your Points: **{member.points:,}**')
         message = await interaction.response.send_message(content, view=view,
                                                           ephemeral=True)
