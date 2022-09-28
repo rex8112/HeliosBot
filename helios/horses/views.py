@@ -6,7 +6,7 @@ import discord
 
 from .enumerations import BetType
 from .modals import SetBidModal, NameChangeModal
-from ..modals import BetModal
+from ..modals import AmountModal
 from ..views import YesNoView
 
 if TYPE_CHECKING:
@@ -18,9 +18,28 @@ if TYPE_CHECKING:
 
 
 class PreRaceView(discord.ui.View):
+    BET_OPTIONS = [
+        discord.SelectOption(label='Win', value='win',
+                             description='Bet on a horse to place first.'),
+        discord.SelectOption(label='Place', value='place',
+                             description='Bet on a horse to place '
+                                         'second.'),
+        discord.SelectOption(label='Show', value='show',
+                             description='Bet on a horse to place third.'),
+        discord.SelectOption(label='Across the Board', value='across',
+                             description='Shortcut to place a win, place, '
+                                         'and show bet all at once.')
+    ]
+    BET_TYPES: dict[str, BetType] = {
+        'win': BetType.win,
+        'place': BetType.place,
+        'show': BetType.show
+    }
+
     def __init__(self, er: 'Race'):
         super().__init__(timeout=er.time_until_race.seconds)
         self.race = er
+        self.bet.options = self.BET_OPTIONS
         if self.race.settings['type'] == 'basic' or self.race.invite_only:
             self.remove_item(self.register)
 
@@ -36,13 +55,70 @@ class PreRaceView(discord.ui.View):
             self.show_bets.disabled = True
             self.decimals.disabled = True
 
-    @discord.ui.button(label='Bet', style=discord.ButtonStyle.blurple,
-                       disabled=True)
+    @discord.ui.select(placeholder='Place a Bet', disabled=True)
     async def bet(self, interaction: discord.Interaction,
-                  button: discord.ui.Button):
+                  select: discord.ui.Select):
         member = self.race.stadium.server.members.get(interaction.user.id)
-        await interaction.response.send_modal(
-            BetModal(self.race, member))  # Modal handles all further actions
+        selected_type = select.values[0]
+        horses = {}
+        for horse in self.race.horses:
+            horses[horse.id] = horse
+
+        horse_view = HorsePickerView(horses, max_horses=len(horses))
+        await interaction.response.send_message(
+            'Please select the horses you would like to place this bet on.',
+            view=horse_view,
+            ephemeral=True
+        )
+        if await horse_view.wait():
+            return
+        modal = AmountModal()
+        await horse_view.last_interaction.response.send_modal(modal)
+        if await modal.wait():
+            return
+        amount = modal.amount_selected
+        if amount <= 0:
+            await interaction.edit_original_response(
+                content='You must bet a positive amount of points.',
+                view=None
+            )
+            return
+        horses_selected = horse_view.horses_selected
+        bets_to_do = []
+        if selected_type == 'across':
+            bets_to_do = [BetType.win, BetType.place, BetType.show]
+        else:
+            bets_to_do = [self.BET_TYPES[selected_type]]
+        total_amount = amount * len(horses_selected) * len(bets_to_do)
+        if member.points < total_amount:
+            await interaction.edit_original_response(
+                content=(
+                    f'You are trying to place **{len(bets_to_do)}** bet(s) on '
+                    f'**{len(horses_selected)}** horses for a total of '
+                    f'**{len(bets_to_do) * len(horses_selected)}** bets at '
+                    f'**{amount:,}** points each.\n\nYou need '
+                    f'**{total_amount:,}** points but only have '
+                    f'**{member.points:,}**!'
+                ),
+                view=None
+            )
+            return
+        summary = []
+        for horse in horses_selected:
+            line = f'{horse.name}: '
+            for bet in bets_to_do:
+                self.race.bet(bet, member, horse, amount)
+                line += f'{bet.name}: **{amount:,}** '
+            summary.append(line)
+        member.points -= total_amount
+        await member.save()
+        await self.race.save()
+        summary = '\n'.join(summary)
+        await interaction.edit_original_response(
+            content=f'Successfully Bet\n\n{summary}\n\n'
+                    f'Total Bet: **{total_amount:,}**',
+            view=None
+        )
 
     @discord.ui.button(label='Show Bets', style=discord.ButtonStyle.green,
                        disabled=True)
@@ -163,7 +239,7 @@ class PreRaceView(discord.ui.View):
 
 class HorsePickerView(discord.ui.View):
     def __init__(self, horses: Dict[int, 'Horse'], *,
-                 min_horses=1, max_horses=1):
+                 min_horses=1, max_horses=1, disable_interaction=False):
         self.horses = horses
         self.horses_selected = []
         options = []
@@ -175,6 +251,9 @@ class HorsePickerView(discord.ui.View):
         self.select_horse.min_values = min_horses
         self.select_horse.max_values = max_horses
         self.select_horse.options = options
+        self.disable_interaction = disable_interaction
+
+        self.last_interaction = None
 
     @discord.ui.select(placeholder='Pick a horse')
     async def select_horse(self, interaction: discord.Interaction,
@@ -183,7 +262,9 @@ class HorsePickerView(discord.ui.View):
             horse = self.horses.get(int(val))
             if horse:
                 self.horses_selected.append(horse)
-        await interaction.response.defer()
+        if self.disable_interaction is False:
+            await interaction.response.defer()
+        self.last_interaction = interaction
         self.stop()
 
 
