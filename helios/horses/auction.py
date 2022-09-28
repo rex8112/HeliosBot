@@ -609,14 +609,16 @@ class RotatingAuction(BasicAuction):
                     message = await self.channel.send(
                         embed=listing.get_embed(), view=ListingView(listing))
                     self.detail_messages[listing.horse_id] = message
-                    self.bid_update_list[i].append(message)
-                    listing.create_run_task(self.bid_update_list[i])
+                    update_list = self.bid_update_list[i]
+                    update_list.append(message)
+                    listing.create_run_task(update_list)
                 elif type(message) == discord.PartialMessage:
                     message = await message.fetch()
                     listing.new_bid = True
                     self.detail_messages[listing.horse_id] = message
-                    self.bid_update_list[i].append(message)
-                    listing.create_run_task(self.bid_update_list[i])
+                    update_list = self.bid_update_list[i]
+                    update_list.append(message)
+                    listing.create_run_task(update_list)
 
 
 class AuctionHouse:
