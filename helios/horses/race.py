@@ -784,7 +784,7 @@ class Race(HasSettings):
                 await h.horse.save()
             if (record.race_type in ('grade3', 'grade2', 'grade1')
                     and record.placing < 4):
-                point_payout = [10, 4, 2, 1]
+                point_payout = [30, 4, 2, 1]
                 record.points = point_payout[record.placing]
 
             owner = h.horse.owner
