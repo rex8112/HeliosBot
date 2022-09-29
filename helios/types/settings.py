@@ -40,6 +40,7 @@ class RaceSettings(TypedDict):
 
 class StadiumSettings(TypedDict):
     season: int
+    season_active: bool
     category: Optional[discord.CategoryChannel]
     announcement_id: int
 

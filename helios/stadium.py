@@ -25,7 +25,8 @@ class Stadium(HasSettings):
     _default_settings: StadiumSettings = {
         'season': 0,
         'category': None,
-        'announcement_id': 0
+        'announcement_id': 0,
+        'season_active': False
     }
     required_channels = [
         'announcements',
