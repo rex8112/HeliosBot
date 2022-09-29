@@ -12,6 +12,7 @@ from .horses.auction import AuctionHouse
 from .horses.event_manager import EventManager
 from .horses.horse import Horse
 from .horses.race import Race, Record
+from .horses.views import SeasonRegistration
 from .member import HeliosMember
 from .tools.settings import Item
 from .types.horses import StadiumSerializable, RaceTypes
@@ -50,7 +51,10 @@ class Stadium(HasSettings):
         self.settings: StadiumSettings = self._default_settings.copy()
 
         self.auction_house = AuctionHouse(self)
+        self.season_view = None
+        self.changed = False
 
+        self._announce_season = False
         self._running = False
         self._task: Optional[asyncio.Task] = None
 
@@ -448,6 +452,8 @@ class Stadium(HasSettings):
         await self.build_records(allow_basic=True)
         await self.auction_house.setup()
         await self.build_channels()
+        self.season_view = SeasonRegistration(self)
+        self.server.bot.add_view(self.season_view)
         self.create_run_task()
 
     def create_run_task(self):
