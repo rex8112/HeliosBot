@@ -11,7 +11,7 @@ from ..views import YesNoView
 
 if TYPE_CHECKING:
     from ..member import HeliosMember
-    from ..helios_bot import HeliosBot
+    from ..stadium import Stadium
     from .race import Race
     from .horse import Horse
     from .auction import HorseListing, GroupAuction
@@ -482,15 +482,15 @@ class HorseOwnerView(discord.ui.View):
 
 
 class SeasonRegistration(discord.ui.View):
-    def __init__(self, bot: 'HeliosBot'):
+    def __init__(self, stadium: 'Stadium'):
         super().__init__(timeout=None)
-        self.bot = bot
+        self.stadium = stadium
+        self.register.custom_id = f'{self.stadium.id}:seasonregister'
 
-    @discord.ui.button(label='Register', style=discord.ButtonStyle.green,
-                       custom_id='horseseasonregister')
+    @discord.ui.button(label='Register', style=discord.ButtonStyle.green)
     async def register(self, interaction: discord.Interaction,
                        button: discord.Button):
-        stadium = self.bot.servers.get(interaction.guild_id).stadium
+        stadium = self.stadium
         member = stadium.server.members.get(interaction.user.id)
         horses = {}
         for key, horse in member.horses.items():
