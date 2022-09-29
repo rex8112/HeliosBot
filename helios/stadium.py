@@ -212,6 +212,21 @@ class Stadium(HasSettings):
                 return Stadium.check_qualification('listed', horse)
         return False
 
+    def current_season(self) -> int:
+        return self.settings['season']
+
+    def new_season(self) -> int:
+        self._announce_season = True
+        self.settings['season'] += 1
+        self.settings['season_active'] = True
+        self.changed = True
+        return self.current_season()
+
+    def close_season(self) -> int:
+        self.settings['season_active'] = False
+        self.changed = True
+        return self.current_season()
+
     def new_horses(self) -> Dict[int, Horse]:
         horses = {}
         for key, horse in self.horses.items():
@@ -465,7 +480,6 @@ class Stadium(HasSettings):
         cont = True
         while cont:
             try:
-                changed = False
                 if self.category is None:
                     cont = False
                     break
@@ -525,7 +539,7 @@ class Stadium(HasSettings):
                         new_horses = await self.batch_create_horses(
                             needed_horses
                         )
-                        changed = True
+                        self.changed = True
                         self.auction_house.create_new_auctions(new_horses)
 
                     # Check once a day to ensure weekly was made above first
@@ -535,10 +549,18 @@ class Stadium(HasSettings):
                             self.unowned_qualified_horses()
                         )
                         self.events.add_event(new_event)
-                        changed = True
+                        self.changed = True
+
+                if self._announce_season:
+                    self._announce_season = False
+                    embed = self.get_season_embed()
+                    await self.announcement_channel.send(
+                        embed=embed,
+                        view=self.season_view
+                    )
 
                 if await self.events.manage():
-                    changed = True
+                    self.changed = True
 
                 basic_races = list(filter(
                     lambda r: r.settings['type'] == 'basic',
@@ -546,12 +568,13 @@ class Stadium(HasSettings):
                 )
                 if len(basic_races) < 1:
                     if self.create_basic_race():
-                        changed = True
+                        self.changed = True
 
                 await self.auction_house.run()
 
-                if changed:
+                if self.changed:
                     await self.save()
+                    self.changed = False
                 await asyncio.sleep(60)
 
                 # Ensure all races are still running and restart them if not
@@ -682,5 +705,16 @@ class Stadium(HasSettings):
                 'Horse and Jockey Ownership, '
                 'and Horse Breeding.'
             )
+        )
+        return embed
+
+    def get_season_embed(self) -> discord.Embed:
+        embed = discord.Embed(
+            title=f'Season {self.current_season()} Begins!',
+            colour=discord.Colour.green(),
+            description='Seasons, generally, last from Monday to Sunday. '
+                        'You can register your horse at any time but bare in '
+                        'mind, registering later in the week decreases your '
+                        'odds significantly in making it to the weekly finale!'
         )
         return embed
