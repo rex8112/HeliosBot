@@ -212,6 +212,9 @@ class Stadium(HasSettings):
                 return Stadium.check_qualification('listed', horse)
         return False
 
+    def is_season_active(self) -> int:
+        return self.settings['season_active']
+
     def current_season(self) -> int:
         return self.settings['season']
 
