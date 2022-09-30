@@ -713,9 +713,9 @@ class Stadium(HasSettings):
 
     def get_season_embed(self) -> discord.Embed:
         embed = discord.Embed(
-            title=f'Season {self.current_season()} Begins!',
+            title=f'Pre-Season {self.current_season()} Begins!',
             colour=discord.Colour.green(),
-            description='Seasons, generally, last from Monday to Sunday. '
+            description='Pre-Seasons, generally, last from Monday to Sunday. '
                         'You can register your horse at any time but bare in '
                         'mind, registering later in the week decreases your '
                         'odds significantly in making it to the weekly finale!'
