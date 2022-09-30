@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
+import discord
 from dateutil.relativedelta import *
 
 from .event import Event, RaceTypeCount
@@ -115,7 +116,28 @@ class EventManager:
         return event
 
     async def new_day(self):
-        ...
+        now = datetime.now().astimezone()
+        sunday = now + relativedelta(weekday=SU)
+        delta = sunday - now
+        if sunday > now and delta.days > 4:
+            weekly = self.get_weekly_events()
+            if len(weekly) < 1:
+                self.stadium.new_season()
+                event = self.create_weekly_event(
+                    self.stadium.unowned_qualified_horses()
+                )
+                self.add_event(event)
+
+        event_today = False
+        for event in self.events:
+            if event.start_time.date() == now.date():
+                event_today = True
+                return
+
+        daily = self.create_daily_event(
+            self.stadium.unowned_qualified_horses()
+        )
+        self.add_event(daily)
 
     async def manage(self) -> bool:
         result = False
@@ -123,6 +145,28 @@ class EventManager:
             if await event.manage_event():
                 result = True
         return result
+
+    async def close_event(self, event: Event):
+        embed = discord.Embed(
+            colour=discord.Colour.red(),
+            title=f'{event.name} has Ended!',
+            description=('Congratulate our winners!\n\n'
+                         f'{event.settings["winner_string"]}')
+        )
+        try:
+            await event.channel.send(embed=embed)
+        except (discord.Forbidden, discord.HTTPException, discord.NotFound):
+            ...
+
+        if event.type == 'weekly':
+            self.stadium.close_season()
+
+        for race in event.races:
+            try:
+                event.stadium.races.remove(race)
+            except ValueError:
+                ...
+        self.remove_event(event)
 
     async def save(self):
         await self.stadium.save()

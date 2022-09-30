@@ -241,19 +241,7 @@ class Event:
         self.phase += 1
 
     async def close_event(self):
-        embed = discord.Embed(
-            colour=discord.Colour.red(),
-            title=f'{self.name} has Ended!',
-            description=('Congratulate our winners!\n\n'
-                         f'{self.settings["winner_string"]}')
-        )
-        await self.channel.send(embed=embed)
-        for race in self.races:
-            try:
-                self.stadium.races.remove(race)
-            except ValueError:
-                ...
-        self.manager.remove_event(self)
+        await self.manager.close_event(self)
 
     async def maidens_available(self):
         maidens = 0
