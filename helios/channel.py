@@ -3,13 +3,13 @@ from typing import TYPE_CHECKING, Optional, Union
 
 import discord
 
-from .tools.settings import Settings
 from .views import TopicView
 
 if TYPE_CHECKING:
     from helios import ChannelManager, HeliosBot
     from .voice_template import VoiceTemplate
-    from .member import HeliosMember
+
+MessageType = Union[discord.Message, discord.PartialMessage]
 
 
 class Channel:
@@ -35,7 +35,7 @@ class Channel:
         self.channel = self.bot.get_channel(self._id)
         self._new = False
 
-        self.settings = Settings(self._default_settings, bot=self.bot, guild=self.channel.guild)
+        self.settings = self._default_settings.copy()
         self._deserialize(data)
 
     @property
@@ -95,17 +95,17 @@ class Channel:
 
     def _deserialize(self, data: dict) -> None:
         if self.channel_type != data.get('type'):
-            raise TypeError(f'Channel data is of type `{data.get("type")}` not `{self.channel_type}`')
+            raise TypeError(f'Channel data is of type `{data.get("type")}` '
+                            f'not `{self.channel_type}`')
         self.flags = data.get('flags', self.flags)
-        settings = {**self._default_settings, **data.get('settings', {})}
-        self.settings = Settings(settings, bot=self.bot, guild=self.channel.guild)
+        self.settings = {**self._default_settings, **data.get('settings', {})}
 
     def serialize(self) -> dict:
         return {
             'id': self.id,
             'server': self.server.id,
             'type': self.channel_type,
-            'settings': self.settings.to_dict(),
+            'settings': self.settings,
             'flags': self.flags
         }
 
@@ -138,6 +138,8 @@ class TopicChannel(Channel):
 
     def __init__(self, manager: 'ChannelManager', data: dict):
         super().__init__(manager, data)
+        self._archive_message = None
+        self._creator = None
 
     @property
     def oldest_allowed(self) -> datetime.datetime:
@@ -145,16 +147,10 @@ class TopicChannel(Channel):
         Get the datetime of how old the last message has to be for the channel to get marked
         :return: An aware datetime that is in local time
         """
-        delta = list(self._tier_thresholds_lengths.values())[self.settings.tier - 1]
+        delta = list(self._tier_thresholds_lengths.values())[self.tier - 1]
         now = datetime.datetime.now().astimezone()
         return now - delta
 
-    @property
-    def archive_time(self) -> Optional[datetime.datetime]:
-        raw_time = self.settings.archive_at
-        if raw_time:
-            return datetime.datetime.fromisoformat(raw_time)
-        return None
 
     @property
     def archive_category(self) -> Optional[discord.CategoryChannel]:
@@ -169,6 +165,78 @@ class TopicChannel(Channel):
         if channel_id:
             return self.bot.get_channel(channel_id)
         return None
+
+    @property
+    def tier(self):
+        return self.settings['tier']
+
+    @tier.setter
+    def tier(self, value: int):
+        self.settings['tier'] = value
+
+    @property
+    def saves_in_row(self):
+        return self.settings['saves_in_row']
+
+    @saves_in_row.setter
+    def saves_in_row(self, value: int):
+        self.settings['saves_in_row'] = value
+
+    @property
+    def creator(self) -> Optional[discord.Member]:
+        if isinstance(self.settings['creator'], list):
+            self.settings['creator'] = self.settings['creator'][1]
+        if self.settings['creator'] is None:
+            return None
+        if self._creator and self._creator.id == self.settings['creator']:
+            return self._creator
+        self._creator = self.server.guild.get_member(self.settings['creator'])
+        return self._creator
+
+    @creator.setter
+    def creator(self, value: Optional[discord.Member]):
+        self._creator = value
+        if value is None:
+            self.settings['creator'] = value
+        else:
+            self.settings['creator'] = value.id
+
+    @property
+    def archive_at(self):
+        if isinstance(self.settings['archive_at'], list):
+            self.settings['archive_at'] = self.settings['archive_at'][1]
+        if self.settings['archive_at'] is None:
+            return None
+        return datetime.datetime.fromisoformat(self.settings['archive_at'])
+
+    @archive_at.setter
+    def archive_at(self, value: Optional[datetime.datetime]):
+        if value is None:
+            final_value = value
+        else:
+            final_value = value.isoformat()
+        self.settings['archive_at'] = final_value
+
+    @property
+    def archive_message(self):
+        if isinstance(self.settings['archive_message_id'], list):
+            setting = self.settings['archive_message_id'][1]
+            self.settings['archive_message_id'] = setting
+        if (self._archive_message
+                and self._archive_message.id
+                == self.settings['archive_message_id']):
+            return self._archive_message
+        return self.channel.get_partial_message(
+            self.settings['archive_message_id']
+        )
+
+    @archive_message.setter
+    def archive_message(self, value: Optional[MessageType]):
+        self._archive_message = value
+        if value is None:
+            self.settings['archive_message_id'] = value
+        else:
+            self.settings['archive_message_id'] = value.id
 
     def tier_duration(self, tier: int) -> datetime.timedelta:
         return list(self._tier_thresholds_lengths.values())[tier - 1]
@@ -299,19 +367,17 @@ class TopicChannel(Channel):
         now = datetime.datetime.now().astimezone()
         marked = 'MARKED' in self.flags
         default = now + datetime.timedelta(days=1)
-        archive_at_raw = self.settings.archive_at
-        if archive_at_raw:
-            archive_at = datetime.datetime.fromisoformat(archive_at_raw)
-        else:
+        archive_at = self.archive_at
+        if archive_at is None:
             archive_at = default
         timing = archive_at < now
         return marked and timing
 
     def can_delete(self) -> bool:
-        return self.settings.tier == 1
+        return self.tier == 1
 
     def _get_tier_change_embed(self, tier: int) -> discord.Embed:
-        cur_tier = self.settings.tier
+        cur_tier = self.tier
         if tier == cur_tier:
             raise ValueError('Tier can not be the same value as the current tier')
         lower = tier < cur_tier
@@ -329,8 +395,8 @@ class TopicChannel(Channel):
         return embed
 
     def _get_marked_embed(self) -> discord.Embed:
-        cur_tier = self.settings.tier
-        t = self.archive_time
+        cur_tier = self.tier
+        t = self.archive_at
         word = 'archived' if cur_tier > 1 else 'deleted'
         embed = discord.Embed(
             colour=discord.Colour.red(),
@@ -347,7 +413,7 @@ class TopicChannel(Channel):
         return embed
 
     def _get_saved_embed(self) -> discord.Embed:
-        cur_tier = self.settings.tier
+        cur_tier = self.tier
         word = 'Archive' if cur_tier > 1 else 'Deletion'
         if self.get_flag('ARCHIVED'):
             embed = discord.Embed(
@@ -368,30 +434,50 @@ class VoiceChannel(Channel):
     channel_type = 'private_voice'
     _default_settings = {
         'owner': None,
-        'template_name': None
+        'template_name': 'NewTemplate'
     }
 
     def __init__(self, manager: 'ChannelManager', data: dict):
         super().__init__(manager, data)
+        self._owner: Optional[discord.Member] = None
+
+    @property
+    def owner(self) -> Optional[discord.Member]:
+        if self.settings['owner'] is None:
+            return None
+        if self._owner and self._owner.id == self.settings['owner']:
+            return self._owner
+        self._owner = self.server.guild.get_member(self.settings['owner'])
+        return self._owner
+
+    @owner.setter
+    def owner(self, value: Optional[discord.Member]):
+        self._owner = value
+        if value is None:
+            self.settings['owner'] = None
+        else:
+            self.settings['owner'] = value.id
+
+    @property
+    def template_name(self) -> str:
+        return self.settings['template_name']
+
+    @template_name.setter
+    def template_name(self, value: str):
+        self.settings['template_name'] = value
 
     def can_delete(self) -> bool:
         ago = datetime.datetime.now() - datetime.timedelta(minutes=5)
         return len(self.channel.members) == 0 and ago <= self.channel.created_at
 
     def can_neutralize(self) -> bool:
-        return self.owner in self.channel.members
-
-    @property
-    def owner(self) -> Optional['HeliosMember']:
-        owner_id = self.settings.owner
-        if owner_id:
-            return self.server.members.get(member_id=owner_id)
-        return None
+        return self.owner not in self.channel.members
 
     @property
     def template(self) -> Optional['VoiceTemplate']:
         if self.owner:
-            templates = list(filter(lambda x: x.name == self.settings.template_name, self.owner.templates))
+            templates = list(filter(lambda x: x.name == self.template_name,
+                                    self.owner.templates))
             if len(templates) > 0:
                 return templates[0]
             return None
