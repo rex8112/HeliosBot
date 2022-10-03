@@ -543,15 +543,6 @@ class Stadium(HasSettings):
                         self.changed = True
                         self.auction_house.create_new_auctions(new_horses)
 
-                    # Check once a day to ensure weekly was made above first
-                    daily_events = self.events.get_daily_events()
-                    if len(daily_events) < 1:
-                        new_event = self.events.create_daily_event(
-                            self.unowned_qualified_horses()
-                        )
-                        self.events.add_event(new_event)
-                        self.changed = True
-
                 if self._announce_season:
                     self._announce_season = False
                     embed = self.get_season_embed()
