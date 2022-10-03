@@ -4,16 +4,18 @@ import random
 from typing import TYPE_CHECKING, Optional, Dict, List, Tuple
 
 import discord
+from dateutil.relativedelta import *
 
 from .abc import HasSettings
 from .exceptions import IdMismatchError
 from .horses.auction import AuctionHouse
-from .horses.event import Event
+from .horses.event_manager import EventManager
 from .horses.horse import Horse
 from .horses.race import Race, Record
+from .horses.views import SeasonRegistration
 from .member import HeliosMember
 from .tools.settings import Item
-from .types.horses import StadiumSerializable
+from .types.horses import StadiumSerializable, RaceTypes
 from .types.settings import StadiumSettings
 
 if TYPE_CHECKING:
@@ -24,16 +26,18 @@ class Stadium(HasSettings):
     _default_settings: StadiumSettings = {
         'season': 0,
         'category': None,
-        'announcement_id': 0
+        'announcement_id': 0,
+        'season_active': False
     }
     required_channels = [
         'announcements',
         'auctions',
         'special-auctions',
+        'events',
         'daily-events',
         'basic-races'
     ]
-    epoch_day = datetime.datetime(2022, 8, 1, 1, 0, 0)
+    epoch_day = datetime.datetime(2022, 8, 1, 0, 0, 0)
     daily_points = 100
     keep_amount = 100
     build_amount = 350
@@ -42,12 +46,15 @@ class Stadium(HasSettings):
         self.server = server
         self.horses: dict[int, 'Horse'] = {}
         self.races: list['Race'] = []
-        self.events: list['Event'] = []
+        self.events: EventManager = EventManager(self)
         self.day = 0
         self.settings: StadiumSettings = self._default_settings.copy()
 
         self.auction_house = AuctionHouse(self)
+        self.season_view = None
+        self.changed = False
 
+        self._announce_season = False
         self._running = False
         self._task: Optional[asyncio.Task] = None
 
@@ -58,7 +65,7 @@ class Stadium(HasSettings):
     @property
     def event_race_ids(self) -> List[int]:
         ids = []
-        for event in self.events:
+        for event in self.events.events:
             ids.extend(event.race_ids)
         return ids
 
@@ -116,6 +123,12 @@ class Stadium(HasSettings):
             return next(filter(lambda x: x.name == 'daily-events',
                                self.category.channels))
 
+    @property
+    def event_channel(self) -> Optional[discord.TextChannel]:
+        if self.category:
+            return next(filter(lambda x: x.name == 'events',
+                               self.category.channels))
+
     @staticmethod
     def get_day():
         epoch_day = Stadium.epoch_day
@@ -158,6 +171,65 @@ class Stadium(HasSettings):
             earnings += record.earnings
         return earnings
 
+    @staticmethod
+    def check_qualification(race_type: RaceTypes, horse: Horse):
+        """
+        Check whether a horse is eligible for this race.
+        :param race_type: The type of race to check
+        :param horse: The horse to check
+        :return: Whether the horse is allowed to race.
+        """
+        if horse.get_flag('NEW'):
+            return False
+        if horse.get_flag('QUALIFIED'):
+            if race_type == 'basic':
+                return False
+        else:
+            if race_type != 'basic':
+                return False
+        if race_type == 'maiden':
+            return horse.is_maiden()
+        elif race_type == 'stake':
+            return True
+        elif race_type == 'listed':
+            return not horse.is_maiden()
+        elif race_type == 'grade3':
+            if horse.owner:
+                monday = datetime.datetime.now().astimezone()
+                monday = monday - relativedelta(weekday=MO)
+                monday = monday.date()
+                for rec in horse.records:
+                    if (rec.race_type == 'grade3' and monday <= rec.date
+                            and rec.placing == 0):
+                        return False
+                return horse.registered
+            else:
+                return Stadium.check_qualification('listed', horse)
+        elif race_type == 'grade2':
+            if horse.owner:
+                return horse.registered
+            else:
+                return Stadium.check_qualification('listed', horse)
+        return False
+
+    def is_season_active(self) -> int:
+        return self.settings['season_active']
+
+    def current_season(self) -> int:
+        return self.settings['season']
+
+    def new_season(self) -> int:
+        self._announce_season = True
+        self.settings['season'] += 1
+        self.settings['season_active'] = True
+        self.changed = True
+        return self.current_season()
+
+    def close_season(self) -> int:
+        self.settings['season_active'] = False
+        self.changed = True
+        return self.current_season()
+
     def new_horses(self) -> Dict[int, Horse]:
         horses = {}
         for key, horse in self.horses.items():
@@ -185,6 +257,13 @@ class Stadium(HasSettings):
         horses = {}
         for key, horse in self.horses.items():
             if horse.owner is None and horse.get_flag('QUALIFIED'):
+                horses[key] = horse
+        return horses
+
+    def registered_horses(self) -> Dict[int, Horse]:
+        horses = {}
+        for key, horse in self.horses.items():
+            if horse.get_flag('REGISTERED'):
                 horses[key] = horse
         return horses
 
@@ -265,7 +344,7 @@ class Stadium(HasSettings):
             'server': self.server.id,
             'day': self.day,
             'settings': Item.serialize_dict(self.settings),
-            'events': [x.serialize() for x in self.events]
+            'events': self.events.to_json()
         }
 
     def _deserialize(self, data: StadiumSerializable):
@@ -278,7 +357,7 @@ class Stadium(HasSettings):
             bot=self.server.bot,
             guild=self.guild
         )
-        self.events = [Event.from_data(self, x) for x in data['events']]
+        self.events = EventManager.from_json(self, data['events'])
 
     async def add_race(self, race: 'Race'):
         self.races.append(race)
@@ -391,6 +470,8 @@ class Stadium(HasSettings):
         await self.build_records(allow_basic=True)
         await self.auction_house.setup()
         await self.build_channels()
+        self.season_view = SeasonRegistration(self)
+        self.server.bot.add_view(self.season_view)
         self.create_run_task()
 
     def create_run_task(self):
@@ -402,7 +483,6 @@ class Stadium(HasSettings):
         cont = True
         while cont:
             try:
-                changed = False
                 if self.category is None:
                     cont = False
                     break
@@ -415,6 +495,7 @@ class Stadium(HasSettings):
                     deletable_horses = self.deletable_horses()
                     for horse in deletable_horses.values():
                         await horse.delete()
+                    await self.events.new_day()
                     # On Friday, create Final Auction and Saturday Top Auction
                     if day_of_week == self.auction_house.DIE_AUCTION:
                         tasks = []
@@ -459,37 +540,28 @@ class Stadium(HasSettings):
                         new_horses = await self.batch_create_horses(
                             needed_horses
                         )
-                        changed = True
+                        self.changed = True
                         self.auction_house.create_new_auctions(new_horses)
 
-                daily_events = list(filter(
-                    lambda e: e.settings['type'] == 'daily',
-                    self.events)
-                )
-                if len(daily_events) < 1:
-                    now = datetime.datetime.now().astimezone()
-                    start_time = now.replace(hour=21, minute=0, second=0,
-                                             microsecond=0)
-                    if now + datetime.timedelta(hours=1) >= start_time:
-                        start_time += datetime.timedelta(days=1)
+                    # Check once a day to ensure weekly was made above first
+                    daily_events = self.events.get_daily_events()
+                    if len(daily_events) < 1:
+                        new_event = self.events.create_daily_event(
+                            self.unowned_qualified_horses()
+                        )
+                        self.events.add_event(new_event)
+                        self.changed = True
 
-                    new_event = Event(self, self.daily_channel,
-                                      event_type='daily',
-                                      start_time=start_time,
-                                      races=12)
-                    new_event.name = f'{start_time.strftime("%A")} Daily Event'
-                    self.events.append(new_event)
-                    changed = True
+                if self._announce_season:
+                    self._announce_season = False
+                    embed = self.get_season_embed()
+                    await self.announcement_channel.send(
+                        embed=embed,
+                        view=self.season_view
+                    )
 
-                for event in self.events:
-                    result = await event.manage_event()
-                    if result:
-                        changed = True
-
-                # Ensure all races are still running and restart them if not
-                for race in self.races:
-                    if not race.is_running():
-                        race.create_run_task()
+                if await self.events.manage():
+                    self.changed = True
 
                 basic_races = list(filter(
                     lambda r: r.settings['type'] == 'basic',
@@ -497,13 +569,20 @@ class Stadium(HasSettings):
                 )
                 if len(basic_races) < 1:
                     if self.create_basic_race():
-                        changed = True
+                        self.changed = True
 
                 await self.auction_house.run()
 
-                if changed:
+                if self.changed:
                     await self.save()
+                    self.changed = False
                 await asyncio.sleep(60)
+
+                # Ensure all races are still running and restart them if not
+                # This is done after the sleep to ease rate limits on startup
+                for race in self.races:
+                    if not race.is_running():
+                        race.create_run_task()
             except Exception as e:
                 print(type(e).__name__, e)
         self._running = False
@@ -627,5 +706,16 @@ class Stadium(HasSettings):
                 'Horse and Jockey Ownership, '
                 'and Horse Breeding.'
             )
+        )
+        return embed
+
+    def get_season_embed(self) -> discord.Embed:
+        embed = discord.Embed(
+            title=f'Pre-Season {self.current_season()} Begins!',
+            colour=discord.Colour.green(),
+            description='Pre-Seasons, generally, last from Monday to Sunday. '
+                        'You can register your horse at any time but bare in '
+                        'mind, registering later in the week decreases your '
+                        'odds significantly in making it to the weekly finale!'
         )
         return embed

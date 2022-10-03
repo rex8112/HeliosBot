@@ -1,6 +1,6 @@
 import datetime
 import math
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterable
 
 import discord
 import numpy
@@ -9,38 +9,121 @@ from .race import Race
 from ..tools.settings import Item
 
 if TYPE_CHECKING:
-    from ..stadium import Stadium
+    from .horse import Horse
+    from .event_manager import EventManager
+
+
+class RaceTypeCount:
+    def __init__(self, *,
+                 maidens: int = 0,
+                 stakes: int = 0,
+                 listed: int = 0,
+                 grade3: int = 0,
+                 grade2: int = 0,
+                 grade1: int = 0) -> None:
+        """
+        Represents the quantity of each type of race that the event should
+        have.
+
+        :param maidens: Amount of Maiden Races
+        :param stakes: Amount of Stakes Races
+        :param listed: Amount of Listed Grade Stakes Races
+        :param grade3: Amount of Grade 3 Stakes Races
+        :param grade2: Amount of Grade 2 Stakes Races
+        :param grade1: Amount of Grade 1 Stakes Races
+        """
+        self.maidens: int = maidens
+        self.stakes: int = stakes
+        self.listed: int = listed
+        self.grade3: int = grade3
+        self.grade2: int = grade2
+        self.grade1: int = grade1
+
+    def get_total(self) -> int:
+        return sum(self.to_json())
+
+    def to_json(self) -> list[int]:
+        return [
+            self.maidens,
+            self.stakes,
+            self.listed,
+            self.grade3,
+            self.grade2,
+            self.grade1
+        ]
+
+    @classmethod
+    def from_json(cls, data: list[int]):
+        c = cls(
+            maidens=data[0],
+            stakes=data[1],
+            listed=data[2],
+            grade3=data[3],
+            grade2=data[4],
+            grade1=data[5]
+        )
+        return c
 
 
 class Event:
-    def __init__(self, stadium: 'Stadium', channel: discord.TextChannel, *,
+    def __init__(self,
+                 event_manager: 'EventManager',
+                 channel: discord.TextChannel,
+                 *,
                  event_type: str = 'daily',
                  start_time: datetime.datetime,
                  betting_time: int = 60 * 60 * 1,
                  registration_time: int = 60 * 60 * 6,
                  announcement_time: int = 60 * 60 * 12,
-                 races: int, ):
+                 races: RaceTypeCount):
         self.name = 'Unnamed Event'
-        self.stadium = stadium
+        self.manager = event_manager
         self.channel = channel
         self.race_ids = []
         self.settings = {
             'type': event_type,
-            'start_time': start_time,
+            'start_time': start_time.isoformat(),
             'betting_time': betting_time,
             'registration_time': registration_time,
             'announcement_time': announcement_time,
-            'races': races,
+            'races': races.to_json(),
             'buffer': 5,
             'phase': 0,
             'winner_string': ''
         }
+
+    def __key(self):
+        return self.channel.id, self.settings['start_time'], self.type
+
+    def __hash__(self):
+        return hash(self.__key())
+
+    def __eq__(self, other):
+        if isinstance(other, Event):
+            return self.__key() == other.__key()
+        return NotImplemented
+
+    @property
+    def stadium(self):
+        return self.manager.stadium
 
     @property
     def races(self):
         races = filter(lambda x: x.id in self.race_ids, self.stadium.races)
         races = list(sorted(races, key=lambda x: x.race_time))
         return races
+
+    @property
+    def type(self):
+        return self.settings['type']
+
+    @property
+    def race_types(self) -> RaceTypeCount:
+        return RaceTypeCount.from_json(self.settings['races'])
+
+    @race_types.setter
+    def race_types(self, value: RaceTypeCount):
+        self.settings['races'] = value.to_json()
 
     @property
     def horses(self):
@@ -59,20 +142,34 @@ class Event:
         self.settings['phase'] = value
 
     @property
-    def betting_time(self):
-        return (self.settings['start_time']
+    def start_time(self) -> datetime.datetime:
+        if isinstance(self.settings['start_time'], list):
+            # noinspection PyTypeChecker
+            return Item.deserialize(self.settings['start_time'],
+                                    guild=self.stadium.guild,
+                                    bot=self.stadium.server.bot)
+        else:
+            return datetime.datetime.fromisoformat(self.settings['start_time'])
+
+    @start_time.setter
+    def start_time(self, value: datetime.datetime):
+        self.settings['start_time'] = value.isoformat()
+
+    @property
+    def betting_time(self) -> datetime.datetime:
+        return (self.start_time
                 - datetime.timedelta(seconds=self.settings['betting_time']))
 
     @property
-    def registration_time(self):
-        return (self.settings['start_time']
+    def registration_time(self) -> datetime.datetime:
+        return (self.start_time
                 - datetime.timedelta(
                     seconds=self.settings['registration_time']
                 ))
 
     @property
-    def announcement_time(self):
-        return (self.settings['start_time']
+    def announcement_time(self) -> datetime.datetime:
+        return (self.start_time
                 - datetime.timedelta(
                     seconds=self.settings['announcement_time']
                 ))
@@ -83,13 +180,6 @@ class Event:
             if not race.finished:
                 return False
         return True
-
-    @classmethod
-    def from_data(cls, stadium: 'Stadium', data: dict):
-        event = cls(stadium, data['channel'], start_time=data['settings'],
-                    races=4)
-        event._deserialize(data)
-        return event
 
     def create_maiden_race(self, race_time: datetime.datetime, index):
         race = Race.new(self.stadium, self.channel, 'maiden', race_time)
@@ -110,9 +200,26 @@ class Event:
     def create_listed_race(self, race_time: datetime.datetime, index):
         race = Race.new(self.stadium, self.channel, 'listed', race_time)
         race.can_run = False
-        race.name = f'{self.name} Race {index}: Listed Stakes Race'
+        race.name = f'{self.name} Race {index}: Listed Race'
         race.settings['purse'] = 2000
         race.settings['stake'] = int(2000 * 0.05)
+        return race
+
+    def create_grade3_race(self, race_time: datetime.datetime, index):
+        race = Race.new(self.stadium, self.channel, 'grade3', race_time)
+        race.can_run = False
+        race.name = f'{self.name} Race {index}: Grade 3 Race'
+        race.settings['purse'] = 4000
+        race.settings['stake'] = int(4000 * 0.05)
+        return race
+
+    def create_grade2_race(self, race_time: datetime.datetime, index):
+        race = Race.new(self.stadium, self.channel, 'grade2', race_time)
+        race.can_run = False
+        race.name = f'{self.name} Race {index}: Grade 2 Race'
+        race.settings['purse'] = 10000
+        race.settings['stake'] = 0
+        race.settings['invite_only'] = True
         return race
 
     async def announce_event(self):
@@ -134,19 +241,7 @@ class Event:
         self.phase += 1
 
     async def close_event(self):
-        embed = discord.Embed(
-            colour=discord.Colour.red(),
-            title=f'{self.name} has Ended!',
-            description=('Congratulate our winners!\n\n'
-                         f'{self.settings["winner_string"]}')
-        )
-        await self.channel.send(embed=embed)
-        for race in self.races:
-            try:
-                self.stadium.races.remove(race)
-            except ValueError:
-                ...
-        self.stadium.events.remove(self)
+        await self.manager.close_event(self)
 
     async def maidens_available(self):
         maidens = 0
@@ -156,70 +251,47 @@ class Event:
                 maidens += 1
         return maidens
 
-    async def generate_races(self):
-        allowed_races = self.settings['races']
-        maidens = await self.maidens_available()
-        maiden_percentage = maidens / len(self.stadium.horses)
-        maiden_races_allowed = maidens // 12
-        if maiden_percentage > 0.5:
-            maiden_races = allowed_races // 2
-        else:
-            maiden_races = allowed_races // 4
-        if maiden_races > maiden_races_allowed:
-            maiden_races = maiden_races_allowed
-
-        horses = list(self.stadium.unowned_qualified_horses().values())
-        stakes_qualified = list(filter(
-            lambda x: Race.check_qualification('stake', x),
-            self.stadium.horses.values()))
-        listed_qualified = list(filter(
-            lambda x: Race.check_qualification('listed', x),
-            self.stadium.horses.values()))
-        listed_races = min([len(listed_qualified) // 6, 1])
-        stakes_races = min([len(stakes_qualified) // 6,
-                            allowed_races - listed_races - maiden_races])
-
-        start_time = self.settings['start_time']
-        index = 1
-        races = []
-        for _ in range(maiden_races):
-            race = self.create_maiden_race(start_time, index)
-            index += 1
-            delta = start_time - self.betting_time
-            race.settings['betting_time'] = delta.total_seconds()
-            race.settings['restrict_time'] = delta.total_seconds() + 60 * 60
-            race.settings['max_horses'] = 12
-            races.append(race)
-            start_time = start_time + datetime.timedelta(
-                minutes=self.settings['buffer'])
-
-        for _ in range(stakes_races):
-            race = self.create_stake_race(start_time, index)
-            index += 1
-            delta = start_time - self.betting_time
-            race.settings['betting_time'] = delta.total_seconds()
-            race.settings['restrict_time'] = delta.total_seconds() + 60 * 60
-            race.settings['max_horses'] = 12
-            races.append(race)
-            start_time = start_time + datetime.timedelta(
-                minutes=self.settings['buffer'])
-
-        for _ in range(listed_races):
-            race = self.create_listed_race(start_time, index)
-            index += 1
-            delta = start_time - self.betting_time
-            race.settings['betting_time'] = delta.total_seconds()
-            race.settings['restrict_time'] = delta.total_seconds() + 60 * 60
-            race.settings['max_horses'] = 12
-            races.append(race)
-            start_time = start_time + datetime.timedelta(
-                minutes=self.settings['buffer'])
-
-        used_horses = []
-        for race in reversed(races):
+    @staticmethod
+    def prefill_races(races: Iterable[Race],
+                      horses: dict[int, 'Horse']) -> dict[int, 'Horse']:
+        """
+        Put random horses into the race that qualify
+        :param races: A lit of races to be filled
+        :param horses: A dict of horses to choose from
+        :return: A copied dict with the used horses removed
+        """
+        horses = horses.copy()
+        for race in races:
             qualified = list(filter(
-                lambda x: race.is_qualified(x) and x not in used_horses,
-                horses))
+                lambda x: race.is_qualified(x),
+                horses.values()))
+            if len(qualified) > 0:
+                qualified_horses = list(
+                    numpy.random.choice(qualified,
+                                        min(race.max_horses, len(qualified)),
+                                        replace=False))
+            else:
+                qualified_horses = []
+            race.horses = qualified_horses
+            for horse in qualified_horses:
+                horses.pop(horse.id)
+        return horses
+
+    @staticmethod
+    def prefill_races_weighted(races: Iterable[Race],
+                               horses: dict[int, 'Horse']
+                               ) -> dict[int, 'Horse']:
+        """
+        Put random horses into the race that qualify, weighted by their quality
+        :param races: A lit of races to be filled
+        :param horses: A dict of horses to choose from
+        :return: A copied dict with the used horses removed
+        """
+        horses = horses.copy()
+        for race in races:
+            qualified = list(filter(
+                lambda x: race.is_qualified(x),
+                horses.values()))
             weights = [math.ceil(x.quality) for x in qualified]
             s = sum(weights)
             weights = [x / s for x in weights]
@@ -234,8 +306,129 @@ class Event:
                                         p=weights))
             else:
                 qualified_horses = []
-            used_horses.extend(qualified_horses)
             race.horses = qualified_horses
+            for horse in qualified_horses:
+                horses.pop(horse.id)
+        return horses
+
+    @staticmethod
+    def prefill_races_point_sorted(races: Iterable[Race],
+                                   horses: dict[int, 'Horse'],
+                                   since: datetime.datetime
+                                   ) -> dict[int, 'Horse']:
+        """
+        Put horses into the race, sorted by their comp points
+        :param since: When to use the starting point for points
+        :param races: A lit of races to be filled
+        :param horses: A dict of horses to choose from
+        :return: A copied dict with the used horses removed
+        """
+        horses = horses.copy()
+        for race in races:
+            horses_list = sorted([x for x in horses.values()],
+                                 key=lambda x: x.get_graded_points_since(
+                                     since.date())
+                                 )
+            qualified = list(filter(
+                lambda x: race.is_qualified(x),
+                horses_list))
+            if len(qualified) > 0:
+                qualified_horses = qualified[:race.max_horses]
+            else:
+                qualified_horses = []
+            race.horses = qualified_horses
+            for horse in qualified_horses:
+                horses.pop(horse.id)
+        return horses
+
+    def prefill_all_races(self) -> None:
+        invite_races = []
+        listed_races = []
+        maiden_races = []
+        stakes_races = []
+        for race in self.races:
+            if race.invite_only:
+                invite_races.append(race)
+            elif race.type in ('listed', 'grade3'):
+                listed_races.append(race)
+            elif race.type == 'maiden':
+                maiden_races.append(race)
+            elif race.type == 'stake':
+                stakes_races.append(race)
+        invite_horses = self.stadium.horses
+        self.prefill_races_point_sorted(invite_races, invite_horses,
+                                        self.manager.get_start_of_week())
+        horses = self.stadium.unowned_qualified_horses()
+        horses = self.prefill_races_weighted(listed_races, horses)
+        horses = self.prefill_races(maiden_races, horses)
+        self.prefill_races(stakes_races, horses)
+
+    async def generate_races(self):
+        race_types = self.race_types
+        start_time = self.start_time
+        index = 1
+        races = []
+        maiden_races = []
+        listed_races = []
+        other_races = []
+        for _ in range(race_types.maidens):
+            race = self.create_maiden_race(start_time, index)
+            index += 1
+            delta = start_time - self.betting_time
+            race.settings['betting_time'] = delta.total_seconds()
+            race.settings['restrict_time'] = delta.total_seconds() + 60 * 60
+            race.settings['max_horses'] = 12
+            races.append(race)
+            maiden_races.append(race)
+            start_time = start_time + datetime.timedelta(
+                minutes=self.settings['buffer'])
+
+        for _ in range(race_types.stakes):
+            race = self.create_stake_race(start_time, index)
+            index += 1
+            delta = start_time - self.betting_time
+            race.settings['betting_time'] = delta.total_seconds()
+            race.settings['restrict_time'] = delta.total_seconds() + 60 * 60
+            race.settings['max_horses'] = 12
+            races.append(race)
+            other_races.append(race)
+            start_time = start_time + datetime.timedelta(
+                minutes=self.settings['buffer'])
+
+        for _ in range(race_types.listed):
+            race = self.create_listed_race(start_time, index)
+            index += 1
+            delta = start_time - self.betting_time
+            race.settings['betting_time'] = delta.total_seconds()
+            race.settings['restrict_time'] = delta.total_seconds() + 60 * 60
+            race.settings['max_horses'] = 12
+            races.append(race)
+            listed_races.append(race)
+            start_time = start_time + datetime.timedelta(
+                minutes=self.settings['buffer'])
+
+        for _ in range(race_types.grade3):
+            race = self.create_grade3_race(start_time, index)
+            index += 1
+            delta = start_time - self.betting_time
+            race.settings['betting_time'] = delta.total_seconds()
+            race.settings['restrict_time'] = delta.total_seconds() + 60 * 60
+            race.settings['max_horses'] = 12
+            races.append(race)
+            listed_races.append(race)
+            start_time = start_time + datetime.timedelta(
+                minutes=self.settings['buffer'])
+
+        for _ in range(race_types.grade2):
+            race = self.create_grade2_race(start_time, index)
+            index += 1
+            delta = start_time - self.betting_time
+            race.settings['betting_time'] = delta.total_seconds()
+            race.settings['max_horses'] = 12
+            races.append(race)
+            start_time = start_time + datetime.timedelta(
+                minutes=self.settings['buffer'])
+
         await self.stadium.bulk_add_races(races)
         for race in races:
             self.race_ids.append(race.id)
@@ -247,6 +440,7 @@ class Event:
             await self.announce_event()
             return True
         elif now >= self.registration_time and self.phase == 1:
+            self.prefill_all_races()
             for race in self.races:
                 embed = discord.Embed(title='Building Race')
                 placeholder = await self.channel.send(embed=embed)
@@ -264,20 +458,28 @@ class Event:
                 return True
         return False
 
-    def serialize(self):
+    def to_json(self):
         return {
             'name': self.name,
-            'channel': Item.serialize(self.channel),
+            'channel': self.channel.id,
             'race_ids': self.race_ids,
-            'settings': Item.serialize_dict(self.settings)
+            'settings': self.settings
         }
 
-    def _deserialize(self, data: dict):
-        self.name = data['name']
-        self.channel = Item.deserialize(data['channel'],
-                                        bot=self.stadium.server.bot,
-                                        guild=self.stadium.guild)
-        self.race_ids = data['race_ids']
-        self.settings = Item.deserialize_dict(data['settings'],
-                                              bot=self.stadium.server.bot,
-                                              guild=self.stadium.guild)
+    @classmethod
+    def from_json(cls, manager: 'EventManager', data: dict):
+        start = datetime.datetime.fromisoformat(data['settings']['start_time'])
+        event = cls(manager, data['channel'],
+                    start_time=start,
+                    races=RaceTypeCount())
+        event.name = data['name']
+        event.race_ids = data['race_ids']
+        if isinstance(data['channel'], list):
+            event.channel = Item.deserialize(data['channel'],
+                                             bot=event.stadium.server.bot,
+                                             guild=event.stadium.guild)
+        else:
+            event.channel = manager.bot.get_channel(data['channel'])
+
+        event.settings = data['settings']
+        return event

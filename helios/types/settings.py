@@ -35,10 +35,12 @@ class RaceSettings(TypedDict):
     restrict_time: int
     phase: int
     can_run: bool
+    invite_only: bool
 
 
 class StadiumSettings(TypedDict):
     season: int
+    season_active: bool
     category: Optional[discord.CategoryChannel]
     announcement_id: int
 

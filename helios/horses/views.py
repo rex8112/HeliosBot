@@ -6,21 +6,41 @@ import discord
 
 from .enumerations import BetType
 from .modals import SetBidModal, NameChangeModal
-from ..modals import BetModal
+from ..modals import AmountModal
 from ..views import YesNoView
 
 if TYPE_CHECKING:
     from ..member import HeliosMember
+    from ..stadium import Stadium
     from .race import Race
     from .horse import Horse
     from .auction import HorseListing, GroupAuction
 
 
 class PreRaceView(discord.ui.View):
+    BET_OPTIONS = [
+        discord.SelectOption(label='Win', value='win',
+                             description='Bet on a horse to place first.'),
+        discord.SelectOption(label='Place', value='place',
+                             description='Bet on a horse to place '
+                                         'second.'),
+        discord.SelectOption(label='Show', value='show',
+                             description='Bet on a horse to place third.'),
+        discord.SelectOption(label='Across the Board', value='across',
+                             description='Shortcut to place a win, place, '
+                                         'and show bet all at once.')
+    ]
+    BET_TYPES: dict[str, BetType] = {
+        'win': BetType.win,
+        'place': BetType.place,
+        'show': BetType.show
+    }
+
     def __init__(self, er: 'Race'):
         super().__init__(timeout=er.time_until_race.seconds)
         self.race = er
-        if self.race.settings['type'] == 'basic':
+        self.bet.options = self.BET_OPTIONS
+        if self.race.settings['type'] == 'basic' or self.race.invite_only:
             self.remove_item(self.register)
 
     def check_race_status(self):
@@ -35,13 +55,72 @@ class PreRaceView(discord.ui.View):
             self.show_bets.disabled = True
             self.decimals.disabled = True
 
-    @discord.ui.button(label='Bet', style=discord.ButtonStyle.blurple,
-                       disabled=True)
+    @discord.ui.select(placeholder='Place a Bet', disabled=True)
     async def bet(self, interaction: discord.Interaction,
-                  button: discord.ui.Button):
+                  select: discord.ui.Select):
         member = self.race.stadium.server.members.get(interaction.user.id)
-        await interaction.response.send_modal(
-            BetModal(self.race, member))  # Modal handles all further actions
+        selected_type = select.values[0]
+        horses = {}
+        for horse in self.race.horses:
+            horses[horse.id] = horse
+
+        horse_view = HorsePickerView(horses, max_horses=len(horses),
+                                     disable_interaction=True)
+        await interaction.response.send_message(
+            f'__**{self.race.name}**__\n'
+            'Please select the horses you would like to place this bet on.',
+            view=horse_view,
+            ephemeral=True
+        )
+        if await horse_view.wait():
+            return
+        modal = AmountModal(default=100)
+        await horse_view.last_interaction.response.send_modal(modal)
+        if await modal.wait():
+            return
+        amount = modal.amount_selected
+        if amount <= 0:
+            await interaction.edit_original_response(
+                content='You must bet a positive amount of points.',
+                view=None
+            )
+            return
+        horses_selected = horse_view.horses_selected
+        bets_to_do = []
+        if selected_type == 'across':
+            bets_to_do = [BetType.win, BetType.place, BetType.show]
+        else:
+            bets_to_do = [self.BET_TYPES[selected_type]]
+        total_amount = amount * len(horses_selected) * len(bets_to_do)
+        if member.points < total_amount:
+            await interaction.edit_original_response(
+                content=(
+                    f'You are trying to place **{len(bets_to_do)}** bet(s) on '
+                    f'**{len(horses_selected)}** horses for a total of '
+                    f'**{len(bets_to_do) * len(horses_selected)}** bets at '
+                    f'**{amount:,}** points each.\n\nYou need '
+                    f'**{total_amount:,}** points but only have '
+                    f'**{member.points:,}**!'
+                ),
+                view=None
+            )
+            return
+        summary = []
+        for horse in horses_selected:
+            line = f'{horse.name}: '
+            for bet in bets_to_do:
+                self.race.bet(bet, member, horse, amount)
+                line += f'{bet.name}: **{amount:,}** '
+            summary.append(line)
+        member.points -= total_amount
+        await member.save()
+        await self.race.save()
+        summary = '\n'.join(summary)
+        await interaction.edit_original_response(
+            content=f'Successfully Bet\n\n{summary}\n\n'
+                    f'Total Bet: **{total_amount:,}**',
+            view=None
+        )
 
     @discord.ui.button(label='Show Bets', style=discord.ButtonStyle.green,
                        disabled=True)
@@ -104,8 +183,9 @@ class PreRaceView(discord.ui.View):
                 ephemeral=True
             )
             return
-        view = HorsePickerView(self.race, horses)
-        content = (f'Entry Cost: **{self.race.stake:,}**\n'
+        view = RaceHorsePickerView(self.race, horses)
+        content = (f'__**{self.race.name}**__\n'
+                   f'Entry Cost: **{self.race.stake:,}**\n'
                    f'Your Points: **{member.points:,}**')
         message = await interaction.response.send_message(content, view=view,
                                                           ephemeral=True)
@@ -122,6 +202,13 @@ class PreRaceView(discord.ui.View):
             await interaction.edit_original_response(
                 content=f'You need **{self.race.stake:,}** '
                         f'points to register in this race.',
+                view=None
+            )
+            return
+        if not self.race.is_qualified(horse):
+            await interaction.edit_original_response(
+                content='This horse is no longer qualified. This most likely '
+                        'means that you already put this horse in a race.',
                 view=None
             )
             return
@@ -154,6 +241,37 @@ class PreRaceView(discord.ui.View):
 
 
 class HorsePickerView(discord.ui.View):
+    def __init__(self, horses: Dict[int, 'Horse'], *,
+                 min_horses=1, max_horses=1, disable_interaction=False):
+        self.horses = horses
+        self.horses_selected = []
+        options = []
+        for key, horse in self.horses.items():
+            if len(options) < 25:
+                options.append(discord.SelectOption(label=horse.name,
+                                                    value=str(key)))
+        super().__init__(timeout=30)
+        self.select_horse.min_values = min(min_horses, len(self.horses))
+        self.select_horse.max_values = min(max_horses, len(self.horses))
+        self.select_horse.options = options
+        self.disable_interaction = disable_interaction
+
+        self.last_interaction = None
+
+    @discord.ui.select(placeholder='Pick a horse')
+    async def select_horse(self, interaction: discord.Interaction,
+                           select: discord.SelectMenu):
+        for val in self.select_horse.values:
+            horse = self.horses.get(int(val))
+            if horse:
+                self.horses_selected.append(horse)
+        if self.disable_interaction is False:
+            await interaction.response.defer()
+        self.last_interaction = interaction
+        self.stop()
+
+
+class RaceHorsePickerView(discord.ui.View):
     def __init__(self, race: 'Race', horses: Dict[int, 'Horse']):
         self.race = race
         self.horses = horses
@@ -362,3 +480,61 @@ class HorseOwnerView(discord.ui.View):
         await self.owner.save()
         await self.owner.member.send(f'You have sold **{self.horse.name}** '
                                      f'for **{sell_price:,}**!')
+
+
+class SeasonRegistration(discord.ui.View):
+    def __init__(self, stadium: 'Stadium'):
+        super().__init__(timeout=None)
+        self.stadium = stadium
+        self.register.custom_id = f'{self.stadium.id}:seasonregister'
+
+    @discord.ui.button(label='Register', style=discord.ButtonStyle.green)
+    async def register(self, interaction: discord.Interaction,
+                       button: discord.Button):
+        stadium = self.stadium
+        member = stadium.server.members.get(interaction.user.id)
+        horses = {}
+        for key, horse in member.horses.items():
+            if (stadium.check_qualification('listed', horse)
+                    and not horse.get_flag('REGISTERED')):
+                horses[key] = horse
+        if len(horses) < 1:
+            await interaction.response.send_message(
+                'You do not have any registrable horses, they must be '
+                'eligible to race in a listed race.',
+                ephemeral=True
+            )
+            return
+        horse_view = HorsePickerView(horses, max_horses=member.max_horses)
+        await interaction.response.send_message(
+            'Registration costs **500** points and lasts until Monday!\n'
+            'Please select the horses to register.',
+            ephemeral=True,
+            view=horse_view
+        )
+        await horse_view.wait()
+        selected = horse_view.horses_selected.copy()
+        if len(selected) < 1:
+            await interaction.edit_original_response(content='View Timed Out',
+                                                     view=None)
+            return
+        points_to_take = 500 * len(selected)
+        if member.points < points_to_take:
+            await interaction.edit_original_response(
+                content=f'You selected **{len(selected)}** horses which costs '
+                        f'**{points_to_take:,}** and you only have '
+                        f'**{member.points:,}**!',
+                view=None
+            )
+            return
+        member.points -= points_to_take
+        await member.save()
+        for horse in selected:
+            horse.set_flag('REGISTERED', True)
+            await horse.save()
+        await interaction.edit_original_response(
+            content=f'Successfully registered '
+                    f'**{", ".join(x.name for x in selected)}** for '
+                    f'**{points_to_take:,}** points!',
+            view=None
+        )
