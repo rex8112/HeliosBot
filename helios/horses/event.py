@@ -324,10 +324,14 @@ class Event:
         :return: A copied dict with the used horses removed
         """
         horses = horses.copy()
-        horses_list = sorted([x for x in horses.values()],
-                             key=lambda x: x.get_graded_points_since(since))
         for race in races:
-            qualified = horses_list
+            horses_list = sorted([x for x in horses.values()],
+                                 key=lambda x: x.get_graded_points_since(
+                                     since.date())
+                                 )
+            qualified = list(filter(
+                lambda x: race.is_qualified(x),
+                horses_list))
             if len(qualified) > 0:
                 qualified_horses = qualified[:race.max_horses]
             else:
@@ -351,7 +355,7 @@ class Event:
                 maiden_races.append(race)
             elif race.type == 'stake':
                 stakes_races.append(race)
-        invite_horses = self.stadium.registered_horses()
+        invite_horses = self.stadium.horses
         self.prefill_races_point_sorted(invite_races, invite_horses,
                                         self.manager.get_start_of_week())
         horses = self.stadium.unowned_qualified_horses()
@@ -464,8 +468,9 @@ class Event:
 
     @classmethod
     def from_json(cls, manager: 'EventManager', data: dict):
+        start = datetime.datetime.fromisoformat(data['settings']['start_time'])
         event = cls(manager, data['channel'],
-                    start_time=data['settings'],
+                    start_time=start,
                     races=RaceTypeCount())
         event.name = data['name']
         event.race_ids = data['race_ids']

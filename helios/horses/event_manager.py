@@ -27,7 +27,7 @@ class EventManager:
     @staticmethod
     def get_start_of_week() -> datetime:
         monday = datetime.now().astimezone()
-        monday = monday - relativedelta(weekday=MO)
+        monday = monday + relativedelta(weekday=MO(-1))
         monday = monday.replace(hour=0, minute=0, second=0, microsecond=0)
         return monday
 
@@ -160,6 +160,9 @@ class EventManager:
 
         if event.type == 'weekly':
             self.stadium.close_season()
+            for horse in self.stadium.registered_horses().values():
+                horse.set_flag('REGISTERED', False)
+                await horse.save()
 
         for race in event.races:
             try:

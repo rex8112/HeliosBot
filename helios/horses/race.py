@@ -778,7 +778,6 @@ class Race(HasSettings):
             h.horse.pay(payout[i])
             record = Record.new(h, self, payout[i])
             h.horse.records.append(record)
-            await self.save_record(record)
             if record.race_type in ('maiden', 'stake') and record.placing == 0:
                 h.horse.set_flag('MAIDEN', False)
                 await h.horse.save()
@@ -786,6 +785,7 @@ class Race(HasSettings):
                     and record.placing < 4):
                 point_payout = [30, 4, 2, 1]
                 record.points = point_payout[record.placing]
+            await self.save_record(record)
 
             owner = h.horse.owner
             if owner:
@@ -921,7 +921,8 @@ class Race(HasSettings):
                     else:
                         break
                 last_tick = datetime.datetime.now()
-                await self.send_or_edit_message(embed=self._get_race_embed())
+                await self.send_or_edit_message(embed=self._get_race_embed(),
+                                                view=None)
 
                 if self.race.finished:
                     self.phase = 3

@@ -64,7 +64,8 @@ class PreRaceView(discord.ui.View):
         for horse in self.race.horses:
             horses[horse.id] = horse
 
-        horse_view = HorsePickerView(horses, max_horses=len(horses))
+        horse_view = HorsePickerView(horses, max_horses=len(horses),
+                                     disable_interaction=True)
         await interaction.response.send_message(
             f'__**{self.race.name}**__\n'
             'Please select the horses you would like to place this bet on.',
@@ -250,8 +251,8 @@ class HorsePickerView(discord.ui.View):
                 options.append(discord.SelectOption(label=horse.name,
                                                     value=str(key)))
         super().__init__(timeout=30)
-        self.select_horse.min_values = min_horses
-        self.select_horse.max_values = max_horses
+        self.select_horse.min_values = min(min_horses, len(self.horses))
+        self.select_horse.max_values = min(max_horses, len(self.horses))
         self.select_horse.options = options
         self.disable_interaction = disable_interaction
 
