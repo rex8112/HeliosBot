@@ -9,7 +9,7 @@ from .horses.enumerations import BetType
 if TYPE_CHECKING:
     from .server import Server
     from .member import HeliosMember
-    from .horses.race import EventRace
+    from .horses.race import Race
     from .helios_bot import HeliosBot
     from .channel import VoiceChannel
 
@@ -28,13 +28,39 @@ class TopicCreation(ui.Modal, title='New Topic'):
         await interaction.response.send_message('Sorry, something went wrong.', ephemeral=True)
 
 
-class BetModal(ui.Modal, title=f'Bet'):
-    type = ui.TextInput(label='Bet Type', placeholder='win, place, show', required=True)
-    horse_name = ui.TextInput(label='Horse', placeholder='HorsesName', required=True)
+class AmountModal(ui.Modal, title='Amount'):
     amount = ui.TextInput(label='Amount', required=True)
 
-    def __init__(self, er: 'EventRace', member: 'HeliosMember'):
-        super().__init__(title=f'{er.name} Bet',
+    def __init__(self, *, default=None, timeout=30):
+        super().__init__(timeout=timeout)
+        if default:
+            self.amount.default = default
+        self.amount_selected = None
+
+    async def on_submit(self, interaction: Interaction) -> None:
+        try:
+            self.amount_selected = int(self.amount.value)
+        except ValueError:
+            await interaction.response.send_message(
+                'You must provide an actual number.',
+                ephemeral=True
+            )
+            return
+        await interaction.response.defer()
+        self.stop()
+
+
+class BetModal(ui.Modal, title=f'Bet'):
+    type = ui.TextInput(label='Bet Type', placeholder='win, place, show', required=True)
+    horse_name = ui.TextInput(label='Horse', placeholder='HorsesName or #', required=True)
+    amount = ui.TextInput(label='Amount', required=True)
+
+    def __init__(self, er: 'Race', member: 'HeliosMember'):
+        if len(er.name) > 41:
+            name = er.name[:41]
+        else:
+            name = er.name
+        super().__init__(title=f'{name} Bet',
                          timeout=er.time_until_race.seconds)
         self.race = er
         self.member = member
@@ -51,9 +77,14 @@ class BetModal(ui.Modal, title=f'Bet'):
             amt = int(self.amount.value)
         except ValueError:
             raise BetError('Must input a valid number.')
-        horse = self.race.find_horse(self.horse_name.value)
+        try:
+            horse_index = int(self.horse_name.value)
+            horse = self.race.horses[horse_index - 1]
+        except (ValueError, IndexError):
+            horse = self.race.find_horse(self.horse_name.value)
         if horse is None:
-            raise BetError('You must type a valid horse name that is registered to this race.')
+            raise BetError('You must type a valid horse name or number that '
+                           'is registered to this race.')
         if self.member.points < amt:
             raise BetError(f'You only have {self.member.points} points.')
         elif amt <= 0:

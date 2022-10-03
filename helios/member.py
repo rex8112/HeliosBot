@@ -18,7 +18,8 @@ class HeliosMember(HasFlags, HasSettings):
     _default_settings = {
         'activity_points': 0,
         'points': 0,
-        'day_claimed': 0
+        'day_claimed': 0,
+        'day_liked': 0
     }
     _allowed_flags = [
         'FORBIDDEN'
@@ -32,12 +33,26 @@ class HeliosMember(HasFlags, HasSettings):
         self.templates: list['VoiceTemplate'] = []
         self.flags = []
 
+        self.max_horses = 8
+
         self._last_check = get_floor_now()
         self._partial = 0
         self._changed = False
         self._new = True
         if data:
             self._deserialize(data)
+
+    def __eq__(self, o: object):
+        if isinstance(o, HeliosMember):
+            return self.id == o.id
+        elif o is None:
+            return False
+        else:
+            return NotImplemented
+
+    @property
+    def id(self):
+        return self.member.id
 
     @property
     def server(self) -> 'Server':
