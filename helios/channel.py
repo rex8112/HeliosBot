@@ -151,7 +151,6 @@ class TopicChannel(Channel):
         now = datetime.datetime.now().astimezone()
         return now - delta
 
-
     @property
     def archive_category(self) -> Optional[discord.CategoryChannel]:
         channel_id = self.server.settings.archive_category
@@ -258,9 +257,9 @@ class TopicChannel(Channel):
         """
         self.set_flag('MARKED', state)
         if state:
-            self.settings.archive_at = _get_archive_time().isoformat()
+            self.archive_at = _get_archive_time().isoformat()
         else:
-            self.settings.archive_at = None
+            self.archive_at = None
         if post:
             if state:
                 await self.post_archive_message(embed=self._get_marked_embed(), view=TopicView(self.bot))
@@ -274,7 +273,7 @@ class TopicChannel(Channel):
 
     async def set_archive(self, state: bool, post=True) -> None:
         self.set_flag('ARCHIVED', state)
-        self.settings.archive_at = None
+        self.archive_at = None
         if state:
             await self.set_marked(False, post=False)
             await self.channel.edit(category=self.archive_category)
@@ -291,7 +290,7 @@ class TopicChannel(Channel):
             embed = self._get_saved_embed()
             embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar.url)
             await interaction.response.edit_message(embed=embed, view=None)
-        self.settings.archive_message_id = None
+        self.archive_message_id = None
 
     async def evaluate_tier(self, change=True, allow_degrade=False) -> int:
         """
@@ -308,11 +307,11 @@ class TopicChannel(Channel):
         for i, threshold in enumerate(self._tier_thresholds_lengths.keys()):
             if total_value >= threshold:
                 tier = i + 1
-        if not allow_degrade and tier < self.settings.tier:
-            tier = self.settings.tier
-        if change and tier != self.settings.tier:
+        if not allow_degrade and tier < self.tier:
+            tier = self.tier
+        if change and tier != self.tier:
             embed = self._get_tier_change_embed(tier)
-            self.settings.tier = tier
+            self.tier = tier
             await self.channel.send(embed=embed)
         return tier
 
@@ -330,14 +329,15 @@ class TopicChannel(Channel):
                 await self.set_marked(True)
 
     async def post_archive_message(self, content=None, *, embed=None, view=None):
-        message_id = self.settings.archive_message_id
-        message = None
-        if message_id:
-            message = await self.channel.fetch_message(message_id)
-        if not message:
-            message = await self.channel.send(content=content, embed=embed, view=view)
-        await message.edit(content=content, view=view, embed=embed)
-        self.settings.archive_message_id = message.id
+        message = self.archive_message
+        if type(message) == discord.PartialMessage:
+            message = await message.fetch()
+        if message is None:
+            message = await self.channel.send(content=content, embed=embed,
+                                              view=view)
+        else:
+            await message.edit(content=content, view=view, embed=embed)
+        self.archive_message = message
 
     async def get_markable(self) -> bool:
         """
@@ -521,7 +521,7 @@ class VoiceChannel(Channel):
         await self.template.save()
 
     async def neutralize(self):
-        self.settings.owner = None
+        self.owner = None
         await self.channel.edit(name=f'<Neutral> {self.channel.name}')
 
     async def apply_template(self, template: 'VoiceTemplate'):
