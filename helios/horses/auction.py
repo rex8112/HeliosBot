@@ -243,8 +243,9 @@ class HorseListing:
                     self.new_bid = False
                     remove = []
                     self.auction.changed = True
+                    active = self.active
                     for i, message in enumerate(self.update_list):
-                        if self.active:
+                        if active:
                             tasks.append(message.edit(embed=self.get_embed(),
                                                       view=ListingView(self)))
                         else:
