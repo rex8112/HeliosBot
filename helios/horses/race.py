@@ -906,7 +906,9 @@ class Race(HasSettings):
                 if self.race is None:
                     self.generate_race()
                     await self.send_or_edit_message(
-                        embed=self._get_race_embed())
+                        embed=self._get_race_embed(),
+                        view=None
+                    )
                     await asyncio.sleep(3)
                 if last_tick is None:
                     last_tick = datetime.datetime.now()
@@ -1033,8 +1035,8 @@ class Race(HasSettings):
                     content = MISSING
                 if self.message.embeds == [embed]:
                     embed = MISSING
-                if view and self.message.components == view.children:
-                    view = MISSING
+                if view == MISSING and self._view:
+                    view = self._view
                 if content == MISSING and embed == MISSING and view == MISSING:
                     return
                 await self.message.edit(content=content, embed=embed,
