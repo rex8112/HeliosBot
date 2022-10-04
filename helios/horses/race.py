@@ -1015,6 +1015,12 @@ class Race(HasSettings):
     async def send_or_edit_message(self, content=MISSING, *, embed=MISSING,
                                    view=MISSING):
         if self.message is None:
+            if content == MISSING:
+                content = None
+            if embed == MISSING:
+                embed = None
+            if view == MISSING:
+                view = None
             self.settings['message'] = await self.channel.send(content=content,
                                                                embed=embed,
                                                                view=view)
