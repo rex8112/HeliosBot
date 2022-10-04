@@ -7,7 +7,7 @@ from discord import app_commands
 from discord.ext import commands
 from discord.utils import MISSING
 
-from helios.horses.auction import GroupAuction
+from helios.horses.auction import GroupAuction, RotatingAuction
 from helios.horses.views import HorseOwnerView
 
 if TYPE_CHECKING:
@@ -122,6 +122,20 @@ class StadiumCog(commands.Cog):
                                  seconds: int):
         server = self.bot.servers.get(interaction.guild_id)
         a = GroupAuction(server.stadium.auction_house, interaction.channel)
+        a.settings['duration'] = seconds
+        a.settings['start_time'] = datetime.now().astimezone().isoformat()
+        horses = random.sample(list(server.stadium.horses.values()), 10)
+        a.create_listings(horses)
+        server.stadium.auction_house.auctions.append(a)
+        await interaction.response.send_message('Auction Created',
+                                                ephemeral=True)
+
+    @app_commands.command(name='test_rotating_auction')
+    @app_commands.guilds(466060673651310593)
+    async def test_rotating_auction(self, interaction: discord.Interaction,
+                                    seconds: int):
+        server = self.bot.servers.get(interaction.guild_id)
+        a = RotatingAuction(server.stadium.auction_house, interaction.channel)
         a.settings['duration'] = seconds
         a.settings['start_time'] = datetime.now().astimezone().isoformat()
         horses = random.sample(list(server.stadium.horses.values()), 10)
