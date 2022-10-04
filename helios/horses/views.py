@@ -179,8 +179,13 @@ class PreRaceView(discord.ui.View):
             if self.race.is_qualified(horse):
                 horses[key] = horse
         if len(horses) < 1:
+            extra = ''
+            if self.race.type == 'grade3':
+                extra = ('Make sure you have registered a horse to the '
+                         'season in '
+                         f'{self.race.stadium.announcement_channel.mention}')
             await interaction.response.send_message(
-                'You do not currently have any qualifying horses.',
+                f'You do not currently have any qualifying horses.\n{extra}',
                 ephemeral=True
             )
             return
