@@ -47,38 +47,49 @@ class PrivateVoiceCog(commands.Cog):
             await mem.member.move_to(voice.channel,
                                      reason='Created private Voice Channel.')
 
-    async def allow(self, interaction: discord.Interaction, user: discord.Member):
+    async def allow(self, interaction: discord.Interaction,
+                    user: discord.Member):
         server = self.bot.servers.get(interaction.guild_id)
         if server:
             private_voices = server.channels.get_type('private_voice')
-            owned = list(filter(lambda x: x.owner == interaction.user, private_voices))
+            owned = list(filter(lambda x: x.owner == interaction.user,
+                                private_voices))
             await interaction.response.defer(ephemeral=True)
             if len(owned) > 0:
                 channel = owned[0]
                 await channel.allow(user)
-                await interaction.followup.send(f'{user.mention} Allowed in {channel.channel.mention}.')
+                await interaction.followup.send(f'{user.mention} Allowed in '
+                                                f'{channel.channel.mention}.')
             else:
-                await interaction.followup.send(f'You do not currently have a channel active.')
+                await interaction.followup.send(f'You do not currently have a '
+                                                f'channel active.')
         else:
             await interaction.response.send_message(
-                'Critical Failure, tell `rex8112#1200` that server initialization failed.'
+                'Critical Failure, tell `rex8112#1200` that server '
+                'initialization failed.'
             )
 
-    async def deny(self, interaction: discord.Interaction, member: discord.Member):
+    async def deny(self, interaction: discord.Interaction,
+                   member: discord.Member):
         server = self.bot.servers.get(interaction.user.id)
         if server:
             private_voices = server.channels.get_type('private_voice')
-            owned = list(filter(lambda x: x.owner == interaction.user, private_voices))
+            owned = list(filter(lambda x: x.owner == interaction.user,
+                                private_voices))
             await interaction.response.defer(ephemeral=True)
             if len(owned) > 0:
                 channel = owned[0]
                 await channel.deny(member)
-                await interaction.followup.send(f'{member.mention} Denied in {channel.channel.mention}.')
+                await interaction.followup.send(f'{member.mention} Denied '
+                                                f'in {channel.channel.mention}'
+                                                '.')
             else:
-                await interaction.followup.send(f'You do not currently have a channel active.')
+                await interaction.followup.send(f'You do not currently have a '
+                                                f'channel active.')
         else:
             await interaction.response.send_message(
-                'Critical Failure, tell `rex8112#1200` that server initialization failed.'
+                'Critical Failure, tell `rex8112#1200` that server '
+                'initialization failed.'
             )
 
 
