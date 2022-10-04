@@ -1,12 +1,14 @@
+import datetime
 from typing import Optional, TYPE_CHECKING
 
 import discord
 
-from .types import HeliosChannel
 from .modals import VoiceNameChange
+from .types import HeliosChannel
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
+    from .channel import VoiceChannel
 
 
 async def send_bad_response(interaction: discord.Interaction, message: str):
@@ -51,16 +53,33 @@ class VoiceView(discord.ui.View):
         super().__init__(timeout=None)
         self.bot = bot
 
-    def get_channel(self, guild_id: int, channel_id: int) -> Optional['HeliosChannel']:
+    def get_channel(self, guild_id: int,
+                    channel_id: int) -> Optional['HeliosChannel']:
         server = self.bot.servers.get(guild_id)
         if server:
             channel = server.channels.get(channel_id)
             return channel
         return None
 
-    @discord.ui.button(label='Change Name', style=discord.ButtonStyle.gray, custom_id='voice:name')
-    async def change_name(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(VoiceNameChange())
+    @discord.ui.button(label='Change Name', style=discord.ButtonStyle.gray,
+                       custom_id='voice:name')
+    async def change_name(self, interaction: discord.Interaction,
+                          _: discord.ui.Button):
+        voice: 'VoiceChannel' = self.get_channel(interaction.guild_id,
+                                                 interaction.channel_id)
+        if voice.owner != interaction.user:
+            await interaction.response.send_message(
+                'You are not allowed to edit this channel.',
+                ephemeral=True
+            )
+        now = datetime.datetime.now().astimezone()
+        if voice.next_name_change() <= now:
+            await interaction.response.send_modal(VoiceNameChange(voice))
+        else:
+            await interaction.response.send_message(
+                f'Try again <t:{int(voice.next_name_change().timestamp())}:R>',
+                ephemeral=True
+            )
 
 
 class YesNoView(discord.ui.View):

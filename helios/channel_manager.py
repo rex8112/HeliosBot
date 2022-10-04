@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Optional
 
 import discord
 
-from .channel import Channel_Dict, Channel
+from .channel import Channel_Dict, Channel, VoiceChannel
 
 if TYPE_CHECKING:
     from .server import Server
@@ -100,16 +100,18 @@ class ChannelManager:
         else:
             return False, 'This server does not have `Topic Channel Creation` enabled.'
 
-    async def create_private_voice(self, owner: 'HeliosMember', *, template: 'VoiceTemplate'):
+    async def create_private_voice(self, owner: 'HeliosMember', *,
+                                   template: 'VoiceTemplate') -> VoiceChannel:
         if self.server.private_create_channel:
             category = self.server.private_create_channel.category
             channel = await category.create_voice_channel(
                 name=template.name,
                 overwrites=template.permissions
             )
-            voice = Channel_Dict.get('private_voice').new(self, channel.id)
+            voice = VoiceChannel.new(self, channel.id)
             voice.settings.owner = owner.member.id
             voice.settings.template_name = template.name
+            self._add_channel(voice)
 
             return voice
 

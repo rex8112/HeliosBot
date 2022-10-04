@@ -108,11 +108,14 @@ class BetModal(ui.Modal, title=f'Bet'):
 class VoiceNameChange(ui.Modal, title='Change Name'):
     name = ui.TextInput(label='Name')
 
-    async def on_submit(self, interaction: Interaction) -> None:
-        bot = interaction.client
-        server: 'Server' = bot.servers.get(interaction.guild_id)
-        channel: 'VoiceChannel' = server.channels.get(interaction.channel_id)
-        await channel.change_name(self.name.value)
+    def __init__(self, voice: 'VoiceChannel'):
+        super().__init__()
+        self.voice = voice
 
-    async def on_error(self, interaction: Interaction, error: Exception) -> None:
-        await interaction.response.send_message('Sorry, something went wrong.', ephemeral=True)
+    async def on_submit(self, interaction: Interaction) -> None:
+        await self.voice.change_name(self.name.value)
+
+    async def on_error(self, interaction: Interaction,
+                       error: Exception) -> None:
+        await interaction.response.send_message('Sorry, something went wrong.',
+                                                ephemeral=True)

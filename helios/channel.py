@@ -439,6 +439,7 @@ class VoiceChannel(Channel):
 
     def __init__(self, manager: 'ChannelManager', data: dict):
         super().__init__(manager, data)
+        self.last_name_change = None
         self._owner: Optional[discord.Member] = None
 
     @property
@@ -472,6 +473,12 @@ class VoiceChannel(Channel):
 
     def can_neutralize(self) -> bool:
         return self.owner not in self.channel.members
+
+    def next_name_change(self) -> datetime.datetime:
+        if self.last_name_change is None:
+            return (datetime.datetime.now().astimezone()
+                    - datetime.timedelta(minutes=1))
+        return self.last_name_change + datetime.timedelta(minutes=15)
 
     @property
     def template(self) -> Optional['VoiceTemplate']:
@@ -514,6 +521,7 @@ class VoiceChannel(Channel):
         await self.channel.set_permissions(mem, overwrite=perms)
 
     async def change_name(self, name: str):
+        self.last_name_change = datetime.datetime.now().astimezone()
         await self.channel.edit(
             name=name
         )

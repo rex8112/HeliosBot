@@ -42,7 +42,10 @@ class PrivateVoiceCog(commands.Cog):
                 last_template = VoiceTemplate(mem, mem.member.name)
                 mem.templates.append(last_template)
                 await mem.save()
-            await server.channels.create_private_voice(mem, last_template)
+            voice = await server.channels.create_private_voice(mem,
+                                                               last_template)
+            await mem.member.move_to(voice.channel,
+                                     reason='Created private Voice Channel.')
 
     async def allow(self, interaction: discord.Interaction, user: discord.Member):
         server = self.bot.servers.get(interaction.guild_id)
