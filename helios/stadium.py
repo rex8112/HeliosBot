@@ -196,7 +196,7 @@ class Stadium(HasSettings):
         elif race_type == 'grade3':
             if horse.owner:
                 monday = datetime.datetime.now().astimezone()
-                monday = monday - relativedelta(weekday=MO)
+                monday = monday + relativedelta(weekday=MO(-1))
                 monday = monday.date()
                 for rec in horse.records:
                     if (rec.race_type == 'grade3' and monday <= rec.date
