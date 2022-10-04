@@ -121,7 +121,7 @@ class PreRaceView(discord.ui.View):
                     f'Total Bet: **{total_amount:,}**',
             view=None
         )
-        await self.race.send_or_edit_message()
+        await self.race.update_embed()
 
     @discord.ui.button(label='Show Bets', style=discord.ButtonStyle.green,
                        disabled=True)
