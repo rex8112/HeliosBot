@@ -340,7 +340,7 @@ class Race(HasSettings):
         self._can_run_event = asyncio.Event()
         self._can_run_event.set()  # Start true like setting
 
-        self._edit_counts = 0
+        self._edit_count = 0
         self._view = None
         self._task = None
 
@@ -1043,7 +1043,7 @@ class Race(HasSettings):
                     view = self._view
                 if content == MISSING and embed == MISSING and view == MISSING:
                     return
-                self._edit_counts += 1
+                self._edit_count += 1
                 logger.debug(f'{self.message.id}: Edited {self._edit_count}')
                 await self.message.edit(content=content, embed=embed,
                                         view=view)
