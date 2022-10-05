@@ -152,8 +152,10 @@ class HorseListing:
         time_string = f'<t:{int(self.end_time.timestamp())}:R>\n'
         if not self.active:
             winner = self.get_highest_allowed_bid()
-            cb = f'Winning Bid: {winner.amount:,} by <@{winner.bidder_id}>.\n'
-            time_string = '**Finished**\n'
+            if winner:
+                cb = (f'Winning Bid: {winner.amount:,} by '
+                      f'<@{winner.bidder_id}>.\n')
+                time_string = '**Finished**\n'
         embed.add_field(name='Auction Info',
                         value=(
                             f'{cb}'
