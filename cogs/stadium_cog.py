@@ -8,7 +8,7 @@ from discord.ext import commands
 from discord.utils import MISSING
 
 from helios.horses.auction import GroupAuction, RotatingAuction
-from helios.horses.views import HorseOwnerView
+from helios.horses.views import HorseOwnerView, YesNoView
 
 if TYPE_CHECKING:
     from helios import HeliosBot
@@ -143,6 +143,12 @@ class StadiumCog(commands.Cog):
         server.stadium.auction_house.auctions.append(a)
         await interaction.response.send_message('Auction Created',
                                                 ephemeral=True)
+
+    @app_commands.command(name='test_views')
+    @app_commands.guilds(466060673651310593)
+    async def test_views(self, interaction: discord.Interaction):
+        view = YesNoView(interaction.user)
+        await interaction.response.send_message('Testing', view=view)
 
 
 async def setup(bot: 'HeliosBot'):
