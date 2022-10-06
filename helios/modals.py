@@ -84,7 +84,7 @@ class BetModal(ui.Modal, title=f'Bet'):
 
 
 class VoiceNameChange(ui.Modal, title='Change Name'):
-    name = ui.TextInput(label='Name')
+    name = ui.TextInput(label='Name', min_length=3, max_length=25)
 
     def __init__(self, voice: 'VoiceChannel'):
         super().__init__()
