@@ -61,7 +61,6 @@ class PrivateVoiceCog(commands.Cog):
             await mem.member.move_to(voice.channel,
                                      reason='Created private Voice Channel.')
 
-    @app_commands.context_menu(name='Allow in Voice')
     async def allow(self, interaction: discord.Interaction,
                     user: discord.Member):
         server = self.bot.servers.get(interaction.guild_id)
@@ -84,10 +83,9 @@ class PrivateVoiceCog(commands.Cog):
                 'initialization failed.'
             )
 
-    @app_commands.context_menu(name='Deny in Voice')
     async def deny(self, interaction: discord.Interaction,
                    member: discord.Member):
-        server = self.bot.servers.get(interaction.user.id)
+        server = self.bot.servers.get(interaction.guild_id)
         if server:
             private_voices = server.channels.get_type('private_voice')
             owned = list(filter(lambda x: x.owner == interaction.user,

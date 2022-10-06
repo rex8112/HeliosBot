@@ -76,6 +76,7 @@ class VoiceView(discord.ui.View):
                 'You are not allowed to edit this channel.',
                 ephemeral=True
             )
+            return
         now = datetime.datetime.now().astimezone()
         if voice.next_name_change() <= now:
             await interaction.response.send_modal(VoiceNameChange(voice))
@@ -96,6 +97,7 @@ class VoiceView(discord.ui.View):
             )
         template = voice.get_template()
         template.private = True
+        await interaction.response.defer()
         await voice.update_permissions(template)
         await voice.update_message()
         await template.save()
@@ -111,6 +113,7 @@ class VoiceView(discord.ui.View):
             )
         template = voice.get_template()
         template.private = False
+        await interaction.response.defer()
         await voice.update_permissions(template)
         await voice.update_message()
         await template.save()

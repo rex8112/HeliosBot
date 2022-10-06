@@ -37,16 +37,19 @@ class VoiceTemplate:
             self._deserialize(data)
 
     @property
-    def permissions(self) -> list[tuple[Union[discord.Role, discord.Member], discord.PermissionOverwrite]]:
+    def permissions(self) -> list[tuple[Union[discord.Role, discord.Member],
+                                        discord.PermissionOverwrite]]:
         """
         A list of (target, permission) tuple pairs.
         """
         permissions = []
 
         if self.private:
-            permissions.append((self.guild.default_role, self._deny_permissions))
+            permissions.append((self.guild.default_role,
+                                self._deny_permissions))
         else:
-            permissions.append((self.guild.default_role, self._allow_permissions))
+            permissions.append((self.guild.default_role,
+                                self._allow_permissions))
 
         for member in self.allowed.values():
             permissions.append((member, self._allow_permissions))
@@ -55,6 +58,7 @@ class VoiceTemplate:
             permissions.append((member, self._deny_permissions))
 
         permissions.append((self.guild.me, self._allow_permissions))
+        permissions.append((self.owner.member, self._allow_permissions))
 
         return permissions
 

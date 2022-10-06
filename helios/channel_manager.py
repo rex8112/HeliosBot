@@ -78,17 +78,23 @@ class ChannelManager:
         neutralize = []
         delete = []
         save = []
+        update_message = []
         for v in voice_channels:
             if v.can_delete():
                 delete.append(v.delete())
             elif v.can_neutralize():
                 neutralize.append(v.neutralize())
                 save.append(v.save())
+                update_message.append(v.update_message())
+            else:
+                update_message.append(v.update_message())
         if delete:
             await asyncio.wait(delete)
         if neutralize:
             await asyncio.wait(neutralize)
             await asyncio.wait(save)
+        if update_message:
+            await asyncio.wait(update_message)
 
     async def add_topic(self, channel: discord.TextChannel, owner: discord.User, tier=1) -> tuple[bool, str]:
         if self.channels.get(channel.id):
@@ -147,7 +153,8 @@ class ChannelManager:
             if c.alive:
                 self.channels[c.id] = c
                 if isinstance(c, VoiceChannel):
-                    neutralize.append(c.neutralize())
+                    if c.can_neutralize():
+                        neutralize.append(c.neutralize())
             else:
                 deletes.append(c.delete(del_channel=False))
         if len(deletes) > 0:

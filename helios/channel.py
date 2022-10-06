@@ -80,6 +80,7 @@ class Channel:
         except (discord.Forbidden, discord.HTTPException, discord.NotFound):
             pass
         finally:
+            self.manager.channels.pop(self._id)
             await self.bot.helios_http.del_channel(self.id)
 
     def set_flag(self, flag: str, on: bool):
@@ -434,13 +435,15 @@ class VoiceChannel(Channel):
     channel_type = 'private_voice'
     _default_settings = {
         'owner': None,
+        'template_owner': None,
         'template_name': 'NewTemplate'
     }
 
     def __init__(self, manager: 'ChannelManager', data: dict):
         super().__init__(manager, data)
         self.last_name_change = None
-        self._owner: Optional[discord.Member] = None
+        self._temp_owner: Optional[HeliosMember] = None
+        self._owner: Optional[HeliosMember] = None
         self._message = None
 
     @property
@@ -454,11 +457,32 @@ class VoiceChannel(Channel):
 
     @owner.setter
     def owner(self, value: Optional['HeliosMember']):
+        self.template_owner = value
         self._owner = value
         if value is None:
             self.settings['owner'] = None
         else:
             self.settings['owner'] = value.member.id
+
+    @property
+    def template_owner(self):
+        if self.settings['template_owner'] is None:
+            return None
+        if (self._temp_owner
+                and self._temp_owner.id == self.settings['template_owner']):
+            return self._temp_owner
+        self._temp_owner = self.server.members.get(
+            self.settings['template_owner']
+        )
+        return self._temp_owner
+
+    @template_owner.setter
+    def template_owner(self, value):
+        self._temp_owner = value
+        if value is None:
+            return
+        else:
+            self.settings['template_owner'] = value.member.id
 
     @property
     def template_name(self) -> str:
@@ -471,11 +495,12 @@ class VoiceChannel(Channel):
     def can_delete(self) -> bool:
         ago = (datetime.datetime.now().astimezone()
                - datetime.timedelta(minutes=5))
-        return (len(self.channel.members) == 0
-                and ago <= self.channel.created_at)
+        empty = len(self.channel.members) == 0
+        before = ago >= self.channel.created_at
+        return empty and before
 
     def can_neutralize(self) -> bool:
-        return self.owner not in self.channel.members
+        return self.owner and self.owner.member not in self.channel.members
 
     def next_name_change(self) -> datetime.datetime:
         if self.last_name_change is None:
@@ -484,9 +509,9 @@ class VoiceChannel(Channel):
         return self.last_name_change + datetime.timedelta(minutes=15)
 
     def get_template(self) -> Optional['VoiceTemplate']:
-        if self.owner:
+        if self.template_owner:
             templates = list(filter(lambda x: x.name == self.template_name,
-                                    self.owner.templates))
+                                    self.template_owner.templates))
             if len(templates) > 0:
                 return templates[0]
             return None
@@ -559,6 +584,8 @@ class VoiceChannel(Channel):
         )
         template = self.get_template()
         template.name = name
+        self.template_name = name
+        await self.save()
         await template.save()
         await self.update_message()
 
