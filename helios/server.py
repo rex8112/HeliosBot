@@ -29,7 +29,6 @@ class Server:
         self.channels = ChannelManager(self)
         self.members = MemberManager(self)
         self.stadium = Stadium(self)
-        self.private_voice_channels = {}
         self.topics = {}
         self.settings = Settings(self._default_settings, bot=self.bot, guild=self.guild)
         self.flags = []

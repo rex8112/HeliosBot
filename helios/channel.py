@@ -469,8 +469,10 @@ class VoiceChannel(Channel):
         self.settings['template_name'] = value
 
     def can_delete(self) -> bool:
-        ago = datetime.datetime.now() - datetime.timedelta(minutes=5)
-        return len(self.channel.members) == 0 and ago <= self.channel.created_at
+        ago = (datetime.datetime.now().astimezone()
+               - datetime.timedelta(minutes=5))
+        return (len(self.channel.members) == 0
+                and ago <= self.channel.created_at)
 
     def can_neutralize(self) -> bool:
         return self.owner not in self.channel.members
