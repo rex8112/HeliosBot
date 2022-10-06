@@ -140,14 +140,19 @@ class ChannelManager:
             channel_data = data
 
         deletes = []
+        neutralize = []
         for data in channel_data:
             channel_cls = Channel_Dict.get(data.get('type'))
             c: 'HeliosChannel' = channel_cls(self, data)
             if c.alive:
                 self.channels[c.id] = c
+                if isinstance(c, VoiceChannel):
+                    neutralize.append(c.neutralize())
             else:
                 deletes.append(c.delete(del_channel=False))
         if len(deletes) > 0:
             await asyncio.wait(deletes)
+        if neutralize:
+            await asyncio.wait(neutralize)
         logger.debug(f'Adding {self.server.id}: Channel Manager to event loop')
         #  self.create_run_task()
