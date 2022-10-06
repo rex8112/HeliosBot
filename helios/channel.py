@@ -494,19 +494,26 @@ class VoiceChannel(Channel):
 
     def _get_menu_embed(self) -> discord.Embed:
         owner = self.owner
+        template = self.get_template()
+        owner_string = ''
         if owner:
             owner_string = f'Owner: {owner.member.mention}'
-        else:
-            owner_string = ''
+        private_string = ('This channel **is** visible to everyone except '
+                          'those in Denied')
+        if template.private:
+            private_string = ('This channel **is __not__** visible to anyone '
+                              'except admins and those in Allowed')
         embed = discord.Embed(
             title=f'{self.channel.name} Menu',
             description=('Any and all settings are controlled from this '
                          'message.\n'
-                         f'{owner_string}'),
+                         f'{owner_string}\n\n{private_string}'),
             colour=discord.Colour.orange()
         )
-        allowed_string = '\n'.join(x.mention for x in self.get_template().allowed.values())
-        denied_string = '\n'.join(x.mention for x in self.get_template().denied.values())
+        allowed_string = '\n'.join(x.mention
+                                   for x in template.allowed.values())
+        denied_string = '\n'.join(x.mention
+                                  for x in template.denied.values())
         embed.add_field(
             name='Allowed',
             value=allowed_string if allowed_string else 'None'
@@ -521,11 +528,11 @@ class VoiceChannel(Channel):
         if self._message is None:
             self._message = await self.channel.send(
                 embed=self._get_menu_embed(),
-                view=VoiceView(self.bot)
+                view=VoiceView(self)
             )
         else:
             await self._message.edit(embed=self._get_menu_embed(),
-                                     view=VoiceView(self.bot))
+                                     view=VoiceView(self))
 
     async def allow(self, member: discord.Member):
         mem, perms = self.get_template().allow(member)
@@ -558,6 +565,7 @@ class VoiceChannel(Channel):
     async def neutralize(self):
         self.owner = None
         await self.channel.edit(name=f'<Neutral> {self.channel.name}')
+        await self.update_message()
 
     async def apply_template(self, template: 'VoiceTemplate'):
         await self.channel.edit(
