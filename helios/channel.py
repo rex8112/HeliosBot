@@ -481,8 +481,7 @@ class VoiceChannel(Channel):
                     - datetime.timedelta(minutes=1))
         return self.last_name_change + datetime.timedelta(minutes=15)
 
-    @property
-    def template(self) -> Optional['VoiceTemplate']:
+    def get_template(self) -> Optional['VoiceTemplate']:
         if self.owner:
             templates = list(filter(lambda x: x.name == self.template_name,
                                     self.owner.templates))
@@ -492,13 +491,20 @@ class VoiceChannel(Channel):
         return None
 
     def _get_menu_embed(self) -> discord.Embed:
+        owner = self.owner
+        if owner:
+            owner_string = f'Owner: {owner.member.mention}'
+        else:
+            owner_string = ''
         embed = discord.Embed(
             title=f'{self.channel.name} Menu',
-            description='Any and all settings are controlled from this message.',
+            description=('Any and all settings are controlled from this '
+                         'message.\n'
+                         f'{owner_string}'),
             colour=discord.Colour.orange()
         )
-        allowed_string = '\n'.join(x.mention for x in self.template.allowed.values())
-        denied_string = '\n'.join(x.mention for x in self.template.denied.values())
+        allowed_string = '\n'.join(x.mention for x in self.get_template().allowed.values())
+        denied_string = '\n'.join(x.mention for x in self.get_template().denied.values())
         embed.add_field(
             name='Allowed',
             value=allowed_string if allowed_string else 'None'
@@ -520,21 +526,21 @@ class VoiceChannel(Channel):
                                      view=VoiceView(self.bot))
 
     async def allow(self, member: discord.Member):
-        mem, perms = self.template.allow(member)
+        mem, perms = self.get_template().allow(member)
         await self.channel.set_permissions(mem, overwrite=perms)
-        await self.template.save()
+        await self.get_template().save()
         await self.update_message()
 
     async def deny(self, member: discord.Member):
-        mem, perms = self.template.deny(member)
+        mem, perms = self.get_template().deny(member)
         await self.channel.set_permissions(mem, overwrite=perms)
-        await self.template.save()
+        await self.get_template().save()
         await self.update_message()
 
     async def clear(self, member: discord.Member):
-        mem, perms = self.template.clear(member)
+        mem, perms = self.get_template().clear(member)
         await self.channel.set_permissions(mem, overwrite=perms)
-        await self.template.save()
+        await self.get_template().save()
         await self.update_message()
 
     async def change_name(self, name: str):
@@ -542,7 +548,7 @@ class VoiceChannel(Channel):
         await self.channel.edit(
             name=name
         )
-        template = self.template
+        template = self.get_template()
         template.name = name
         await template.save()
         await self.update_message()
@@ -556,10 +562,11 @@ class VoiceChannel(Channel):
             name=template.name,
             nsfw=template.nsfw
         )
+        self.template_name = template.name
         await self.update_permissions(template)
 
     async def save_template(self):
-        template = self.template
+        template = self.get_template()
         template.name = self.channel.name
         template.nsfw = self.channel.nsfw
         template.allowed.clear()
@@ -575,8 +582,7 @@ class VoiceChannel(Channel):
         await template.save()
 
     async def update_permissions(self, template: 'VoiceTemplate'):
-        for target, perms in template.permissions:
-            await self._update_perm(target, perms)
+        await self.channel.edit(overwrites=template.overwrites)
 
     async def _update_perm(self, target: Union[discord.Member, discord.Role],
                            overwrites: discord.PermissionOverwrite):
