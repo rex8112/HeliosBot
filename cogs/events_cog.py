@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 import discord
 from discord.ext import commands
 
-from helios.views import YesNoView
+from helios.tools.views import YesNoView
 
 if TYPE_CHECKING:
     from helios import HeliosBot

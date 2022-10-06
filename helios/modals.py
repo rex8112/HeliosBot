@@ -28,28 +28,6 @@ class TopicCreation(ui.Modal, title='New Topic'):
         await interaction.response.send_message('Sorry, something went wrong.', ephemeral=True)
 
 
-class AmountModal(ui.Modal, title='Amount'):
-    amount = ui.TextInput(label='Amount', required=True)
-
-    def __init__(self, *, default=None, timeout=30):
-        super().__init__(timeout=timeout)
-        if default:
-            self.amount.default = default
-        self.amount_selected = None
-
-    async def on_submit(self, interaction: Interaction) -> None:
-        try:
-            self.amount_selected = int(self.amount.value)
-        except ValueError:
-            await interaction.response.send_message(
-                'You must provide an actual number.',
-                ephemeral=True
-            )
-            return
-        await interaction.response.defer()
-        self.stop()
-
-
 class BetModal(ui.Modal, title=f'Bet'):
     type = ui.TextInput(label='Bet Type', placeholder='win, place, show', required=True)
     horse_name = ui.TextInput(label='Horse', placeholder='HorsesName or #', required=True)
