@@ -42,6 +42,7 @@ class ChannelManager:
         await self.bot.wait_until_ready()
         await self.purge_dead_channels()
         await self.manage_topics()
+        await self.manage_voices()
 
     async def purge_dead_channels(self):
         deletes = []
@@ -71,6 +72,23 @@ class ChannelManager:
             logger.debug(f'{self.server.name}: Evaluating Topic States')
             await asyncio.wait(e_state)
             await asyncio.wait(e_save)
+
+    async def manage_voices(self):
+        voice_channels: list[VoiceChannel] = self.get_type('private_voice')
+        neutralize = []
+        delete = []
+        save = []
+        for v in voice_channels:
+            if v.can_delete():
+                delete.append(v.delete())
+            elif v.can_neutralize():
+                neutralize.append(v.neutralize())
+                save.append(v.save())
+        if delete:
+            await asyncio.wait(delete)
+        if neutralize:
+            await asyncio.wait(neutralize)
+            await asyncio.wait(save)
 
     async def add_topic(self, channel: discord.TextChannel, owner: discord.User, tier=1) -> tuple[bool, str]:
         if self.channels.get(channel.id):
