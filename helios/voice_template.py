@@ -29,8 +29,6 @@ class VoiceTemplate:
         self.guild = owner.guild
         self.name = name
 
-        self._new = True
-
         self.nsfw: bool = False
         self.private: bool = True
         self.allowed: dict[int, discord.Member] = {}
@@ -43,7 +41,7 @@ class VoiceTemplate:
         """
         A list of (target, permission) tuple pairs.
         """
-        permissions = [(self.guild.me, self._allow_permissions)]
+        permissions = []
 
         if self.private:
             permissions.append((self.guild.default_role, self._deny_permissions))
@@ -56,7 +54,16 @@ class VoiceTemplate:
         for member in self.denied.values():
             permissions.append((member, self._deny_permissions))
 
+        permissions.append((self.guild.me, self._allow_permissions))
+
         return permissions
+
+    @property
+    def overwrites(self):
+        overwrites = {}
+        for key, perm in self.permissions:
+            overwrites[key] = perm
+        return overwrites
 
     @property
     def bot(self) -> 'HeliosBot':
@@ -111,4 +118,4 @@ class VoiceTemplate:
         }
 
     async def save(self):
-        await self.owner.save()
+        await self.owner.save(force=True)

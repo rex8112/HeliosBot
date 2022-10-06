@@ -106,11 +106,12 @@ class ChannelManager:
             category = self.server.private_create_channel.category
             channel = await category.create_voice_channel(
                 name=template.name,
-                overwrites=template.permissions
+                overwrites=template.overwrites
             )
             voice = VoiceChannel.new(self, channel.id)
-            voice.settings.owner = owner.member.id
-            voice.settings.template_name = template.name
+            voice.owner = owner
+            voice.template_name = template.name
+            await voice.update_message()
             self._add_channel(voice)
 
             return voice

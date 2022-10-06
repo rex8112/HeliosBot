@@ -3,10 +3,10 @@ from typing import TYPE_CHECKING, Optional, Union
 
 import discord
 
-from .views import TopicView
+from .views import TopicView, VoiceView
 
 if TYPE_CHECKING:
-    from helios import ChannelManager, HeliosBot
+    from helios import ChannelManager, HeliosBot, HeliosMember
     from .voice_template import VoiceTemplate
 
 MessageType = Union[discord.Message, discord.PartialMessage]
@@ -441,23 +441,24 @@ class VoiceChannel(Channel):
         super().__init__(manager, data)
         self.last_name_change = None
         self._owner: Optional[discord.Member] = None
+        self._message = None
 
     @property
-    def owner(self) -> Optional[discord.Member]:
+    def owner(self) -> Optional['HeliosMember']:
         if self.settings['owner'] is None:
             return None
         if self._owner and self._owner.id == self.settings['owner']:
             return self._owner
-        self._owner = self.server.guild.get_member(self.settings['owner'])
+        self._owner = self.server.members.get(self.settings['owner'])
         return self._owner
 
     @owner.setter
-    def owner(self, value: Optional[discord.Member]):
+    def owner(self, value: Optional['HeliosMember']):
         self._owner = value
         if value is None:
             self.settings['owner'] = None
         else:
-            self.settings['owner'] = value.id
+            self.settings['owner'] = value.member.id
 
     @property
     def template_name(self) -> str:
@@ -497,7 +498,7 @@ class VoiceChannel(Channel):
             colour=discord.Colour.orange()
         )
         allowed_string = '\n'.join(x.mention for x in self.template.allowed.values())
-        denied_string = '\n'.join(x.mention for x in self.template.allowed.values())
+        denied_string = '\n'.join(x.mention for x in self.template.denied.values())
         embed.add_field(
             name='Allowed',
             value=allowed_string if allowed_string else 'None'
@@ -508,25 +509,43 @@ class VoiceChannel(Channel):
         )
         return embed
 
+    async def update_message(self):
+        if self._message is None:
+            self._message = await self.channel.send(
+                embed=self._get_menu_embed(),
+                view=VoiceView(self.bot)
+            )
+        else:
+            await self._message.edit(embed=self._get_menu_embed(),
+                                     view=VoiceView(self.bot))
+
     async def allow(self, member: discord.Member):
         mem, perms = self.template.allow(member)
         await self.channel.set_permissions(mem, overwrite=perms)
+        await self.template.save()
+        await self.update_message()
 
     async def deny(self, member: discord.Member):
         mem, perms = self.template.deny(member)
         await self.channel.set_permissions(mem, overwrite=perms)
+        await self.template.save()
+        await self.update_message()
 
     async def clear(self, member: discord.Member):
         mem, perms = self.template.clear(member)
         await self.channel.set_permissions(mem, overwrite=perms)
+        await self.template.save()
+        await self.update_message()
 
     async def change_name(self, name: str):
         self.last_name_change = datetime.datetime.now().astimezone()
         await self.channel.edit(
             name=name
         )
-        self.template.name = name
-        await self.template.save()
+        template = self.template
+        template.name = name
+        await template.save()
+        await self.update_message()
 
     async def neutralize(self):
         self.owner = None
@@ -559,7 +578,8 @@ class VoiceChannel(Channel):
         for target, perms in template.permissions:
             await self._update_perm(target, perms)
 
-    async def _update_perm(self, target: Union[discord.Member, discord.Role], overwrites: discord.PermissionOverwrite):
+    async def _update_perm(self, target: Union[discord.Member, discord.Role],
+                           overwrites: discord.PermissionOverwrite):
         await self.channel.set_permissions(target, overwrite=overwrites)
 
 

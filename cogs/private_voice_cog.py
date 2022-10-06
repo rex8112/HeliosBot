@@ -5,8 +5,10 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from helios import VoiceTemplate
+
 if TYPE_CHECKING:
-    from helios import HeliosBot, VoiceTemplate
+    from helios import HeliosBot
 
 
 logger = logging.getLogger('Helios.PrivateVoiceCog')
@@ -32,6 +34,7 @@ class PrivateVoiceCog(commands.Cog):
                                     after: discord.VoiceState):
         if not after:
             return
+        await self.bot.wait_until_ready()
         server = self.bot.servers.get(member.guild.id)
         mem = server.members.get(member.id)
         create_channel = server.private_create_channel
@@ -41,9 +44,12 @@ class PrivateVoiceCog(commands.Cog):
             else:
                 last_template = VoiceTemplate(mem, mem.member.name)
                 mem.templates.append(last_template)
-                await mem.save()
-            voice = await server.channels.create_private_voice(mem,
-                                                               last_template)
+                await mem.save(force=True)
+            voice = await server.channels.create_private_voice(
+                mem,
+                template=last_template
+            )
+            await voice.save()
             await mem.member.move_to(voice.channel,
                                      reason='Created private Voice Channel.')
 

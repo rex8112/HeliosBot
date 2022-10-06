@@ -69,7 +69,7 @@ class SettingsCog(commands.GroupCog, name='settings'):
             stadium.create_run_task()
         await interaction.response.send_message('Stadium Set', ephemeral=True)
 
-    @app_commands.command(name='privatecategory',
+    @app_commands.command(name='privatechannel',
                           description='Set the private voice category')
     @app_commands.checks.has_permissions(administrator=True)
     async def private_channel(self, interaction: discord.Interaction,

@@ -1,9 +1,11 @@
 import datetime
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING, Dict, Any
+
+import discord
 
 from .abc import HasSettings, HasFlags
 from .exceptions import IdMismatchError
-from .tools.settings import Settings, Item
+from .tools.settings import Item
 from .voice_template import VoiceTemplate
 
 if TYPE_CHECKING:
@@ -42,9 +44,11 @@ class HeliosMember(HasFlags, HasSettings):
         if data:
             self._deserialize(data)
 
-    def __eq__(self, o: object):
+    def __eq__(self, o: Any):
         if isinstance(o, HeliosMember):
             return self.id == o.id
+        elif isinstance(o, discord.Member):
+            return self.id == o.id and self.guild.id == o.guild.id
         elif o is None:
             return False
         else:
