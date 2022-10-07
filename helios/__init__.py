@@ -4,3 +4,4 @@ from .exceptions import *
 from .helios_bot import HeliosBot
 from .modals import *
 from .server_manager import ServerManager
+from .voice_template import VoiceTemplate

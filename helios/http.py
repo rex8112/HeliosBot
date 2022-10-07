@@ -189,3 +189,15 @@ class HTTPClient:
     async def del_auction(self, auction_id: int):
         resp = await self.request(f'auctions/{auction_id}/', method='DELETE')
         return resp
+
+    async def post_template(self, json_data: Union[dict, list]):
+        resp = await self.request('templates/', method='POST', json=json_data)
+        return resp
+
+    async def patch_template(self, json_data: Union[dict, list]):
+        resp = await self.request(f'templates/{json_data.get("id")}/', method='PATCH', json=json_data)
+        return resp
+
+    async def del_template(self, tem_id: int):
+        resp = await self.request(f'templates/{tem_id}/', method='DELETE')
+        return resp

@@ -4,12 +4,14 @@ from typing import TYPE_CHECKING, Optional
 
 import discord
 
-from .channel import Channel_Dict, Channel
+from .channel import Channel_Dict, Channel, VoiceChannel
 
 if TYPE_CHECKING:
     from .server import Server
     from .helios_bot import HeliosBot
+    from .member import HeliosMember
     from .types import HeliosChannel
+    from .voice_template import VoiceTemplate
 logger = logging.getLogger('HeliosLogger')
 
 
@@ -40,6 +42,7 @@ class ChannelManager:
         await self.bot.wait_until_ready()
         await self.purge_dead_channels()
         await self.manage_topics()
+        await self.manage_voices()
 
     async def purge_dead_channels(self):
         deletes = []
@@ -70,6 +73,29 @@ class ChannelManager:
             await asyncio.wait(e_state)
             await asyncio.wait(e_save)
 
+    async def manage_voices(self):
+        voice_channels: list[VoiceChannel] = self.get_type('private_voice')
+        neutralize = []
+        delete = []
+        save = []
+        update_message = []
+        for v in voice_channels:
+            if v.can_delete():
+                delete.append(v.delete())
+            elif v.can_neutralize():
+                neutralize.append(v.neutralize())
+                save.append(v.save())
+                update_message.append(v.update_message())
+            else:
+                update_message.append(v.update_message())
+        if delete:
+            await asyncio.wait(delete)
+        if neutralize:
+            await asyncio.wait(neutralize)
+            await asyncio.wait(save)
+        if update_message:
+            await asyncio.wait(update_message)
+
     async def add_topic(self, channel: discord.TextChannel, owner: discord.User, tier=1) -> tuple[bool, str]:
         if self.channels.get(channel.id):
             return False, 'This channel already exists.'
@@ -98,20 +124,42 @@ class ChannelManager:
         else:
             return False, 'This server does not have `Topic Channel Creation` enabled.'
 
+    async def create_private_voice(self, owner: 'HeliosMember', *,
+                                   template: 'VoiceTemplate') -> VoiceChannel:
+        if self.server.private_create_channel:
+            category = self.server.private_create_channel.category
+            channel = await category.create_voice_channel(
+                name=template.name,
+                overwrites=template.overwrites
+            )
+            voice = VoiceChannel.new(self, channel.id)
+            voice.owner = owner
+            voice.template_name = template.name
+            await voice.update_message()
+            self._add_channel(voice)
+
+            return voice
+
     async def setup(self, channel_data: list[dict] = None):
         if not channel_data:
             data = await self.bot.helios_http.get_channel(server=self.server.id)
             channel_data = data
 
         deletes = []
+        neutralize = []
         for data in channel_data:
             channel_cls = Channel_Dict.get(data.get('type'))
             c: 'HeliosChannel' = channel_cls(self, data)
             if c.alive:
                 self.channels[c.id] = c
+                if isinstance(c, VoiceChannel):
+                    if c.can_neutralize():
+                        neutralize.append(c.neutralize())
             else:
                 deletes.append(c.delete(del_channel=False))
         if len(deletes) > 0:
             await asyncio.wait(deletes)
+        if neutralize:
+            await asyncio.wait(neutralize)
         logger.debug(f'Adding {self.server.id}: Channel Manager to event loop')
         #  self.create_run_task()

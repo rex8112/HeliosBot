@@ -6,8 +6,8 @@ import discord
 
 from .enumerations import BetType
 from .modals import SetBidModal, NameChangeModal
-from ..modals import AmountModal
-from ..views import YesNoView
+from ..tools.modals import AmountModal
+from ..tools.views import YesNoView
 
 if TYPE_CHECKING:
     from ..member import HeliosMember

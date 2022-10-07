@@ -1,13 +1,15 @@
 import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union
 
 import discord
 
-from .tools.settings import Settings
-from .views import TopicView
+from .views import TopicView, VoiceView
 
 if TYPE_CHECKING:
-    from helios import ChannelManager, HeliosBot
+    from helios import ChannelManager, HeliosBot, HeliosMember
+    from .voice_template import VoiceTemplate
+
+MessageType = Union[discord.Message, discord.PartialMessage]
 
 
 class Channel:
@@ -33,7 +35,7 @@ class Channel:
         self.channel = self.bot.get_channel(self._id)
         self._new = False
 
-        self.settings = Settings(self._default_settings, bot=self.bot, guild=self.channel.guild)
+        self.settings = self._default_settings.copy()
         self._deserialize(data)
 
     @property
@@ -78,6 +80,7 @@ class Channel:
         except (discord.Forbidden, discord.HTTPException, discord.NotFound):
             pass
         finally:
+            self.manager.channels.pop(self._id)
             await self.bot.helios_http.del_channel(self.id)
 
     def set_flag(self, flag: str, on: bool):
@@ -93,17 +96,17 @@ class Channel:
 
     def _deserialize(self, data: dict) -> None:
         if self.channel_type != data.get('type'):
-            raise TypeError(f'Channel data is of type `{data.get("type")}` not `{self.channel_type}`')
+            raise TypeError(f'Channel data is of type `{data.get("type")}` '
+                            f'not `{self.channel_type}`')
         self.flags = data.get('flags', self.flags)
-        settings = {**self._default_settings, **data.get('settings', {})}
-        self.settings = Settings(settings, bot=self.bot, guild=self.channel.guild)
+        self.settings = {**self._default_settings, **data.get('settings', {})}
 
     def serialize(self) -> dict:
         return {
             'id': self.id,
             'server': self.server.id,
             'type': self.channel_type,
-            'settings': self.settings.to_dict(),
+            'settings': self.settings,
             'flags': self.flags
         }
 
@@ -136,6 +139,8 @@ class TopicChannel(Channel):
 
     def __init__(self, manager: 'ChannelManager', data: dict):
         super().__init__(manager, data)
+        self._archive_message = None
+        self._creator = None
 
     @property
     def oldest_allowed(self) -> datetime.datetime:
@@ -143,16 +148,9 @@ class TopicChannel(Channel):
         Get the datetime of how old the last message has to be for the channel to get marked
         :return: An aware datetime that is in local time
         """
-        delta = list(self._tier_thresholds_lengths.values())[self.settings.tier - 1]
+        delta = list(self._tier_thresholds_lengths.values())[self.tier - 1]
         now = datetime.datetime.now().astimezone()
         return now - delta
-
-    @property
-    def archive_time(self) -> Optional[datetime.datetime]:
-        raw_time = self.settings.archive_at
-        if raw_time:
-            return datetime.datetime.fromisoformat(raw_time)
-        return None
 
     @property
     def archive_category(self) -> Optional[discord.CategoryChannel]:
@@ -167,6 +165,78 @@ class TopicChannel(Channel):
         if channel_id:
             return self.bot.get_channel(channel_id)
         return None
+
+    @property
+    def tier(self):
+        return self.settings['tier']
+
+    @tier.setter
+    def tier(self, value: int):
+        self.settings['tier'] = value
+
+    @property
+    def saves_in_row(self):
+        return self.settings['saves_in_row']
+
+    @saves_in_row.setter
+    def saves_in_row(self, value: int):
+        self.settings['saves_in_row'] = value
+
+    @property
+    def creator(self) -> Optional[discord.Member]:
+        if isinstance(self.settings['creator'], list):
+            self.settings['creator'] = self.settings['creator'][1]
+        if self.settings['creator'] is None:
+            return None
+        if self._creator and self._creator.id == self.settings['creator']:
+            return self._creator
+        self._creator = self.server.guild.get_member(self.settings['creator'])
+        return self._creator
+
+    @creator.setter
+    def creator(self, value: Optional[discord.Member]):
+        self._creator = value
+        if value is None:
+            self.settings['creator'] = value
+        else:
+            self.settings['creator'] = value.id
+
+    @property
+    def archive_at(self):
+        if isinstance(self.settings['archive_at'], list):
+            self.settings['archive_at'] = self.settings['archive_at'][1]
+        if self.settings['archive_at'] is None:
+            return None
+        return datetime.datetime.fromisoformat(self.settings['archive_at'])
+
+    @archive_at.setter
+    def archive_at(self, value: Optional[datetime.datetime]):
+        if value is None:
+            final_value = value
+        else:
+            final_value = value.isoformat()
+        self.settings['archive_at'] = final_value
+
+    @property
+    def archive_message(self):
+        if isinstance(self.settings['archive_message_id'], list):
+            setting = self.settings['archive_message_id'][1]
+            self.settings['archive_message_id'] = setting
+        if (self._archive_message
+                and self._archive_message.id
+                == self.settings['archive_message_id']):
+            return self._archive_message
+        return self.channel.get_partial_message(
+            self.settings['archive_message_id']
+        )
+
+    @archive_message.setter
+    def archive_message(self, value: Optional[MessageType]):
+        self._archive_message = value
+        if value is None:
+            self.settings['archive_message_id'] = value
+        else:
+            self.settings['archive_message_id'] = value.id
 
     def tier_duration(self, tier: int) -> datetime.timedelta:
         return list(self._tier_thresholds_lengths.values())[tier - 1]
@@ -188,9 +258,9 @@ class TopicChannel(Channel):
         """
         self.set_flag('MARKED', state)
         if state:
-            self.settings.archive_at = _get_archive_time().isoformat()
+            self.archive_at = _get_archive_time().isoformat()
         else:
-            self.settings.archive_at = None
+            self.archive_at = None
         if post:
             if state:
                 await self.post_archive_message(embed=self._get_marked_embed(), view=TopicView(self.bot))
@@ -204,7 +274,7 @@ class TopicChannel(Channel):
 
     async def set_archive(self, state: bool, post=True) -> None:
         self.set_flag('ARCHIVED', state)
-        self.settings.archive_at = None
+        self.archive_at = None
         if state:
             await self.set_marked(False, post=False)
             await self.channel.edit(category=self.archive_category)
@@ -221,7 +291,7 @@ class TopicChannel(Channel):
             embed = self._get_saved_embed()
             embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar.url)
             await interaction.response.edit_message(embed=embed, view=None)
-        self.settings.archive_message_id = None
+        self.archive_message_id = None
 
     async def evaluate_tier(self, change=True, allow_degrade=False) -> int:
         """
@@ -238,11 +308,11 @@ class TopicChannel(Channel):
         for i, threshold in enumerate(self._tier_thresholds_lengths.keys()):
             if total_value >= threshold:
                 tier = i + 1
-        if not allow_degrade and tier < self.settings.tier:
-            tier = self.settings.tier
-        if change and tier != self.settings.tier:
+        if not allow_degrade and tier < self.tier:
+            tier = self.tier
+        if change and tier != self.tier:
             embed = self._get_tier_change_embed(tier)
-            self.settings.tier = tier
+            self.tier = tier
             await self.channel.send(embed=embed)
         return tier
 
@@ -260,14 +330,15 @@ class TopicChannel(Channel):
                 await self.set_marked(True)
 
     async def post_archive_message(self, content=None, *, embed=None, view=None):
-        message_id = self.settings.archive_message_id
-        message = None
-        if message_id:
-            message = await self.channel.fetch_message(message_id)
-        if not message:
-            message = await self.channel.send(content=content, embed=embed, view=view)
-        await message.edit(content=content, view=view, embed=embed)
-        self.settings.archive_message_id = message.id
+        message = self.archive_message
+        if type(message) == discord.PartialMessage:
+            message = await message.fetch()
+        if message is None:
+            message = await self.channel.send(content=content, embed=embed,
+                                              view=view)
+        else:
+            await message.edit(content=content, view=view, embed=embed)
+        self.archive_message = message
 
     async def get_markable(self) -> bool:
         """
@@ -297,19 +368,17 @@ class TopicChannel(Channel):
         now = datetime.datetime.now().astimezone()
         marked = 'MARKED' in self.flags
         default = now + datetime.timedelta(days=1)
-        archive_at_raw = self.settings.archive_at
-        if archive_at_raw:
-            archive_at = datetime.datetime.fromisoformat(archive_at_raw)
-        else:
+        archive_at = self.archive_at
+        if archive_at is None:
             archive_at = default
         timing = archive_at < now
         return marked and timing
 
     def can_delete(self) -> bool:
-        return self.settings.tier == 1
+        return self.tier == 1
 
     def _get_tier_change_embed(self, tier: int) -> discord.Embed:
-        cur_tier = self.settings.tier
+        cur_tier = self.tier
         if tier == cur_tier:
             raise ValueError('Tier can not be the same value as the current tier')
         lower = tier < cur_tier
@@ -327,8 +396,8 @@ class TopicChannel(Channel):
         return embed
 
     def _get_marked_embed(self) -> discord.Embed:
-        cur_tier = self.settings.tier
-        t = self.archive_time
+        cur_tier = self.tier
+        t = self.archive_at
         word = 'archived' if cur_tier > 1 else 'deleted'
         embed = discord.Embed(
             colour=discord.Colour.red(),
@@ -345,7 +414,7 @@ class TopicChannel(Channel):
         return embed
 
     def _get_saved_embed(self) -> discord.Embed:
-        cur_tier = self.settings.tier
+        cur_tier = self.tier
         word = 'Archive' if cur_tier > 1 else 'Deletion'
         if self.get_flag('ARCHIVED'):
             embed = discord.Embed(
@@ -362,7 +431,203 @@ class TopicChannel(Channel):
         return embed
 
 
+class VoiceChannel(Channel):
+    channel_type = 'private_voice'
+    _default_settings = {
+        'owner': None,
+        'template_owner': None,
+        'template_name': 'NewTemplate'
+    }
+
+    def __init__(self, manager: 'ChannelManager', data: dict):
+        super().__init__(manager, data)
+        self.last_name_change = None
+        self._temp_owner: Optional[HeliosMember] = None
+        self._owner: Optional[HeliosMember] = None
+        self._message = None
+
+    @property
+    def owner(self) -> Optional['HeliosMember']:
+        if self.settings['owner'] is None:
+            return None
+        if self._owner and self._owner.id == self.settings['owner']:
+            return self._owner
+        self._owner = self.server.members.get(self.settings['owner'])
+        return self._owner
+
+    @owner.setter
+    def owner(self, value: Optional['HeliosMember']):
+        self.template_owner = value
+        self._owner = value
+        if value is None:
+            self.settings['owner'] = None
+        else:
+            self.settings['owner'] = value.member.id
+
+    @property
+    def template_owner(self):
+        if self.settings['template_owner'] is None:
+            return None
+        if (self._temp_owner
+                and self._temp_owner.id == self.settings['template_owner']):
+            return self._temp_owner
+        self._temp_owner = self.server.members.get(
+            self.settings['template_owner']
+        )
+        return self._temp_owner
+
+    @template_owner.setter
+    def template_owner(self, value):
+        self._temp_owner = value
+        if value is None:
+            return
+        else:
+            self.settings['template_owner'] = value.member.id
+
+    @property
+    def template_name(self) -> str:
+        return self.settings['template_name']
+
+    @template_name.setter
+    def template_name(self, value: str):
+        self.settings['template_name'] = value
+
+    def can_delete(self) -> bool:
+        ago = (datetime.datetime.now().astimezone()
+               - datetime.timedelta(minutes=5))
+        empty = len(self.channel.members) == 0
+        before = ago >= self.channel.created_at
+        return empty and before
+
+    def can_neutralize(self) -> bool:
+        return self.owner and self.owner.member not in self.channel.members
+
+    def next_name_change(self) -> datetime.datetime:
+        if self.last_name_change is None:
+            return (datetime.datetime.now().astimezone()
+                    - datetime.timedelta(minutes=1))
+        return self.last_name_change + datetime.timedelta(minutes=15)
+
+    def get_template(self) -> Optional['VoiceTemplate']:
+        if self.template_owner:
+            templates = list(filter(lambda x: x.name == self.template_name,
+                                    self.template_owner.templates))
+            if len(templates) > 0:
+                return templates[0]
+            return None
+        return None
+
+    def _get_menu_embed(self) -> discord.Embed:
+        owner = self.owner
+        template = self.get_template()
+        owner_string = ''
+        if owner:
+            owner_string = f'Owner: {owner.member.mention}'
+        private_string = ('This channel **is** visible to everyone except '
+                          'those in Denied')
+        if template.private:
+            private_string = ('This channel **is __not__** visible to anyone '
+                              'except admins and those in Allowed')
+        embed = discord.Embed(
+            title=f'{self.channel.name} Menu',
+            description=('Any and all settings are controlled from this '
+                         'message.\n'
+                         f'{owner_string}\n\n{private_string}'),
+            colour=discord.Colour.orange()
+        )
+        allowed_string = '\n'.join(x.mention
+                                   for x in template.allowed.values())
+        denied_string = '\n'.join(x.mention
+                                  for x in template.denied.values())
+        embed.add_field(
+            name='Allowed',
+            value=allowed_string if allowed_string else 'None'
+        )
+        embed.add_field(
+            name='Denied',
+            value=denied_string if denied_string else 'None'
+        )
+        return embed
+
+    async def update_message(self):
+        if self._message is None:
+            self._message = await self.channel.send(
+                embed=self._get_menu_embed(),
+                view=VoiceView(self)
+            )
+        else:
+            await self._message.edit(embed=self._get_menu_embed(),
+                                     view=VoiceView(self))
+
+    async def allow(self, member: discord.Member):
+        mem, perms = self.get_template().allow(member)
+        await self.channel.set_permissions(mem, overwrite=perms)
+        await self.get_template().save()
+        await self.update_message()
+
+    async def deny(self, member: discord.Member):
+        mem, perms = self.get_template().deny(member)
+        await self.channel.set_permissions(mem, overwrite=perms)
+        await self.get_template().save()
+        await self.update_message()
+
+    async def clear(self, member: discord.Member):
+        mem, perms = self.get_template().clear(member)
+        await self.channel.set_permissions(mem, overwrite=perms)
+        await self.get_template().save()
+        await self.update_message()
+
+    async def change_name(self, name: str):
+        self.last_name_change = datetime.datetime.now().astimezone()
+        await self.channel.edit(
+            name=name
+        )
+        template = self.get_template()
+        template.name = name
+        self.template_name = name
+        await self.save()
+        await template.save()
+        await self.update_message()
+
+    async def neutralize(self):
+        self.owner = None
+        await self.channel.edit(name=f'<Neutral> {self.channel.name}')
+        await self.update_message()
+
+    async def apply_template(self, template: 'VoiceTemplate'):
+        await self.channel.edit(
+            name=template.name,
+            nsfw=template.nsfw
+        )
+        self.template_name = template.name
+        await self.update_permissions(template)
+
+    async def save_template(self):
+        template = self.get_template()
+        template.name = self.channel.name
+        template.nsfw = self.channel.nsfw
+        template.allowed.clear()
+        template.denied.clear()
+        for target, perms in self.channel.overwrites.items():
+            if isinstance(target, discord.Member):
+                if perms.view_channel:
+                    template.allowed[target.id] = target
+                elif perms.view_channel is None:
+                    ...
+                else:
+                    template.denied[target.id] = target
+        await template.save()
+
+    async def update_permissions(self, template: 'VoiceTemplate'):
+        await self.channel.edit(overwrites=template.overwrites)
+
+    async def _update_perm(self, target: Union[discord.Member, discord.Role],
+                           overwrites: discord.PermissionOverwrite):
+        await self.channel.set_permissions(target, overwrite=overwrites)
+
+
 Channel_Dict = {
     Channel.channel_type: Channel,
-    TopicChannel.channel_type: TopicChannel
+    TopicChannel.channel_type: TopicChannel,
+    VoiceChannel.channel_type: VoiceChannel
 }

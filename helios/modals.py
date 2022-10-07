@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from .member import HeliosMember
     from .horses.race import Race
     from .helios_bot import HeliosBot
+    from .channel import VoiceChannel
 
 
 class TopicCreation(ui.Modal, title='New Topic'):
@@ -25,28 +26,6 @@ class TopicCreation(ui.Modal, title='New Topic'):
     async def on_error(self, interaction: Interaction, error: Exception) -> None:
         traceback.print_exc()
         await interaction.response.send_message('Sorry, something went wrong.', ephemeral=True)
-
-
-class AmountModal(ui.Modal, title='Amount'):
-    amount = ui.TextInput(label='Amount', required=True)
-
-    def __init__(self, *, default=None, timeout=30):
-        super().__init__(timeout=timeout)
-        if default:
-            self.amount.default = default
-        self.amount_selected = None
-
-    async def on_submit(self, interaction: Interaction) -> None:
-        try:
-            self.amount_selected = int(self.amount.value)
-        except ValueError:
-            await interaction.response.send_message(
-                'You must provide an actual number.',
-                ephemeral=True
-            )
-            return
-        await interaction.response.defer()
-        self.stop()
 
 
 class BetModal(ui.Modal, title=f'Bet'):
@@ -102,3 +81,26 @@ class BetModal(ui.Modal, title=f'Bet'):
         else:
             traceback.print_exc()
             await interaction.response.send_message('Sorry, something went wrong.', ephemeral=True)
+
+
+class VoiceNameChange(ui.Modal, title='Change Name'):
+    name = ui.TextInput(label='Name', min_length=3, max_length=25)
+
+    def __init__(self, voice: 'VoiceChannel'):
+        super().__init__()
+        self.voice = voice
+
+    async def on_submit(self, interaction: Interaction) -> None:
+        for template in self.voice.owner.templates:
+            if template.name.lower() == self.name.value.lower():
+                await interaction.response.send_message(
+                    'You already have a template with this name!',
+                    ephemeral=True
+                )
+                return
+        await self.voice.change_name(self.name.value)
+
+    async def on_error(self, interaction: Interaction,
+                       error: Exception) -> None:
+        await interaction.response.send_message('Sorry, something went wrong.',
+                                                ephemeral=True)
