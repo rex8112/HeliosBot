@@ -327,7 +327,8 @@ class Event:
         for race in races:
             horses_list = sorted([x for x in horses.values()],
                                  key=lambda x: x.get_graded_points_since(
-                                     since.date())
+                                     since.date()),
+                                 reverse=True
                                  )
             qualified = list(filter(
                 lambda x: race.is_qualified(x),
