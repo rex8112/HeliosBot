@@ -110,7 +110,7 @@ class EventManager:
                       start_time=start_time,
                       races=races)
         event.settings['announcement_time'] = 60 * 60 * 36
-        event.settings['registration_time'] = 60 * 60 * 24
+        event.settings['registration_time'] = 60 * 60 * 20
         event.settings['betting_time'] = 60 * 60 * 2
         event.name = f'{start_time.strftime("%b %d")} Weekly Event'
         return event
