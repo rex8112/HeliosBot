@@ -727,7 +727,7 @@ class Race(HasSettings):
         :return: Whether the horse is allowed to race.
         """
         # Prevent doubling up
-        if horse in self.stadium.racing_horses():
+        if horse in self.stadium.racing_horses() and self.invite_only is False:
             return False
 
         return self.stadium.check_qualification(self.settings['type'], horse)
