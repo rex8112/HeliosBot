@@ -28,7 +28,7 @@ class ServerManager:
         tasks.append(server.channels.setup())
         tasks.append(server.members.setup())
         await asyncio.wait(tasks)
-        await server.stadium.setup()
+        #  await server.stadium.setup()
         self.servers[guild.id] = server
         return server
 
@@ -61,12 +61,12 @@ class ServerManager:
                 member_data = data.get('members')
                 tasks.append(server.channels.setup(channel_data))
                 tasks.append(server.members.setup(member_data))
-                tasks.append(server.stadium.setup())
+                #  tasks.append(server.stadium.setup())
             else:
                 server = Server.new(self, guild)
                 tasks.append(server.channels.setup())
                 tasks.append(server.members.setup())
-                tasks.append(server.stadium.setup())
+                #  tasks.append(server.stadium.setup())
                 tasks.append(server.save())
             self.servers[server.id] = server
 
