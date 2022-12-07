@@ -79,14 +79,18 @@ class VoiceControllerView(discord.ui.View):
         )
         mem_string = ''
         for mem in self.members:
-            mem_string += f'{mem.display_name}\n'
+            if mem == self.host:
+                mem_string += f'{mem.display_name} - HOST\n'
+            else:
+                mem_string += f'{mem.display_name}\n'
         embed.add_field(name='Members', value=mem_string)
+        embed.set_footer(text=f'{len(self.members)}/{self.max}')
         return embed
 
     async def join(self, mem: discord.Member):
         if mem not in self.members:
             if mem.voice:
-                self.members += mem
+                self.members.append(mem)
                 await mem.add_roles(self.voice_role,
                                     reason='Joined Voice Controller')
                 if self.running:
@@ -114,47 +118,51 @@ class VoiceControllerView(discord.ui.View):
             return member.voice.deaf
 
     async def activate(self, member: discord.Member):
-        if self.voice_role not in member.roles:
-            return
         apply = {}
         if self.mute:
             apply['mute'] = True
         if self.deafen:
             apply['deafen'] = True
-        await member.edit(**apply)
+        try:
+            await member.edit(**apply)
+        except (discord.Forbidden, discord.HTTPException):
+            ...
 
     async def deactivate(self, member: discord.Member):
-        if self.voice_role not in member.roles:
-            return
         apply = {}
         if self.mute:
             apply['mute'] = False
         if self.deafen:
             apply['deafen'] = False
-        await member.edit(**apply)
+        try:
+            await member.edit(**apply)
+        except (discord.Forbidden, discord.HTTPException):
+            ...
 
     @discord.ui.button(label='Start', style=discord.ButtonStyle.green, row=0)
     async def start_button(self, interaction: discord.Interaction,
                            button: discord.Button):
         if interaction.user == self.host:
+            await interaction.response.defer()
             for mem in self.members:
                 await self.activate(mem)
             self.running = True
             self.start_button.disabled = True
             self.stop_button.disabled = False
-            await interaction.response.edit_message(embed=self.embed)
+            await interaction.edit_original_response(embed=self.embed, view=self)
 
     @discord.ui.button(label='Stop', style=discord.ButtonStyle.gray, row=0,
                        disabled=True)
     async def stop_button(self, interaction: discord.Interaction,
                           button: discord.Button):
         if interaction.user == self.host:
+            await interaction.response.defer()
             for mem in self.members:
                 await self.deactivate(mem)
             self.running = True
             self.start_button.disabled = False
             self.stop_button.disabled = True
-            await interaction.response.edit_message(embed=self.embed)
+            await interaction.edit_original_response(embed=self.embed, view=self)
 
     @discord.ui.button(label='Died', style=discord.ButtonStyle.gray, row=0)
     async def die_button(self, interaction: discord.Interaction,
@@ -185,6 +193,7 @@ class VoiceControllerView(discord.ui.View):
             for mem in self.members:
                 if self.is_activated(mem):
                     await self.deactivate(mem)
+                    await mem.remove_roles(self.voice_role)
             self.running = False
             self.server.voice_controllers.remove(self)
             self.stop()
@@ -208,8 +217,12 @@ class VoiceControllerView(discord.ui.View):
     @discord.ui.button(label='Leave', style=discord.ButtonStyle.gray, row=1)
     async def leave_button(self, interaction: discord.Interaction,
                            button: discord.Button):
-        await self.leave(interaction.user)
-        await interaction.response.send_message('Left!', ephemeral=True)
+        if len(self.members) > 1:
+            await self.leave(interaction.user)
+            await interaction.response.send_message('Left!', ephemeral=True)
+            await self.message.edit(embed=self.embed)
+        else:
+            await interaction.response.send_message('You are the last member, hit close instead.', ephemeral=True)
 
     @discord.ui.button(label='Kick', style=discord.ButtonStyle.red, row=1)
     async def kick_button(self, interaction: discord.Interaction,
@@ -241,13 +254,11 @@ class Selector(discord.ui.View):
         self.select_options = [
             discord.SelectOption(label=x) for x in self.options.keys()
         ]
-        self.select = discord.ui.Select(
-            min_values=min_value,
-            max_values=max_value,
-            options=self.select_options
-        )
-        self.add_item(self.select)
+        self.selections_picked.max_values = max_value
+        self.selections_picked.min_values = min_value
+        self.selections_picked.options = self.select_options
 
+    @discord.ui.select()
     async def selections_picked(self, interaction: discord.Interaction,
                                 select: discord.ui.Select):
         allowed = True
