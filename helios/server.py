@@ -16,6 +16,7 @@ class Server:
     _default_settings = {
         'archive_category': None,
         'topic_category': None,
+        'voice_controller': None,
         'partial': 4,
         'points_per_minute': 1,
         'private_create': None
@@ -30,6 +31,7 @@ class Server:
         self.members = MemberManager(self)
         self.stadium = Stadium(self)
         self.topics = {}
+        self.voice_controllers = []
         self.settings = Settings(self._default_settings, bot=self.bot, guild=self.guild)
         self.flags = []
 
@@ -47,6 +49,13 @@ class Server:
     @property
     def private_create_channel(self) -> Optional[discord.VoiceChannel]:
         return self.settings.private_create
+
+    @property
+    def voice_controller_role(self) -> Optional[discord.Role]:
+        roles = self.guild.roles
+        for role in roles:
+            if role.name == 'VoiceControlled':
+                return role
 
     @classmethod
     def new(cls, manager: 'ServerManager', guild: discord.Guild):

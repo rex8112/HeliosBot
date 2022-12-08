@@ -441,6 +441,7 @@ class Stadium(HasSettings):
                     await self.category.create_text_channel(channel_name)
 
     async def setup(self, data: StadiumSerializable = None):
+        return
         if data is None:
             data = await self.server.bot.helios_http.get_stadium(
                 stadium_id=self.server.id)

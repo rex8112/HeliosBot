@@ -55,6 +55,31 @@ class EventsCog(commands.Cog):
                 except discord.NotFound:
                     ...
 
+    @commands.Cog.listener()
+    async def on_voice_state_update(self,
+                                    member: discord.Member,
+                                    before: discord.VoiceState,
+                                    after: discord.VoiceState
+                                    ):
+        server = self.bot.servers.get(member.guild.id)
+        role = server.voice_controller_role
+        if role is None:
+            return
+        if after.channel is None:
+            return
+        if before.channel is not None:
+            return
+        if role in member.roles:
+            fix = True
+            for controller in server.voice_controllers:
+                if member in controller.members:
+                    fix = False
+            if fix:
+                await member.edit(mute=False, deafen=False)
+                await member.remove_roles(role)
+                await member.send('Noticed you might have still been muted/deafened from last time you used the ingame '
+                                  'voice controller. I went ahead and fixed it, make sure you press Leave next time.')
+
 
 async def setup(bot: 'HeliosBot'):
     await bot.add_cog(EventsCog(bot))
