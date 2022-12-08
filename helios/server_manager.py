@@ -27,8 +27,8 @@ class ServerManager:
         await server.save()
         tasks.append(server.channels.setup())
         tasks.append(server.members.setup())
-        tasks.append(server.stadium.setup())
         await asyncio.wait(tasks)
+        #  await server.stadium.setup()
         self.servers[guild.id] = server
         return server
 
@@ -44,6 +44,7 @@ class ServerManager:
             await asyncio.sleep(60)
 
     async def setup(self):
+        await self.bot.wait_until_ready()
         start_time = time.time()
         tasks = []
         server_data = await self.bot.helios_http.get_server()
@@ -60,12 +61,12 @@ class ServerManager:
                 member_data = data.get('members')
                 tasks.append(server.channels.setup(channel_data))
                 tasks.append(server.members.setup(member_data))
-                tasks.append(server.stadium.setup())
+                #  tasks.append(server.stadium.setup())
             else:
                 server = Server.new(self, guild)
                 tasks.append(server.channels.setup())
                 tasks.append(server.members.setup())
-                tasks.append(server.stadium.setup())
+                #  tasks.append(server.stadium.setup())
                 tasks.append(server.save())
             self.servers[server.id] = server
 

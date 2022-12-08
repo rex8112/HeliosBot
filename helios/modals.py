@@ -9,8 +9,9 @@ from .horses.enumerations import BetType
 if TYPE_CHECKING:
     from .server import Server
     from .member import HeliosMember
-    from .horses.race import EventRace
+    from .horses.race import Race
     from .helios_bot import HeliosBot
+    from .channel import VoiceChannel
 
 
 class TopicCreation(ui.Modal, title='New Topic'):
@@ -29,11 +30,15 @@ class TopicCreation(ui.Modal, title='New Topic'):
 
 class BetModal(ui.Modal, title=f'Bet'):
     type = ui.TextInput(label='Bet Type', placeholder='win, place, show', required=True)
-    horse_name = ui.TextInput(label='Horse', placeholder='HorsesName', required=True)
+    horse_name = ui.TextInput(label='Horse', placeholder='HorsesName or #', required=True)
     amount = ui.TextInput(label='Amount', required=True)
 
-    def __init__(self, er: 'EventRace', member: 'HeliosMember'):
-        super().__init__(title=f'{er.name} Bet',
+    def __init__(self, er: 'Race', member: 'HeliosMember'):
+        if len(er.name) > 41:
+            name = er.name[:41]
+        else:
+            name = er.name
+        super().__init__(title=f'{name} Bet',
                          timeout=er.time_until_race.seconds)
         self.race = er
         self.member = member
@@ -50,9 +55,14 @@ class BetModal(ui.Modal, title=f'Bet'):
             amt = int(self.amount.value)
         except ValueError:
             raise BetError('Must input a valid number.')
-        horse = self.race.find_horse(self.horse_name.value)
+        try:
+            horse_index = int(self.horse_name.value)
+            horse = self.race.horses[horse_index - 1]
+        except (ValueError, IndexError):
+            horse = self.race.find_horse(self.horse_name.value)
         if horse is None:
-            raise BetError('You must type a valid horse name that is registered to this race.')
+            raise BetError('You must type a valid horse name or number that '
+                           'is registered to this race.')
         if self.member.points < amt:
             raise BetError(f'You only have {self.member.points} points.')
         elif amt <= 0:
@@ -71,3 +81,26 @@ class BetModal(ui.Modal, title=f'Bet'):
         else:
             traceback.print_exc()
             await interaction.response.send_message('Sorry, something went wrong.', ephemeral=True)
+
+
+class VoiceNameChange(ui.Modal, title='Change Name'):
+    name = ui.TextInput(label='Name', min_length=3, max_length=25)
+
+    def __init__(self, voice: 'VoiceChannel'):
+        super().__init__()
+        self.voice = voice
+
+    async def on_submit(self, interaction: Interaction) -> None:
+        for template in self.voice.owner.templates:
+            if template.name.lower() == self.name.value.lower():
+                await interaction.response.send_message(
+                    'You already have a template with this name!',
+                    ephemeral=True
+                )
+                return
+        await self.voice.change_name(self.name.value)
+
+    async def on_error(self, interaction: Interaction,
+                       error: Exception) -> None:
+        await interaction.response.send_message('Sorry, something went wrong.',
+                                                ephemeral=True)

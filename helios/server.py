@@ -18,7 +18,8 @@ class Server:
         'topic_category': None,
         'voice_controller': None,
         'partial': 4,
-        'points_per_minute': 1
+        'points_per_minute': 1,
+        'private_create': None
     }
 
     def __init__(self, manager: 'ServerManager', guild: discord.Guild):
@@ -29,7 +30,6 @@ class Server:
         self.channels = ChannelManager(self)
         self.members = MemberManager(self)
         self.stadium = Stadium(self)
-        self.private_voice_channels = {}
         self.topics = {}
         self.voice_controllers = []
         self.settings = Settings(self._default_settings, bot=self.bot, guild=self.guild)
@@ -45,6 +45,10 @@ class Server:
     @property
     def id(self):
         return self.guild.id
+
+    @property
+    def private_create_channel(self) -> Optional[discord.VoiceChannel]:
+        return self.settings.private_create
 
     @property
     def voice_controller_role(self) -> Optional[discord.Role]:

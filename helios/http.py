@@ -29,7 +29,7 @@ class HTTPClient:
     async def request(self, url_end: str, method='GET', **params):
         url = f'/api/{url_end}'
         resp = await self._session.request(method, url, **params)
-        if resp.status not in [200, 201, 404]:
+        if resp.status not in [200, 201, 204, 404]:
             raise HTTPError(resp.status, await resp.text())
         j = await self.json_or_none(resp)
         return j
@@ -150,6 +150,13 @@ class HTTPClient:
         resp = await self.request(f'races/{race_id}/', method='DELETE')
         return resp
 
+    async def get_record(self, *, record_id: int = None, **params):
+        if record_id:
+            resp = await self.request(f'records/{record_id}/')
+        else:
+            resp = await self.request(f'records/', params=params)
+        return resp
+
     async def post_record(self, json_data: Union[dict, list]):
         resp = await self.request(f'records/', method='POST', json=json_data)
         return resp
@@ -161,4 +168,36 @@ class HTTPClient:
 
     async def del_record(self, record_id: int):
         resp = await self.request(f'records/{record_id}/', method='DELETE')
+        return resp
+
+    async def get_auction(self, *, auction_id: int = None, **params):
+        if auction_id:
+            resp = await self.request(f'auctions/{auction_id}/')
+        else:
+            resp = await self.request(f'auctions/', params=params)
+        return resp
+
+    async def post_auction(self, json_data: Union[dict, list]):
+        resp = await self.request(f'auctions/', method='POST', json=json_data)
+        return resp
+
+    async def patch_auction(self, json_data: Union[dict, list]):
+        resp = await self.request(f'auctions/{json_data["id"]}/',
+                                  method='PATCH', json=json_data)
+        return resp
+
+    async def del_auction(self, auction_id: int):
+        resp = await self.request(f'auctions/{auction_id}/', method='DELETE')
+        return resp
+
+    async def post_template(self, json_data: Union[dict, list]):
+        resp = await self.request('templates/', method='POST', json=json_data)
+        return resp
+
+    async def patch_template(self, json_data: Union[dict, list]):
+        resp = await self.request(f'templates/{json_data.get("id")}/', method='PATCH', json=json_data)
+        return resp
+
+    async def del_template(self, tem_id: int):
+        resp = await self.request(f'templates/{tem_id}/', method='DELETE')
         return resp

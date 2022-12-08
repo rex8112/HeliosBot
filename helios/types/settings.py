@@ -19,11 +19,11 @@ class HorseSettings(TypedDict):
     breed: str
     gender: str
     age: int
+    likes: int
     owner: Optional['HeliosMember']
-    wins: int
 
 
-class EventRaceSettings(TypedDict):
+class RaceSettings(TypedDict):
     channel: Optional['TextChannel']
     message: Optional['Message']
     purse: int
@@ -32,10 +32,36 @@ class EventRaceSettings(TypedDict):
     type: 'RaceTypes'
     race_time: datetime.datetime
     betting_time: int
+    restrict_time: int
     phase: int
+    can_run: bool
+    invite_only: bool
 
 
 class StadiumSettings(TypedDict):
     season: int
+    season_active: bool
     category: Optional[discord.CategoryChannel]
     announcement_id: int
+
+
+class HorseListingSettings(TypedDict):
+    min_bid: int
+    max_bid: Optional[int]
+    snipe_protection: int
+    end_time: str
+
+
+class AuctionSettings(TypedDict):
+    start_time: str
+    buy: bool
+    any_canceled: bool
+
+
+class GroupAuctionSettings(AuctionSettings):
+    duration: int
+
+
+class RotatingAuctionSettings(AuctionSettings):
+    duration: int
+    announcement: int

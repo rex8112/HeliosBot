@@ -1,9 +1,12 @@
 import datetime
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING, Dict, Any
+
+import discord
 
 from .abc import HasSettings, HasFlags
 from .exceptions import IdMismatchError
 from .tools.settings import Item
+from .voice_template import VoiceTemplate
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
@@ -17,7 +20,8 @@ class HeliosMember(HasFlags, HasSettings):
     _default_settings = {
         'activity_points': 0,
         'points': 0,
-        'day_claimed': 0
+        'day_claimed': 0,
+        'day_liked': 0
     }
     _allowed_flags = [
         'FORBIDDEN'
@@ -28,7 +32,10 @@ class HeliosMember(HasFlags, HasSettings):
         self.manager = manager
         self.member = member
         self.settings = self._default_settings.copy()
+        self.templates: list['VoiceTemplate'] = []
         self.flags = []
+
+        self.max_horses = 8
 
         self._last_check = get_floor_now()
         self._partial = 0
@@ -36,6 +43,20 @@ class HeliosMember(HasFlags, HasSettings):
         self._new = True
         if data:
             self._deserialize(data)
+
+    def __eq__(self, o: Any):
+        if isinstance(o, HeliosMember):
+            return self.id == o.id
+        elif isinstance(o, discord.Member):
+            return self.id == o.id and self.guild.id == o.guild.id
+        elif o is None:
+            return False
+        else:
+            return NotImplemented
+
+    @property
+    def id(self):
+        return self.member.id
 
     @property
     def server(self) -> 'Server':
@@ -76,6 +97,11 @@ class HeliosMember(HasFlags, HasSettings):
         self.settings.activity_points = amt
         self._changed = True
 
+    def create_template(self):
+        template = VoiceTemplate(self, name=self.member.name)
+        self.templates.append(template)
+        return template
+
     def _deserialize(self, data: dict):
         if self.member.id != data.get('member_id'):
             raise IdMismatchError('Member Ids do not match.')
@@ -83,6 +109,9 @@ class HeliosMember(HasFlags, HasSettings):
             raise IdMismatchError('Server Ids do not match.')
 
         self._id = data.get('id')
+        for temp in data.get('templates', []):
+            template = VoiceTemplate(self, temp['name'], data=temp)
+            self.templates.append(template)
         settings = {**self._default_settings, **data.get('settings', {})}
         self.settings = Item.deserialize_dict(settings, bot=self.bot, guild=self.guild)
         self.flags = data.get('flags')
@@ -94,6 +123,7 @@ class HeliosMember(HasFlags, HasSettings):
             'id': self._id,
             'server': self.server.id,
             'member_id': self.member.id,
+            'templates': [x.serialize() for x in self.templates],
             'settings': Item.serialize_dict(self.settings),
             'flags': self.flags
         }
@@ -115,10 +145,10 @@ class HeliosMember(HasFlags, HasSettings):
 
     def check_voice(self, amt: int, partial: int = 4) -> bool:
         """
-        Check if member is in a non-afk voice channel and apply amt per minute since last check.
+        Check if user is in a non-afk voice channel and apply amt per minute since last check.
         :param amt: Amount to apply per minute of being in a channel.
         :param partial: Amount of times required to get amt if alone.
-        :return: Whether the member was given points or partial points.
+        :return: Whether the user was given points or partial points.
         """
         now = get_floor_now()
         delta = now - self._last_check

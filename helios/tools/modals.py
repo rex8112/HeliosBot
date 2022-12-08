@@ -1,0 +1,23 @@
+from discord import ui, Interaction
+
+
+class AmountModal(ui.Modal, title='Amount'):
+    amount = ui.TextInput(label='Amount', required=True)
+
+    def __init__(self, *, default=None, timeout=30):
+        super().__init__(timeout=timeout)
+        if default:
+            self.amount.default = default
+        self.amount_selected = None
+
+    async def on_submit(self, interaction: Interaction) -> None:
+        try:
+            self.amount_selected = int(self.amount.value)
+        except ValueError:
+            await interaction.response.send_message(
+                'You must provide an actual number.',
+                ephemeral=True
+            )
+            return
+        await interaction.response.defer()
+        self.stop()
