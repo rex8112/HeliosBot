@@ -105,8 +105,12 @@ class VoiceTemplate:
         allowed = [(x, self.guild.get_member(x)) for x in data.get('allowed')]
         denied = [(x, self.guild.get_member(x)) for x in data.get('denied')]
         for key, value in allowed:
+            if value is None:
+                continue
             self.allowed[key] = value
         for key, value in denied:
+            if value is None:
+                continue
             self.denied[key] = value
 
     def serialize(self) -> dict:
