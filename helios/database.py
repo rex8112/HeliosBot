@@ -1,9 +1,18 @@
+import peewee_async
 from peewee import *
 
-db = SqliteDatabase('helios.db')
+db = peewee_async.MySQLDatabase('helios.db')
+objects = peewee_async.Manager(db)
 
 
-class Server(Model):
+def update_model_instance(model: Model, data: dict):
+    for key, value in data.items():
+        old = getattr(model, key)
+        if old != value:
+            setattr(model, key, value)
+
+
+class ServerModel(Model):
     id = BigIntegerField(primary_key=True, unique=True)
     name = CharField(max_length=26)
     settings = TextField(default="")
@@ -13,9 +22,9 @@ class Server(Model):
         database = db
 
 
-class Channel(Model):
+class ChannelModel(Model):
     id = BigIntegerField(primary_key=True, unique=True)
-    server = ForeignKeyField(Server, backref='server')
+    server = ForeignKeyField(ServerModel, backref='server')
     type = CharField(max_length=26)
     settings = TextField(default='')
     flags = TextField(default='[]')
@@ -24,9 +33,9 @@ class Channel(Model):
         database = db
 
 
-class Member(Model):
+class MemberModel(Model):
     id = AutoField(primary_key=True, unique=True)
-    server = ForeignKeyField(Server, backref='server')
+    server = ForeignKeyField(ServerModel, backref='server')
     member_id = BigIntegerField()
     templates = TextField(default='[]')
     settings = TextField(default='')

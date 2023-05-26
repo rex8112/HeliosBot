@@ -7,6 +7,7 @@ from .exceptions import IdMismatchError
 from .member_manager import MemberManager
 from .stadium import Stadium
 from .tools.settings import Settings
+from .database import ServerModel, update_model_instance
 
 if TYPE_CHECKING:
     from .server_manager import ServerManager
@@ -36,6 +37,7 @@ class Server:
         self.flags = []
 
         self._new = False
+        self.db_entry = None
 
     # Properties
     @property
@@ -94,7 +96,8 @@ class Server:
 
     async def save(self):
         if self._new:
-            await self.bot.helios_http.post_server(self.serialize())
+            self.db_entry = ServerModel(**self.serialize())
             self._new = False
         else:
-            await self.bot.helios_http.patch_server(self.serialize())
+            update_model_instance(self.db_entry, self.serialize())
+        self.db_entry.save()

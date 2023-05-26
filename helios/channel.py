@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Optional, Union
 
 import discord
 
+from .database import ChannelModel, update_model_instance
 from .views import TopicView, VoiceView
 
 if TYPE_CHECKING:
@@ -37,6 +38,7 @@ class Channel:
 
         self.settings = self._default_settings.copy()
         self._deserialize(data)
+        self.db_entry: Optional[ChannelModel] = None
 
     @property
     def id(self):
@@ -68,10 +70,11 @@ class Channel:
 
     async def save(self):
         if self._new:
-            await self.bot.helios_http.post_channel(self.serialize())
+            self.db_entry = ChannelModel(**self.serialize())
             self._new = False
         else:
-            await self.bot.helios_http.patch_channel(self.serialize())
+            update_model_instance(self.db_entry, self.serialize())
+        self.db_entry.save()
 
     async def delete(self, del_channel=True):
         try:

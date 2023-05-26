@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Optional
 import discord
 
 from .server import Server
+from .database import ServerModel as ServerModel
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
@@ -47,7 +48,7 @@ class ServerManager:
         await self.bot.wait_until_ready()
         start_time = time.time()
         tasks = []
-        server_data = await self.bot.helios_http.get_server()
+        server_data = ServerModel.select()
         server_dict = {}
         for data in server_data:
             server_dict[data.get('id')] = data

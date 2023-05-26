@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Optional
 import discord
 
 from .channel import Channel_Dict, Channel, VoiceChannel
+from .database import ChannelModel, update_model_instance
 
 if TYPE_CHECKING:
     from .server import Server
@@ -142,7 +143,7 @@ class ChannelManager:
 
     async def setup(self, channel_data: list[dict] = None):
         if not channel_data:
-            data = await self.bot.helios_http.get_channel(server=self.server.id)
+            data = ChannelModel.select().where(server=self.server.id)
             channel_data = data
 
         deletes = []
