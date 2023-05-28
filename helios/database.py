@@ -1,7 +1,7 @@
 import peewee_async
 from peewee import *
 
-db = peewee_async.MySQLDatabase('helios.db')
+db = peewee_async.MySQLDatabase('helios', user='helios', password='bot', host='192.168.40.101', port=3306)
 objects = peewee_async.Manager(db)
 
 
@@ -12,34 +12,39 @@ def update_model_instance(model: Model, data: dict):
             setattr(model, key, value)
 
 
-class ServerModel(Model):
+class BaseModel(Model):
+    class Meta:
+        database = db
+
+
+class ServerModel(BaseModel):
     id = BigIntegerField(primary_key=True, unique=True)
     name = CharField(max_length=26)
     settings = TextField(default="")
     flags = TextField(default="[]")
 
     class Meta:
-        database = db
+        table_name = 'servers'
 
 
-class ChannelModel(Model):
+class ChannelModel(BaseModel):
     id = BigIntegerField(primary_key=True, unique=True)
-    server = ForeignKeyField(ServerModel, backref='server')
+    server = ForeignKeyField(ServerModel, backref='channels')
     type = CharField(max_length=26)
     settings = TextField(default='')
     flags = TextField(default='[]')
 
     class Meta:
-        database = db
+        table_name = 'channels'
 
 
-class MemberModel(Model):
+class MemberModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
-    server = ForeignKeyField(ServerModel, backref='server')
+    server = ForeignKeyField(ServerModel, backref='members')
     member_id = BigIntegerField()
     templates = TextField(default='[]')
     settings = TextField(default='')
     flags = TextField(default='[]')
 
     class Meta:
-        database = db
+        table_name = 'members'

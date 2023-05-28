@@ -6,7 +6,7 @@ import sys
 import discord
 from discord.utils import setup_logging
 
-from helios import HeliosBot
+from helios import HeliosBot, db
 from helios.tools import Config
 
 logger = logging.getLogger('HeliosLogger')
@@ -53,11 +53,13 @@ async def load_extensions():
 
 
 async def main():
+    db.connect()
     async with bot:
         setup_logging()
         await load_extensions()
         await bot.start(bot.settings.token)
         await asyncio.sleep(0.1)
     await asyncio.sleep(0.1)
+    db.close()
 
 asyncio.run(main())

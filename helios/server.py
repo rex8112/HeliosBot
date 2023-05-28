@@ -1,3 +1,4 @@
+import json
 from typing import TYPE_CHECKING, Dict, Optional
 
 import discord
@@ -67,17 +68,18 @@ class Server:
         return s
 
     # Methods
-    def deserialize(self, data: Dict) -> None:
+    def deserialize(self, data: ServerModel) -> None:
         """
         Takes a dictionary from the Helios API and fills out the class
         :param data: A JSON Dictionary from the Helios API
         :raises helios.IdMismatchError: When the ID in the data does not equal the ID in the given guild
         """
-        if data.get('id') != self.id:
-            raise IdMismatchError('ID in data does not match server ID', self.id, data.get('id'))
-        self.flags = data.get('flags')
-        settings = {**self._default_settings, **data.get('settings', {})}
+        if data.id != self.id:
+            raise IdMismatchError('ID in data does not match server ID', self.id, data.id)
+        self.flags = json.loads(data.flags)
+        settings = {**self._default_settings, **json.loads(data.settings)}
         self.settings = Settings(settings, bot=self.bot, guild=self.guild)
+        self.db_entry = data
         self.loaded = True
 
     def serialize(self) -> Dict:
@@ -88,16 +90,16 @@ class Server:
         data = {
             'id': self.id,
             'name': self.name,
-            'settings': self.settings.to_dict(),
-            'flags': self.flags
+            'settings': json.dumps(self.settings.to_dict()),
+            'flags': json.dumps(self.flags)
         }
 
         return data
 
     async def save(self):
         if self._new:
-            self.db_entry = ServerModel(**self.serialize())
+            self.db_entry = ServerModel.create(**self.serialize())
             self._new = False
         else:
             update_model_instance(self.db_entry, self.serialize())
-        self.db_entry.save()
+            self.db_entry.save()

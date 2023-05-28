@@ -143,13 +143,13 @@ class ChannelManager:
 
     async def setup(self, channel_data: list[dict] = None):
         if not channel_data:
-            data = ChannelModel.select().where(server=self.server.id)
+            data = ChannelModel.select().where(ChannelModel.server == self.server.id)
             channel_data = data
 
         deletes = []
         neutralize = []
         for data in channel_data:
-            channel_cls = Channel_Dict.get(data.get('type'))
+            channel_cls = Channel_Dict.get(data.type)
             c: 'HeliosChannel' = channel_cls(self, data)
             if c.alive:
                 self.channels[c.id] = c

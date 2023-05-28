@@ -51,24 +51,24 @@ class ServerManager:
         server_data = ServerModel.select()
         server_dict = {}
         for data in server_data:
-            server_dict[data.get('id')] = data
+            server_dict[data.id] = data
 
         for guild in self.bot.guilds:
             data = server_dict.get(guild.id)
             if data:
                 server = Server(self, guild)
                 server.deserialize(data)
-                channel_data = data.get('channels')
-                member_data = data.get('members')
+                channel_data = data.channels
+                member_data = data.members
                 tasks.append(server.channels.setup(channel_data))
                 tasks.append(server.members.setup(member_data))
                 #  tasks.append(server.stadium.setup())
             else:
                 server = Server.new(self, guild)
+                await server.save()
                 tasks.append(server.channels.setup())
                 tasks.append(server.members.setup())
                 #  tasks.append(server.stadium.setup())
-                tasks.append(server.save())
             self.servers[server.id] = server
 
         logger.info(f'{len(self.bot.guilds)} Servers loaded in {time.time() - start_time} seconds')

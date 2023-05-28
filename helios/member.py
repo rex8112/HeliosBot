@@ -1,5 +1,6 @@
 import datetime
-from typing import TYPE_CHECKING, Dict, Any
+import json
+from typing import TYPE_CHECKING, Dict, Any, Optional
 
 import discord
 
@@ -7,6 +8,7 @@ from .abc import HasSettings, HasFlags
 from .exceptions import IdMismatchError
 from .tools.settings import Item
 from .voice_template import VoiceTemplate
+from .database import MemberModel, update_model_instance
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
@@ -27,7 +29,7 @@ class HeliosMember(HasFlags, HasSettings):
         'FORBIDDEN'
     ]
 
-    def __init__(self, manager: 'MemberManager', member: 'Member', *, data: dict = None):
+    def __init__(self, manager: 'MemberManager', member: 'Member', *, data: MemberModel = None):
         self._id = 0
         self.manager = manager
         self.member = member
@@ -41,6 +43,7 @@ class HeliosMember(HasFlags, HasSettings):
         self._partial = 0
         self._changed = False
         self._new = True
+        self._db_entry: Optional[MemberModel] = data
         if data:
             self._deserialize(data)
 
@@ -102,19 +105,19 @@ class HeliosMember(HasFlags, HasSettings):
         self.templates.append(template)
         return template
 
-    def _deserialize(self, data: dict):
-        if self.member.id != data.get('member_id'):
+    def _deserialize(self, data: MemberModel):
+        if self.member.id != data.member_id:
             raise IdMismatchError('Member Ids do not match.')
-        if self.server.id != data.get('server'):
+        if self.server.id != data.server_id:
             raise IdMismatchError('Server Ids do not match.')
 
-        self._id = data.get('id')
-        for temp in data.get('templates', []):
+        self._id = data.id
+        for temp in json.loads(data.templates):
             template = VoiceTemplate(self, temp['name'], data=temp)
             self.templates.append(template)
-        settings = {**self._default_settings, **data.get('settings', {})}
+        settings = {**self._default_settings, **json.loads(data.settings)}
         self.settings = Item.deserialize_dict(settings, bot=self.bot, guild=self.guild)
-        self.flags = data.get('flags')
+        self.flags = json.loads(data.flags)
         self._new = False
         self._changed = False
 
@@ -123,9 +126,9 @@ class HeliosMember(HasFlags, HasSettings):
             'id': self._id,
             'server': self.server.id,
             'member_id': self.member.id,
-            'templates': [x.serialize() for x in self.templates],
-            'settings': Item.serialize_dict(self.settings),
-            'flags': self.flags
+            'templates': json.dumps([x.serialize() for x in self.templates]),
+            'settings': json.dumps(Item.serialize_dict(self.settings)),
+            'flags': json.dumps(self.flags)
         }
         if self._id == 0:
             del data['id']
@@ -168,26 +171,26 @@ class HeliosMember(HasFlags, HasSettings):
         return False
 
     async def save(self, force=False):
-        data = None
         if self.member.bot:
             self._changed = False
             return
         if self._new:
-            data = await self.bot.helios_http.post_member(self.serialize())
+            self._db_entry = MemberModel(**self.serialize())
+            self._db_entry.save()
             self._new = False
-        if self._changed or force:
-            data = await self.bot.helios_http.patch_member(self.serialize())
-        if data:
+            self._id = self._db_entry.id
             self._changed = False
-            self._id = data.get('id')
+        if self._changed or force:
+            update_model_instance(self._db_entry, self.serialize())
+            self._db_entry.save()
+            self._changed = False
 
     async def load(self):
         if self._id != 0:
-            data = await self.bot.helios_http.get_member(self._id)
+            self._db_entry = MemberModel.get(id=self._id)
         else:
-            data = await self.bot.helios_http.get_member(params={'server': self.server.id, 'member_id': self.member.id})
-            data = data[0]
-        self._deserialize(data)
+            self._db_entry = MemberModel.get(server=self.server.id, member_id=self.member.id)
+        self._deserialize(self._db_entry)
 
 
 def get_floor_now() -> datetime.datetime:

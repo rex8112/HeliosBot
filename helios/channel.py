@@ -1,4 +1,5 @@
 import datetime
+import json
 from typing import TYPE_CHECKING, Optional, Union
 
 import discord
@@ -20,7 +21,7 @@ class Channel:
 
     def __init__(self,
                  manager: 'ChannelManager',
-                 data: dict):
+                 data: Union[ChannelModel, dict]):
         """
         A special channel class that will hold all the important functions of that class
         :param manager: The channel manager handling this channel
@@ -32,13 +33,14 @@ class Channel:
         self.flags = []
         self._id = None
 
-        self._id = data['id']
+        self._id = data.id if isinstance(data, ChannelModel) else data.get('id')
         self.channel = self.bot.get_channel(self._id)
         self._new = False
 
         self.settings = self._default_settings.copy()
-        self._deserialize(data)
-        self.db_entry: Optional[ChannelModel] = None
+        if isinstance(data, ChannelModel):
+            self._deserialize(data)
+        self.db_entry: Optional[ChannelModel] = data if isinstance(data, ChannelModel) else None
 
     @property
     def id(self):
@@ -70,11 +72,11 @@ class Channel:
 
     async def save(self):
         if self._new:
-            self.db_entry = ChannelModel(**self.serialize())
+            self.db_entry = ChannelModel.create(**self.serialize())
             self._new = False
         else:
             update_model_instance(self.db_entry, self.serialize())
-        self.db_entry.save()
+            self.db_entry.save()
 
     async def delete(self, del_channel=True):
         try:
@@ -83,8 +85,9 @@ class Channel:
         except (discord.Forbidden, discord.HTTPException, discord.NotFound):
             pass
         finally:
-            self.manager.channels.pop(self._id)
-            await self.bot.helios_http.del_channel(self.id)
+            if self._id in self.manager.channels:
+                self.manager.channels.pop(self._id)
+            self.db_entry.delete_instance()
 
     def set_flag(self, flag: str, on: bool):
         if flag not in self._allowed_flags:
@@ -97,20 +100,20 @@ class Channel:
     def get_flag(self, flag: str):
         return flag in self.flags
 
-    def _deserialize(self, data: dict) -> None:
-        if self.channel_type != data.get('type'):
-            raise TypeError(f'Channel data is of type `{data.get("type")}` '
+    def _deserialize(self, data: ChannelModel) -> None:
+        if self.channel_type != data.type:
+            raise TypeError(f'Channel data is of type `{data.type}` '
                             f'not `{self.channel_type}`')
-        self.flags = data.get('flags', self.flags)
-        self.settings = {**self._default_settings, **data.get('settings', {})}
+        self.flags = json.loads(data.flags) if data.flags else self.flags
+        self.settings = {**self._default_settings, **json.loads(data.settings)}
 
     def serialize(self) -> dict:
         return {
             'id': self.id,
             'server': self.server.id,
             'type': self.channel_type,
-            'settings': self.settings,
-            'flags': self.flags
+            'settings': json.dumps(self.settings),
+            'flags': json.dumps(self.flags)
         }
 
 
