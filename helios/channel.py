@@ -219,6 +219,8 @@ class TopicChannel(Channel):
     def archive_at(self, value: Optional[datetime.datetime]):
         if value is None:
             final_value = value
+        elif isinstance(value, str):
+            final_value = value
         else:
             final_value = value.isoformat()
         self.settings['archive_at'] = final_value
@@ -232,9 +234,11 @@ class TopicChannel(Channel):
                 and self._archive_message.id
                 == self.settings['archive_message_id']):
             return self._archive_message
-        return self.channel.get_partial_message(
-            self.settings['archive_message_id']
-        )
+        if self.settings['archive_message_id'] is not None:
+            return self.channel.get_partial_message(
+                self.settings['archive_message_id']
+            )
+        return None
 
     @archive_message.setter
     def archive_message(self, value: Optional[MessageType]):

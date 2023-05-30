@@ -118,7 +118,7 @@ class ChannelManager:
             new_channel = await category.create_text_channel(name=name)
             channel_type = Channel_Dict.get('topic')
             channel = channel_type.new(self, new_channel.id)
-            channel.settings.creator = owner.id
+            channel.settings['creator'] = owner.id
             self._add_channel(channel)
             await channel.save()
             return True, f'{channel.channel.mention} created successfully!'
