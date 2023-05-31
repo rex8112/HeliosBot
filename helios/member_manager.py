@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 import discord
 
 from .member import HeliosMember
+from .database import MemberModel
 
 if TYPE_CHECKING:
     from .server import Server
@@ -60,13 +61,13 @@ class MemberManager:
         if len(saves) > 0:
             await asyncio.wait(saves)
 
-    async def setup(self, member_data: list[dict] = None):
+    async def setup(self, member_data: list[MemberModel] = None):
         if member_data is None:
-            member_data = await self.bot.helios_http.get_member(server=self.server.id)
+            member_data = MemberModel.select().where(MemberModel.server == self.server.id)
         tasks = []
         member_data_dict = {}
         for data in member_data:
-            member_data_dict[data.get('member_id')] = data
+            member_data_dict[data.member_id] = data
 
         for member in self.guild.members:
             data = member_data_dict.get(member.id)

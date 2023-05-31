@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Optional
 import discord
 
 from .channel import Channel_Dict, Channel, VoiceChannel
+from .database import ChannelModel, update_model_instance
 
 if TYPE_CHECKING:
     from .server import Server
@@ -117,7 +118,7 @@ class ChannelManager:
             new_channel = await category.create_text_channel(name=name)
             channel_type = Channel_Dict.get('topic')
             channel = channel_type.new(self, new_channel.id)
-            channel.settings.creator = owner.id
+            channel.settings['creator'] = owner.id
             self._add_channel(channel)
             await channel.save()
             return True, f'{channel.channel.mention} created successfully!'
@@ -142,13 +143,13 @@ class ChannelManager:
 
     async def setup(self, channel_data: list[dict] = None):
         if not channel_data:
-            data = await self.bot.helios_http.get_channel(server=self.server.id)
+            data = ChannelModel.select().where(ChannelModel.server == self.server.id)
             channel_data = data
 
         deletes = []
         neutralize = []
         for data in channel_data:
-            channel_cls = Channel_Dict.get(data.get('type'))
+            channel_cls = Channel_Dict.get(data.type)
             c: 'HeliosChannel' = channel_cls(self, data)
             if c.alive:
                 self.channels[c.id] = c
