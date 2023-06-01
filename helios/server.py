@@ -19,6 +19,7 @@ class Server:
         'archive_category': None,
         'topic_category': None,
         'voice_controller': None,
+        'verified_role': None,
         'partial': 4,
         'points_per_minute': 1,
         'private_create': None
@@ -59,6 +60,16 @@ class Server:
         for role in roles:
             if role.name == 'VoiceControlled':
                 return role
+
+    @property
+    def verified_role(self) -> Optional[discord.Role]:
+        role_id = self.settings.verified_role
+        if role_id is None:
+            return None
+        role = self.guild.get_role(role_id)
+        if role is None:
+            self.settings.verified_role = None
+        return role
 
     @classmethod
     def new(cls, manager: 'ServerManager', guild: discord.Guild):

@@ -74,6 +74,14 @@ class HeliosMember(HasFlags, HasSettings):
         return self.server.guild
 
     @property
+    def verified(self) -> bool:
+        role = self.server.verified_role
+        if role is None:
+            return True
+        mem_role = self.member.get_role(role.id)
+        return mem_role is not None
+
+    @property
     def horses(self) -> Dict[int, 'Horse']:
         return self.server.stadium.get_owner_horses(self)
 
