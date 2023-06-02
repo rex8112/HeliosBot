@@ -74,6 +74,14 @@ class HeliosMember(HasFlags, HasSettings):
         return self.server.guild
 
     @property
+    def verified(self) -> bool:
+        role = self.server.verified_role
+        if role is None:
+            return True
+        mem_role = self.member.get_role(role.id)
+        return mem_role is not None
+
+    @property
     def horses(self) -> Dict[int, 'Horse']:
         return self.server.stadium.get_owner_horses(self)
 
@@ -104,6 +112,13 @@ class HeliosMember(HasFlags, HasSettings):
         template = VoiceTemplate(self, name=self.member.name)
         self.templates.append(template)
         return template
+
+    async def verify(self):
+        role = self.server.verified_role
+        if self.member.get_role(role.id):
+            return
+
+        await self.member.add_roles(role)
 
     def _deserialize(self, data: MemberModel):
         if self.member.id != data.member_id:

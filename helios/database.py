@@ -48,3 +48,9 @@ class MemberModel(BaseModel):
 
     class Meta:
         table_name = 'members'
+
+
+class PugModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    channel_id = BigIntegerField()
+
