@@ -113,6 +113,13 @@ class HeliosMember(HasFlags, HasSettings):
         self.templates.append(template)
         return template
 
+    async def verify(self):
+        role = self.server.verified_role
+        if self.member.get_role(role.id):
+            return
+
+        await self.member.add_roles(role)
+
     def _deserialize(self, data: MemberModel):
         if self.member.id != data.member_id:
             raise IdMismatchError('Member Ids do not match.')
