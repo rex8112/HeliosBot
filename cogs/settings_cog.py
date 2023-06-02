@@ -80,6 +80,17 @@ class SettingsCog(commands.GroupCog, name='settings'):
         await interaction.response.send_message('Setting Changed',
                                                 ephemeral=True)
 
+    @app_commands.command(name='verifiedrole',
+                          description='Set the role that marks someone as verified')
+    @app_commands.checks.has_permissions(administrator=True)
+    async def verified_role(self, interaction: discord.Interaction,
+                            role: discord.Role):
+        server = self.bot.servers.get(guild_id=interaction.guild_id)
+        server.settings.verified_role = role.id
+        await server.save()
+        await interaction.response.send_message('Setting Changed',
+                                                ephemeral=True)
+
 
 async def setup(bot: 'HeliosBot'):
     await bot.add_cog(SettingsCog(bot))
