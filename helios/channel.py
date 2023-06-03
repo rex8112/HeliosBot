@@ -301,7 +301,7 @@ class TopicChannel(Channel):
             embed = self._get_saved_embed()
             embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar.url)
             await interaction.response.edit_message(embed=embed, view=None)
-        self.archive_message_id = None
+        self.archive_message = None
 
     async def evaluate_tier(self, change=True, allow_degrade=False) -> int:
         """
@@ -343,12 +343,11 @@ class TopicChannel(Channel):
         message = self.archive_message
         if type(message) == discord.PartialMessage:
             message = await message.fetch()
-        if message is None:
-            message = await self.channel.send(content=content, embed=embed,
+        if message is not None:
+            await message.delete()
+        new_message = await self.channel.send(content=content, embed=embed,
                                               view=view)
-        else:
-            await message.edit(content=content, view=view, embed=embed)
-        self.archive_message = message
+        self.archive_message = new_message
 
     async def get_markable(self) -> bool:
         """
