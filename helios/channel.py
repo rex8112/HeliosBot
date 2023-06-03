@@ -301,7 +301,7 @@ class TopicChannel(Channel):
             embed = self._get_saved_embed()
             embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.avatar.url)
             await interaction.response.edit_message(embed=embed, view=None)
-        self.archive_message_id = None
+        self.archive_message = None
 
     async def evaluate_tier(self, change=True, allow_degrade=False) -> int:
         """
