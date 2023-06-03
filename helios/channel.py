@@ -343,12 +343,11 @@ class TopicChannel(Channel):
         message = self.archive_message
         if type(message) == discord.PartialMessage:
             message = await message.fetch()
-        if message is None:
-            message = await self.channel.send(content=content, embed=embed,
+        if message is not None:
+            await message.delete()
+        new_message = await self.channel.send(content=content, embed=embed,
                                               view=view)
-        else:
-            await message.edit(content=content, view=view, embed=embed)
-        self.archive_message = message
+        self.archive_message = new_message
 
     async def get_markable(self) -> bool:
         """
