@@ -2,6 +2,7 @@ import asyncio
 from typing import TYPE_CHECKING
 
 import discord
+import peewee
 
 from .member import HeliosMember
 from .database import MemberModel
@@ -30,7 +31,10 @@ class MemberManager:
         member = self.get(member_id)
         if member and not force:
             return member
-        mem_data = await self.bot.helios_http.get_member(id=member_id)
+        try:
+            mem_data = await MemberModel.get(id=member_id)
+        except peewee.DoesNotExist:
+            mem_data = None
         mem = self.guild.get_member(member_id)
         if mem_data and mem:
             member = HeliosMember(self, mem, data=mem_data)
