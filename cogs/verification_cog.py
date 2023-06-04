@@ -62,7 +62,7 @@ class VerificationCog(commands.Cog):
             )
             embed.set_author(name=str(requester.member),
                              icon_url=requester.member.avatar.url)
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            await interaction.response.send_message(embed=embed)
             return
         embed = discord.Embed(
             title='You are not Verified!',
