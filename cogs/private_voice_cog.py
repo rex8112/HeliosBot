@@ -17,6 +17,27 @@ logger = logging.getLogger('Helios.PrivateVoiceCog')
 class PrivateVoiceCog(commands.Cog):
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
+        self.allow_context = app_commands.ContextMenu(
+            name="Allow in Voice",
+            callback=self.allow
+        )
+        self.deny_context = app_commands.ContextMenu(
+            name="Deny in Voice",
+            callback=self.deny
+        )
+        self.clear_context = app_commands.ContextMenu(
+            name="Clear from Voice",
+            callback=self.clear
+        )
+
+        self.bot.tree.add_command(self.allow_context)
+        self.bot.tree.add_command(self.deny_context)
+        self.bot.tree.add_command(self.clear_context)
+
+    async def cog_unload(self) -> None:
+        self.bot.tree.remove_command(self.allow_context.name, type=self.allow_context.type)
+        self.bot.tree.remove_command(self.deny_context.name, type=self.deny_context.type)
+        self.bot.tree.remove_command(self.clear_context.name, type=self.clear_context.type)
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member,
@@ -51,7 +72,6 @@ class PrivateVoiceCog(commands.Cog):
             await mem.member.move_to(voice.channel,
                                      reason='Created private Voice Channel.')
 
-    @app_commands.context_menu(name="Allow in Voice")
     async def allow(self, interaction: discord.Interaction,
                     user: discord.Member):
         server = self.bot.servers.get(interaction.guild_id)
@@ -74,7 +94,6 @@ class PrivateVoiceCog(commands.Cog):
                 'initialization failed.'
             )
 
-    @app_commands.context_menu(name="Deny in Voice")
     async def deny(self, interaction: discord.Interaction,
                    member: discord.Member):
         server = self.bot.servers.get(interaction.guild_id)
@@ -98,7 +117,6 @@ class PrivateVoiceCog(commands.Cog):
                 'initialization failed.'
             )
 
-    @app_commands.context_menu(name="Clear from Voice")
     async def clear(self, interaction: discord.Interaction,
                     member: discord.Member):
         server = self.bot.servers.get(interaction.guild_id)
