@@ -17,16 +17,6 @@ logger = logging.getLogger('Helios.PrivateVoiceCog')
 class PrivateVoiceCog(commands.Cog):
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
-        self.allow_context = app_commands.ContextMenu(
-            name='Allow in Voice',
-            callback=self.allow,
-        )
-        self.deny_context = app_commands.ContextMenu(
-            name='Deny in Voice',
-            callback=self.deny
-        )
-        self.bot.tree.add_command(self.allow_context)
-        self.bot.tree.add_command(self.deny_context)
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member,
@@ -61,6 +51,7 @@ class PrivateVoiceCog(commands.Cog):
             await mem.member.move_to(voice.channel,
                                      reason='Created private Voice Channel.')
 
+    @app_commands.context_menu(name="Allow in Voice")
     async def allow(self, interaction: discord.Interaction,
                     user: discord.Member):
         server = self.bot.servers.get(interaction.guild_id)
@@ -83,6 +74,7 @@ class PrivateVoiceCog(commands.Cog):
                 'initialization failed.'
             )
 
+    @app_commands.context_menu(name="Deny in Voice")
     async def deny(self, interaction: discord.Interaction,
                    member: discord.Member):
         server = self.bot.servers.get(interaction.guild_id)
@@ -96,6 +88,30 @@ class PrivateVoiceCog(commands.Cog):
                 await channel.deny(member)
                 await interaction.followup.send(f'{member.mention} Denied '
                                                 f'in {channel.channel.mention}'
+                                                '.')
+            else:
+                await interaction.followup.send(f'You do not currently have a '
+                                                f'channel active.')
+        else:
+            await interaction.response.send_message(
+                'Critical Failure, tell `rex8112#1200` that server '
+                'initialization failed.'
+            )
+
+    @app_commands.context_menu(name="Clear from Voice")
+    async def clear(self, interaction: discord.Interaction,
+                    member: discord.Member):
+        server = self.bot.servers.get(interaction.guild_id)
+        if server:
+            private_voices = server.channels.get_type('private_voice')
+            owned = list(filter(lambda x: x.owner == interaction.user,
+                                private_voices))
+            await interaction.response.defer(ephemeral=True)
+            if len(owned) > 0:
+                channel = owned[0]
+                await channel.clear(member)
+                await interaction.followup.send(f'{member.mention} Cleared '
+                                                f'from {channel.channel.mention}'
                                                 '.')
             else:
                 await interaction.followup.send(f'You do not currently have a '
