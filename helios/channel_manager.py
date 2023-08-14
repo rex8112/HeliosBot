@@ -41,7 +41,11 @@ class ChannelManager:
 
     def is_crowded(self):
         topics = self.get_type('topic')
-        return len(topics) > 10
+        counter = 0
+        for topic in topics:
+            if 'ARCHIVED' not in topic.flags:
+                counter += 1
+        return counter > 10
 
     async def manage_channels(self):
         await self.bot.wait_until_ready()
