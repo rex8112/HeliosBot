@@ -39,6 +39,10 @@ class ChannelManager:
         if not self._task:
             self._task = self.bot.loop.create_task(self.manage_channels(), name=f'{self.server.id}: Channel Manager')
 
+    def is_crowded(self):
+        topics = self.get_type('topic')
+        return len(topics) > 10
+
     async def manage_channels(self):
         await self.bot.wait_until_ready()
         await self.purge_dead_channels()
@@ -102,8 +106,8 @@ class ChannelManager:
             return False, 'This channel already exists.'
         channel_type = Channel_Dict.get('topic')
         ch = channel_type.new(self, channel.id)
-        ch.settings.creator = owner.id
-        ch.settings.tier = tier
+        ch.settings['creator'] = owner.id
+        ch.settings['tier'] = tier
         self._add_channel(ch)
         await ch.save()
         return True, 'Created Successfully!'
