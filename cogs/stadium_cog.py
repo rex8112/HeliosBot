@@ -18,16 +18,6 @@ class StadiumCog(commands.Cog):
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
 
-    @app_commands.command(name='points', description='See your current points')
-    @app_commands.guild_only()
-    async def points(self, interaction: discord.Interaction):
-        server = self.bot.servers.get(interaction.guild_id)
-        member = server.members.get(interaction.user.id)
-        await interaction.response.send_message(
-            f'Current Points: **{member.points:,}**\nActivity Points: **{member.activity_points:,}**',
-            ephemeral=True
-        )
-
     @app_commands.command(name='daily', description='Claim daily points')
     @app_commands.guild_only()
     async def daily(self, interaction: discord.Interaction):
@@ -152,4 +142,5 @@ class StadiumCog(commands.Cog):
 
 
 async def setup(bot: 'HeliosBot'):
-    await bot.add_cog(StadiumCog(bot))
+    return
+    #  await bot.add_cog(StadiumCog(bot))
