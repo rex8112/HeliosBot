@@ -40,8 +40,15 @@ class PointsCog(commands.Cog):
             i = members.index(member)
             leaderboard_string += ('...\n'
                                    f'>{i:2}. {member.member.display_name:>32}: {member.activity_points:10,}')
+        colour = discord.Colour.default()
+        for role in reversed(member.member.roles):
+            if role.colour != discord.Colour.default():
+                if server.guild.premium_subscriber_role and role.colour == server.guild.premium_subscriber_role.colour:
+                    continue
+                colour = role.colour
+                break
         embed = discord.Embed(
-            colour=member.member.top_role.colour,
+            colour=colour,
             title=f'{member.guild.name} Leaderboard',
             description=f'```{leaderboard_string}```'
         )
