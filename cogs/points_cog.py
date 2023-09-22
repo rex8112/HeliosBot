@@ -38,8 +38,12 @@ class PointsCog(commands.Cog):
             leaderboard_string += f'{modifier:1}{i:2}. {mem.member.display_name:>32}: {mem.activity_points:10,}\n'
         if not user_found:
             i = members.index(member)
-            leaderboard_string += ('...\n'
-                                   f'>{i:2}. {member.member.display_name:>32}: {member.activity_points:10,}')
+            leaderboard_string += '...\n'
+            for i, mem in enumerate(members[i-1:i+1], start=i):
+                modifier = ''
+                if mem.member == interaction.user:
+                    modifier = '>'
+                leaderboard_string += f'{modifier:1}{i:2}. {mem.member.display_name:>32}: {mem.activity_points:10,}\n'
         colour = discord.Colour.default()
         for role in reversed(member.member.roles):
             if role.colour != discord.Colour.default():
