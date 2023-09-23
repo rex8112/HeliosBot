@@ -5,7 +5,11 @@ from discord import app_commands
 from discord.ext import commands
 
 if TYPE_CHECKING:
-    from helios import HeliosBot, Server
+    from helios import HeliosBot, Server, HeliosMember
+
+
+def get_leaderboard_string(num: int, member: 'HeliosMember', prefix: str = ''):
+    return f'{prefix:1}{num:3}. {member.member.display_name:>32}: {member.activity_points:10,}\n'
 
 
 class PointsCog(commands.Cog):
@@ -35,7 +39,7 @@ class PointsCog(commands.Cog):
             if mem.member == interaction.user:
                 modifier = '>'
                 user_found = True
-            leaderboard_string += f'{modifier:1}{i:2}. {mem.member.display_name:>32}: {mem.activity_points:10,}\n'
+            leaderboard_string += get_leaderboard_string(i, mem, modifier)
         if not user_found:
             i = members.index(member)
             leaderboard_string += '...\n'
@@ -43,7 +47,7 @@ class PointsCog(commands.Cog):
                 modifier = ''
                 if mem.member == interaction.user:
                     modifier = '>'
-                leaderboard_string += f'{modifier:1}{i:2}. {mem.member.display_name:>32}: {mem.activity_points:10,}\n'
+                leaderboard_string += get_leaderboard_string(i, mem, modifier)
         colour = discord.Colour.default()
         for role in reversed(member.member.roles):
             if role.colour != discord.Colour.default():
