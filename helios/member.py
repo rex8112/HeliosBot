@@ -4,9 +4,8 @@ from typing import TYPE_CHECKING, Dict, Any, Optional
 
 import discord
 
-from .abc import HasSettings, HasFlags
+from .abc import HasFlags
 from .exceptions import IdMismatchError
-from .tools.settings import Item
 from .voice_template import VoiceTemplate
 from .database import MemberModel, update_model_instance
 
@@ -18,13 +17,7 @@ if TYPE_CHECKING:
     from discord import Guild, Member
 
 
-class HeliosMember(HasFlags, HasSettings):
-    _default_settings = {
-        'activity_points': 0,
-        'points': 0,
-        'day_claimed': 0,
-        'day_liked': 0
-    }
+class HeliosMember(HasFlags):
     _allowed_flags = [
         'FORBIDDEN'
     ]
@@ -33,11 +26,13 @@ class HeliosMember(HasFlags, HasSettings):
         self._id = 0
         self.manager = manager
         self.member = member
-        self.settings = self._default_settings.copy()
         self.templates: list['VoiceTemplate'] = []
         self.flags = []
 
         self.max_horses = 8
+
+        self._activity_points = 0
+        self._point_offset = 0
 
         self._last_check = get_floor_now()
         self._partial = 0
@@ -87,25 +82,25 @@ class HeliosMember(HasFlags, HasSettings):
 
     @property
     def points(self) -> int:
-        return self.settings['points']
+        return self._activity_points + self._point_offset
 
     @points.setter
     def points(self, value: int):
         self._changed = True
         if value < 0:
             value = 0
-        self.settings['points'] = int(value)
+        self._point_offset = value - self._activity_points
 
     @property
     def activity_points(self) -> int:
-        return self.settings['activity_points']
+        return self._activity_points
 
     def add_activity_points(self, amt: int):
-        self.settings['activity_points'] += amt
+        self._activity_points += amt
         self._changed = True
 
     def set_activity_points(self, amt: int):
-        self.settings.activity_points = amt
+        self._activity_points = amt
         self._changed = True
 
     def create_template(self):
@@ -130,9 +125,9 @@ class HeliosMember(HasFlags, HasSettings):
         for temp in json.loads(data.templates):
             template = VoiceTemplate(self, temp['name'], data=temp)
             self.templates.append(template)
-        settings = {**self._default_settings, **json.loads(data.settings)}
-        self.settings = Item.deserialize_dict(settings, bot=self.bot, guild=self.guild)
         self.flags = json.loads(data.flags)
+        self._activity_points = data.activity_points
+        self._point_offset = data.point_offset
         self._new = False
         self._changed = False
 
@@ -142,8 +137,9 @@ class HeliosMember(HasFlags, HasSettings):
             'server': self.server.id,
             'member_id': self.member.id,
             'templates': json.dumps([x.serialize() for x in self.templates]),
-            'settings': json.dumps(Item.serialize_dict(self.settings)),
-            'flags': json.dumps(self.flags)
+            'flags': json.dumps(self.flags),
+            'activity_points': self._activity_points,
+            'point_offset': self._point_offset
         }
         if self._id == 0:
             del data['id']
@@ -151,15 +147,16 @@ class HeliosMember(HasFlags, HasSettings):
 
     def claim_daily(self) -> bool:
         """
+        :dep
         :return: Whether the daily could be claimed.
         """
-        stadium = self.server.stadium
-        if self.settings['day_claimed'] != stadium.day:
-            self.points += stadium.daily_points
-            self.settings['day_claimed'] = stadium.day
-            return True
-        else:
-            return False
+        # stadium = self.server.stadium
+        # if self.settings['day_claimed'] != stadium.day:
+        #     self.points += stadium.daily_points
+        #     self.settings['day_claimed'] = stadium.day
+        #     return True
+        # else:
+        return False
 
     def check_voice(self, amt: int, partial: int = 4) -> bool:
         """
