@@ -1,5 +1,11 @@
+import json
+
+import peewee
 import peewee_async
+
+from semantic_version import Version
 from peewee import *
+from playhouse.migrate import *
 
 db = peewee_async.MySQLDatabase('helios', user='helios', password='bot', host='192.168.40.101', port=3306)
 objects = peewee_async.Manager(db)
@@ -12,9 +18,47 @@ def update_model_instance(model: Model, data: dict):
             setattr(model, key, value)
 
 
+def initialize_db():
+    db.connect()
+    db.create_tables([ServerModel, MemberModel, ChannelModel])
+
+
+def migrate_members():
+    migrator = MySQLMigrator(db)
+    migrate(
+        migrator.rename_table('members', 'oldmembers')
+    )
+    query = OldMemberModel.select()
+    db.create_tables([MemberModel])
+    with db.atomic():
+        for old in query:
+            server_id = old.server.id
+            member_id = old.member_id
+            templates = old.templates
+            settings = old.settings
+            flags = old.flags
+            settings = json.loads(settings)
+            activity_points = settings['activity_points']
+            MemberModel.create(
+                id=old.id,
+                server_id=server_id,
+                member_id=member_id,
+                templates=templates,
+                activity_points=activity_points,
+                flags=flags
+            )
+
+
 class BaseModel(Model):
     class Meta:
         database = db
+
+
+class VersionModel(BaseModel):
+    version = CharField(max_length=12)
+
+    class Meta:
+        table_name = 'version'
 
 
 class ServerModel(BaseModel):
@@ -42,12 +86,25 @@ class MemberModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
     server = ForeignKeyField(ServerModel, backref='members')
     member_id = BigIntegerField()
+    activity_points = IntegerField(default=0)
+    point_offset = IntegerField(default=0)
+    templates = TextField(default='[]')
+    flags = TextField(default='[]')
+
+    class Meta:
+        table_name = 'members'
+
+
+class OldMemberModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    server = ForeignKeyField(ServerModel, backref='members')
+    member_id = BigIntegerField()
     templates = TextField(default='[]')
     settings = TextField(default='')
     flags = TextField(default='[]')
 
     class Meta:
-        table_name = 'members'
+        table_name = 'oldmembers'
 
 
 class PugModel(BaseModel):
