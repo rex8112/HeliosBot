@@ -4,12 +4,14 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from helios.tools.views import SelectMemberView
+
 if TYPE_CHECKING:
     from helios import HeliosBot, Server, HeliosMember
 
 
 def get_leaderboard_string(num: int, member: 'HeliosMember', prefix: str = ''):
-    return f'{prefix:1}{num:3}. {member.member.display_name:>32}: {member.activity_points:10,}\n'
+    return f'{prefix:2}{num:3}. {member.member.display_name:>32}: {member.activity_points:10,}\n'
 
 
 class PointsCog(commands.Cog):
@@ -22,7 +24,8 @@ class PointsCog(commands.Cog):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
         await interaction.response.send_message(
-            f'Current Points: **{member.activity_points:,}**',
+            f'Current Points: **{member.points:,}**\n'
+            f'Activity Points: **{member.activity_points:,}**',
             ephemeral=True
         )
 
@@ -41,9 +44,9 @@ class PointsCog(commands.Cog):
                 user_found = True
             leaderboard_string += get_leaderboard_string(i, mem, modifier)
         if not user_found:
-            i = members.index(member)
+            index = members.index(member)
             leaderboard_string += '...\n'
-            for i, mem in enumerate(members[i-1:i+1], start=i):
+            for i, mem in enumerate(members[index-1:index+1], start=index):
                 modifier = ''
                 if mem.member == interaction.user:
                     modifier = '>'

@@ -97,7 +97,7 @@ class MemberModel(BaseModel):
 
 class OldMemberModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
-    server = ForeignKeyField(ServerModel, backref='members')
+    server = ForeignKeyField(ServerModel, backref='oldmembers')
     member_id = BigIntegerField()
     templates = TextField(default='[]')
     settings = TextField(default='')

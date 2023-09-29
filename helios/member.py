@@ -204,6 +204,11 @@ class HeliosMember(HasFlags):
             self._db_entry = MemberModel.get(server=self.server.id, member_id=self.member.id)
         self._deserialize(self._db_entry)
 
+    async def add_points(self, price: int, description: str):
+        if price == 0:
+            return
+        self.points += price
+
 
 def get_floor_now() -> datetime.datetime:
     now = datetime.datetime.now().astimezone()
