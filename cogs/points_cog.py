@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from helios.tools.views import SelectMemberView
+from helios.shop import *
 
 if TYPE_CHECKING:
     from helios import HeliosBot, Server, HeliosMember
@@ -64,6 +64,14 @@ class PointsCog(commands.Cog):
             description=f'```{leaderboard_string}```'
         )
         await interaction.response.send_message(embed=embed)
+
+
+class HeliosShop(Shop):
+    @shop_item('Mute')
+    async def shop_mute(self, member: 'HeliosMember'):
+        """Price: variable
+        Server mute someone who is in a voice channel for an amount of time."""
+        ...
 
 
 async def setup(bot: 'HeliosBot'):

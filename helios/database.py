@@ -20,7 +20,8 @@ def update_model_instance(model: Model, data: dict):
 
 def initialize_db():
     db.connect()
-    db.create_tables([ServerModel, MemberModel, ChannelModel])
+    db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
+                      StartupActionsModel])
 
 
 def migrate_members():
@@ -105,6 +106,22 @@ class OldMemberModel(BaseModel):
 
     class Meta:
         table_name = 'oldmembers'
+
+
+class TransactionModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    member = ForeignKeyField(MemberModel, backref='transactions')
+    description = CharField(max_length=25)
+    amount = IntegerField()
+
+    class Meta:
+        table_name = 'transactions'
+
+
+class StartupActionsModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    action = CharField(max_length=25)
+    target_id = BigIntegerField()
 
 
 class PugModel(BaseModel):

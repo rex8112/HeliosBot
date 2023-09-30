@@ -36,7 +36,7 @@ def shop_item(name: str, /):
     if callable(name):
         raise TypeError('item decorator must be called not referenced.')
 
-    def decorator(func: Callable):
+    def decorator(func: Callable[['HeliosMember'], Awaitable[int]]):
         return ShopItem(name, func.__doc__, func)
     return decorator
 

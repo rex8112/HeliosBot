@@ -7,7 +7,7 @@ import discord
 from .abc import HasFlags
 from .exceptions import IdMismatchError
 from .voice_template import VoiceTemplate
-from .database import MemberModel, update_model_instance
+from .database import MemberModel, update_model_instance, objects, TransactionModel
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
@@ -208,6 +208,8 @@ class HeliosMember(HasFlags):
         if price == 0:
             return
         self.points += price
+        await objects.create(TransactionModel, member=self._db_entry,
+                             description=description[:25], amount=price)
 
 
 def get_floor_now() -> datetime.datetime:
