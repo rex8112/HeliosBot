@@ -32,7 +32,8 @@ class HeliosMember(HasFlags):
         self.max_horses = 8
 
         self._activity_points = 0
-        self._point_offset = 0
+        self._points = 0
+        self._ap_paid = 0
 
         self._last_check = get_floor_now()
         self._partial = 0
@@ -82,14 +83,14 @@ class HeliosMember(HasFlags):
 
     @property
     def points(self) -> int:
-        return self._activity_points + self._point_offset
+        return self._points
 
     @points.setter
     def points(self, value: int):
         self._changed = True
         if value < 0:
             value = 0
-        self._point_offset = value - self._activity_points
+        self._points = value
 
     @property
     def activity_points(self) -> int:
@@ -108,13 +109,6 @@ class HeliosMember(HasFlags):
         self.templates.append(template)
         return template
 
-    async def verify(self):
-        role = self.server.verified_role
-        if self.member.get_role(role.id):
-            return
-
-        await self.member.add_roles(role)
-
     def _deserialize(self, data: MemberModel):
         if self.member.id != data.member_id:
             raise IdMismatchError('Member Ids do not match.')
@@ -127,7 +121,8 @@ class HeliosMember(HasFlags):
             self.templates.append(template)
         self.flags = json.loads(data.flags)
         self._activity_points = data.activity_points
-        self._point_offset = data.point_offset
+        self._points = data.points
+        self._ap_paid = data.ap_paid
         self._new = False
         self._changed = False
 
@@ -139,7 +134,8 @@ class HeliosMember(HasFlags):
             'templates': json.dumps([x.serialize() for x in self.templates]),
             'flags': json.dumps(self.flags),
             'activity_points': self._activity_points,
-            'point_offset': self._point_offset
+            'points': self._points,
+            'ap_paid': self._ap_paid
         }
         if self._id == 0:
             del data['id']
@@ -204,12 +200,28 @@ class HeliosMember(HasFlags):
             self._db_entry = MemberModel.get(server=self.server.id, member_id=self.member.id)
         self._deserialize(self._db_entry)
 
-    async def add_points(self, price: int, description: str):
+    async def verify(self):
+        role = self.server.verified_role
+        if self.member.get_role(role.id):
+            return
+
+        await self.member.add_roles(role)
+
+    async def add_points(self, price: int, payee: str, description: str):
         if price == 0:
             return
         self.points += price
         await objects.create(TransactionModel, member=self._db_entry,
-                             description=description[:25], amount=price)
+                             description=description[:50], amount=price,
+                             payee=payee[:25])
+
+    async def payout_activity_points(self):
+        points = self._activity_points - self._ap_paid
+        if points <= 0:
+            return 0
+        await self.add_points(points, 'Helios', 'Activity Points Payout')
+        self._ap_paid = self._activity_points
+        return points
 
 
 def get_floor_now() -> datetime.datetime:

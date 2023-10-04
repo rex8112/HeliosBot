@@ -1,8 +1,10 @@
+import asyncio
+from datetime import time
 from typing import TYPE_CHECKING, Optional
 
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from helios.shop import *
 
@@ -17,6 +19,7 @@ def get_leaderboard_string(num: int, member: 'HeliosMember', prefix: str = ''):
 class PointsCog(commands.Cog):
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
+        self.pay_ap.start()
 
     @app_commands.command(name='points', description='See your current points')
     @app_commands.guild_only()
@@ -65,13 +68,14 @@ class PointsCog(commands.Cog):
         )
         await interaction.response.send_message(embed=embed)
 
-
-class HeliosShop(Shop):
-    @shop_item('Mute')
-    async def shop_mute(self, member: 'HeliosMember'):
-        """Price: variable
-        Server mute someone who is in a voice channel for an amount of time."""
-        ...
+    @tasks.loop(time=time(hour=0, minute=0))
+    async def pay_ap(self):
+        tsks = []
+        for server in self.bot.servers.servers.values():
+            for member in server.members.members.values():
+                tsks.append(member.payout_activity_points())
+        if tsks:
+            await asyncio.wait(tsks)
 
 
 async def setup(bot: 'HeliosBot'):

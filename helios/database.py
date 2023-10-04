@@ -88,7 +88,8 @@ class MemberModel(BaseModel):
     server = ForeignKeyField(ServerModel, backref='members')
     member_id = BigIntegerField()
     activity_points = IntegerField(default=0)
-    point_offset = IntegerField(default=0)
+    points = IntegerField(default=0)
+    ap_paid = IntegerField(default=0)
     templates = TextField(default='[]')
     flags = TextField(default='[]')
 
@@ -111,7 +112,8 @@ class OldMemberModel(BaseModel):
 class TransactionModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
     member = ForeignKeyField(MemberModel, backref='transactions')
-    description = CharField(max_length=25)
+    payee = CharField(max_length=25)
+    description = CharField(max_length=50)
     amount = IntegerField()
 
     class Meta:
