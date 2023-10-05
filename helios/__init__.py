@@ -1,5 +1,4 @@
-import shop
-from . import tools
+from . import tools, shop
 from .channel_manager import ChannelManager
 from .database import db, ServerModel, MemberModel, ChannelModel
 from .exceptions import *
