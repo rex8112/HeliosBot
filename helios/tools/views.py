@@ -55,13 +55,13 @@ class SelectMemberView(discord.ui.View):
         
         values = select.values
         if self.check:
-            success, message = self.check(values[0])
-            if success:
-                self.selected = values[0]
+            allowed = filter(lambda x: self.check(x)[0], values)
+            if allowed:
+                self.selected = allowed
             else:
-                await interaction.response.send_message(message, ephemeral=True)
+                await interaction.response.send_message('No Valid Selections', ephemeral=True)
                 return
         else:
-            self.selected = values[0]
+            self.selected = values
         await interaction.response.defer()
         self.stop()
