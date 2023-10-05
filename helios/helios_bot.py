@@ -1,9 +1,11 @@
 import logging
+import traceback
 from typing import Optional
 
 import discord
 from discord.ext import commands
 
+from .member import HeliosMember
 from .http import HTTPClient
 from .server_manager import ServerManager
 from .tools import Config
@@ -48,3 +50,7 @@ class HeliosBot(commands.Bot):
             await interaction.followup.send(f'Something went wrong\n```{type(error)}: {error}```')
         else:
             await interaction.response.send_message(f'Something went wrong\n```{type(error)}: {error}```')
+
+        owner = interaction.client.get_user(180067685986467840)
+        if owner:
+            await owner.send(f'```{traceback.format_exc()}```')
