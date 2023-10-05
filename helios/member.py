@@ -223,6 +223,12 @@ class HeliosMember(HasFlags):
         self._ap_paid = self._activity_points
         return points
 
+    async def temp_unmute(self):
+        if self.member.voice:
+            await self.member.edit(mute=False)
+        else:
+            self.server.add_on_voice(self, 'unmute')
+
 
 def get_floor_now() -> datetime.datetime:
     now = datetime.datetime.now().astimezone()
