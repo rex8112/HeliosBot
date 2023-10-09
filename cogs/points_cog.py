@@ -68,7 +68,7 @@ class PointsCog(commands.Cog):
         )
         await interaction.response.send_message(embed=embed)
 
-    @tasks.loop(time=time(hour=0, minute=33, tzinfo=datetime.utcnow().astimezone().tzinfo))
+    @tasks.loop(time=time(hour=0, minute=00, tzinfo=datetime.utcnow().astimezone().tzinfo))
     async def pay_ap(self):
         tsks = []
         saves = []
