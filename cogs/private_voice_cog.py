@@ -49,7 +49,7 @@ class PrivateVoiceCog(commands.Cog):
         server = self.bot.servers.get(member.guild.id)
         mem = server.members.get(member.id)
         create_channel = server.private_create_channel
-        if after.channel == create_channel:
+        if after.channel == create_channel and create_channel is not None:
             voices = [x for x in server.channels.get_type('private_voice')
                       if x.owner == mem]
             if len(voices) > 0:
