@@ -1,5 +1,5 @@
 import asyncio
-from datetime import time
+from datetime import time, datetime, timezone
 from typing import TYPE_CHECKING, Optional
 
 import discord
@@ -68,14 +68,17 @@ class PointsCog(commands.Cog):
         )
         await interaction.response.send_message(embed=embed)
 
-    @tasks.loop(time=time(hour=0, minute=0))
+    @tasks.loop(time=time(hour=0, minute=33, tzinfo=datetime.utcnow().astimezone().tzinfo))
     async def pay_ap(self):
         tsks = []
+        saves = []
         for server in self.bot.servers.servers.values():
             for member in server.members.members.values():
                 tsks.append(member.payout_activity_points())
+            saves.append(server.members.save_all())
         if tsks:
             await asyncio.wait(tsks)
+            await asyncio.wait(saves)
 
 
 async def setup(bot: 'HeliosBot'):

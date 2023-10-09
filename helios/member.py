@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import json
 from typing import TYPE_CHECKING, Dict, Any, Optional
@@ -28,6 +29,8 @@ class HeliosMember(HasFlags):
         self.member = member
         self.templates: list['VoiceTemplate'] = []
         self.flags = []
+
+        self.allow_on_voice = True
 
         self.max_horses = 8
 
@@ -223,11 +226,48 @@ class HeliosMember(HasFlags):
         self._ap_paid = self._activity_points
         return points
 
+    async def temp_mute(self, duration: int):
+        async def unmute(m):
+            await asyncio.sleep(duration)
+            if await self.temp_unmute():
+                await self.bot.event_manager.delete_action(m)
+
+        if self.member.voice:
+            await self.member.edit(mute=True)
+            self.allow_on_voice = False
+            model = await self.bot.event_manager.add_action('on_voice', self, 'unmute')
+            self.bot.loop.create_task(unmute(model))
+            return True
+        return False
+
     async def temp_unmute(self):
+        self.allow_on_voice = True
         if self.member.voice:
             await self.member.edit(mute=False)
+            return True
         else:
-            self.server.add_on_voice(self, 'unmute')
+            return False
+
+    async def get_point_mutes(self) -> int:
+        day_ago = discord.utils.utcnow() - datetime.timedelta(days=1)
+        last_muted = None
+        duration = datetime.timedelta()
+        async for audit in self.guild.audit_logs(after=day_ago, oldest_first=True,
+                                                 action=discord.AuditLogAction.member_update, user=self.guild.me):
+            if audit.target != self.member:
+                continue
+
+            try:
+                if audit.changes.before.mute is False and audit.changes.after.mute is True:
+                    last_muted = audit.created_at
+
+                if audit.changes.before.mute is True and audit.changes.after.mute is False and last_muted is not None:
+                    duration += audit.created_at - last_muted
+                    last_muted = None
+            except AttributeError:
+                ...
+
+        return int(duration.total_seconds() // 60)
 
 
 def get_floor_now() -> datetime.datetime:

@@ -1,13 +1,9 @@
 import json
 
-import peewee
 import peewee_async
-
-from semantic_version import Version
-from peewee import *
 from playhouse.migrate import *
 
-db = peewee_async.MySQLDatabase('helios', user='helios', password='bot', host='192.168.40.101', port=3306)
+db = peewee_async.MySQLDatabase('heliosTesting', user='helios', password='bot', host='192.168.40.101', port=3306)
 objects = peewee_async.Manager(db)
 
 
@@ -21,7 +17,7 @@ def update_model_instance(model: Model, data: dict):
 def initialize_db():
     db.connect()
     db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
-                      StartupActionsModel])
+                      EventModel])
 
 
 def migrate_members():
@@ -120,9 +116,11 @@ class TransactionModel(BaseModel):
         table_name = 'transactions'
 
 
-class StartupActionsModel(BaseModel):
+class EventModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
+    trigger = CharField(max_length=20)
     action = CharField(max_length=25)
+    server_id = ForeignKeyField(ServerModel, backref='startups', null=True)
     target_id = BigIntegerField()
 
 

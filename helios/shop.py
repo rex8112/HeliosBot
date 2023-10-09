@@ -1,8 +1,10 @@
+import math
 from typing import Callable, TYPE_CHECKING, Awaitable
 
 import discord
 
-from .tools.views import SelectMemberView
+from .tools.views import SelectMemberView, YesNoView
+from .views import TempMuteView
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
@@ -20,8 +22,8 @@ class ShopItem:
         self.shop = shop
 
     async def purchase(self, member: 'HeliosMember', interaction: discord.Interaction):
-        price = await self.callback(member, interaction)
-        await member.add_points(price, f'Shop Purchased: {self.name}')
+        price = await self.callback(self, member, interaction)
+        await member.add_points(-price, 'Helios', f'Shop Purchase: {self.name}')
 
 
 def shop_item(name: str, /):
@@ -61,30 +63,41 @@ class Shop:
     async def shop_mute(self, member: 'HeliosMember', interaction: discord.Interaction):
         """Price: variable
         Server mute someone who is in a voice channel for an amount of time."""
-        def check(mem: discord.Member):
-            if mem.voice is None:
-                return False, f'{mem.display_name} is not in a voice channel.'
-            if mem.voice.mute:
-                return False, f'{mem.display_name} is already muted.'
-            return True, ''
-
         await interaction.response.defer()
+        server = self.shop.bot.servers.get(interaction.guild_id)
         embed = discord.Embed(
             title='Mute',
             description='Choose someone in a voice chat to mute.',
             colour=discord.Colour.orange()
         )
-        view = SelectMemberView(member.member, check=check)
-        if interaction:
-            await interaction.response.send_message(embed=embed, view=view)
-        else:
-            await member.member.send(embed=embed, view=view)
-        await view.wait()
+        view = TempMuteView(member)
 
-        members = view.selected
-        if len(members) < 1:
-            await interaction.response.edit_message('Cancelled/Timed Out', embed=None, view=None)
+        message: discord.WebhookMessage = await interaction.followup.send(embed=embed, view=view)
+        if await view.wait():
+            await message.delete()
+
+        if not view.confirmed:
+            embed = discord.Embed(
+                title='Cancelled',
+                colour=discord.Colour.red()
+            )
+            await message.edit(embed=embed, view=None)
+            await message.delete(delay=5)
+            return 0
+        if member.points < view.value:
+            embed = discord.Embed(
+                title='Not Enough Mins',
+                colour=discord.Colour.red()
+            )
+            await message.edit(embed=embed, view=None)
+            await message.delete(delay=5)
             return 0
 
-        member = members[0]
-        # TODO: Need to get how many times recently they've been muted.
+        embed = discord.Embed(
+            title='Purchased!',
+            colour=discord.Colour.green()
+        )
+        await view.selected_member.temp_mute(view.selected_seconds)
+        await message.edit(embed=embed, view=None)
+        await message.delete(delay=5)
+        return view.value

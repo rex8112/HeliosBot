@@ -5,11 +5,13 @@ import discord
 
 from .channel_manager import ChannelManager
 from .exceptions import IdMismatchError
+from .event_manager import EventManager
 from .member_manager import MemberManager
 from .member import HeliosMember
+from .shop import Shop
 from .stadium import Stadium
 from .tools.settings import Settings
-from .database import ServerModel, update_model_instance, objects
+from .database import ServerModel, update_model_instance, objects, EventModel
 
 if TYPE_CHECKING:
     from .server_manager import ServerManager
@@ -35,9 +37,9 @@ class Server:
         self.channels = ChannelManager(self)
         self.members = MemberManager(self)
         self.stadium = Stadium(self)
+        self.shop = Shop(self.bot)
         self.topics = {}
         self.voice_controllers = []
-        self.on_voice: dict[int, list[str]] = {}
         self.settings = Settings(self._default_settings, bot=self.bot, guild=self.guild)
         self.flags = []
 
@@ -111,14 +113,8 @@ class Server:
 
         return data
 
-    def add_on_voice(self, member: 'HeliosMember', action: str, *, save=True):
-        cur = self.on_voice.get(member.id)
-        if cur:
-            cur.append(action)
-        else:
-            self.on_voice[member.id] = [action]
-        if save:
-            self.queue_save()
+    async def add_on_voice(self, member: 'HeliosMember', action: str):
+        return await self.bot.event_manager.add_action('on_voice', member, action)
 
     def queue_save(self):
         if self._save_task:
@@ -137,19 +133,21 @@ class Server:
             self._save_task = None
 
     async def do_on_voice(self, helios_member: 'HeliosMember'):
+        if helios_member.allow_on_voice is False:
+            return
         member: discord.Member = helios_member.member
-        actions = self.on_voice.get(member.id, [])
+        actions = await self.bot.event_manager.get_actions('on_voice', helios_member)
         edits = {}
         for action in actions:
-            if action == 'unmute':
+            if action.action == 'unmute':
                 edits['mute'] = False
-            elif action == 'mute':
+            elif action.action == 'mute':
                 edits['mute'] = True
-            if action == 'undeafen':
+            if action.action == 'undeafen':
                 edits['deafen'] = False
-            elif action == 'deafen':
+            elif action.action == 'deafen':
                 edits['deafen'] = True
         if len(edits) > 0:
             await member.edit(**edits)
-            del self.on_voice[member.id]
+            await self.bot.event_manager.clear_actions('on_voice', helios_member)
             await self.save()

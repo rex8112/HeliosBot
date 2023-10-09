@@ -1,4 +1,5 @@
 import datetime
+import math
 from typing import Optional, TYPE_CHECKING
 
 import discord
@@ -385,3 +386,104 @@ class VerifyView(discord.ui.View):
             colour=discord.Colour.red()
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+class TempMuteView(discord.ui.View):
+    PRICE_PER_SECOND = 1
+
+    def __init__(self, author: 'HeliosMember'):
+        super().__init__(timeout=30)
+        self.author = author
+        self.selected_member: Optional['HeliosMember'] = None
+        self.selected_seconds: int = 5
+        self.value = 0
+        self.confirmed = False
+        self.error_message: str = ''
+
+    async def get_value(self):
+        if not self.selected_member:
+            return 0
+        minutes = await self.selected_member.get_point_mutes()
+        return int((self.selected_seconds * self.PRICE_PER_SECOND) * math.pow(2, minutes))
+
+    def get_embed(self) -> discord.Embed:
+        embed = discord.Embed(
+            title='Temp Mute',
+            colour=discord.Colour.blurple(),
+            description=self.error_message
+        )
+        embed.add_field(name='Target',
+                        value=f'{self.selected_member.member.display_name if self.selected_member else "None"}')
+        embed.add_field(name='Duration', value=f'{self.selected_seconds} Seconds')
+        embed.add_field(name='Price', value=f'{self.value} Mins')
+        return embed
+
+    async def reload_message(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        self.value = await self.get_value()
+        embed = self.get_embed()
+        await interaction.edit_original_response(embed=embed, view=self)
+
+    async def verify_member(self, member: discord.Member):
+        member: 'HeliosMember' = self.author.server.members.get(member.id)
+        if not member.member.voice:
+            self.error_message = f'{member.member.display_name} is not in a voice channel.'
+            self.selected_member = None
+            return False
+        if member.member.voice.mute:
+            self.error_message = f'{member.member.display_name} is already muted.'
+            self.selected_member = None
+            return False
+        return True
+
+    @discord.ui.select(cls=discord.ui.UserSelect, row=0)
+    async def member_select(self, interaction: discord.Interaction, select: discord.ui.UserSelect):
+        member: discord.Member = select.values[0]
+        if not await self.verify_member(member):
+            await self.reload_message(interaction)
+            return
+        member: 'HeliosMember' = self.author.server.members.get(member.id)
+        self.selected_member = member
+        self.error_message = ''
+        await self.reload_message(interaction)
+
+    @discord.ui.button(label='5s', style=discord.ButtonStyle.grey, row=1)
+    async def first_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.selected_seconds = 5
+        await self.reload_message(interaction)
+
+    @discord.ui.button(label='15s', style=discord.ButtonStyle.grey, row=1)
+    async def second_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.selected_seconds = 15
+        await self.reload_message(interaction)
+
+    @discord.ui.button(label='30s', style=discord.ButtonStyle.grey, row=1)
+    async def third_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.selected_seconds = 30
+        await self.reload_message(interaction)
+
+    @discord.ui.button(label='45s', style=discord.ButtonStyle.grey, row=1)
+    async def fourth_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.selected_seconds = 45
+        await self.reload_message(interaction)
+
+    @discord.ui.button(label='60s', style=discord.ButtonStyle.grey, row=1)
+    async def fifth_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.selected_seconds = 60
+        await self.reload_message(interaction)
+
+    @discord.ui.button(label='Purchase', style=discord.ButtonStyle.green, row=2)
+    async def confirm_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self.verify_member(self.selected_member.member):
+            await self.reload_message(interaction)
+            return
+        await interaction.response.defer()
+        self.confirmed = True
+        self.stop()
+
+    @discord.ui.button(label='Cancel', style=discord.ButtonStyle.red, row=2)
+    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
+        self.stop()
+
+

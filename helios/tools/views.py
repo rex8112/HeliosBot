@@ -8,8 +8,8 @@ from .modals import SearchModal
 class YesNoView(discord.ui.View):
     def __init__(self, author: discord.Member, *, timeout=5):
         super().__init__(timeout=timeout)
-        self.author = author
-        self.value = None
+        self.author: discord.Member = author
+        self.value: Optional[bool] = None
 
     @discord.ui.button(label='Yes', style=discord.ButtonStyle.green)
     async def yes(self, interaction: discord.Interaction,
@@ -45,7 +45,7 @@ class SelectMemberView(discord.ui.View):
         self.min_select = min_select
         self.check = check
         self.current_search = None
-        self.selected = None
+        self.selected: list[discord.Member] = []
 
     @discord.ui.select(cls=discord.ui.UserSelect)
     async def select_member(self, interaction: discord.Interaction, select: discord.ui.UserSelect):

@@ -1,6 +1,6 @@
 from . import tools, shop
 from .channel_manager import ChannelManager
-from .database import db, ServerModel, MemberModel, ChannelModel
+from .database import db, initialize_db
 from .exceptions import *
 from .helios_bot import HeliosBot
 from .modals import *
