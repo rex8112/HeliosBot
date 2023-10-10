@@ -109,7 +109,7 @@ class Shop:
             title='Purchased!',
             colour=discord.Colour.green()
         )
-        if not await view.selected_member.temp_mute(view.selected_seconds, member):
+        if not await view.selected_member.temp_mute(view.selected_seconds, member, view.value):
             embed = discord.Embed(
                 title='Something Went Wrong',
                 colour=discord.Colour.red(),

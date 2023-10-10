@@ -1,7 +1,7 @@
 import asyncio
 import datetime
 import json
-from typing import TYPE_CHECKING, Dict, Any, Optional
+from typing import TYPE_CHECKING, Dict, Any, Optional, Union
 
 import discord
 
@@ -38,6 +38,7 @@ class HeliosMember(HasFlags):
         self._points = 0
         self._ap_paid = 0
 
+        self._temp_mute_data: Optional[tuple['HeliosMember', int]] = None
         self._last_check = get_floor_now()
         self._partial = 0
         self._changed = False
@@ -218,6 +219,11 @@ class HeliosMember(HasFlags):
                              description=description[:50], amount=price,
                              payee=payee[:25])
 
+    async def transfer_points(self, target: 'HeliosMember', price: int, description: str,
+                              receive_description: str = None):
+        await target.add_points(price, self.member.name, description)
+        await self.add_points(-price, target.member.name, receive_description if receive_description else description)
+
     async def payout_activity_points(self):
         points = self._activity_points - self._ap_paid
         if points <= 0:
@@ -226,7 +232,7 @@ class HeliosMember(HasFlags):
         self._ap_paid = self._activity_points
         return points
 
-    async def temp_mute(self, duration: int, muter: 'HeliosMember'):
+    async def temp_mute(self, duration: int, muter: 'HeliosMember', price: int):
         async def unmute(m):
             await asyncio.sleep(duration)
             if await self.temp_unmute():
@@ -237,6 +243,7 @@ class HeliosMember(HasFlags):
                 await self.member.edit(mute=True, reason=f'{muter.member} temp muted for {duration} seconds')
             except discord.Forbidden:
                 return False
+            self._temp_mute_data = (muter, price)
             self.allow_on_voice = False
             model = await self.bot.event_manager.add_action('on_voice', self, 'unmute')
             self.bot.loop.create_task(unmute(model))
@@ -245,18 +252,52 @@ class HeliosMember(HasFlags):
 
     async def temp_unmute(self):
         self.allow_on_voice = True
+        data = self._temp_mute_data
+        self._temp_mute_data = None
         if self.member.voice:
+            if self.member.voice.mute is False:
+                unmuter = await self.who_unmuted()
+                if unmuter:
+                    embed = discord.Embed(
+                        title='Violation!',
+                        colour=discord.Colour.red(),
+                        description=f'You have been caught in violation of the '
+                                    f'Helios Shop and have been fined **{data[1]}** Mins.'
+                    )
+                    embed2 = discord.Embed(
+                        title='Notice of Refund',
+                        colour=discord.Colour.green(),
+                        description='Your payment to temp mute was cut short and you have been refunded.'
+                    )
+                    member = self.server.members.get(unmuter.id)
+                    await member.transfer_points(data[0], data[1], 'Helios Shop Violation', 'Helios Shop Refund')
+                    try:
+                        await unmuter.send(embed=embed)
+                        await data[0].member.send(embed=embed2)
+                    except discord.Forbidden:
+                        ...
             await self.member.edit(mute=False)
             return True
         else:
             return False
 
+    async def who_unmuted(self) -> Optional[Union[discord.Member, discord.User]]:
+        async for audit in self.guild.audit_logs(action=discord.AuditLogAction.member_update):
+            if audit.target != self.member:
+                continue
+            try:
+                if audit.changes.before.mute is True and audit.changes.after.mute is False:
+                    return audit.user
+            except AttributeError:
+                continue
+        return None
+
     async def get_point_mutes(self) -> int:
         day_ago = discord.utils.utcnow() - datetime.timedelta(days=1)
         last_muted = None
         duration = datetime.timedelta()
-        async for audit in self.guild.audit_logs(after=day_ago, oldest_first=True,
-                                                 action=discord.AuditLogAction.member_update, user=self.guild.me):
+        async for audit in self.guild.audit_logs(after=day_ago, oldest_first=True, limit=None,
+                                                 action=discord.AuditLogAction.member_update):
             if audit.target != self.member:
                 continue
 
