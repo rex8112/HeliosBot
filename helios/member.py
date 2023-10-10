@@ -221,8 +221,8 @@ class HeliosMember(HasFlags):
 
     async def transfer_points(self, target: 'HeliosMember', price: int, description: str,
                               receive_description: str = None):
-        await target.add_points(price, self.member.name, description)
-        await self.add_points(-price, target.member.name, receive_description if receive_description else description)
+        await target.add_points(price, self.member.name, receive_description if receive_description else description)
+        await self.add_points(-price, target.member.name, description)
 
     async def payout_activity_points(self):
         points = self._activity_points - self._ap_paid
@@ -257,7 +257,7 @@ class HeliosMember(HasFlags):
         if self.member.voice:
             if self.member.voice.mute is False:
                 unmuter = await self.who_unmuted()
-                if unmuter:
+                if unmuter and unmuter != data[0].member:
                     embed = discord.Embed(
                         title='Violation!',
                         colour=discord.Colour.red(),
