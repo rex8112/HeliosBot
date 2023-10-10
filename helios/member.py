@@ -226,7 +226,7 @@ class HeliosMember(HasFlags):
         self._ap_paid = self._activity_points
         return points
 
-    async def temp_mute(self, duration: int):
+    async def temp_mute(self, duration: int, muter: 'HeliosMember'):
         async def unmute(m):
             await asyncio.sleep(duration)
             if await self.temp_unmute():
@@ -234,7 +234,7 @@ class HeliosMember(HasFlags):
 
         if self.member.voice:
             try:
-                await self.member.edit(mute=True)
+                await self.member.edit(mute=True, reason=f'{muter.member} temp muted for {duration} seconds')
             except discord.Forbidden:
                 return False
             self.allow_on_voice = False
