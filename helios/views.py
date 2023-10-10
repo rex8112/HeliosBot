@@ -413,7 +413,7 @@ class TempMuteView(discord.ui.View):
     PRICE_PER_SECOND = 1
 
     def __init__(self, author: 'HeliosMember'):
-        super().__init__(timeout=30)
+        super().__init__(timeout=60)
         self.author = author
         self.selected_member: Optional['HeliosMember'] = None
         self.selected_seconds: int = 5
@@ -458,10 +458,10 @@ class TempMuteView(discord.ui.View):
             self.error_message = f'{member.member.display_name} is already muted.'
             self.selected_member = None
             return False
-        if member.member.top_role > member.member.guild.me.top_role or member.member.guild.owner == member.member:
-            self.error_message = f'I am sorry, I could not mute {member.member.display_name} even if I wanted to.'
-            self.selected_member = None
-            return False
+        # if member.member.top_role > member.member.guild.me.top_role or member.member.guild.owner == member.member:
+        #     self.error_message = f'I am sorry, I could not mute {member.member.display_name} even if I wanted to.'
+        #     self.selected_member = None
+        #     return False
         return True
 
     @discord.ui.select(cls=discord.ui.UserSelect, row=0)

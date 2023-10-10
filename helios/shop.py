@@ -80,7 +80,12 @@ class Shop:
 
         message: discord.InteractionMessage = await interaction.edit_original_response(embed=embed, view=view)
         if await view.wait():
-            await message.delete()
+            embed = discord.Embed(
+                title='Timed out',
+                colour=discord.Colour.red()
+            )
+            await message.edit(embed=embed, view=None)
+            return 0
 
         if not view.confirmed:
             embed = discord.Embed(
@@ -88,7 +93,6 @@ class Shop:
                 colour=discord.Colour.red()
             )
             await message.edit(embed=embed, view=None)
-            await message.delete(delay=5)
             return 0
         if member.points < view.value:
             embed = discord.Embed(
@@ -96,22 +100,19 @@ class Shop:
                 colour=discord.Colour.red()
             )
             await message.edit(embed=embed, view=None)
-            await message.delete(delay=5)
             return 0
 
         embed = discord.Embed(
             title='Purchased!',
             colour=discord.Colour.green()
         )
-        if not await view.selected_member.temp_mute(view.selected_seconds):
+        if not await view.selected_member.temp_mute(view.selected_seconds, member, view.value):
             embed = discord.Embed(
                 title='Something Went Wrong',
                 colour=discord.Colour.red(),
                 description='Sorry, I could not mute this person.'
             )
             await message.edit(embed=embed, view=None)
-            await message.delete(delay=5)
             return 0
         await message.edit(embed=embed, view=None)
-        await message.delete(delay=5)
         return view.value
