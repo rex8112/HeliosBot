@@ -85,7 +85,6 @@ class Shop:
                 colour=discord.Colour.red()
             )
             await message.edit(embed=embed, view=None)
-            await message.delete(delay=5)
             return 0
 
         if not view.confirmed:
@@ -94,7 +93,6 @@ class Shop:
                 colour=discord.Colour.red()
             )
             await message.edit(embed=embed, view=None)
-            await message.delete(delay=5)
             return 0
         if member.points < view.value:
             embed = discord.Embed(
@@ -102,7 +100,6 @@ class Shop:
                 colour=discord.Colour.red()
             )
             await message.edit(embed=embed, view=None)
-            await message.delete(delay=5)
             return 0
 
         embed = discord.Embed(
@@ -116,8 +113,6 @@ class Shop:
                 description='Sorry, I could not mute this person.'
             )
             await message.edit(embed=embed, view=None)
-            await message.delete(delay=5)
             return 0
         await message.edit(embed=embed, view=None)
-        await message.delete(delay=5)
         return view.value
