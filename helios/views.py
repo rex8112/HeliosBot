@@ -413,7 +413,7 @@ class TempMuteView(discord.ui.View):
     PRICE_PER_SECOND = 1
 
     def __init__(self, author: 'HeliosMember'):
-        super().__init__(timeout=30)
+        super().__init__(timeout=60)
         self.author = author
         self.selected_member: Optional['HeliosMember'] = None
         self.selected_seconds: int = 5
