@@ -5,7 +5,7 @@ import discord
 import peewee
 
 from .member import HeliosMember
-from .database import MemberModel
+from .database import MemberModel, objects
 
 if TYPE_CHECKING:
     from .server import Server
@@ -32,7 +32,7 @@ class MemberManager:
         if member and not force:
             return member
         try:
-            mem_data = await MemberModel.get(id=member_id)
+            mem_data = await objects.get(MemberModel, member_id=member_id, server_id=self.guild.id)
         except peewee.DoesNotExist:
             mem_data = None
         mem = self.guild.get_member(member_id)
