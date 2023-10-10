@@ -90,6 +90,7 @@ class VerificationCog(commands.Cog):
         else:
             await interaction.followup.send('Everyone is already Verified!')
 
+
 @app_commands.guild_only()
 class PugGroup(app_commands.Group):
     ...

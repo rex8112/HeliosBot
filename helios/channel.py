@@ -282,6 +282,7 @@ class TopicChannel(Channel):
             if '🛑' in self.channel.name:
                 await self.channel.edit(name=self.channel.name.replace('🛑', ''))
 
+    # noinspection PyArgumentList
     async def set_archive(self, state: bool, post=True) -> None:
         self.set_flag('ARCHIVED', state)
         self.archive_at = None
@@ -599,6 +600,7 @@ class VoiceChannel(Channel):
         await self.channel.edit(name=f'<Neutral> {self.channel.name}')
         await self.update_message()
 
+    # noinspection PyArgumentList
     async def apply_template(self, template: 'VoiceTemplate'):
         await self.channel.edit(
             name=template.name,
@@ -623,6 +625,7 @@ class VoiceChannel(Channel):
                     template.denied[target.id] = target
         await template.save()
 
+    # noinspection PyArgumentList
     async def update_permissions(self, template: 'VoiceTemplate'):
         await self.channel.edit(overwrites=template.overwrites)
 

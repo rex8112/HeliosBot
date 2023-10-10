@@ -1,13 +1,17 @@
 import discord
+from typing import TYPE_CHECKING
 
 from discord import app_commands
 from discord.ext import commands
+
+if TYPE_CHECKING:
+    from helios import HeliosBot
 
 TESTING_GUILD = discord.Object(id=466060673651310593)
 
 
 class TestingCog(commands.Cog):
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
 
     @commands.command()
@@ -29,5 +33,5 @@ class TestingCog(commands.Cog):
         await interaction.response.send_message('Pong!')
 
 
-async def setup(bot: commands.Bot) -> None:
+async def setup(bot: 'HeliosBot') -> None:
     await bot.add_cog(TestingCog(bot))

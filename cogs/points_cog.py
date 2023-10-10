@@ -1,16 +1,26 @@
+import asyncio
+from datetime import time, datetime, timezone
 from typing import TYPE_CHECKING, Optional
 
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
+
+from helios.shop import *
+from helios import ShopView
 
 if TYPE_CHECKING:
-    from helios import HeliosBot, Server
+    from helios import HeliosBot, Server, HeliosMember
+
+
+def get_leaderboard_string(num: int, member: 'HeliosMember', prefix: str = ''):
+    return f'{prefix:2}{num:3}. {member.member.display_name:>32}: {member.activity_points:10,}\n'
 
 
 class PointsCog(commands.Cog):
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
+        self.pay_ap.start()
 
     @app_commands.command(name='points', description='See your current points')
     @app_commands.guild_only()
@@ -18,7 +28,8 @@ class PointsCog(commands.Cog):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
         await interaction.response.send_message(
-            f'Current Points: **{member.activity_points:,}**',
+            f'Current Mins: **{member.points:,}**\n'
+            f'Activity Mins: **{member.activity_points:,}**',
             ephemeral=True
         )
 
@@ -35,17 +46,54 @@ class PointsCog(commands.Cog):
             if mem.member == interaction.user:
                 modifier = '>'
                 user_found = True
-            leaderboard_string += f'{modifier:1}{i:2}. {mem.member.display_name:>32}: {mem.activity_points:10,}\n'
+            leaderboard_string += get_leaderboard_string(i, mem, modifier)
         if not user_found:
-            i = members.index(member)
-            leaderboard_string += ('...\n'
-                                   f'>{i:2}. {member.member.display_name:>32}: {member.activity_points:10,}')
+            index = members.index(member)
+            leaderboard_string += '...\n'
+            for i, mem in enumerate(members[index-1:index+1], start=index):
+                modifier = ''
+                if mem.member == interaction.user:
+                    modifier = '>'
+                leaderboard_string += get_leaderboard_string(i, mem, modifier)
+        colour = discord.Colour.default()
+        for role in reversed(member.member.roles):
+            if role.colour != discord.Colour.default():
+                if server.guild.premium_subscriber_role and role.colour == server.guild.premium_subscriber_role.colour:
+                    continue
+                colour = role.colour
+                break
         embed = discord.Embed(
-            colour=member.member.top_role.colour,
+            colour=colour,
             title=f'{member.guild.name} Leaderboard',
             description=f'```{leaderboard_string}```'
         )
         await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name='shop', description='View the shop to spend points')
+    @app_commands.guild_only()
+    async def shop(self, interaction: discord.Interaction):
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        embed = discord.Embed(
+            title=f'{interaction.guild.name} Shop',
+            colour=discord.Colour.orange(),
+            description='Available Items'
+        )
+        [embed.add_field(name=x.name, value=x.desc, inline=False) for x in server.shop.items]
+        view = ShopView(member)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+    @tasks.loop(time=time(hour=0, minute=0, tzinfo=datetime.utcnow().astimezone().tzinfo))
+    async def pay_ap(self):
+        tsks = []
+        saves = []
+        for server in self.bot.servers.servers.values():
+            for member in server.members.members.values():
+                tsks.append(member.payout_activity_points())
+            saves.append(server.members.save_all())
+        if tsks:
+            await asyncio.wait(tsks)
+            await asyncio.wait(saves)
 
 
 async def setup(bot: 'HeliosBot'):

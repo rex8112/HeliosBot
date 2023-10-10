@@ -62,12 +62,16 @@ class EventsCog(commands.Cog):
                                     after: discord.VoiceState
                                     ):
         server = self.bot.servers.get(member.guild.id)
+        helios_member = server.members.get(member.id)
         role = server.voice_controller_role
-        if role is None:
-            return
         if after.channel is None:
             return
         if before.channel is not None:
+            return
+
+        await server.do_on_voice(helios_member)
+
+        if role is None:
             return
         if role in member.roles:
             fix = True

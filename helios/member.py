@@ -1,14 +1,14 @@
+import asyncio
 import datetime
 import json
 from typing import TYPE_CHECKING, Dict, Any, Optional
 
 import discord
 
-from .abc import HasSettings, HasFlags
+from .abc import HasFlags
 from .exceptions import IdMismatchError
-from .tools.settings import Item
 from .voice_template import VoiceTemplate
-from .database import MemberModel, update_model_instance
+from .database import MemberModel, update_model_instance, objects, TransactionModel
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
@@ -18,13 +18,7 @@ if TYPE_CHECKING:
     from discord import Guild, Member
 
 
-class HeliosMember(HasFlags, HasSettings):
-    _default_settings = {
-        'activity_points': 0,
-        'points': 0,
-        'day_claimed': 0,
-        'day_liked': 0
-    }
+class HeliosMember(HasFlags):
     _allowed_flags = [
         'FORBIDDEN'
     ]
@@ -33,11 +27,16 @@ class HeliosMember(HasFlags, HasSettings):
         self._id = 0
         self.manager = manager
         self.member = member
-        self.settings = self._default_settings.copy()
         self.templates: list['VoiceTemplate'] = []
         self.flags = []
 
+        self.allow_on_voice = True
+
         self.max_horses = 8
+
+        self._activity_points = 0
+        self._points = 0
+        self._ap_paid = 0
 
         self._last_check = get_floor_now()
         self._partial = 0
@@ -87,38 +86,31 @@ class HeliosMember(HasFlags, HasSettings):
 
     @property
     def points(self) -> int:
-        return self.settings['points']
+        return self._points
 
     @points.setter
     def points(self, value: int):
         self._changed = True
         if value < 0:
             value = 0
-        self.settings['points'] = int(value)
+        self._points = value
 
     @property
     def activity_points(self) -> int:
-        return self.settings['activity_points']
+        return self._activity_points
 
     def add_activity_points(self, amt: int):
-        self.settings['activity_points'] += amt
+        self._activity_points += amt
         self._changed = True
 
     def set_activity_points(self, amt: int):
-        self.settings.activity_points = amt
+        self._activity_points = amt
         self._changed = True
 
     def create_template(self):
         template = VoiceTemplate(self, name=self.member.name)
         self.templates.append(template)
         return template
-
-    async def verify(self):
-        role = self.server.verified_role
-        if self.member.get_role(role.id):
-            return
-
-        await self.member.add_roles(role)
 
     def _deserialize(self, data: MemberModel):
         if self.member.id != data.member_id:
@@ -130,9 +122,10 @@ class HeliosMember(HasFlags, HasSettings):
         for temp in json.loads(data.templates):
             template = VoiceTemplate(self, temp['name'], data=temp)
             self.templates.append(template)
-        settings = {**self._default_settings, **json.loads(data.settings)}
-        self.settings = Item.deserialize_dict(settings, bot=self.bot, guild=self.guild)
         self.flags = json.loads(data.flags)
+        self._activity_points = data.activity_points
+        self._points = data.points
+        self._ap_paid = data.ap_paid
         self._new = False
         self._changed = False
 
@@ -142,8 +135,10 @@ class HeliosMember(HasFlags, HasSettings):
             'server': self.server.id,
             'member_id': self.member.id,
             'templates': json.dumps([x.serialize() for x in self.templates]),
-            'settings': json.dumps(Item.serialize_dict(self.settings)),
-            'flags': json.dumps(self.flags)
+            'flags': json.dumps(self.flags),
+            'activity_points': self._activity_points,
+            'points': self._points,
+            'ap_paid': self._ap_paid
         }
         if self._id == 0:
             del data['id']
@@ -151,15 +146,16 @@ class HeliosMember(HasFlags, HasSettings):
 
     def claim_daily(self) -> bool:
         """
+        :dep
         :return: Whether the daily could be claimed.
         """
-        stadium = self.server.stadium
-        if self.settings['day_claimed'] != stadium.day:
-            self.points += stadium.daily_points
-            self.settings['day_claimed'] = stadium.day
-            return True
-        else:
-            return False
+        # stadium = self.server.stadium
+        # if self.settings['day_claimed'] != stadium.day:
+        #     self.points += stadium.daily_points
+        #     self.settings['day_claimed'] = stadium.day
+        #     return True
+        # else:
+        return False
 
     def check_voice(self, amt: int, partial: int = 4) -> bool:
         """
@@ -206,6 +202,75 @@ class HeliosMember(HasFlags, HasSettings):
         else:
             self._db_entry = MemberModel.get(server=self.server.id, member_id=self.member.id)
         self._deserialize(self._db_entry)
+
+    async def verify(self):
+        role = self.server.verified_role
+        if self.member.get_role(role.id):
+            return
+
+        await self.member.add_roles(role)
+
+    async def add_points(self, price: int, payee: str, description: str):
+        if price == 0:
+            return
+        self.points += price
+        await objects.create(TransactionModel, member=self._db_entry,
+                             description=description[:50], amount=price,
+                             payee=payee[:25])
+
+    async def payout_activity_points(self):
+        points = self._activity_points - self._ap_paid
+        if points <= 0:
+            return 0
+        await self.add_points(points, 'Helios', 'Activity Points Payout')
+        self._ap_paid = self._activity_points
+        return points
+
+    async def temp_mute(self, duration: int):
+        async def unmute(m):
+            await asyncio.sleep(duration)
+            if await self.temp_unmute():
+                await self.bot.event_manager.delete_action(m)
+
+        if self.member.voice:
+            try:
+                await self.member.edit(mute=True)
+            except discord.Forbidden:
+                return False
+            self.allow_on_voice = False
+            model = await self.bot.event_manager.add_action('on_voice', self, 'unmute')
+            self.bot.loop.create_task(unmute(model))
+            return True
+        return False
+
+    async def temp_unmute(self):
+        self.allow_on_voice = True
+        if self.member.voice:
+            await self.member.edit(mute=False)
+            return True
+        else:
+            return False
+
+    async def get_point_mutes(self) -> int:
+        day_ago = discord.utils.utcnow() - datetime.timedelta(days=1)
+        last_muted = None
+        duration = datetime.timedelta()
+        async for audit in self.guild.audit_logs(after=day_ago, oldest_first=True,
+                                                 action=discord.AuditLogAction.member_update, user=self.guild.me):
+            if audit.target != self.member:
+                continue
+
+            try:
+                if audit.changes.before.mute is False and audit.changes.after.mute is True:
+                    last_muted = audit.created_at
+
+                if audit.changes.before.mute is True and audit.changes.after.mute is False and last_muted is not None:
+                    duration += audit.created_at - last_muted
+                    last_muted = None
+            except AttributeError:
+                ...
+
+        return int(duration.total_seconds() // 60)
 
 
 def get_floor_now() -> datetime.datetime:
