@@ -1,9 +1,7 @@
-import math
-from typing import Callable, TYPE_CHECKING, Awaitable
+from typing import Callable, TYPE_CHECKING, Awaitable, Optional
 
 import discord
 
-from .tools.views import SelectMemberView, YesNoView
 from .views import TempMuteView
 
 if TYPE_CHECKING:
@@ -12,7 +10,7 @@ if TYPE_CHECKING:
 
 
 class ShopItem:
-    def __init__(self, name: str, desc: str, callback: Callable[['HeliosMember', discord.Interaction], Awaitable[int]]):
+    def __init__(self, name: str, desc: str, callback: Callable[['ShopItem', 'HeliosMember', discord.Interaction], Awaitable[int]]):
         self.name = name
         self.desc = desc
         self.shop = None
@@ -30,7 +28,7 @@ def shop_item(name: str, /):
     if callable(name):
         raise TypeError('item decorator must be called not referenced.')
 
-    def decorator(func: Callable[['HeliosMember'], Awaitable[int]]):
+    def decorator(func: Callable[['ShopItem', 'HeliosMember', discord.Interaction], Awaitable[int]]):
         return ShopItem(name, func.__doc__, func)
     return decorator
 
@@ -47,6 +45,18 @@ class Shop:
             options.append(option)
         return options
 
+    def get_names(self) -> list[str]:
+        names = []
+        for item in self.items:
+            names.append(item.name)
+        return names
+
+    def get_item(self, name: str) -> Optional['ShopItem']:
+        for item in self.items:
+            if item.name == name:
+                return item
+            return None
+
     def _get_items(self) -> list['ShopItem']:
         items = []
         for attr_name in dir(self):
@@ -60,19 +70,15 @@ class Shop:
         return items
 
     @shop_item('Mute')
-    async def shop_mute(self, member: 'HeliosMember', interaction: discord.Interaction):
+    async def shop_mute(self: ShopItem, member: 'HeliosMember', interaction: discord.Interaction):
         """Price: variable
         Server mute someone who is in a voice channel for an amount of time."""
-        await interaction.response.defer()
-        server = self.shop.bot.servers.get(interaction.guild_id)
-        embed = discord.Embed(
-            title='Mute',
-            description='Choose someone in a voice chat to mute.',
-            colour=discord.Colour.orange()
-        )
+        await interaction.response.defer(ephemeral=True)
+        # server = self.shop.bot.servers.get(interaction.guild_id)
         view = TempMuteView(member)
+        embed = view.get_embed()
 
-        message: discord.WebhookMessage = await interaction.followup.send(embed=embed, view=view)
+        message: discord.InteractionMessage = await interaction.edit_original_response(embed=embed, view=view)
         if await view.wait():
             await message.delete()
 
@@ -97,7 +103,15 @@ class Shop:
             title='Purchased!',
             colour=discord.Colour.green()
         )
-        await view.selected_member.temp_mute(view.selected_seconds)
+        if not await view.selected_member.temp_mute(view.selected_seconds):
+            embed = discord.Embed(
+                title='Something Went Wrong',
+                colour=discord.Colour.red(),
+                description='Sorry, I could not mute this person.'
+            )
+            await message.edit(embed=embed, view=None)
+            await message.delete(delay=5)
+            return 0
         await message.edit(embed=embed, view=None)
         await message.delete(delay=5)
         return view.value

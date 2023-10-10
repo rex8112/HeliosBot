@@ -32,13 +32,6 @@ class TestingCog(commands.Cog):
         """ /ping """
         await interaction.response.send_message('Pong!')
 
-    @app_commands.command(name='testtempmute')
-    async def minutes_command(self, interaction: discord.Interaction):
-        server = self.bot.servers.get(interaction.guild_id)
-        member = server.members.get(interaction.user.id)
-        item = server.shop.items[0]
-        await item.purchase(member, interaction)
-
 
 async def setup(bot: 'HeliosBot') -> None:
     await bot.add_cog(TestingCog(bot))

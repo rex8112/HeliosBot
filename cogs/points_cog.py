@@ -7,6 +7,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 from helios.shop import *
+from helios import ShopView
 
 if TYPE_CHECKING:
     from helios import HeliosBot, Server, HeliosMember
@@ -27,8 +28,8 @@ class PointsCog(commands.Cog):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
         await interaction.response.send_message(
-            f'Current Points: **{member.points:,}**\n'
-            f'Activity Points: **{member.activity_points:,}**',
+            f'Current Mins: **{member.points:,}**\n'
+            f'Activity Mins: **{member.activity_points:,}**',
             ephemeral=True
         )
 
@@ -68,7 +69,21 @@ class PointsCog(commands.Cog):
         )
         await interaction.response.send_message(embed=embed)
 
-    @tasks.loop(time=time(hour=0, minute=00, tzinfo=datetime.utcnow().astimezone().tzinfo))
+    @app_commands.command(name='shop', description='View the shop to spend points')
+    @app_commands.guild_only()
+    async def shop(self, interaction: discord.Interaction):
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        embed = discord.Embed(
+            title=f'{interaction.guild.name} Shop',
+            colour=discord.Colour.orange(),
+            description='Available Items'
+        )
+        [embed.add_field(name=x.name, value=x.desc, inline=False) for x in server.shop.items]
+        view = ShopView(member)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+    @tasks.loop(time=time(hour=0, minute=0, tzinfo=datetime.utcnow().astimezone().tzinfo))
     async def pay_ap(self):
         tsks = []
         saves = []

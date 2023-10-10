@@ -388,6 +388,27 @@ class VerifyView(discord.ui.View):
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
+class ShopView(discord.ui.View):
+    def __init__(self, author: 'HeliosMember'):
+        super().__init__(timeout=60)
+        self.author = author
+        self.shop = author.server.shop
+        self.shop_select.options = self.shop.get_select_options()
+
+    @discord.ui.select(placeholder='Select Shop Item')
+    async def shop_select(self, interaction: discord.Interaction, select: discord.ui.Select):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
+        choice = select.values[0]
+        shop_item = self.shop.get_item(choice)
+        if shop_item is None:
+            await interaction.response.send_message(content='Hmmm. You should not see this.', ephemeral=True)
+            return
+
+        await shop_item.purchase(self.author, interaction)
+
+
 class TempMuteView(discord.ui.View):
     PRICE_PER_SECOND = 1
 
@@ -416,6 +437,9 @@ class TempMuteView(discord.ui.View):
                         value=f'{self.selected_member.member.display_name if self.selected_member else "None"}')
         embed.add_field(name='Duration', value=f'{self.selected_seconds} Seconds')
         embed.add_field(name='Price', value=f'{self.value} Mins')
+        embed.set_footer(text=f'Your Points: {self.author.points}')
+        if self.selected_member:
+            embed.set_thumbnail(url=self.selected_member.member.display_avatar.url)
         return embed
 
     async def reload_message(self, interaction: discord.Interaction):
@@ -432,6 +456,10 @@ class TempMuteView(discord.ui.View):
             return False
         if member.member.voice.mute:
             self.error_message = f'{member.member.display_name} is already muted.'
+            self.selected_member = None
+            return False
+        if member.member.top_role > member.member.guild.me.top_role or member.member.guild.owner == member.member:
+            self.error_message = f'I am sorry, I could not mute {member.member.display_name} even if I wanted to.'
             self.selected_member = None
             return False
         return True

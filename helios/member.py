@@ -233,7 +233,10 @@ class HeliosMember(HasFlags):
                 await self.bot.event_manager.delete_action(m)
 
         if self.member.voice:
-            await self.member.edit(mute=True)
+            try:
+                await self.member.edit(mute=True)
+            except discord.Forbidden:
+                return False
             self.allow_on_voice = False
             model = await self.bot.event_manager.add_action('on_voice', self, 'unmute')
             self.bot.loop.create_task(unmute(model))
