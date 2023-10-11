@@ -390,23 +390,21 @@ class VerifyView(discord.ui.View):
 
 class ShopView(discord.ui.View):
     def __init__(self, author: 'HeliosMember'):
-        super().__init__(timeout=60)
+        super().__init__(timeout=600)
         self.author = author
         self.shop = author.server.shop
         self.shop_select.options = self.shop.get_select_options()
 
     @discord.ui.select(placeholder='Select Shop Item')
     async def shop_select(self, interaction: discord.Interaction, select: discord.ui.Select):
-        if interaction.user != self.author.member:
-            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
-            return
+        author = self.author.server.members.get(interaction.user.id)
         choice = select.values[0]
         shop_item = self.shop.get_item(choice)
         if shop_item is None:
             await interaction.response.send_message(content='Hmmm. You should not see this.', ephemeral=True)
             return
 
-        await shop_item.purchase(self.author, interaction)
+        await shop_item.purchase(author, interaction)
 
 
 class TempMuteView(discord.ui.View):

@@ -81,7 +81,7 @@ class PointsCog(commands.Cog):
         )
         [embed.add_field(name=x.name, value=x.desc, inline=False) for x in server.shop.items]
         view = ShopView(member)
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await interaction.response.send_message(embed=embed, view=view)
 
     @tasks.loop(time=time(hour=0, minute=0, tzinfo=datetime.utcnow().astimezone().tzinfo))
     async def pay_ap(self):
