@@ -81,7 +81,8 @@ class PointsCog(commands.Cog):
         )
         [embed.add_field(name=x.name, value=x.desc, inline=False) for x in server.shop.items]
         view = ShopView(member)
-        message = await interaction.response.send_message(embed=embed, view=view)
+        await interaction.response.send_message(embed=embed, view=view)
+        message = await interaction.original_response()
         await view.wait()
         await message.delete()
 
