@@ -1,5 +1,6 @@
 import datetime
 import math
+from types import MethodType
 from typing import Optional, TYPE_CHECKING
 
 import discord
@@ -390,23 +391,22 @@ class VerifyView(discord.ui.View):
 
 class ShopView(discord.ui.View):
     def __init__(self, author: 'HeliosMember'):
-        super().__init__(timeout=60)
+        super().__init__(timeout=600)
         self.author = author
         self.shop = author.server.shop
-        self.shop_select.options = self.shop.get_select_options()
+        self.make_buttons()
 
-    @discord.ui.select(placeholder='Select Shop Item')
-    async def shop_select(self, interaction: discord.Interaction, select: discord.ui.Select):
-        if interaction.user != self.author.member:
-            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
-            return
-        choice = select.values[0]
-        shop_item = self.shop.get_item(choice)
-        if shop_item is None:
-            await interaction.response.send_message(content='Hmmm. You should not see this.', ephemeral=True)
-            return
-
-        await shop_item.purchase(self.author, interaction)
+    def make_buttons(self):
+        for item in self.shop.items:
+            async def callback(s: discord.ui.Button, interaction: discord.Interaction):
+                author = self.author.server.members.get(interaction.user.id)
+                await item.purchase(author, interaction)
+            button = discord.ui.Button(
+                style=discord.ButtonStyle.grey,
+                label=item.name
+            )
+            button.callback = MethodType(callback, button)
+            self.add_item(button)
 
 
 class TempMuteView(discord.ui.View):
@@ -436,8 +436,8 @@ class TempMuteView(discord.ui.View):
         embed.add_field(name='Target',
                         value=f'{self.selected_member.member.display_name if self.selected_member else "None"}')
         embed.add_field(name='Duration', value=f'{self.selected_seconds} Seconds')
-        embed.add_field(name='Price', value=f'{self.value} Mins')
-        embed.set_footer(text=f'Your Points: {self.author.points}')
+        embed.add_field(name='Price', value=f'{self.value} {self.author.server.points_name.capitalize()}')
+        embed.set_footer(text=f'Your {self.author.server.points_name.capitalize()}: {self.author.points}')
         if self.selected_member:
             embed.set_thumbnail(url=self.selected_member.member.display_avatar.url)
         return embed
@@ -466,6 +466,9 @@ class TempMuteView(discord.ui.View):
 
     @discord.ui.select(cls=discord.ui.UserSelect, row=0)
     async def member_select(self, interaction: discord.Interaction, select: discord.ui.UserSelect):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
         member: discord.Member = select.values[0]
         if not await self.verify_member(member):
             await self.reload_message(interaction)
@@ -477,31 +480,49 @@ class TempMuteView(discord.ui.View):
 
     @discord.ui.button(label='5s', style=discord.ButtonStyle.grey, row=1)
     async def first_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
         self.selected_seconds = 5
         await self.reload_message(interaction)
 
     @discord.ui.button(label='15s', style=discord.ButtonStyle.grey, row=1)
     async def second_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
         self.selected_seconds = 15
         await self.reload_message(interaction)
 
     @discord.ui.button(label='30s', style=discord.ButtonStyle.grey, row=1)
     async def third_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
         self.selected_seconds = 30
         await self.reload_message(interaction)
 
     @discord.ui.button(label='45s', style=discord.ButtonStyle.grey, row=1)
     async def fourth_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
         self.selected_seconds = 45
         await self.reload_message(interaction)
 
     @discord.ui.button(label='60s', style=discord.ButtonStyle.grey, row=1)
     async def fifth_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
         self.selected_seconds = 60
         await self.reload_message(interaction)
 
     @discord.ui.button(label='Purchase', style=discord.ButtonStyle.green, row=2)
     async def confirm_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
         if not await self.verify_member(self.selected_member.member):
             await self.reload_message(interaction)
             return
@@ -511,6 +532,9 @@ class TempMuteView(discord.ui.View):
 
     @discord.ui.button(label='Cancel', style=discord.ButtonStyle.red, row=2)
     async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
         await interaction.response.defer()
         self.stop()
 

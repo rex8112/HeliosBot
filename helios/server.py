@@ -26,7 +26,8 @@ class Server:
         'partial': 4,
         'points_per_minute': 1,
         'private_create': None,
-        'on_voice': {}
+        'on_voice': {},
+        'points_name': 'mins'
     }
 
     def __init__(self, manager: 'ServerManager', guild: discord.Guild):
@@ -76,6 +77,10 @@ class Server:
         if role is None:
             self.settings.verified_role = None
         return role
+
+    @property
+    def points_name(self) -> str:
+        return self.settings.points_name
 
     @classmethod
     def new(cls, manager: 'ServerManager', guild: discord.Guild):

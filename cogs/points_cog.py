@@ -28,8 +28,8 @@ class PointsCog(commands.Cog):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
         await interaction.response.send_message(
-            f'Current Mins: **{member.points:,}**\n'
-            f'Activity Mins: **{member.activity_points:,}**',
+            f'Current {server.points_name.capitalize()}: **{member.points:,}**\n'
+            f'Activity {server.points_name.capitalize()}: **{member.activity_points:,}**',
             ephemeral=True
         )
 
@@ -50,7 +50,7 @@ class PointsCog(commands.Cog):
         if not user_found:
             index = members.index(member)
             leaderboard_string += '...\n'
-            for i, mem in enumerate(members[index-1:index+1], start=index):
+            for i, mem in enumerate(members[index-1:index+2], start=index):
                 modifier = ''
                 if mem.member == interaction.user:
                     modifier = '>'
@@ -81,7 +81,10 @@ class PointsCog(commands.Cog):
         )
         [embed.add_field(name=x.name, value=x.desc, inline=False) for x in server.shop.items]
         view = ShopView(member)
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await interaction.response.send_message(embed=embed, view=view)
+        message = await interaction.original_response()
+        await view.wait()
+        await message.delete()
 
     @tasks.loop(time=time(hour=0, minute=0, tzinfo=datetime.utcnow().astimezone().tzinfo))
     async def pay_ap(self):

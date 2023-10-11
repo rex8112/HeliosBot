@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import json
+import re
 from typing import TYPE_CHECKING, Dict, Any, Optional, Union
 
 import discord
@@ -37,6 +38,9 @@ class HeliosMember(HasFlags):
         self._activity_points = 0
         self._points = 0
         self._ap_paid = 0
+
+        self._point_mutes_cache = (datetime.datetime(year=2000, month=1, day=1,
+                                                     tzinfo=datetime.datetime.utcnow().astimezone().tzinfo), 0)
 
         self._temp_mute_data: Optional[tuple['HeliosMember', int]] = None
         self._last_check = get_floor_now()
@@ -243,10 +247,11 @@ class HeliosMember(HasFlags):
                 embed = discord.Embed(
                     title='Muted',
                     colour=discord.Colour.orange(),
-                    description=f'Someone spent **{price}** Mins to mute you for **{duration}** seconds.'
+                    description=f'Someone spent **{price}** {self.server.points_name.capitalize()} to mute you for '
+                                f'**{duration}** seconds.'
                 )
 
-                await self.member.edit(mute=True, reason=f'{muter.member} temp muted for {duration} seconds')
+                await self.member.edit(mute=True, reason=f'{muter.member.name} temp muted for {duration} seconds')
 
                 await self.member.send(embed=embed)
             except discord.Forbidden:
@@ -270,7 +275,8 @@ class HeliosMember(HasFlags):
                         title='Violation!',
                         colour=discord.Colour.red(),
                         description=f'You have been caught in violation of the '
-                                    f'Helios Shop and have been fined **{data[1]}** Mins.'
+                                    f'Helios Shop and have been fined **{data[1]}** '
+                                    f'{self.server.points_name.capitalize()}.'
                     )
                     embed2 = discord.Embed(
                         title='Notice of Refund',
@@ -311,10 +317,12 @@ class HeliosMember(HasFlags):
                 continue
         return None
 
-    async def get_point_mutes(self) -> int:
+    async def get_point_mutes(self, force=False) -> int:
+        minute_ago = datetime.datetime.utcnow().astimezone() - datetime.timedelta(minutes=1)
+        if force is False and self._point_mutes_cache[0] > minute_ago:
+            return self._point_mutes_cache[1]
         day_ago = discord.utils.utcnow() - datetime.timedelta(days=1)
-        last_muted = None
-        duration = datetime.timedelta()
+        seconds = 0
         async for audit in self.guild.audit_logs(after=day_ago, oldest_first=True, limit=None,
                                                  action=discord.AuditLogAction.member_update):
             if audit.target != self.member:
@@ -322,15 +330,17 @@ class HeliosMember(HasFlags):
 
             try:
                 if audit.changes.before.mute is False and audit.changes.after.mute is True:
-                    last_muted = audit.created_at
-
-                if audit.changes.before.mute is True and audit.changes.after.mute is False and last_muted is not None:
-                    duration += audit.created_at - last_muted
-                    last_muted = None
+                    if not audit.reason:
+                        continue
+                    regex = r'muted for (\d{1,2}) seconds'
+                    groups = re.search(regex, audit.reason).groups()
+                    if len(groups) == 1:
+                        seconds += int(groups[0])
             except AttributeError:
                 ...
 
-        return int(duration.total_seconds() // 60)
+        self._point_mutes_cache = (datetime.datetime.utcnow().astimezone(), int(seconds / 60))
+        return int(seconds / 60)
 
 
 def get_floor_now() -> datetime.datetime:

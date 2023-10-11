@@ -73,12 +73,12 @@ class Shop:
     async def shop_mute(self: ShopItem, member: 'HeliosMember', interaction: discord.Interaction):
         """Price: variable
         Server mute someone who is in a voice channel for an amount of time."""
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer(ephemeral=True, thinking=True)
         # server = self.shop.bot.servers.get(interaction.guild_id)
         view = TempMuteView(member)
         embed = view.get_embed()
 
-        message: discord.InteractionMessage = await interaction.edit_original_response(embed=embed, view=view)
+        message: discord.WebhookMessage = await interaction.followup.send(embed=embed, view=view)
         if await view.wait():
             embed = discord.Embed(
                 title='Timed out',
@@ -96,7 +96,7 @@ class Shop:
             return 0
         if member.points < view.value:
             embed = discord.Embed(
-                title='Not Enough Mins',
+                title=f'Not Enough {member.server.points_name.capitalize()}',
                 colour=discord.Colour.red()
             )
             await message.edit(embed=embed, view=None)
