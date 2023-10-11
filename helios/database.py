@@ -1,3 +1,4 @@
+import datetime
 import json
 
 import peewee_async
@@ -122,6 +123,21 @@ class EventModel(BaseModel):
     action = CharField(max_length=25)
     server_id = ForeignKeyField(ServerModel, backref='startups', null=True)
     target_id = BigIntegerField()
+
+
+class AuditLogModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    action = CharField(max_length=25)
+    user = ForeignKeyField(MemberModel, backref='audits')
+    target = ForeignKeyField(MemberModel, backref='audits_target')
+    description = CharField(max_length=50, null=True)
+    created = DateTimeField(default=datetime.datetime.now)
+
+    @staticmethod
+    async def get_target_temp_mutes(target_id: int) -> list['AuditLogModel']:
+        q = AuditLogModel.select().where(AuditLogModel.target == target_id, AuditLogModel.action == 'temp_mute')
+        audits = await objects.prefetch(q)
+        return list[audits]  # type: ignore
 
 
 class PugModel(BaseModel):
