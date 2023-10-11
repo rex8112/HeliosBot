@@ -50,7 +50,7 @@ class PointsCog(commands.Cog):
         if not user_found:
             index = members.index(member)
             leaderboard_string += '...\n'
-            for i, mem in enumerate(members[index-1:index+1], start=index):
+            for i, mem in enumerate(members[index-1:index+2], start=index):
                 modifier = ''
                 if mem.member == interaction.user:
                     modifier = '>'
@@ -81,7 +81,9 @@ class PointsCog(commands.Cog):
         )
         [embed.add_field(name=x.name, value=x.desc, inline=False) for x in server.shop.items]
         view = ShopView(member)
-        await interaction.response.send_message(embed=embed, view=view)
+        message = await interaction.response.send_message(embed=embed, view=view)
+        await view.wait()
+        await message.delete()
 
     @tasks.loop(time=time(hour=0, minute=0, tzinfo=datetime.utcnow().astimezone().tzinfo))
     async def pay_ap(self):
