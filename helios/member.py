@@ -240,7 +240,15 @@ class HeliosMember(HasFlags):
 
         if self.member.voice:
             try:
+                embed = discord.Embed(
+                    title='Muted',
+                    colour=discord.Colour.orange(),
+                    description=f'Someone spent **{price}** Mins to mute you for **{duration}** seconds.'
+                )
+
                 await self.member.edit(mute=True, reason=f'{muter.member} temp muted for {duration} seconds')
+
+                await self.member.send(embed=embed)
             except discord.Forbidden:
                 return False
             self._temp_mute_data = (muter, price)
@@ -276,8 +284,19 @@ class HeliosMember(HasFlags):
                         await data[0].member.send(embed=embed2)
                     except discord.Forbidden:
                         ...
-            await self.member.edit(mute=False)
-            return True
+                embed = discord.Embed(
+                    title='Unmuted',
+                    colour=discord.Colour.green(),
+                    description=f'You have been unmuted.'
+                )
+
+                await self.member.edit(mute=False)
+
+                try:
+                    await self.member.send(embed=embed)
+                except discord.Forbidden:
+                    ...
+                return True
         else:
             return False
 
