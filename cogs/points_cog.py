@@ -28,8 +28,8 @@ class PointsCog(commands.Cog):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
         await interaction.response.send_message(
-            f'Current Mins: **{member.points:,}**\n'
-            f'Activity Mins: **{member.activity_points:,}**',
+            f'Current {server.points_name.capitalize()}: **{member.points:,}**\n'
+            f'Activity {server.points_name.capitalize()}: **{member.activity_points:,}**',
             ephemeral=True
         )
 

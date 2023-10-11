@@ -436,8 +436,8 @@ class TempMuteView(discord.ui.View):
         embed.add_field(name='Target',
                         value=f'{self.selected_member.member.display_name if self.selected_member else "None"}')
         embed.add_field(name='Duration', value=f'{self.selected_seconds} Seconds')
-        embed.add_field(name='Price', value=f'{self.value} Mins')
-        embed.set_footer(text=f'Your Points: {self.author.points}')
+        embed.add_field(name='Price', value=f'{self.value} {self.author.server.points_name.capitalize()}')
+        embed.set_footer(text=f'Your {self.author.server.points_name.capitalize()}: {self.author.points}')
         if self.selected_member:
             embed.set_thumbnail(url=self.selected_member.member.display_avatar.url)
         return embed

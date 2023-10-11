@@ -96,7 +96,7 @@ class Shop:
             return 0
         if member.points < view.value:
             embed = discord.Embed(
-                title='Not Enough Mins',
+                title=f'Not Enough {member.server.points_name.capitalize()}',
                 colour=discord.Colour.red()
             )
             await message.edit(embed=embed, view=None)

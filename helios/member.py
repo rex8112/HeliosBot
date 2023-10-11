@@ -243,7 +243,8 @@ class HeliosMember(HasFlags):
                 embed = discord.Embed(
                     title='Muted',
                     colour=discord.Colour.orange(),
-                    description=f'Someone spent **{price}** Mins to mute you for **{duration}** seconds.'
+                    description=f'Someone spent **{price}** {self.server.points_name.capitalize()} to mute you for '
+                                f'**{duration}** seconds.'
                 )
 
                 await self.member.edit(mute=True, reason=f'{muter.member} temp muted for {duration} seconds')
@@ -270,7 +271,8 @@ class HeliosMember(HasFlags):
                         title='Violation!',
                         colour=discord.Colour.red(),
                         description=f'You have been caught in violation of the '
-                                    f'Helios Shop and have been fined **{data[1]}** Mins.'
+                                    f'Helios Shop and have been fined **{data[1]}** '
+                                    f'{self.server.points_name.capitalize()}.'
                     )
                     embed2 = discord.Embed(
                         title='Notice of Refund',
