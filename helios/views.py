@@ -1,5 +1,6 @@
 import datetime
 import math
+from types import MethodType
 from typing import Optional, TYPE_CHECKING
 
 import discord
@@ -393,18 +394,19 @@ class ShopView(discord.ui.View):
         super().__init__(timeout=600)
         self.author = author
         self.shop = author.server.shop
-        self.shop_select.options = self.shop.get_select_options()
+        self.make_buttons()
 
-    @discord.ui.select(placeholder='Select Shop Item')
-    async def shop_select(self, interaction: discord.Interaction, select: discord.ui.Select):
-        author = self.author.server.members.get(interaction.user.id)
-        choice = select.values[0]
-        shop_item = self.shop.get_item(choice)
-        if shop_item is None:
-            await interaction.response.send_message(content='Hmmm. You should not see this.', ephemeral=True)
-            return
-
-        await shop_item.purchase(author, interaction)
+    def make_buttons(self):
+        for item in self.shop.items:
+            async def callback(s: discord.ui.Button, interaction: discord.Interaction):
+                author = self.author.server.members.get(interaction.user.id)
+                await item.purchase(author, interaction)
+            button = discord.ui.Button(
+                style=discord.ButtonStyle.grey,
+                label=item.name
+            )
+            button.callback = MethodType(callback, button)
+            self.add_item(button)
 
 
 class TempMuteView(discord.ui.View):
