@@ -284,19 +284,19 @@ class HeliosMember(HasFlags):
                         await data[0].member.send(embed=embed2)
                     except discord.Forbidden:
                         ...
-                embed = discord.Embed(
-                    title='Unmuted',
-                    colour=discord.Colour.green(),
-                    description=f'You have been unmuted.'
-                )
+            embed = discord.Embed(
+                title='Unmuted',
+                colour=discord.Colour.green(),
+                description=f'You have been unmuted.'
+            )
 
-                await self.member.edit(mute=False)
+            await self.member.edit(mute=False)
 
-                try:
-                    await self.member.send(embed=embed)
-                except discord.Forbidden:
-                    ...
-                return True
+            try:
+                await self.member.send(embed=embed)
+            except discord.Forbidden:
+                ...
+            return True
         else:
             return False
 
