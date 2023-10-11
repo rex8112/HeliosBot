@@ -464,6 +464,9 @@ class TempMuteView(discord.ui.View):
 
     @discord.ui.select(cls=discord.ui.UserSelect, row=0)
     async def member_select(self, interaction: discord.Interaction, select: discord.ui.UserSelect):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
         member: discord.Member = select.values[0]
         if not await self.verify_member(member):
             await self.reload_message(interaction)
@@ -475,31 +478,49 @@ class TempMuteView(discord.ui.View):
 
     @discord.ui.button(label='5s', style=discord.ButtonStyle.grey, row=1)
     async def first_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
         self.selected_seconds = 5
         await self.reload_message(interaction)
 
     @discord.ui.button(label='15s', style=discord.ButtonStyle.grey, row=1)
     async def second_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
         self.selected_seconds = 15
         await self.reload_message(interaction)
 
     @discord.ui.button(label='30s', style=discord.ButtonStyle.grey, row=1)
     async def third_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
         self.selected_seconds = 30
         await self.reload_message(interaction)
 
     @discord.ui.button(label='45s', style=discord.ButtonStyle.grey, row=1)
     async def fourth_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
         self.selected_seconds = 45
         await self.reload_message(interaction)
 
     @discord.ui.button(label='60s', style=discord.ButtonStyle.grey, row=1)
     async def fifth_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
         self.selected_seconds = 60
         await self.reload_message(interaction)
 
     @discord.ui.button(label='Purchase', style=discord.ButtonStyle.green, row=2)
     async def confirm_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
         if not await self.verify_member(self.selected_member.member):
             await self.reload_message(interaction)
             return
@@ -509,6 +530,9 @@ class TempMuteView(discord.ui.View):
 
     @discord.ui.button(label='Cancel', style=discord.ButtonStyle.red, row=2)
     async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
         await interaction.response.defer()
         self.stop()
 
