@@ -318,7 +318,7 @@ class HeliosMember(HasFlags):
         return None
 
     async def get_point_mutes(self, force=False) -> int:
-        minute_ago = datetime.datetime.utcnow().astimezone() - datetime.timedelta(minutes=1)
+        minute_ago = datetime.datetime.now().astimezone() - datetime.timedelta(minutes=1)
         if force is False and self._point_mutes_cache[0] > minute_ago:
             return self._point_mutes_cache[1]
         day_ago = discord.utils.utcnow() - datetime.timedelta(days=1)
@@ -339,7 +339,7 @@ class HeliosMember(HasFlags):
             except AttributeError:
                 ...
 
-        self._point_mutes_cache = (datetime.datetime.utcnow().astimezone(), int(seconds / 60))
+        self._point_mutes_cache = (datetime.datetime.now().astimezone(), int(seconds / 60))
         return int(seconds / 60)
 
 
