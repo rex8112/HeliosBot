@@ -47,6 +47,20 @@ def migrate_members():
             )
 
 
+def get_aware_now() -> datetime.datetime:
+    return datetime.datetime.now().astimezone()
+
+
+class JSONField(Field):
+    field_type = 'text'
+
+    def db_value(self, value):
+        return json.dumps(value)
+
+    def python_value(self, value):
+        return json.loads(value)
+
+
 class BaseModel(Model):
     class Meta:
         database = db
@@ -138,6 +152,26 @@ class AuditLogModel(BaseModel):
         q = AuditLogModel.select().where(AuditLogModel.target == target_id, AuditLogModel.action == 'temp_mute')
         audits = await objects.prefetch(q)
         return list[audits]  # type: ignore
+
+
+class ViolationModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    user = ForeignKeyField(MemberModel, backref='violations')
+    victim = ForeignKeyField(MemberModel, backref='violations_victim', null=True)
+    type = CharField(max_length=50)
+    description = TextField()
+
+
+class CaseModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    plaintiff = ForeignKeyField(MemberModel, backref='plaintiff_cases')
+    defendant = ForeignKeyField(MemberModel, backref='defendant_cases')
+    court_date = DateTimeField()
+    decision = BooleanField(null=True)
+    punishment = JSONField(default={})
+    punished = BooleanField(default=False)
+    finished = DateTimeField(null=True)
+    created = DateTimeField(default=get_aware_now)
 
 
 class PugModel(BaseModel):
