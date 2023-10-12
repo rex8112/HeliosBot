@@ -1,3 +1,4 @@
+import datetime
 import json
 
 import peewee_async
@@ -18,6 +19,10 @@ def initialize_db():
     db.connect()
     db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
                       EventModel])
+
+
+def get_aware_utc_now():
+    return datetime.datetime.now(datetime.timezone.utc)
 
 
 def migrate_members():
@@ -44,6 +49,26 @@ def migrate_members():
                 activity_points=activity_points,
                 flags=flags
             )
+
+
+# noinspection PyProtectedMember
+def fix_transaction():
+    migrator = MySQLMigrator(db)
+    migrate(
+        migrator.add_column(TransactionModel._meta.table_name, 'created_on', TransactionModel.created_on)
+    )
+
+
+class DatetimeTzField(Field):
+    field_type = 'DATETIME'
+
+    def db_value(self, value: datetime.datetime) -> str:
+        if value:
+            return value.strftime('%Y-%m-%d %H:%M:%S')
+
+    def python_value(self, value: str) -> datetime.datetime:
+        if value:
+            return datetime.datetime.strptime(value, '%Y-%m-%d %H:%M:%S').replace(tzinfo=datetime.timezone.utc)
 
 
 class BaseModel(Model):
@@ -111,6 +136,7 @@ class TransactionModel(BaseModel):
     payee = CharField(max_length=25)
     description = CharField(max_length=50)
     amount = IntegerField()
+    created_on = DatetimeTzField(default=get_aware_utc_now)
 
     class Meta:
         table_name = 'transactions'
