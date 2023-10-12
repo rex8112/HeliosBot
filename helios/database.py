@@ -158,7 +158,7 @@ class ViolationModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
     user = ForeignKeyField(MemberModel, backref='violations')
     victim = ForeignKeyField(MemberModel, backref='violations_victim', null=True)
-    type = CharField(max_length=50)
+    type = IntegerField()
     description = TextField()
 
 
