@@ -166,7 +166,7 @@ class AuditLogModel(BaseModel):
     user = ForeignKeyField(MemberModel, backref='audits')
     target = ForeignKeyField(MemberModel, backref='audits_target')
     description = CharField(max_length=50, null=True)
-    created = DateTimeField(default=datetime.datetime.now)
+    created = DatetimeTzField(default=datetime.datetime.now)
 
     @staticmethod
     async def get_target_temp_mutes(target_id: int) -> list['AuditLogModel']:
@@ -187,12 +187,12 @@ class CaseModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
     plaintiff = ForeignKeyField(MemberModel, backref='plaintiff_cases')
     defendant = ForeignKeyField(MemberModel, backref='defendant_cases')
-    court_date = DateTimeField()
+    court_date = DatetimeTzField()
     decision = BooleanField(null=True)
     punishment = JSONField(default={})
     punished = BooleanField(default=False)
-    finished = DateTimeField(null=True)
-    created = DateTimeField(default=get_aware_utc_now)
+    finished = DatetimeTzField(null=True)
+    created = DatetimeTzField(default=get_aware_utc_now)
 
 
 class PugModel(BaseModel):
