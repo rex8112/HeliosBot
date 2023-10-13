@@ -7,6 +7,7 @@ import discord
 
 from .server import Server
 from .database import ServerModel, MemberModel, ChannelModel, objects
+from .views import ShopView
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
@@ -71,6 +72,7 @@ class ServerManager:
                 tasks.append(server.members.setup())
                 #  tasks.append(server.stadium.setup())
             self.servers[server.id] = server
+            self.bot.add_view(ShopView(server))
 
         logger.info(f'{len(self.bot.guilds)} Servers loaded in {time.time() - start_time} seconds')
         start_time = time.time()

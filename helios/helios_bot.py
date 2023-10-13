@@ -12,7 +12,7 @@ from .database import EventModel, objects
 from .http import HTTPClient
 from .server_manager import ServerManager
 from .tools import Config
-from .views import TopicView
+from .views import TopicView, ShopView
 
 logger = logging.getLogger('HeliosLogger')
 

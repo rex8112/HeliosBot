@@ -6,6 +6,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 
+import helios
 from helios.shop import *
 from helios import ShopView
 
@@ -73,18 +74,14 @@ class PointsCog(commands.Cog):
     @app_commands.guild_only()
     async def shop(self, interaction: discord.Interaction):
         server = self.bot.servers.get(interaction.guild_id)
-        member = server.members.get(interaction.user.id)
         embed = discord.Embed(
             title=f'{interaction.guild.name} Shop',
-            colour=discord.Colour.orange(),
+            colour=helios.Colour.helios(),
             description='Available Items'
         )
         [embed.add_field(name=x.name, value=x.desc, inline=False) for x in server.shop.items]
-        view = ShopView(member)
+        view = ShopView(server)
         await interaction.response.send_message(embed=embed, view=view)
-        message = await interaction.original_response()
-        await view.wait()
-        await message.delete()
 
     @tasks.loop(time=time(hour=0, minute=0, tzinfo=datetime.utcnow().astimezone().tzinfo))
     async def pay_ap(self):

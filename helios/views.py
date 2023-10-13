@@ -390,20 +390,22 @@ class VerifyView(discord.ui.View):
 
 
 class ShopView(discord.ui.View):
-    def __init__(self, author: 'HeliosMember'):
-        super().__init__(timeout=600)
-        self.author = author
-        self.shop = author.server.shop
+    def __init__(self, server: 'Server'):
+        super().__init__(timeout=None)
+        self.bot = server.bot
+        self.shop = server.shop
+        self.server = server
         self.make_buttons()
 
     def make_buttons(self):
         for item in self.shop.items:
             async def callback(s: discord.ui.Button, interaction: discord.Interaction):
-                author = self.author.server.members.get(interaction.user.id)
+                author = self.server.members.get(interaction.user.id)
                 await item.purchase(author, interaction)
             button = discord.ui.Button(
                 style=discord.ButtonStyle.grey,
-                label=item.name
+                label=item.name,
+                custom_id=f'helios:{self.server.id}:shop:{item.name.lower().replace(" ", "")}'
             )
             button.callback = MethodType(callback, button)
             self.add_item(button)

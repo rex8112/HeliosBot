@@ -1,5 +1,6 @@
 from . import tools, shop
 from .channel_manager import ChannelManager
+from .colour import Colour
 from .database import db, initialize_db, migrate_members, fix_transaction
 from .exceptions import *
 from .helios_bot import HeliosBot
