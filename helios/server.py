@@ -82,6 +82,10 @@ class Server:
     def points_name(self) -> str:
         return self.settings.points_name
 
+    @property
+    def me(self) -> 'HeliosMember':
+        return self.members.get(self.bot.user.id)
+
     @classmethod
     def new(cls, manager: 'ServerManager', guild: discord.Guild):
         s = cls(manager, guild)

@@ -181,7 +181,9 @@ class ViolationModel(BaseModel):
     victim = ForeignKeyField(MemberModel, backref='violations_victim', null=True)
     paid = BooleanField(default=False)
     type = IntegerField()
+    cost = IntegerField()
     description = TextField()
+    due_date = DatetimeTzField()
     created_on = DatetimeTzField(default=get_aware_utc_now)
 
 

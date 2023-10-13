@@ -53,7 +53,7 @@ class HeliosMember(HasFlags):
 
     def __eq__(self, o: Any):
         if isinstance(o, HeliosMember):
-            return self.id == o.id
+            return self.db_id == o.db_id
         elif isinstance(o, discord.Member):
             return self.id == o.id and self.guild.id == o.guild.id
         elif o is None:
@@ -194,9 +194,6 @@ class HeliosMember(HasFlags):
         return False
 
     async def save(self, force=False):
-        if self.member.bot:
-            self._changed = False
-            return
         if self._new:
             self._db_entry = MemberModel(**self.serialize())
             self._db_entry.save()
@@ -225,9 +222,11 @@ class HeliosMember(HasFlags):
     async def add_points(self, price: int, payee: str, description: str):
         if price == 0:
             return
+        if len(description) > 50:
+            description = description[:47] + '...'
         self.points += price
         await objects.create(TransactionModel, member=self._db_entry,
-                             description=description[:50], amount=price,
+                             description=description, amount=price,
                              payee=payee[:25])
 
     async def transfer_points(self, target: 'HeliosMember', price: int, description: str,
