@@ -450,6 +450,10 @@ class TempMuteView(discord.ui.View):
 
     async def verify_member(self, member: discord.Member):
         member: 'HeliosMember' = self.author.server.members.get(member.id)
+        if member.is_noob():
+            self.error_message = f'{member.member.display_name} is still too new to be muted.'
+            self.selected_member = None
+            return False
         if not member.member.voice:
             self.error_message = f'{member.member.display_name} is not in a voice channel.'
             self.selected_member = None

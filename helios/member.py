@@ -117,6 +117,9 @@ class HeliosMember(HasFlags):
         self.templates.append(template)
         return template
 
+    def is_noob(self):
+        return self.activity_points < 1440
+
     def _deserialize(self, data: MemberModel):
         if self.member.id != data.member_id:
             raise IdMismatchError('Member Ids do not match.')
