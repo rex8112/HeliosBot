@@ -179,8 +179,10 @@ class ViolationModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
     user = ForeignKeyField(MemberModel, backref='violations')
     victim = ForeignKeyField(MemberModel, backref='violations_victim', null=True)
+    paid = BooleanField(default=False)
     type = IntegerField()
     description = TextField()
+    created_on = DatetimeTzField(default=get_aware_utc_now)
 
 
 class CaseModel(BaseModel):

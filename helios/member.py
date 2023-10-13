@@ -66,6 +66,10 @@ class HeliosMember(HasFlags):
         return self.member.id
 
     @property
+    def db_id(self):
+        return self._db_entry.id
+
+    @property
     def server(self) -> 'Server':
         return self.manager.server
 
