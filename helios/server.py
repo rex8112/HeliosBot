@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Dict, Optional
 import discord
 
 from .channel_manager import ChannelManager
+from .court import Court
 from .exceptions import IdMismatchError
 from .event_manager import EventManager
 from .member_manager import MemberManager
@@ -11,7 +12,7 @@ from .member import HeliosMember
 from .shop import Shop
 from .stadium import Stadium
 from .tools.settings import Settings
-from .database import ServerModel, update_model_instance, objects, EventModel
+from .database import ServerModel, objects, EventModel
 
 if TYPE_CHECKING:
     from .server_manager import ServerManager
@@ -39,6 +40,7 @@ class Server:
         self.members = MemberManager(self)
         self.stadium = Stadium(self)
         self.shop = Shop(self.bot)
+        self.court = Court(self)
         self.topics = {}
         self.voice_controllers = []
         self.settings = Settings(self._default_settings, bot=self.bot, guild=self.guild)
@@ -56,6 +58,10 @@ class Server:
     @property
     def id(self):
         return self.guild.id
+
+    @property
+    def db_id(self):
+        return self.db_entry.id
 
     @property
     def private_create_channel(self) -> Optional[discord.VoiceChannel]:
@@ -136,7 +142,7 @@ class Server:
                 self.db_entry = objects.create(ServerModel, **self.serialize())
                 self._new = False
             else:
-                update_model_instance(self.db_entry, self.serialize())
+                self.db_entry.update_model_instance(self.db_entry, self.serialize())
                 await objects.update(self.db_entry)
         finally:
             self._save_task = None

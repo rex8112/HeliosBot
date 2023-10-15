@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Optional, Union
 
 import discord
 
-from .database import ChannelModel, update_model_instance
+from .database import ChannelModel
 from .views import TopicView, VoiceView
 
 if TYPE_CHECKING:
@@ -75,7 +75,7 @@ class Channel:
             self.db_entry = ChannelModel.create(**self.serialize())
             self._new = False
         else:
-            update_model_instance(self.db_entry, self.serialize())
+            self.db_entry.update_model_instance(self.db_entry, self.serialize())
             self.db_entry.save()
 
     async def delete(self, del_channel=True):

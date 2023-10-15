@@ -8,17 +8,10 @@ db = peewee_async.MySQLDatabase('heliosTesting', user='helios', password='bot', 
 objects = peewee_async.Manager(db)
 
 
-def update_model_instance(model: Model, data: dict):
-    for key, value in data.items():
-        old = getattr(model, key)
-        if old != value:
-            setattr(model, key, value)
-
-
 def initialize_db():
     db.connect()
     db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
-                      EventModel])
+                      EventModel, ViolationModel])
 
 
 def get_aware_utc_now():
@@ -76,12 +69,19 @@ class DatetimeTzField(Field):
         if value:
             return value.strftime('%Y-%m-%d %H:%M:%S')
 
-    def python_value(self, value: str) -> datetime.datetime:
+    def python_value(self, value: datetime.datetime) -> datetime.datetime:
         if value:
-            return datetime.datetime.strptime(value, '%Y-%m-%d %H:%M:%S').replace(tzinfo=datetime.timezone.utc)
+            return value.replace(tzinfo=datetime.timezone.utc)
 
 
 class BaseModel(Model):
+    @staticmethod
+    def update_model_instance(model: Model, data: dict):
+        for key, value in data.items():
+            old = getattr(model, key)
+            if old != value:
+                setattr(model, key, value)
+
     class Meta:
         database = db
 
@@ -177,10 +177,11 @@ class AuditLogModel(BaseModel):
 
 class ViolationModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
+    server = ForeignKeyField(ServerModel, backref='violations')
     user = ForeignKeyField(MemberModel, backref='violations')
     victim = ForeignKeyField(MemberModel, backref='violations_victim', null=True)
-    paid = BooleanField(default=False)
     type = IntegerField()
+    state = IntegerField()
     cost = IntegerField()
     description = TextField()
     due_date = DatetimeTzField()

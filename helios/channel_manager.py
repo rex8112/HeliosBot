@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Optional
 import discord
 
 from .channel import Channel_Dict, Channel, VoiceChannel
-from .database import ChannelModel, update_model_instance
+from .database import ChannelModel
 
 if TYPE_CHECKING:
     from .server import Server

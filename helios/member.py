@@ -9,7 +9,7 @@ import discord
 from .abc import HasFlags
 from .exceptions import IdMismatchError
 from .voice_template import VoiceTemplate
-from .database import MemberModel, update_model_instance, objects, TransactionModel
+from .database import MemberModel, objects, TransactionModel
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
@@ -201,7 +201,7 @@ class HeliosMember(HasFlags):
             self._id = self._db_entry.id
             self._changed = False
         if self._changed or force:
-            update_model_instance(self._db_entry, self.serialize())
+            self._db_entry.update_model_instance(self._db_entry, self.serialize())
             self._db_entry.save()
             self._changed = False
 

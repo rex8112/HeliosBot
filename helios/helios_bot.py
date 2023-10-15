@@ -12,7 +12,7 @@ from .database import EventModel, objects
 from .http import HTTPClient
 from .server_manager import ServerManager
 from .tools import Config
-from .views import TopicView, ShopView
+from .views import TopicView, ShopView, ViolationPayButton
 
 logger = logging.getLogger('HeliosLogger')
 
@@ -47,6 +47,7 @@ class HeliosBot(commands.Bot):
             name_api_key=self.settings.randomname_api_key
         )
         self.add_view(TopicView(self))
+        self.add_dynamic_items(ViolationPayButton)
 
     async def on_ready(self):
         logger.info(f'Logged in as {self.user} (ID: {self.user.id})')

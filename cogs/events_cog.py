@@ -48,7 +48,7 @@ class EventsCog(commands.Cog):
             )
             await view.wait()
             if view.value:
-                await message.channel.send(mention_string, allowed_mentions=discord.AllowedMentions(users=allowed))
+                await message.channel.send(mention_string)
             else:
                 try:
                     await mess.delete()

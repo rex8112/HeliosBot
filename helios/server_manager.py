@@ -7,7 +7,7 @@ import discord
 
 from .server import Server
 from .database import ServerModel, MemberModel, ChannelModel, objects
-from .views import ShopView
+from .views import ShopView, ViolationView
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
