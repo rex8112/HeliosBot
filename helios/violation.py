@@ -116,6 +116,14 @@ class Violation:
         now = utc_now()
         return now > self.due_date + datetime.timedelta(days=2)
 
+    def get_paid_embed(self):
+        embed = discord.Embed(
+            title='Violation Paid!',
+            colour=Colour.success(),
+            description='You have paid your violation!'
+        )
+        return embed
+
     async def initial_notice(self):
         embed = discord.Embed(
             title=f'{self.type.name} Violation!',
@@ -123,7 +131,7 @@ class Violation:
             description=self.description
         )
         embed.add_field(name='Fine Amount', value=f'{self.cost} {self.user.server.points_name.capitalize()}')
-        embed.add_field(name='Due Date', value=f'{format_dt(self.due_date)}\n{format_dt(self.due_date, "R")}')
+        embed.add_field(name='Due Date', value=f'{format_dt(self.due_date, "R")}\n\n{format_dt(self.due_date)}')
         await self.user.member.send(embed=embed, view=ViolationView(self.user.server, self._db_entry.id))
 
     async def late_notice(self):
@@ -134,7 +142,7 @@ class Violation:
         )
         embed.add_field(name='Violation Description', value=self.description, inline=False)
         embed.add_field(name='Fine Amount', value=f'{self.cost} {self.user.server.points_name.capitalize()}')
-        embed.add_field(name='Due Date', value=f'{format_dt(self.due_date)}\n{format_dt(self.due_date, "R")}')
+        embed.add_field(name='Due Date', value=f'{format_dt(self.due_date, "R")}\n\n{format_dt(self.due_date)}')
         await self.user.member.send(embed=embed, view=ViolationView(self.user.server, self._db_entry.id))
         self.state = ViolationStates.Due
         await self.save()
@@ -148,7 +156,7 @@ class Violation:
         )
         embed.add_field(name='Violation Description', value=self.description, inline=False)
         embed.add_field(name='Fine Amount', value=f'{self.cost} {self.user.server.points_name.capitalize()}')
-        embed.add_field(name='Due Date', value=f'{format_dt(self.due_date)}\n{format_dt(self.due_date, "R")}')
+        embed.add_field(name='Due Date', value=f'{format_dt(self.due_date, "R")}\n\n{format_dt(self.due_date)}')
         await self.user.member.send(embed=embed, view=ViolationView(self.user.server, self._db_entry.id))
         self.state = ViolationStates.Illegal
         await self.save()
