@@ -8,6 +8,7 @@ import discord
 
 from .abc import HasFlags
 from .exceptions import IdMismatchError
+from .violation import Violation
 from .voice_template import VoiceTemplate
 from .database import MemberModel, objects, TransactionModel
 
@@ -271,31 +272,16 @@ class HeliosMember(HasFlags):
 
     async def temp_unmute(self):
         self.allow_on_voice = True
-        data = self._temp_mute_data
+        muter, cost = self._temp_mute_data
         self._temp_mute_data = None
         if self.member.voice:
             if self.member.voice.mute is False:
                 unmuter = await self.who_unmuted()
-                if unmuter and unmuter != data[0].member:
-                    embed = discord.Embed(
-                        title='Violation!',
-                        colour=discord.Colour.red(),
-                        description=f'You have been caught in violation of the '
-                                    f'Helios Shop and have been fined **{data[1]}** '
-                                    f'{self.server.points_name.capitalize()}.'
-                    )
-                    embed2 = discord.Embed(
-                        title='Notice of Refund',
-                        colour=discord.Colour.green(),
-                        description='Your payment to temp mute was cut short and you have been refunded.'
-                    )
+                if unmuter and unmuter != muter.member:
                     member = self.server.members.get(unmuter.id)
-                    await member.transfer_points(data[0], data[1], 'Helios Shop Violation', 'Helios Shop Refund')
-                    try:
-                        await unmuter.send(embed=embed)
-                        await data[0].member.send(embed=embed2)
-                    except discord.Forbidden:
-                        ...
+                    v = Violation.new_shop(member, muter, cost,
+                                           f'Unmuting {self.member.name} during a temporary mute.')
+                    await self.server.court.new_violation(v)
             embed = discord.Embed(
                 title='Unmuted',
                 colour=discord.Colour.green(),

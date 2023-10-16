@@ -6,7 +6,6 @@ from discord.utils import format_dt
 
 from .colour import Colour
 from .database import ViolationModel, objects
-from .member import HeliosMember
 from .enums import ViolationTypes, ViolationStates
 from .views import ViolationView
 
@@ -24,8 +23,8 @@ class Violation:
     paid: bool
     description: str
     type: ViolationTypes
-    victim: HeliosMember
-    user: HeliosMember
+    victim: 'HeliosMember'
+    user: 'HeliosMember'
 
     def __init__(self, user: 'HeliosMember', victim: 'HeliosMember', v_type: ViolationTypes, cost: int, description: str,
                  due_date: datetime.datetime = None):
@@ -91,13 +90,8 @@ class Violation:
         return v
 
     @classmethod
-    def new(cls, user: 'HeliosMember', victim: 'HeliosMember', v_type: ViolationTypes, cost: int, description: str):
-        v = cls(user, victim, v_type, cost, description)
-        return v
-
-    @classmethod
     def new_shop(cls, user: 'HeliosMember', victim: 'HeliosMember', cost: int, description: str):
-        return cls.new(user, victim, ViolationTypes.Shop, cost, description)
+        return cls(user, victim, ViolationTypes.Shop, cost, description)
 
     async def pay(self) -> bool:
         if self.user.points < self.cost:

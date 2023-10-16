@@ -2,7 +2,7 @@ from discord.ext import tasks
 from typing import TYPE_CHECKING, overload
 
 from .database import ViolationModel, objects
-from .enums import ViolationStates
+from .enums import ViolationStates, ViolationTypes
 from .violation import Violation
 
 if TYPE_CHECKING:
@@ -19,6 +19,11 @@ class Court:
 
     def start_tasks(self):
         self.manage_violations.start()
+
+    async def new_violation(self, v: Violation):
+        await v.save()
+        await v.initial_notice()
+        return v
 
     async def get_violation(self, violation_id: int, /):
         v = await objects.get(ViolationModel, id=violation_id)
