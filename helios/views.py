@@ -465,7 +465,7 @@ class TempMuteView(discord.ui.View):
     PRICE_PER_SECOND = 1
 
     def __init__(self, author: 'HeliosMember'):
-        super().__init__(timeout=60)
+        super().__init__(timeout=180)
         self.author = author
         self.selected_member: Optional['HeliosMember'] = None
         self.selected_seconds: int = 5
@@ -476,8 +476,13 @@ class TempMuteView(discord.ui.View):
     async def get_value(self):
         if not self.selected_member:
             return 0
-        minutes = await self.selected_member.get_point_mutes()
-        return int((self.selected_seconds * self.PRICE_PER_SECOND) * math.pow(2, minutes))
+        seconds = await self.selected_member.get_point_mute_duration()
+        value = 0
+        for _ in range(self.selected_seconds):
+            tier = int(seconds // 30)
+            value += int(self.PRICE_PER_SECOND * math.pow(2, tier))
+            seconds += 1
+        return value
 
     def get_embed(self) -> discord.Embed:
         embed = discord.Embed(

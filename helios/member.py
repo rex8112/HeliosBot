@@ -321,11 +321,11 @@ class HeliosMember(HasFlags):
                 continue
         return None
 
-    async def get_point_mutes(self, force=False) -> int:
-        minute_ago = datetime.datetime.now().astimezone() - datetime.timedelta(minutes=1)
-        if force is False and self._point_mutes_cache[0] > minute_ago:
+    async def get_point_mute_duration(self, force=False) -> int:
+        ago = datetime.datetime.now().astimezone() - datetime.timedelta(seconds=15)
+        if force is False and self._point_mutes_cache[0] > ago:
             return self._point_mutes_cache[1]
-        day_ago = discord.utils.utcnow() - datetime.timedelta(days=1)
+        day_ago = discord.utils.utcnow() - datetime.timedelta(hours=12)
         seconds = 0
         async for audit in self.guild.audit_logs(after=day_ago, oldest_first=True, limit=None,
                                                  action=discord.AuditLogAction.member_update):
@@ -343,8 +343,8 @@ class HeliosMember(HasFlags):
             except AttributeError:
                 ...
 
-        self._point_mutes_cache = (datetime.datetime.now().astimezone(), int(seconds / 60))
-        return int(seconds / 60)
+        self._point_mutes_cache = (datetime.datetime.now().astimezone(), int(seconds))
+        return int(seconds)
 
 
 def get_floor_now() -> datetime.datetime:
