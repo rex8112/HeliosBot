@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Dict, Any, Optional, Union
 import discord
 
 from .abc import HasFlags
+from .colour import Colour
 from .exceptions import IdMismatchError
 from .violation import Violation
 from .voice_template import VoiceTemplate
@@ -170,7 +171,7 @@ class HeliosMember(HasFlags):
         # else:
         return False
 
-    def check_voice(self, amt: int, partial: int = 4) -> bool:
+    async def check_voice(self, amt: int, partial: int = 4) -> bool:
         """
         Check if user is in a non-afk voice channel and apply amt per minute since last check.
         :param amt: Amount to apply per minute of being in a channel.
@@ -183,6 +184,7 @@ class HeliosMember(HasFlags):
         self._last_check = now
 
         if self.member.voice and not self.member.voice.afk:
+            before = self.is_noob()
             for _ in range(minutes):
                 if len(self.member.voice.channel.members) > 1:
                     self.add_activity_points(amt)
@@ -191,19 +193,29 @@ class HeliosMember(HasFlags):
                     self._partial = 0
                 else:
                     self._partial += 1
+            if before is True and self.is_noob() is False:
+                embed = discord.Embed(
+                    title='Congratulations!',
+                    colour=Colour.success(),
+                    description='You have graduated from noob status! All restrictions have been lifted.'
+                )
+                try:
+                    await self.member.send(embed=embed)
+                except (discord.Forbidden, discord.NotFound):
+                    ...
             return True
         return False
 
     async def save(self, force=False):
         if self._new:
             self._db_entry = MemberModel(**self.serialize())
-            self._db_entry.save()
+            await self._db_entry.async_save()
             self._new = False
             self._id = self._db_entry.id
             self._changed = False
         if self._changed or force:
             self._db_entry.update_model_instance(self._db_entry, self.serialize())
-            self._db_entry.save()
+            await self._db_entry.async_save()
             self._changed = False
 
     async def load(self):

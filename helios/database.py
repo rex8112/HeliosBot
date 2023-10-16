@@ -82,6 +82,9 @@ class BaseModel(Model):
             if old != value:
                 setattr(model, key, value)
 
+    def async_save(self, only=None):
+        return objects.update(self, only=only)
+
     class Meta:
         database = db
 

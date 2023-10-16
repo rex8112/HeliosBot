@@ -50,13 +50,16 @@ class MemberManager:
 
     async def manage_members(self):
         await self.bot.wait_until_ready()
-        self.check_voices()
+        await self.check_voices()
         await self.save_all()
 
-    def check_voices(self):
+    async def check_voices(self):
+        tasks = []
+        settings = self.server.settings
         for m in self.members.values():
-            settings = self.server.settings
-            m.check_voice(settings.points_per_minute, settings.partial)
+            tasks.append(m.check_voice(settings.points_per_minute, settings.partial))
+        if tasks:
+            await asyncio.wait(tasks)
 
     async def save_all(self):
         saves = []
