@@ -159,6 +159,9 @@ class EventModel(BaseModel):
     server_id = ForeignKeyField(ServerModel, backref='startups', null=True)
     target_id = BigIntegerField()
 
+    class Meta:
+        table_name = 'events'
+
 
 class AuditLogModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
@@ -172,7 +175,7 @@ class AuditLogModel(BaseModel):
     async def get_target_temp_mutes(target_id: int) -> list['AuditLogModel']:
         q = AuditLogModel.select().where(AuditLogModel.target == target_id, AuditLogModel.action == 'temp_mute')
         audits = await objects.prefetch(q)
-        return list[audits]  # type: ignore
+        return list(audits)
 
 
 class ViolationModel(BaseModel):
@@ -186,6 +189,9 @@ class ViolationModel(BaseModel):
     description = TextField()
     due_date = DatetimeTzField()
     created_on = DatetimeTzField(default=get_aware_utc_now)
+
+    class Meta:
+        table_name = 'violations'
 
 
 class CaseModel(BaseModel):

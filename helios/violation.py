@@ -41,6 +41,12 @@ class Violation:
 
         self._db_entry = None
 
+    def __str__(self):
+        return f'{self.type.name.capitalize()} Violation #{self.id}'
+
+    def __hash__(self):
+        return hash(f'helios.violation.{self.id}')
+
     @property
     def created_on(self) -> Optional[datetime.datetime]:
         return self._db_entry.created_on if self._db_entry else None
@@ -124,9 +130,19 @@ class Violation:
         )
         return embed
 
+    def get_info_embed(self) -> discord.Embed:
+        embed = discord.Embed(
+            title=f'{self}',
+            colour=Colour.violation(),
+            description=self.description
+        )
+        embed.add_field(name='Fine Amount', value=f'{self.cost} {self.user.server.points_name.capitalize()}')
+        embed.add_field(name='Due Date', value=f'{format_dt(self.due_date, "R")}\n\n{format_dt(self.due_date)}')
+        return embed
+
     async def initial_notice(self):
         embed = discord.Embed(
-            title=f'{self.type.name} Violation!',
+            title=f'{self}',
             colour=Colour.violation(),
             description=self.description
         )
@@ -136,7 +152,7 @@ class Violation:
 
     async def late_notice(self):
         embed = discord.Embed(
-            title=f'{self.type.name} Violation Fee Past Due',
+            title=f'{self} Fee Past Due',
             colour=Colour.violation(),
             description=f'Your previous violation is past due. Please pay the fine immediately!'
         )
@@ -149,7 +165,7 @@ class Violation:
 
     async def final_notice(self):
         embed = discord.Embed(
-            title=f'{self.type.name} Violation Fee Final Notice',
+            title=f'{self} Fee Final Notice',
             colour=Colour.violation(),
             description=f'Your previous violation is past due. Please pay the fine immediately! '
                         f'**This is your final notice!**'

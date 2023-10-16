@@ -83,15 +83,6 @@ class PointsCog(commands.Cog):
         view = ShopView(server)
         await interaction.response.send_message(embed=embed, view=view)
 
-    @app_commands.command(name='testviolation', description='Test Violations')
-    async def test_violation(self, interaction: discord.Interaction, user: discord.Member, target: discord.Member, cost: int):
-        server = self.bot.servers.get(interaction.guild_id)
-        h_user = server.members.get(user.id)
-        h_target = server.members.get(target.id)
-        v = Violation.new_shop(h_user, h_target, cost, 'Testing Description')
-        await v.save()
-        await v.initial_notice()
-
     @tasks.loop(time=time(hour=0, minute=0, tzinfo=datetime.utcnow().astimezone().tzinfo))
     async def pay_ap(self):
         tsks = []
