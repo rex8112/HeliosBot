@@ -14,14 +14,42 @@ if TYPE_CHECKING:
     from helios import HeliosBot, Server, HeliosMember
 
 
-def get_leaderboard_string(num: int, member: 'HeliosMember', prefix: str = ''):
-    return f'{prefix:2}{num:3}. {member.member.display_name:>32}: {member.activity_points:10,}\n'
+def get_leaderboard_string(num: int, member: 'HeliosMember', value: int, prefix: str = ''):
+    return f'{prefix:2}{num:3}. {member.member.display_name:>32}: {value:10,}\n'
+
+
+def build_leaderboard(author: 'HeliosMember', members: list['HeliosMember'], key: Callable[['HeliosMember'], int]) -> str:
+    s_members = sorted(members, key=lambda x: -key(x))
+    leaderboard_string = ''
+    user_found = False
+    for i, mem in enumerate(s_members[:10], start=1):  # type: int, HeliosMember
+        modifier = ''
+        if mem == author:
+            modifier = '>'
+            user_found = True
+        leaderboard_string += get_leaderboard_string(i, mem, key(mem), modifier)
+    if not user_found:
+        index = s_members.index(author)
+        leaderboard_string += '...\n'
+        for i, mem in enumerate(s_members[index - 1:index + 2], start=index):
+            modifier = ''
+            if mem == author:
+                modifier = '>'
+            leaderboard_string += get_leaderboard_string(i, mem, key(mem), modifier)
+    return leaderboard_string
 
 
 class PointsCog(commands.Cog):
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
         self.pay_ap.start()
+
+        self.who_is_context = app_commands.ContextMenu(
+            name='Profile',
+            callback=self.who_is
+        )
+
+        self.bot.tree.add_command(self.who_is_context)
 
     @app_commands.command(name='points', description='See your current points')
     @app_commands.guild_only()
@@ -30,7 +58,8 @@ class PointsCog(commands.Cog):
         member = server.members.get(interaction.user.id)
         await interaction.response.send_message(
             f'Current {server.points_name.capitalize()}: **{member.points:,}**\n'
-            f'Activity {server.points_name.capitalize()}: **{member.activity_points:,}**',
+            f'Activity {server.points_name.capitalize()}: **{member.activity_points:,}**\n'
+            f'Pending Payment: **{member.unpaid_ap}**',
             ephemeral=True
         )
 
@@ -38,37 +67,21 @@ class PointsCog(commands.Cog):
     @app_commands.guild_only()
     async def leaderboard(self, interaction: discord.Interaction):
         server = self.bot.servers.get(interaction.guild_id)
-        members = sorted(server.members.members.values(), key=lambda x: -x.activity_points)
+        members = list(server.members.members.values())
         member = server.members.get(interaction.user.id)
-        leaderboard_string = ''
-        user_found = False
-        for i, mem in enumerate(members[:10], start=1):
-            modifier = ''
-            if mem.member == interaction.user:
-                modifier = '>'
-                user_found = True
-            leaderboard_string += get_leaderboard_string(i, mem, modifier)
-        if not user_found:
-            index = members.index(member)
-            leaderboard_string += '...\n'
-            for i, mem in enumerate(members[index-1:index+2], start=index):
-                modifier = ''
-                if mem.member == interaction.user:
-                    modifier = '>'
-                leaderboard_string += get_leaderboard_string(i, mem, modifier)
-        colour = discord.Colour.default()
-        for role in reversed(member.member.roles):
-            if role.colour != discord.Colour.default():
-                if server.guild.premium_subscriber_role and role.colour == server.guild.premium_subscriber_role.colour:
-                    continue
-                colour = role.colour
-                break
-        embed = discord.Embed(
-            colour=colour,
-            title=f'{member.guild.name} Leaderboard',
+        leaderboard_string = build_leaderboard(member, members, lambda x: x.activity_points)
+        a_embed = discord.Embed(
+            colour=member.colour(),
+            title=f'{member.guild.name} Activity Leaderboard',
             description=f'```{leaderboard_string}```'
         )
-        await interaction.response.send_message(embed=embed)
+        leaderboard_string = build_leaderboard(member, members, lambda x: x.points)
+        p_embed = discord.Embed(
+            colour=member.colour(),
+            title=f'{member.guild.name} {server.points_name.capitalize()} Leaderboard',
+            description=f'```{leaderboard_string}```'
+        )
+        await interaction.response.send_message(embeds=[a_embed, p_embed])
 
     @app_commands.command(name='shop', description='View the shop to spend points')
     @app_commands.guild_only()
@@ -82,6 +95,11 @@ class PointsCog(commands.Cog):
         [embed.add_field(name=x.name, value=x.desc, inline=False) for x in server.shop.items]
         view = ShopView(server)
         await interaction.response.send_message(embed=embed, view=view)
+
+    async def who_is(self, interaction: discord.Interaction, member: discord.Member):
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(member.id)
+        await interaction.response.send_message(embed=member.profile(), ephemeral=True)
 
     @tasks.loop(time=time(hour=0, minute=0, tzinfo=datetime.utcnow().astimezone().tzinfo))
     async def pay_ap(self):

@@ -5,6 +5,7 @@ import re
 from typing import TYPE_CHECKING, Dict, Any, Optional, Union
 
 import discord
+from discord.utils import format_dt
 
 from .abc import HasFlags
 from .colour import Colour
@@ -110,6 +111,10 @@ class HeliosMember(HasFlags):
     def activity_points(self) -> int:
         return self._activity_points
 
+    @property
+    def unpaid_ap(self):
+        return int(self._activity_points - self._ap_paid)
+
     def add_activity_points(self, amt: int):
         self._activity_points += amt
         self._changed = True
@@ -125,6 +130,28 @@ class HeliosMember(HasFlags):
 
     def is_noob(self):
         return self.activity_points < 1440
+
+    def profile(self) -> discord.Embed:
+        embed = discord.Embed(
+            title=self.member.display_name,
+            colour=self.colour(),
+            description=self.member.name
+        )
+        embed.set_thumbnail(url=self.member.display_avatar.url)
+        embed.add_field(name=f'{self.server.points_name.capitalize()}', value=f'{self.points:,}')
+        embed.add_field(name=f'Activity {self.server.points_name.capitalize()}', value=f'{self.activity_points:,}')
+        embed.add_field(name=f'Joined {self.server.guild.name}', value=format_dt(self.member.joined_at, 'R'))
+        return embed
+
+    def colour(self):
+        colour = discord.Colour.default()
+        for role in reversed(self.member.roles):
+            if role.colour != discord.Colour.default():
+                if (self.server.guild.premium_subscriber_role
+                        and role.colour == self.server.guild.premium_subscriber_role.colour):
+                    continue
+                return role.colour
+        return colour
 
     def _deserialize(self, data: MemberModel):
         if self.member.id != data.member_id:
