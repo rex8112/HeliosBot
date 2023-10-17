@@ -176,9 +176,12 @@ class AuditLogModel(BaseModel):
 
     @staticmethod
     async def get_target_temp_mutes(target_id: int) -> list['AuditLogModel']:
-        q = AuditLogModel.select().where(AuditLogModel.target == target_id, AuditLogModel.action == 'temp_mute')
+        q = AuditLogModel.select().where(AuditLogModel.target_id == target_id, AuditLogModel.action == 'temp_mute')
         audits = await objects.prefetch(q)
         return list(audits)
+
+    class Meta:
+        table_name = 'auditlogs'
 
 
 class ViolationModel(BaseModel):
@@ -207,6 +210,9 @@ class CaseModel(BaseModel):
     punished = BooleanField(default=False)
     finished = DatetimeTzField(null=True)
     created = DatetimeTzField(default=get_aware_utc_now)
+
+    class Meta:
+        table_name = 'cases'
 
 
 class PugModel(BaseModel):
