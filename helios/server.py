@@ -5,14 +5,12 @@ import discord
 
 from .channel_manager import ChannelManager
 from .court import Court
+from .database import ServerModel, objects
 from .exceptions import IdMismatchError
-from .event_manager import EventManager
-from .member_manager import MemberManager
 from .member import HeliosMember
+from .member_manager import MemberManager
 from .shop import Shop
-from .stadium import Stadium
 from .tools.settings import Settings
-from .database import ServerModel, objects, EventModel
 
 if TYPE_CHECKING:
     from .server_manager import ServerManager
@@ -38,7 +36,6 @@ class Server:
         self.manager = manager
         self.channels = ChannelManager(self)
         self.members = MemberManager(self)
-        self.stadium = Stadium(self)
         self.shop = Shop(self.bot)
         self.court = Court(self)
         self.topics = {}

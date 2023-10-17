@@ -1,8 +1,8 @@
 import datetime
 from typing import Union, TYPE_CHECKING, Any
 
-from discord.abc import Snowflake
 from discord import Message, PartialMessage
+from discord.abc import Snowflake
 
 from ..exceptions import DecodingError
 from ..types.settings import ItemSerializable
@@ -88,15 +88,6 @@ class Item:
                 raise ValueError(f'Argument guild required for type {name}')
             channel = guild.get_channel(data[0])
             return channel.get_partial_message(data[1])
-        elif name == 'Horse':
-            if not guild or not bot:
-                raise ValueError(f'Argument guild and bot required for type {name}')
-            server = bot.servers.get(guild.id)
-            horse = None
-            if server:
-                stadium = server.stadium
-                horse = stadium.horses.get(data)
-            return horse
         elif name in ['str', 'int', 'float', 'bool']:
             return data
         elif name == 'NoneType':

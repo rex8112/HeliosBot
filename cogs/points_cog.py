@@ -1,17 +1,15 @@
 import asyncio
-from datetime import time, datetime, timezone
-from typing import TYPE_CHECKING, Optional
+from datetime import time, datetime
 
-import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 
 import helios
+from helios import ShopView
 from helios.shop import *
-from helios import ShopView, Violation
 
 if TYPE_CHECKING:
-    from helios import HeliosBot, Server, HeliosMember
+    from helios import HeliosBot, HeliosMember
 
 
 def get_leaderboard_string(num: int, member: 'HeliosMember', value: int, prefix: str = ''):

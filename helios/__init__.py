@@ -1,11 +1,13 @@
-from . import tools, shop
+from . import tools
+from .shop import Shop
 from .channel_manager import ChannelManager
 from .colour import Colour
 from .database import db, initialize_db, migrate_members, fix_transaction
 from .exceptions import *
 from .helios_bot import HeliosBot
 from .modals import *
+from .member import HeliosMember
 from .server_manager import ServerManager
-from .views import VoiceControllerView, VerifyView, ShopView, TempMuteView, ViolationView
+from .views import *
 from .violation import Violation
 from .voice_template import VoiceTemplate

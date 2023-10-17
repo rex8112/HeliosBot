@@ -1,71 +1,10 @@
-from typing import Optional, Callable, Any, TypeVar, Hashable
+from typing import TypeVar, Hashable, Callable, Optional
 
 import discord
 
-from .modals import SearchModal, PageModal
+from helios.tools.modals import PageModal
 
-
-class YesNoView(discord.ui.View):
-    def __init__(self, author: discord.Member, *, timeout=5):
-        super().__init__(timeout=timeout)
-        self.author: discord.Member = author
-        self.value: Optional[bool] = None
-
-    @discord.ui.button(label='Yes', style=discord.ButtonStyle.green)
-    async def yes(self, interaction: discord.Interaction,
-                  button: discord.ui.Button):
-        if interaction.user == self.author:
-            self.value = True
-            await interaction.response.defer()
-            self.stop()
-        else:
-            await interaction.response.send_message('You are not allowed to '
-                                                    'respond',
-                                                    ephemeral=True)
-
-    @discord.ui.button(label='No', style=discord.ButtonStyle.red)
-    async def no(self, interaction: discord.Interaction,
-                 button: discord.ui.Button):
-        if interaction.user == self.author:
-            self.value = False
-            await interaction.response.defer()
-            self.stop()
-        else:
-            await interaction.response.send_message('You are not allowed to '
-                                                    'respond',
-                                                    ephemeral=True)
-
-
-class SelectMemberView(discord.ui.View):
-    def __init__(self, author: discord.Member, *, max_select: int = 1, min_select: int = 1,
-                 timeout: Optional[int] = 60, check: Callable[[discord.Member], tuple[bool, str]] = None):
-        super().__init__(timeout=timeout)
-        self.author = author
-        self.max_select = max_select
-        self.min_select = min_select
-        self.check = check
-        self.current_search = None
-        self.selected: list[discord.Member] = []
-
-    @discord.ui.select(cls=discord.ui.UserSelect)
-    async def select_member(self, interaction: discord.Interaction, select: discord.ui.UserSelect):
-        if self.author != interaction.user:
-            await interaction.response.send_message('You are not allowed to use this.', ephemeral=True)
-            return
-        
-        values = select.values
-        if self.check:
-            allowed = filter(lambda x: self.check(x)[0], values)
-            if allowed:
-                self.selected = allowed
-            else:
-                await interaction.response.send_message('No Valid Selections', ephemeral=True)
-                return
-        else:
-            self.selected = values
-        await interaction.response.defer()
-        self.stop()
-
+__all__ = ('PaginatorView', 'PaginatorSelectView', 'YesNoView', 'SelectMemberView')
 
 T = TypeVar('T', bound=Hashable)
 
@@ -162,4 +101,66 @@ class PaginatorSelectView(PaginatorView):
     async def select_item(self, interaction: discord.Interaction, select: discord.ui.Select):
         await interaction.response.defer()
         self.selected = self.values[self.values_string.index(select.values[0])]
+        self.stop()
+
+
+class YesNoView(discord.ui.View):
+    def __init__(self, author: discord.Member, *, timeout=5):
+        super().__init__(timeout=timeout)
+        self.author: discord.Member = author
+        self.value: Optional[bool] = None
+
+    @discord.ui.button(label='Yes', style=discord.ButtonStyle.green)
+    async def yes(self, interaction: discord.Interaction,
+                  button: discord.ui.Button):
+        if interaction.user == self.author:
+            self.value = True
+            await interaction.response.defer()
+            self.stop()
+        else:
+            await interaction.response.send_message('You are not allowed to '
+                                                    'respond',
+                                                    ephemeral=True)
+
+    @discord.ui.button(label='No', style=discord.ButtonStyle.red)
+    async def no(self, interaction: discord.Interaction,
+                 button: discord.ui.Button):
+        if interaction.user == self.author:
+            self.value = False
+            await interaction.response.defer()
+            self.stop()
+        else:
+            await interaction.response.send_message('You are not allowed to '
+                                                    'respond',
+                                                    ephemeral=True)
+
+
+class SelectMemberView(discord.ui.View):
+    def __init__(self, author: discord.Member, *, max_select: int = 1, min_select: int = 1,
+                 timeout: Optional[int] = 60, check: Callable[[discord.Member], tuple[bool, str]] = None):
+        super().__init__(timeout=timeout)
+        self.author = author
+        self.max_select = max_select
+        self.min_select = min_select
+        self.check = check
+        self.current_search = None
+        self.selected: list[discord.Member] = []
+
+    @discord.ui.select(cls=discord.ui.UserSelect)
+    async def select_member(self, interaction: discord.Interaction, select: discord.ui.UserSelect):
+        if self.author != interaction.user:
+            await interaction.response.send_message('You are not allowed to use this.', ephemeral=True)
+            return
+
+        values = select.values
+        if self.check:
+            allowed = filter(lambda x: self.check(x)[0], values)
+            if allowed:
+                self.selected = allowed
+            else:
+                await interaction.response.send_message('No Valid Selections', ephemeral=True)
+                return
+        else:
+            self.selected = values
+        await interaction.response.defer()
         self.stop()

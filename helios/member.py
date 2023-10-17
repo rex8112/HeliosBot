@@ -2,23 +2,22 @@ import asyncio
 import datetime
 import json
 import re
-from typing import TYPE_CHECKING, Dict, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import discord
 from discord.utils import format_dt
 
 from .abc import HasFlags
 from .colour import Colour
+from .database import MemberModel, objects, TransactionModel
 from .exceptions import IdMismatchError
 from .violation import Violation
 from .voice_template import VoiceTemplate
-from .database import MemberModel, objects, TransactionModel
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
     from .server import Server
     from .member_manager import MemberManager
-    from .horses.horse import Horse
     from discord import Guild, Member
 
 
@@ -91,10 +90,6 @@ class HeliosMember(HasFlags):
             return True
         mem_role = self.member.get_role(role.id)
         return mem_role is not None
-
-    @property
-    def horses(self) -> Dict[int, 'Horse']:
-        return self.server.stadium.get_owner_horses(self)
 
     @property
     def points(self) -> int:

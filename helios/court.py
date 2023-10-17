@@ -1,8 +1,9 @@
+from typing import TYPE_CHECKING
+
 from discord.ext import tasks
-from typing import TYPE_CHECKING, overload
 
 from .database import ViolationModel, objects
-from .enums import ViolationStates, ViolationTypes
+from .enums import ViolationStates
 from .violation import Violation
 
 if TYPE_CHECKING:

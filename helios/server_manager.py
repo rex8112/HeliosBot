@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING, Optional
 
 import discord
 
-from .server import Server
 from .database import ServerModel, MemberModel, ChannelModel, objects
-from .views import ShopView, ViolationView
+from .server import Server
+from .views import ShopView
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot

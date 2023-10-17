@@ -5,11 +5,10 @@ from discord import app_commands
 from discord.ext import commands
 from discord.utils import format_dt
 
-from helios import Colour, ViolationView
-from helios.tools import PaginatorSelectView
+from helios import Colour, ViolationView, PaginatorSelectView
 
 if TYPE_CHECKING:
-    from helios import HeliosBot, HeliosMember, Violation
+    from helios import HeliosBot, Violation
 
 
 def build_violations_embeds(violations: list['Violation']):

@@ -5,14 +5,13 @@ from typing import Optional
 import discord
 from discord.ext import commands
 
-from .event_manager import EventManager
-from .member import HeliosMember
-from .server import Server
 from .database import EventModel, objects
+from .event_manager import EventManager
 from .http import HTTPClient
+from .server import Server
 from .server_manager import ServerManager
 from .tools import Config
-from .views import TopicView, ShopView, ViolationPayButton
+from .views import TopicView, ViolationPayButton
 
 logger = logging.getLogger('HeliosLogger')
 

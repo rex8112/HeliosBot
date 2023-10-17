@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING
 import discord
 import peewee
 
-from .member import HeliosMember
 from .database import MemberModel, objects
+from .member import HeliosMember
 
 if TYPE_CHECKING:
     from .server import Server

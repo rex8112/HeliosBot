@@ -5,7 +5,6 @@ import discord
 
 if TYPE_CHECKING:
     from ..member import HeliosMember
-    from .horses import MaxRaceHorses, RaceTypes
     from discord import TextChannel, Message
 
 
