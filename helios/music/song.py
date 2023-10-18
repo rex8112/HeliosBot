@@ -22,7 +22,7 @@ class Song:
     @classmethod
     async def from_url(cls, url: str, *, requester: 'HeliosMember' = None):
         data = await YtProcessor.get_info(url)
-        return cls(data['title'], url, data['url'], data['duration'], requester=requester)
+        return cls(data['title'], data['webpage_url'], data['url'], data['duration'], requester=requester)
 
     def audio_source(self):
         return YtProcessor.get_audio_source_from_raw(self.raw_url)
