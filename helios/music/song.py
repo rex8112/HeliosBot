@@ -1,7 +1,4 @@
-import asyncio
 from typing import TYPE_CHECKING
-
-import discord
 
 from .processor import YtProcessor
 
@@ -18,6 +15,11 @@ class Song:
         self.raw_url = raw_url
         self.duration = duration
         self.requester = requester
+
+    def __eq__(self, other):
+        if isinstance(other, Song):
+            return self.url == other.url
+        return NotImplemented
 
     @classmethod
     async def from_url(cls, url: str, *, requester: 'HeliosMember' = None):
