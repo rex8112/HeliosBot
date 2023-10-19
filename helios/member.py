@@ -328,16 +328,26 @@ class HeliosMember(HasFlags):
 
     async def temp_unmute(self):
         self.allow_on_voice = True
-        muter, cost = self._temp_mute_data
+        muter, cost = self._temp_mute_data  # type: HeliosMember, int
         self._temp_mute_data = None
         if self.member.voice:
             if self.member.voice.mute is False:
                 unmuter = await self.who_unmuted()
+                hel = self.server.me
                 if unmuter and unmuter != muter.member:
                     member = self.server.members.get(unmuter.id)
-                    v = Violation.new_shop(member, muter, cost,
+                    v = Violation.new_shop(member, hel, cost,
                                            f'Unmuting {self.member.name} during a temporary mute.')
                     await self.server.court.new_violation(v)
+                    embed = discord.Embed(
+                        title='Notice of Refund',
+                        colour=discord.Colour.green(),
+                        description='Due to unexpected interference, your last Shop purchase was invalidated and you '
+                                    f'have been refuned **{cost}** {self.server.points_name.capitalize()}.'
+                    )
+                    await muter.add_points(cost, 'Helios', 'Helios Shop Refund: Temp Mute')
+                    await muter.member.send(embed=embed)
+
             embed = discord.Embed(
                 title='Unmuted',
                 colour=discord.Colour.green(),
