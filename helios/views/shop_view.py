@@ -73,7 +73,7 @@ class TempMuteView(discord.ui.View):
         seconds = await self.selected_member.get_point_mute_duration()
         value = 0
         for _ in range(self.selected_seconds):
-            tier = int(seconds // 30)
+            tier = int(seconds // 60)
             value += int(self.PRICE_PER_SECOND * math.pow(2, tier))
             seconds += 1
         return value
