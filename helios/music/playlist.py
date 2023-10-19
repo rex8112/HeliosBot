@@ -34,6 +34,28 @@ class Playlist:
     def __init__(self):
         self.songs: list[Song] = []
 
+    def __len__(self):
+        return len(self.songs)
+
+    async def add_song_url_next(self, url: str, requester: 'HeliosMember'):
+        song = await Song.from_url(url, requester=requester)
+        self.songs.insert(0, song)
+
     async def add_song_url(self, url: str, requester: 'HeliosMember'):
         song = await Song.from_url(url, requester=requester)
         self.songs.append(song)
+
+    def next(self):
+        try:
+            return self.songs.pop(0)
+        except IndexError:
+            return None
+
+    def total_duration(self):
+        seconds = 0
+        for song in self.songs:
+            seconds += song.duration
+        return seconds
+
+    def clear(self):
+        self.songs.clear()
