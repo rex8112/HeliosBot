@@ -54,6 +54,17 @@ class TestingCog(commands.Cog):
         """ /ping """
         await interaction.response.send_message('Pong!')
 
+    @app_commands.command(name='play')
+    async def play_command(self, interaction: discord.Interaction, song: str):
+        server = self.bot.servers.get(interaction.guild_id)
+        member = interaction.user
+        if member.voice is None:
+            await interaction.response.send_message(content='Join a VC first')
+        mp = server.music_player
+        await mp.join_channel(member.voice.channel)
+        await interaction.response.send_message(content='Playing Music')
+        await mp.add_song_url(song, server.members.get(member.id))
+
 
 async def setup(bot: 'HeliosBot') -> None:
     await bot.add_cog(TestingCog(bot))

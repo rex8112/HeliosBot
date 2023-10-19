@@ -31,10 +31,9 @@ if TYPE_CHECKING:
 
 
 class Song:
-    def __init__(self, title: str, url: str, raw_url: str, duration: int, *, requester: 'HeliosMember' = None):
+    def __init__(self, title: str, url: str, duration: int, *, requester: 'HeliosMember' = None):
         self.title = title
         self.url = url
-        self.raw_url = raw_url
         self.duration = duration
         self.requester = requester
 
@@ -45,8 +44,8 @@ class Song:
 
     @classmethod
     async def from_url(cls, url: str, *, requester: 'HeliosMember' = None):
-        data = await YtProcessor.get_info(url)
-        return cls(data['title'], data['webpage_url'], data['url'], data['duration'], requester=requester)
+        data = await YtProcessor.get_info(url, process=False)
+        return cls(data['title'], data['webpage_url'], data['duration'], requester=requester)
 
-    def audio_source(self):
-        return YtProcessor.get_audio_source_from_raw(self.raw_url)
+    async def audio_source(self):
+        return await YtProcessor.get_audio_source(self.url)

@@ -21,6 +21,7 @@
 #  SOFTWARE.
 
 import asyncio
+import functools
 
 import discord
 import youtube_dl
@@ -28,6 +29,7 @@ import youtube_dl
 ytdlopts = {
     'format': 'bestaudio/best',
     'outtmpl': 'downloads/%(extractor)s-%(id)s-%(title)s.%(ext)s',
+    'audioformat': 'mp3',
     'restrictfilenames': True,
     'noplaylist': True,
     'nocheckcertificate': True,
@@ -43,7 +45,8 @@ ytdlopts = {
 }
 
 ffmpeg_options = {
-    'options': '-vn'
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+    'options': '-vn -sn -dn -ignore_unknown'
 }
 
 ytdl = youtube_dl.YoutubeDL(ytdlopts)
@@ -51,10 +54,12 @@ ytdl = youtube_dl.YoutubeDL(ytdlopts)
 
 class YtProcessor:
     @staticmethod
-    async def get_info(url: str):
+    async def get_info(url: str, *, process=True):
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, lambda: ytdl.extract_info(url=url, download=False))
+        partial = functools.partial(ytdl.extract_info, url=url, download=False, process=process)
+        return await loop.run_in_executor(None, partial)
 
     @staticmethod
-    def get_audio_source_from_raw(raw_url: str):
-        return discord.FFmpegPCMAudio(source=raw_url, **ffmpeg_options, executable='ffmpeg')
+    async def get_audio_source(url: str):
+        data = await YtProcessor.get_info(url)
+        return discord.FFmpegPCMAudio(source=data['url'], **ffmpeg_options, executable='ffmpeg')

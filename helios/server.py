@@ -33,6 +33,7 @@ from .member import HeliosMember
 from .member_manager import MemberManager
 from .shop import Shop
 from .tools.settings import Settings
+from .music import MusicPlayer
 
 if TYPE_CHECKING:
     from .server_manager import ServerManager
@@ -60,6 +61,7 @@ class Server:
         self.members = MemberManager(self)
         self.shop = Shop(self.bot)
         self.court = Court(self)
+        self.music_player = MusicPlayer(self)
         self.topics = {}
         self.voice_controllers = []
         self.settings = Settings(self._default_settings, bot=self.bot, guild=self.guild)
