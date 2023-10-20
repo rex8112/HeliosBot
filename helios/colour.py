@@ -39,3 +39,7 @@ class Colour:
     @staticmethod
     def violation():
         return discord.Colour.red()
+
+    @staticmethod
+    def music():
+        return Colour.helios()

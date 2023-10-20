@@ -19,7 +19,9 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
-
+import asyncio
+import concurrent.futures
+import re
 from typing import TYPE_CHECKING
 
 import discord
@@ -57,13 +59,20 @@ class TestingCog(commands.Cog):
     @app_commands.command(name='play')
     async def play_command(self, interaction: discord.Interaction, song: str):
         server = self.bot.servers.get(interaction.guild_id)
-        member = interaction.user
-        if member.voice is None:
-            await interaction.response.send_message(content='Join a VC first')
-        mp = server.music_player
-        await mp.join_channel(member.voice.channel)
-        await interaction.response.send_message(content='Playing Music')
-        await mp.add_song_url(song, server.members.get(member.id))
+        member = server.members.get(interaction.user.id)
+        if interaction.user.voice is None:
+            await interaction.response.send_message(content='Must be in a VC', ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True)
+        if not server.music_player.is_connected():
+            await server.music_player.join_channel(interaction.user.voice.channel)
+        regex = r'https:\/\/(?:www\.)?youtu(?:be\.com|\.be)\/(?:watch\?v=)?([^"&?\/\s]{11})'
+        matches = re.match(regex, song, re.RegexFlag.I)
+        if matches:
+            await server.music_player.add_song_url(song, member)
+            await interaction.followup.send(content='Song Queued')
+        else:
+            await interaction.followup.send(content='Invalid URL Given')
 
 
 async def setup(bot: 'HeliosBot') -> None:

@@ -22,9 +22,9 @@
 
 import asyncio
 import functools
+import yt_dlp
 
 import discord
-import youtube_dl
 
 ytdlopts = {
     'format': 'bestaudio/best',
@@ -49,17 +49,21 @@ ffmpeg_options = {
     'options': '-vn -sn -dn -ignore_unknown'
 }
 
-ytdl = youtube_dl.YoutubeDL(ytdlopts)
+ytdl = yt_dlp.YoutubeDL(ytdlopts)
 
 
-class YtProcessor:
-    @staticmethod
-    async def get_info(url: str, *, process=True):
-        loop = asyncio.get_event_loop()
-        partial = functools.partial(ytdl.extract_info, url=url, download=False, process=process)
-        return await loop.run_in_executor(None, partial)
+def extract_info_wrapper(*args, **kwargs):
+    data = ytdl.extract_info(*args, **kwargs)
+    return data
 
-    @staticmethod
-    async def get_audio_source(url: str):
-        data = await YtProcessor.get_info(url)
-        return discord.FFmpegPCMAudio(source=data['url'], **ffmpeg_options, executable='ffmpeg')
+
+async def get_info(url: str, *, process=True):
+    loop = asyncio.get_event_loop()
+    partial = functools.partial(extract_info_wrapper, url=url, download=False, process=process)
+    data = await loop.run_in_executor(None, partial)
+    return data
+
+
+async def get_audio_source(url: str):
+    data = await get_info(url)
+    return discord.FFmpegPCMAudio(source=data['url'], **ffmpeg_options, executable='ffmpeg')

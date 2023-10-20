@@ -20,12 +20,18 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 import asyncio
-from datetime import datetime
+import math
+import re
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Optional
 
 import discord
+from discord import Interaction
+from discord.ext import tasks
+from discord.utils import format_dt
 
 from .playlist import Playlist
+from ..colour import Colour
 
 if TYPE_CHECKING:
     from .song import Song
@@ -41,6 +47,10 @@ class MusicPlayer:
         self._vc: Optional[discord.VoiceClient] = None
         self._started: Optional[datetime] = None
         self._ended: Optional[datetime] = None
+        self._control_message: Optional[discord.Message] = None
+        self._control_view: Optional['MusicPlayerView'] = None
+        self._leaving = False
+        self.check_vc.start()
 
     @property
     def playlist(self) -> Playlist:
@@ -52,27 +62,55 @@ class MusicPlayer:
         else:
             return Playlist()
 
+    @property
+    def channel(self):
+        return self._vc.channel if self._vc else None
+
     async def join_channel(self, channel: discord.VoiceChannel):
         if self.is_connected():
             if self._vc.channel == channel:
                 return
+            if self._control_message:
+                try:
+                    await self._control_message.delete()
+                except (discord.Forbidden, discord.NotFound):
+                    ...
+                self._control_message = None
+                self._control_view = None
             await self._vc.move_to(channel)
         else:
             self._vc = await channel.connect()
+        self._control_view = MusicPlayerView(self)
+        self._control_view.update_buttons()
+        self._control_message = await self._vc.channel.send(embed=self.get_embed(), view=self._control_view)
 
     async def leave_channel(self):
+        self._leaving = True
+        self.playlists.clear()
+        self._vc.stop()
         await self._vc.disconnect()
         self._vc = None
-        self.playlists.clear()
+
+        try:
+            await self._control_message.delete()
+        except (discord.Forbidden, discord.NotFound):
+            ...
+        self._control_message = None
+        self._control_view = None
+        self._leaving = False
 
     def is_connected(self) -> bool:
         return self._vc and self._vc.is_connected()
 
-    async def song_finished(self, exception: Exception) -> None:
+    async def song_finished(self, exception: Optional[Exception]) -> None:
+        duration_played = datetime.now().astimezone() - self._started
         self.stop_song()
 
+        if self._leaving:
+            return
         next_song = self.playlist.next()
         if next_song is None:
+            await self.update_message()
             return
         if exception or not self.is_connected():
             return
@@ -87,6 +125,7 @@ class MusicPlayer:
         self._ended = None
         loop = asyncio.get_event_loop()
         self._vc.play(await song.audio_source(), after=lambda x: loop.create_task(self.song_finished(x)), bitrate=64)
+        await self.update_message()
         return True
 
     def stop_song(self) -> bool:
@@ -98,10 +137,34 @@ class MusicPlayer:
         self._vc.stop()
         return True
 
+    def skip_song(self):
+        self._vc.stop()
+
     async def add_song_url(self, url: str, requester: 'HeliosMember'):
         await self.playlist.add_song_url(url, requester)
         if self.currently_playing is None:
             await self.play_song(self.playlist.next())
+
+    async def update_message(self):
+        if self._control_message is None:
+            return
+        self._control_view.update_buttons()
+        await self._control_message.edit(embed=self.get_embed(), view=self._control_view)
+
+    @tasks.loop(seconds=10)
+    async def check_vc(self):
+        if not self.is_connected():
+            return
+
+        ago = datetime.now().astimezone() - timedelta(minutes=10)
+        if self._ended and self._ended <= ago:
+            await self.leave_channel()
+        elif self.members_in_channel() == 0:
+            await self.leave_channel()
+
+    @check_vc.before_loop
+    async def before_check_vc(self):
+        await self.server.bot.wait_until_ready()
 
     def seconds_running(self) -> int:
         if self.currently_playing is None:
@@ -114,4 +177,100 @@ class MusicPlayer:
         duration = self.currently_playing.duration
         seconds_running = self.seconds_running()
         return duration - seconds_running
+
+    def members_in_channel(self) -> int:
+        if self.is_connected():
+            return len(self._vc.channel.members) - 1
+        return 0
+
+    def get_embed(self) -> discord.Embed:
+        np_string = 'Nothing Currently Playing'
+        if self.currently_playing:
+            ends = datetime.now().astimezone() + timedelta(seconds=self.currently_playing.duration)
+            np_string = f'{self.currently_playing.title}\nBy {self.currently_playing.author}\nEnds in: {format_dt(ends, "R")}'
+        embed = discord.Embed(
+            title='Now Playing',
+            colour=Colour.music(),
+            description=np_string
+        )
+        if self.currently_playing:
+            requester = self.currently_playing.requester
+            embed.set_author(name=requester.member.display_name, icon_url=requester.member.display_avatar.url)
+        return embed
+
+
+class MusicPlayerView(discord.ui.View):
+    def __init__(self, mp: 'MusicPlayer'):
+        super().__init__(timeout=None)
+        self.mp = mp
+        self.voted_to_skip: set[discord.Member] = set()
+
+    async def interaction_check(self, interaction: discord.Interaction, /) -> bool:
+        if interaction.user.voice is None or interaction.user.voice.channel != self.mp.channel:
+            await interaction.response.send_message(content=f'You need to be in {self.mp.channel.mention} to use this.')
+            return False
+        return True
+
+    def update_buttons(self):
+        mems = self.mp.members_in_channel()
+        self.skip.label = f'Skip ({len(self.voted_to_skip)}/{math.ceil(mems/2)})'
+
+    @discord.ui.button(label='Queue')
+    async def show_queue(self, interaction: discord.Interaction, _: discord.ui.Button):
+        await interaction.response.send_message(embed=self.mp.playlist.get_embed(), ephemeral=True)
+
+    @discord.ui.button(label='Skip', style=discord.ButtonStyle.red)
+    async def skip(self, interaction: discord.Interaction, _: discord.ui.Button):
+        update = False
+        if interaction.user not in self.voted_to_skip:
+            self.voted_to_skip.add(interaction.user)
+            update = True
+            await interaction.response.send_message(content='Voted to skip!', ephemeral=True)
+        else:
+            await interaction.response.send_message(content='Already voted!', ephemeral=True)
+
+        if len(self.voted_to_skip) >= math.ceil(self.mp.members_in_channel() / 2):
+            self.voted_to_skip.clear()
+            self.update_buttons()
+            self.mp.skip_song()
+            update = False
+
+        if update:
+            message = interaction.message
+            if message is None:
+                return
+            self.update_buttons()
+            await message.edit(view=self)
+
+    @discord.ui.button(label='Play', style=discord.ButtonStyle.green)
+    async def play(self, interaction: discord.Interaction, _: discord.ui.Button):
+        if interaction.user.voice is None:
+            await interaction.response.send_message(content='Must be in a VC', ephemeral=True)
+            return
+        modal = NewSongModal()
+        await interaction.response.send_modal(modal)
+        await modal.wait()
+        if modal.url.value:
+            regex = r'https:\/\/(?:www\.)?youtu(?:be\.com|\.be)\/(?:watch\?v=)?([^"&?\/\s]{11})'
+            matches = re.match(regex, modal.url.value, re.RegexFlag.I)
+            if matches:
+                await self.mp.add_song_url(modal.url.value, self.mp.server.members.get(modal.interaction.user.id))
+                await modal.interaction.followup.send(content='Song Queued')
+            else:
+                await modal.interaction.followup.send(content='Invalid URL Given')
+
+
+class NewSongModal(discord.ui.Modal):
+    url = discord.ui.TextInput(label='Youtube URL')
+
+    def __init__(self):
+        super().__init__(title='Queue Song')
+        self.interaction: Optional[discord.Interaction] = None
+
+    async def on_submit(self, interaction: Interaction, /) -> None:
+        self.interaction = interaction
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        self.stop()
+
+
 

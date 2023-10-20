@@ -19,12 +19,13 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
-
+from datetime import time, timedelta
 from typing import TYPE_CHECKING, Optional
 
 import discord
 
 from .song import Song
+from ..colour import Colour
 
 if TYPE_CHECKING:
     from ..member import HeliosMember
@@ -44,6 +45,20 @@ class Playlist:
     async def add_song_url(self, url: str, requester: 'HeliosMember'):
         song = await Song.from_url(url, requester=requester)
         self.songs.append(song)
+
+    def get_embed(self):
+        song_string = ''
+        for i, song in enumerate(self.songs, start=1):  # type: int, Song
+            dur = timedelta(seconds=song.duration)
+            song_string += f'**{i}. {song.title}**\nBy {song.author}\nDuration: {dur}\n\n'
+        if not song_string:
+            song_string = 'Nothing in queue'
+        embed = discord.Embed(
+            title='Up Next',
+            colour=Colour.music(),
+            description=song_string
+        )
+        return embed
 
     def next(self):
         try:

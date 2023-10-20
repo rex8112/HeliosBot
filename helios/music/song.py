@@ -22,7 +22,7 @@
 
 from typing import TYPE_CHECKING
 
-from .processor import YtProcessor
+from .processor import *
 
 __all__ = ('Song',)
 
@@ -31,8 +31,9 @@ if TYPE_CHECKING:
 
 
 class Song:
-    def __init__(self, title: str, url: str, duration: int, *, requester: 'HeliosMember' = None):
+    def __init__(self, title: str, author: str, url: str, duration: int, *, requester: 'HeliosMember' = None):
         self.title = title
+        self.author = author
         self.url = url
         self.duration = duration
         self.requester = requester
@@ -44,8 +45,8 @@ class Song:
 
     @classmethod
     async def from_url(cls, url: str, *, requester: 'HeliosMember' = None):
-        data = await YtProcessor.get_info(url, process=False)
-        return cls(data['title'], data['webpage_url'], data['duration'], requester=requester)
+        data = await get_info(url, process=False)
+        return cls(data['title'], data['uploader'], data['webpage_url'], data['duration'], requester=requester)
 
     async def audio_source(self):
-        return await YtProcessor.get_audio_source(self.url)
+        return await get_audio_source(self.url)
