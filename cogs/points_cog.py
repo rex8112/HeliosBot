@@ -117,7 +117,8 @@ class PointsCog(commands.Cog):
         view = ShopView(server)
         await interaction.response.send_message(embed=embed, view=view)
 
-    @app_commands.command(name='play')
+    @app_commands.command(name='play', description='Play or queue music.')
+    @app_commands.describe(song='Must be a full youtube URL, including the https://')
     @app_commands.guild_only()
     async def play_command(self, interaction: discord.Interaction, song: str):
         server = self.bot.servers.get(interaction.guild_id)
