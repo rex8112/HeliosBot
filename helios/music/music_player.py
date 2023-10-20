@@ -50,7 +50,10 @@ class MusicPlayer:
         self._control_message: Optional[discord.Message] = None
         self._control_view: Optional['MusicPlayerView'] = None
         self._leaving = False
+        self._stopping = False
+
         self.check_vc.start()
+        self.on_voice_state_update = self.server.bot.event(self.on_voice_state_update)
 
     @property
     def playlist(self) -> Playlist:
@@ -96,6 +99,8 @@ class MusicPlayer:
         except (discord.Forbidden, discord.NotFound):
             ...
         self._control_message = None
+
+        self._control_view.stop()
         self._control_view = None
         self._leaving = False
 
@@ -103,12 +108,28 @@ class MusicPlayer:
         return self._vc and self._vc.is_connected()
 
     async def song_finished(self, exception: Optional[Exception]) -> None:
-        duration_played = datetime.now().astimezone() - self._started
+        duration_played = self.seconds_running()
+        cost = int((duration_played * 2) / 60)
+        await self.currently_playing.requester.add_points(-cost, 'Helios', f'Music Charged for {cost//2}')
+        if self._stopping:
+            return
+
         self.stop_song()
 
         if self._leaving:
             return
-        next_song = self.playlist.next()
+        cont = False
+        next_song = None
+
+        while cont is False:
+            next_song = self.playlist.next()
+
+            if next_song and next_song.requester.member in self.channel.members:
+                if next_song.requester.points > int((next_song.duration * 2) / 60):
+                    cont = True
+            if len(self.playlist) == 0 and next_song is None:
+                cont = True
+
         if next_song is None:
             await self.update_message()
             return
@@ -120,6 +141,7 @@ class MusicPlayer:
         if not self.is_connected():
             return False
 
+        self._stopping = False
         self.currently_playing = song
         self._started = datetime.now().astimezone()
         self._ended = None
@@ -128,9 +150,17 @@ class MusicPlayer:
         await self.update_message()
         return True
 
+    async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+        if member != member.guild.me:
+            return
+        if before.channel and after.channel is None:
+            self.stop_song()
+            await self.leave_channel()
+
     def stop_song(self) -> bool:
         if not self.is_connected():
             return False
+        self._stopping = True
         self.currently_playing = None
         self._started = None
         self._ended = datetime.now().astimezone()
@@ -151,12 +181,16 @@ class MusicPlayer:
         self._control_view.update_buttons()
         await self._control_message.edit(embed=self.get_embed(), view=self._control_view)
 
+    async def refresh_message(self):
+        await self._control_message.delete()
+        self._control_message = await self.channel.send(embed=self.get_embed(), view=self._control_view)
+
     @tasks.loop(seconds=10)
     async def check_vc(self):
         if not self.is_connected():
             return
 
-        ago = datetime.now().astimezone() - timedelta(minutes=10)
+        ago = datetime.now().astimezone() - timedelta(minutes=5)
         if self._ended and self._ended <= ago:
             await self.leave_channel()
         elif self.members_in_channel() == 0:
@@ -258,6 +292,11 @@ class MusicPlayerView(discord.ui.View):
                 await modal.interaction.followup.send(content='Song Queued')
             else:
                 await modal.interaction.followup.send(content='Invalid URL Given')
+
+    @discord.ui.button(label='Refresh', row=1)
+    async def refresh_message(self, interaction: discord.Interaction, _):
+        await interaction.response.defer()
+        await self.mp.refresh_message()
 
 
 class NewSongModal(discord.ui.Modal):

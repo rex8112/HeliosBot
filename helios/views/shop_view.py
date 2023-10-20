@@ -113,6 +113,10 @@ class TempMuteView(discord.ui.View):
             self.error_message = f'{member.member.display_name} is already muted.'
             self.selected_member = None
             return False
+        if member == self.author.server.me:
+            self.error_message = f'You can not mute me.'
+            self.selected_member = None
+            return False
         # if member.member.top_role > member.member.guild.me.top_role or member.member.guild.owner == member.member:
         #     self.error_message = f'I am sorry, I could not mute {member.member.display_name} even if I wanted to.'
         #     self.selected_member = None

@@ -56,24 +56,6 @@ class TestingCog(commands.Cog):
         """ /ping """
         await interaction.response.send_message('Pong!')
 
-    @app_commands.command(name='play')
-    async def play_command(self, interaction: discord.Interaction, song: str):
-        server = self.bot.servers.get(interaction.guild_id)
-        member = server.members.get(interaction.user.id)
-        if interaction.user.voice is None:
-            await interaction.response.send_message(content='Must be in a VC', ephemeral=True)
-            return
-        await interaction.response.defer(ephemeral=True)
-        if not server.music_player.is_connected():
-            await server.music_player.join_channel(interaction.user.voice.channel)
-        regex = r'https:\/\/(?:www\.)?youtu(?:be\.com|\.be)\/(?:watch\?v=)?([^"&?\/\s]{11})'
-        matches = re.match(regex, song, re.RegexFlag.I)
-        if matches:
-            await server.music_player.add_song_url(song, member)
-            await interaction.followup.send(content='Song Queued')
-        else:
-            await interaction.followup.send(content='Invalid URL Given')
-
 
 async def setup(bot: 'HeliosBot') -> None:
     await bot.add_cog(TestingCog(bot))

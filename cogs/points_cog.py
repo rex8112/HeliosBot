@@ -21,6 +21,7 @@
 #  SOFTWARE.
 
 import asyncio
+import re
 from datetime import time, datetime
 
 from discord import app_commands
@@ -115,6 +116,30 @@ class PointsCog(commands.Cog):
         [embed.add_field(name=x.name, value=x.desc, inline=False) for x in server.shop.items]
         view = ShopView(server)
         await interaction.response.send_message(embed=embed, view=view)
+
+    @app_commands.command(name='play')
+    @app_commands.guild_only()
+    async def play_command(self, interaction: discord.Interaction, song: str):
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        if interaction.user.voice is None:
+            await interaction.response.send_message(content='Must be in a VC', ephemeral=True)
+            return
+        if server.music_player.channel and interaction.user.voice.channel != server.music_player.channel:
+            await interaction.response.send_message(content=f'I am currently busy, sorry.')
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        if not server.music_player.is_connected():
+            await server.music_player.join_channel(interaction.user.voice.channel)
+        regex = r'https:\/\/(?:www\.)?youtu(?:be\.com|\.be)\/(?:watch\?v=)?([^"&?\/\s]{11})'
+        matches = re.match(regex, song, re.RegexFlag.I)
+        if matches:
+            await server.music_player.add_song_url(song, member)
+            await interaction.followup.send(content='Song Queued')
+        else:
+            await interaction.followup.send(content='Invalid URL Given')
 
     async def who_is(self, interaction: discord.Interaction, member: discord.Member):
         server = self.bot.servers.get(interaction.guild_id)
