@@ -263,14 +263,30 @@ class MusicPlayerView(discord.ui.View):
     def update_buttons(self):
         mems = self.mp.members_in_channel()
         self.skip.label = f'Skip ({len(self.voted_to_skip)}/{math.ceil(mems/2)})'
+        disable = self.mp.currently_playing is None
+        self.tip_button.disabled = disable
+        self.skip.disabled = disable
+        self.show_queue.disabled = len(self.mp.playlist.songs) == 0
+        self.play.label = 'Enqueue' if self.mp.currently_playing else 'Play'
 
-    @discord.ui.button(label='Queue')
-    async def show_queue(self, interaction: discord.Interaction, _: discord.ui.Button):
-        view = self.mp.playlist.get_paginator_view()
-        await interaction.response.send_message(embeds=view.get_embeds(view.get_paged_values()), view=view,
-                                                ephemeral=True)
+    @discord.ui.button(label='Play', style=discord.ButtonStyle.green)
+    async def play(self, interaction: discord.Interaction, _: discord.ui.Button):
+        if interaction.user.voice is None:
+            await interaction.response.send_message(content='Must be in a VC', ephemeral=True)
+            return
+        modal = NewSongModal()
+        await interaction.response.send_modal(modal)
+        await modal.wait()
+        if modal.url.value:
+            regex = r'https:\/\/(?:www\.)?youtu(?:be\.com|\.be)\/(?:watch\?v=)?([^"&?\/\s]{11})'
+            matches = re.match(regex, modal.url.value, re.RegexFlag.I)
+            if matches:
+                await self.mp.add_song_url(modal.url.value, self.mp.server.members.get(modal.interaction.user.id))
+                await modal.interaction.followup.send(content='Song Queued')
+            else:
+                await modal.interaction.followup.send(content='Invalid URL Given')
 
-    @discord.ui.button(label='Skip', style=discord.ButtonStyle.red)
+    @discord.ui.button(label='Skip', style=discord.ButtonStyle.red, disabled=True)
     async def skip(self, interaction: discord.Interaction, _: discord.ui.Button):
         update = False
         if interaction.user not in self.voted_to_skip:
@@ -293,22 +309,28 @@ class MusicPlayerView(discord.ui.View):
             self.update_buttons()
             await message.edit(view=self)
 
-    @discord.ui.button(label='Play', style=discord.ButtonStyle.green)
-    async def play(self, interaction: discord.Interaction, _: discord.ui.Button):
-        if interaction.user.voice is None:
-            await interaction.response.send_message(content='Must be in a VC', ephemeral=True)
+    @discord.ui.button(label='Show Queue')
+    async def show_queue(self, interaction: discord.Interaction, _: discord.ui.Button):
+        view = self.mp.playlist.get_paginator_view()
+        await interaction.response.send_message(embeds=view.get_embeds(view.get_paged_values()), view=view,
+                                                ephemeral=True)
+
+    @discord.ui.button(label='Tip', style=discord.ButtonStyle.green, row=1, disabled=True)
+    async def tip_button(self, interaction: discord.Interaction, _: discord.ui.Button):
+        if self.mp.currently_playing is None:
             return
-        modal = NewSongModal()
-        await interaction.response.send_modal(modal)
-        await modal.wait()
-        if modal.url.value:
-            regex = r'https:\/\/(?:www\.)?youtu(?:be\.com|\.be)\/(?:watch\?v=)?([^"&?\/\s]{11})'
-            matches = re.match(regex, modal.url.value, re.RegexFlag.I)
-            if matches:
-                await self.mp.add_song_url(modal.url.value, self.mp.server.members.get(modal.interaction.user.id))
-                await modal.interaction.followup.send(content='Song Queued')
-            else:
-                await modal.interaction.followup.send(content='Invalid URL Given')
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        member = self.mp.server.members.get(interaction.user.id)
+        requester = self.mp.currently_playing.requester
+        if member == requester:
+            await interaction.followup.send(content='You can\'t tip yourself.')
+            return
+        if member.points >= 10:
+            await member.transfer_points(requester, 10, 'Music Tip')
+            await interaction.followup.send(content=f'Successfully tipped {requester.member.display_name} **10** '
+                                                    f'{self.mp.server.points_name.capitalize()}')
+        else:
+            await interaction.followup.send(content=f'Not enough {self.mp.server.points_name.capitalize()}')
 
     @discord.ui.button(label='Refresh', row=1)
     async def refresh_message(self, interaction: discord.Interaction, _):
