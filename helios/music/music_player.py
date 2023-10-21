@@ -110,7 +110,8 @@ class MusicPlayer:
     async def song_finished(self, exception: Optional[Exception]) -> None:
         duration_played = self.seconds_running()
         cost = int((duration_played * 2) / 60)
-        await self.currently_playing.requester.add_points(-cost, 'Helios', f'Music Charged for {cost//2}')
+        await self.currently_playing.requester.add_points(-cost, 'Helios', f'Music Charged for {cost/2}'
+                                                                           f' minutes')
         if self._stopping:
             return
 
@@ -153,7 +154,7 @@ class MusicPlayer:
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
         if member != member.guild.me:
             return
-        if before.channel and after.channel is None:
+        if before.channel and after.channel is None and self._leaving is False:
             self.stop_song()
             await self.leave_channel()
 
@@ -165,6 +166,8 @@ class MusicPlayer:
         self._started = None
         self._ended = datetime.now().astimezone()
         self._vc.stop()
+        if self._control_view:
+            self._control_view.voted_to_skip.clear()
         return True
 
     def skip_song(self):
@@ -174,6 +177,8 @@ class MusicPlayer:
         await self.playlist.add_song_url(url, requester)
         if self.currently_playing is None:
             await self.play_song(self.playlist.next())
+        else:
+            await self.update_message()
 
     async def update_message(self):
         if self._control_message is None:
@@ -221,15 +226,25 @@ class MusicPlayer:
         np_string = 'Nothing Currently Playing'
         if self.currently_playing:
             ends = datetime.now().astimezone() + timedelta(seconds=self.currently_playing.duration)
-            np_string = f'{self.currently_playing.title}\nBy {self.currently_playing.author}\nEnds in: {format_dt(ends, "R")}'
+            np_string = f'[{self.currently_playing.title}]({self.currently_playing.url})\nBy {self.currently_playing.author}\nEnds in: {format_dt(ends, "R")}'
         embed = discord.Embed(
             title='Now Playing',
             colour=Colour.music(),
             description=np_string
         )
         if self.currently_playing:
+            embed.set_thumbnail(url=self.currently_playing.thumbnail)
             requester = self.currently_playing.requester
             embed.set_author(name=requester.member.display_name, icon_url=requester.member.display_avatar.url)
+
+        nxt_string = 'Nothing'
+        try:
+            next_song = self.playlist.songs[0]
+            nxt_string = f'[{next_song.title}]({next_song.url})\nBy {next_song.author}'
+        except IndexError:
+            ...
+        embed.add_field(name='Next Up', value=nxt_string)
+        embed.add_field(name='Songs in Queue', value=f'{len(self.playlist.songs)}')
         return embed
 
 
@@ -251,7 +266,9 @@ class MusicPlayerView(discord.ui.View):
 
     @discord.ui.button(label='Queue')
     async def show_queue(self, interaction: discord.Interaction, _: discord.ui.Button):
-        await interaction.response.send_message(embed=self.mp.playlist.get_embed(), ephemeral=True)
+        view = self.mp.playlist.get_paginator_view()
+        await interaction.response.send_message(embeds=view.get_embeds(view.get_paged_values()), view=view,
+                                                ephemeral=True)
 
     @discord.ui.button(label='Skip', style=discord.ButtonStyle.red)
     async def skip(self, interaction: discord.Interaction, _: discord.ui.Button):

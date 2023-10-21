@@ -61,6 +61,9 @@ async def get_info(url: str, *, process=True):
     loop = asyncio.get_event_loop()
     partial = functools.partial(extract_info_wrapper, url=url, download=False, process=process)
     data = await loop.run_in_executor(None, partial)
+    if data.get('extractor') == 'youtube:tab':
+        partial.keywords['url'] = data.get('url')
+        data = await loop.run_in_executor(None, partial)
     return data
 
 

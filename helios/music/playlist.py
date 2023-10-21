@@ -26,6 +26,7 @@ import discord
 
 from .song import Song
 from ..colour import Colour
+from ..views import PaginatorView
 
 if TYPE_CHECKING:
     from ..member import HeliosMember
@@ -46,11 +47,11 @@ class Playlist:
         song = await Song.from_url(url, requester=requester)
         self.songs.append(song)
 
-    def get_embed(self):
+    def get_embed_songs(self, songs: list['Song']) -> list[discord.Embed]:
         song_string = ''
-        for i, song in enumerate(self.songs, start=1):  # type: int, Song
+        for song in songs:
             dur = timedelta(seconds=song.duration)
-            song_string += f'**{i}. {song.title}**\nBy {song.author}\nDuration: {dur}\n\n'
+            song_string += f'**{self.songs.index(song)+1}. {song.title}**By {song.author}\nDuration: {dur}\n\n'
         if not song_string:
             song_string = 'Nothing in queue'
         embed = discord.Embed(
@@ -58,7 +59,11 @@ class Playlist:
             colour=Colour.music(),
             description=song_string
         )
-        return embed
+        return [embed]
+
+    def get_paginator_view(self):
+        view = PaginatorView(self.songs, self.get_embed_songs)
+        return view
 
     def next(self):
         try:
