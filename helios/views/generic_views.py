@@ -43,7 +43,7 @@ class PaginatorView(discord.ui.View):
 
     @property
     def last_page(self):
-        return int(len(self.values) // self.page_size)
+        return int(len(self.values) - 1 // self.page_size)
 
     def get_paged_values(self) -> list[T]:
         page_size = self.page_size

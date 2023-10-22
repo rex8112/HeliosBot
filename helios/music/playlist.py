@@ -62,7 +62,7 @@ class Playlist:
         return [embed]
 
     def get_paginator_view(self):
-        view = PaginatorView(self.songs, self.get_embed_songs)
+        view = PaginatorView(self.songs, self.get_embed_songs, page_size=5)
         return view
 
     def next(self):
