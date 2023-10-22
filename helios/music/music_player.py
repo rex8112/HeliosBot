@@ -83,6 +83,7 @@ class MusicPlayer:
             await self._vc.move_to(channel)
         else:
             self._vc = await channel.connect()
+        self._leaving = False
         self._control_view = MusicPlayerView(self)
         self._control_view.update_buttons()
         self._control_message = await self._vc.channel.send(embed=self.get_embed(), view=self._control_view)
@@ -103,6 +104,7 @@ class MusicPlayer:
         self._control_view.stop()
         self._control_view = None
         self._leaving = False
+        self._ended = None
 
     def is_connected(self) -> bool:
         return self._vc and self._vc.is_connected()
@@ -147,7 +149,9 @@ class MusicPlayer:
         self._started = datetime.now().astimezone()
         self._ended = None
         loop = asyncio.get_event_loop()
-        self._vc.play(await song.audio_source(), after=lambda x: loop.create_task(self.song_finished(x)), bitrate=64)
+        audio_source = await song.audio_source()
+        await asyncio.sleep(0.5)
+        self._vc.play(audio_source, after=lambda x: loop.create_task(self.song_finished(x)), bitrate=64)
         await self.update_message()
         return True
 
@@ -256,7 +260,8 @@ class MusicPlayerView(discord.ui.View):
 
     async def interaction_check(self, interaction: discord.Interaction, /) -> bool:
         if interaction.user.voice is None or interaction.user.voice.channel != self.mp.channel:
-            await interaction.response.send_message(content=f'You need to be in {self.mp.channel.mention} to use this.')
+            await interaction.response.send_message(content=f'You need to be in {self.mp.channel.mention} to use this.',
+                                                    ephemeral=True)
             return False
         return True
 
@@ -265,7 +270,7 @@ class MusicPlayerView(discord.ui.View):
         self.skip.label = f'Skip ({len(self.voted_to_skip)}/{math.ceil(mems/2)})'
         disable = self.mp.currently_playing is None
         self.tip_button.disabled = disable
-        self.skip.disabled = disable
+        self.skip.disabled = disable or len(self.voted_to_skip) >= math.ceil(self.mp.members_in_channel() / 2)
         self.show_queue.disabled = len(self.mp.playlist.songs) == 0
         self.play.label = 'Enqueue' if self.mp.currently_playing else 'Play'
 
@@ -300,7 +305,7 @@ class MusicPlayerView(discord.ui.View):
             self.voted_to_skip.clear()
             self.update_buttons()
             self.mp.skip_song()
-            update = False
+            update = True
 
         if update:
             message = interaction.message
