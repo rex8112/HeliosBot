@@ -32,11 +32,22 @@ from .exceptions import IdMismatchError
 from .member import HeliosMember
 from .member_manager import MemberManager
 from .shop import Shop
-from .tools.settings import Settings
+from .tools.new_setting import Settings, SettingItem
 from .music import MusicPlayer
 
 if TYPE_CHECKING:
     from .server_manager import ServerManager
+
+
+class ServerSettings(Settings):
+    archive_category = SettingItem('archive_category', None, discord.CategoryChannel)
+    topic_category = SettingItem('topic_category', None, discord.CategoryChannel)
+    voice_controller = SettingItem('voice_controller', None, discord.Role)
+    verified_role = SettingItem('verified_role', None, discord.Role)
+    partial = SettingItem('partial', 4, int)
+    points_per_minute = SettingItem('points_per_minute', 1, int)
+    private_create = SettingItem('private_create', None, discord.VoiceChannel)
+    points_name = SettingItem('points_name', 'mins', str)
 
 
 class Server:
@@ -64,7 +75,7 @@ class Server:
         self.music_player = MusicPlayer(self)
         self.topics = {}
         self.voice_controllers = []
-        self.settings = Settings(self._default_settings, bot=self.bot, guild=self.guild)
+        self.settings = ServerSettings(self.bot)
         self.flags = []
 
         self._new = False
@@ -86,7 +97,7 @@ class Server:
 
     @property
     def private_create_channel(self) -> Optional[discord.VoiceChannel]:
-        return self.settings.private_create
+        return self.settings.private_create.value
 
     @property
     def voice_controller_role(self) -> Optional[discord.Role]:
@@ -97,17 +108,14 @@ class Server:
 
     @property
     def verified_role(self) -> Optional[discord.Role]:
-        role_id = self.settings.verified_role
-        if role_id is None:
-            return None
-        role = self.guild.get_role(role_id)
+        role = self.settings.verified_role.value
         if role is None:
             self.settings.verified_role = None
         return role
 
     @property
     def points_name(self) -> str:
-        return self.settings.points_name
+        return self.settings.points_name.value
 
     @property
     def me(self) -> 'HeliosMember':
@@ -130,8 +138,7 @@ class Server:
         if data.id != self.id:
             raise IdMismatchError('ID in data does not match server ID', self.id, data.id)
         self.flags = json.loads(data.flags)
-        settings = {**self._default_settings, **json.loads(data.settings)}
-        self.settings = Settings(settings, bot=self.bot, guild=self.guild)
+        self.settings.load_dict(json.loads(data.settings))
         self.db_entry = data
         self.loaded = True
 
