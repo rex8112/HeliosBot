@@ -90,9 +90,11 @@ class MusicPlayer:
 
     async def leave_channel(self):
         self._leaving = True
+        self.currently_playing = None
         self.playlists.clear()
-        self._vc.stop()
-        await self._vc.disconnect()
+        if self._vc is not None:
+            self._vc.stop()
+            await self._vc.disconnect()
         self._vc = None
 
         try:
@@ -101,7 +103,8 @@ class MusicPlayer:
             ...
         self._control_message = None
 
-        self._control_view.stop()
+        if self._control_message is not None:
+            self._control_view.stop()
         self._control_view = None
         self._leaving = False
         self._ended = None
@@ -163,12 +166,12 @@ class MusicPlayer:
             await self.leave_channel()
 
     def stop_song(self) -> bool:
-        if not self.is_connected():
-            return False
         self._stopping = True
         self.currently_playing = None
         self._started = None
         self._ended = datetime.now().astimezone()
+        if not self.is_connected():
+            return False
         self._vc.stop()
         if self._control_view:
             self._control_view.voted_to_skip.clear()

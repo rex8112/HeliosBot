@@ -129,6 +129,8 @@ class TempMuteView(discord.ui.View):
             await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
             return
         member: discord.Member = select.values[0]
+        if member.voice is None:
+            member = await member.guild.fetch_member(member.id)
         if not await self.verify_member(member):
             await self.reload_message(interaction)
             return
@@ -181,6 +183,9 @@ class TempMuteView(discord.ui.View):
     async def confirm_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user != self.author.member:
             await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
+        if self.selected_member is None:
+            await interaction.response.send_message(content='You must select someone first.', ephemeral=True)
             return
         if not await self.verify_member(self.selected_member.member):
             await self.reload_message(interaction)
