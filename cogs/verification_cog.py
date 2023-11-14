@@ -45,6 +45,8 @@ class VerificationCog(commands.Cog):
             await asyncio.sleep(5)
             helios_member = server.members.get(member.id)
 
+        if helios_member is None:
+            return
         if member.guild.system_channel and not helios_member.verified:
             embed = discord.Embed(
                 title=f'Verification Required for {member.name}',
