@@ -34,19 +34,29 @@ class Settings:
         self.bot = bot
 
     def __getitem__(self, item):
+        value: 'SettingItem' = self._getitem_as_setting(item)
+        if value is None:
+            return None
+        return value.value
+
+    def _getitem_as_setting(self, item) -> Optional['SettingItem']:
         if isinstance(item, str):
-            value: 'SettingItem' = getattr(self, item)
-            return value.value
+            try:
+                return getattr(self, item)
+            except AttributeError:
+                return None
+        return None
 
     def __setitem__(self, key, value):
-        item = self.__getitem__(key)
+        item = self._getitem_as_setting(key)
         if isinstance(item, SettingItem):
-            if type(value) is not item.type or value is not None:
+            if type(value) is not item.type and value is not None:
                 raise ValueError(f'Value must be of {item.type} type or None')
             item.value = value
-        raise IndexError(f'{key} does not exsit')
+        else:
+            raise IndexError(f'{key} does not exsit')
 
-    def all_settings(self) -> Generator['SettingItem']:
+    def all_settings(self) -> Generator['SettingItem', None, None]:
         for key in dir(self):
             if key.startswith('__'):
                 continue
@@ -62,8 +72,11 @@ class Settings:
 
     def load_dict(self, data: dict) -> None:
         for key, value in data.items():
-            setting: 'SettingItem' = getattr(self, key)
-            self[key] = self.deserialize_item(setting.type, value)
+            try:
+                setting: 'SettingItem' = getattr(self, key)
+                self[key] = self.deserialize_item(setting.type, value)
+            except AttributeError:
+                ...
 
     def get_item_view(self, setting: 'SettingItem'):
         item = setting.get_ui_item()
@@ -81,12 +94,11 @@ class Settings:
 
     # noinspection PyMethodMayBeStatic
     def serialize_item(self, item: 'SettingItem'):
+        if item.value is None:
+            return None
         if item.type in (int, str, float, bool):
             return item.value
-        elif item.type is discord.Role:
-            value: discord.Role = item.value
-            return f'{value.guild.id}.{value.id}'
-        elif item.type in (discord.CategoryChannel, discord.VoiceChannel, discord.TextChannel):
+        elif item.type in (discord.CategoryChannel, discord.VoiceChannel, discord.TextChannel, discord.Role):
             return item.value.id
 
     def deserialize_item(self, v_type: type, value: Any):
@@ -101,11 +113,16 @@ class Settings:
         elif v_type is bool:
             return bool(value)
         elif v_type is discord.Role:
-            s = value.split('.')
-            guild = self.bot.get_guild(int(s[0]))
-            return guild.get_role(int(s[1]))
+            return self.get_role(int(value))
         elif v_type in (discord.CategoryChannel, discord.VoiceChannel, discord.TextChannel):
             return self.bot.get_channel(int(value))
+
+    def get_role(self, role_id: int) -> Optional[discord.Role]:
+        for guild in self.bot.guilds:
+            role = guild.get_role(role_id)
+            if role:
+                return role
+        return None
 
 
 class SettingItem(Generic[V]):

@@ -108,7 +108,9 @@ class SettingsCog(commands.GroupCog, name='settings'):
     async def verified_role(self, interaction: discord.Interaction,
                             role: discord.Role):
         server = self.bot.servers.get(guild_id=interaction.guild_id)
-        server.settings.verified_role = role.id
+        if server is None:
+            return None
+        server.settings['verified_role'] = role
         await server.save()
         await interaction.response.send_message('Setting Changed',
                                                 ephemeral=True)
