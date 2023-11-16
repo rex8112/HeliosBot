@@ -34,6 +34,7 @@ defaults = dict[str, tuple[type[V], V]]
 class Settings:
     def __init__(self, bot: discord.ext.commands.Bot):
         self.bot = bot
+        self.done = False
 
     def __getitem__(self, item):
         value: 'SettingItem' = self._getitem_as_setting(item)
@@ -90,9 +91,18 @@ class Settings:
                 description=settings_string
             )
             return [embed]
+
+        async def done(s: discord.ui.Button, i: discord.Interaction):
+            self.done = True
+            await i.response.defer()
+            view.stop()
+
         settings = [x for x in self.all_settings()]
         titles = [x.title() for x in settings]
         view = PaginatorSelectView(settings, titles, get_embeds)
+        button = discord.ui.Button(label='Close', style=discord.ButtonStyle.red)
+        button.callback = MethodType(done, button)
+        view.add_item(button)
         return view
 
     def get_item_view(self, setting: 'SettingItem'):
@@ -134,19 +144,20 @@ class Settings:
     async def run(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         await interaction.followup.send(content='Building Settings')
-        while True:
+        while self.done is False:
             view = self.get_selection_view()
             embeds = view.get_embeds(view.get_paged_values())
             await interaction.edit_original_response(content=None, view=view, embeds=embeds)
-            if await view.wait():
-                return
+            if await view.wait() or self.done:
+                break
             i = view.last_interaction
             setting = view.selected
             view = setting.get_view()
             await i.edit_original_response(embed=setting.get_embed(), view=view)
             if await view.wait():
-                return
+                break
             setting.value = view.value
+        await interaction.edit_original_response(view=None)
 
 
 class SettingItem(Generic[V]):

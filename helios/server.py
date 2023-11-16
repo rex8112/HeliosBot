@@ -51,17 +51,6 @@ class ServerSettings(Settings):
 
 
 class Server:
-    _default_settings = {
-        'archive_category': None,
-        'topic_category': None,
-        'voice_controller': None,
-        'verified_role': None,
-        'partial': 4,
-        'points_per_minute': 1,
-        'private_create': None,
-        'on_voice': {},
-        'points_name': 'mins'
-    }
 
     def __init__(self, manager: 'ServerManager', guild: discord.Guild):
         self.loaded = False
