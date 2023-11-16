@@ -32,7 +32,7 @@ from .exceptions import IdMismatchError
 from .member import HeliosMember
 from .member_manager import MemberManager
 from .shop import Shop
-from .tools.new_setting import Settings, SettingItem
+from .tools.settings import Settings, SettingItem
 from .music import MusicPlayer
 
 if TYPE_CHECKING:
