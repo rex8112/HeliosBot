@@ -20,7 +20,7 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 
-from typing import TypeVar, Hashable, Callable, Optional
+from typing import TypeVar, Hashable, Callable, Optional, Generic
 
 import discord
 
@@ -31,7 +31,7 @@ __all__ = ('PaginatorView', 'PaginatorSelectView', 'YesNoView', 'SelectMemberVie
 T = TypeVar('T', bound=Hashable)
 
 
-class PaginatorView(discord.ui.View):
+class PaginatorView(discord.ui.View, Generic[T]):
     def __init__(self, values: list[T], get_embeds: Callable[[list[T]], list[discord.Embed]], /,
                  page_size: int = 10, timeout: int = 180):
         super().__init__(timeout=timeout)
@@ -100,12 +100,13 @@ class PaginatorView(discord.ui.View):
         await interaction.response.edit_message(embeds=self.get_embeds(self.get_paged_values()), view=self)
 
 
-class PaginatorSelectView(PaginatorView):
-    def __init__(self, values: dict[T, str], get_embeds: Callable[[list[T]], list[discord.Embed]], /,
+class PaginatorSelectView(PaginatorView, Generic[T]):
+    def __init__(self, values: list[T], titles: list[str], get_embeds: Callable[[list[T]], list[discord.Embed]], /,
                  page_size: int = 10, timeout: int = 180):
-        self.values_string = list(values.values())
+        self.values_string = list(titles)
         self.selected: Optional[T] = None
-        super().__init__(list(values.keys()), get_embeds, page_size=page_size, timeout=timeout)
+        self.last_interaction: Optional[discord.Interaction] = None
+        super().__init__(list(values), get_embeds, page_size=page_size, timeout=timeout)
 
     def update_options(self):
         values = self.get_paged_values()
@@ -124,6 +125,7 @@ class PaginatorSelectView(PaginatorView):
         await interaction.response.defer()
         self.selected = self.values[self.values_string.index(select.values[0])]
         self.stop()
+        self.last_interaction = interaction
 
 
 class YesNoView(discord.ui.View):
