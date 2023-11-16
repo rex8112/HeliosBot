@@ -115,6 +115,13 @@ class SettingsCog(commands.GroupCog, name='settings'):
         await interaction.response.send_message('Setting Changed',
                                                 ephemeral=True)
 
+    @app_commands.command(name='test')
+    @app_commands.checks.has_permissions(administrator=True)
+    async def test(self, interaction: discord.Interaction):
+        server = self.bot.servers.get(guild_id=interaction.guild_id)
+        await server.settings.run(interaction)
+        await server.save()
+
 
 async def setup(bot: 'HeliosBot'):
     await bot.add_cog(SettingsCog(bot))

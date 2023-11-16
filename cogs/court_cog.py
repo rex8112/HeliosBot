@@ -63,10 +63,8 @@ class CourtCog(commands.Cog):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
         violations = await server.court.get_violations(member)
-        v_dict: dict['Violation', str] = {}
-        for violation in violations:
-            v_dict[violation] = str(violation)
-        view = PaginatorSelectView(v_dict, build_violations_embeds)
+        v_titles = [str(v) for v in violations]
+        view = PaginatorSelectView(violations, v_titles, build_violations_embeds)
         await interaction.response.send_message(embeds=build_violations_embeds(view.get_paged_values()), view=view,
                                                 ephemeral=True)
         if await view.wait():

@@ -24,6 +24,8 @@ from typing import TypeVar, Generic, Optional, Generator, Any
 
 import discord.ext.commands
 
+from ..views.generic_views import PaginatorSelectView
+
 V = TypeVar('V')
 
 defaults = dict[str, tuple[type[V], V]]
@@ -78,18 +80,23 @@ class Settings:
             except AttributeError:
                 ...
 
-    def get_item_view(self, setting: 'SettingItem'):
-        item = setting.get_ui_item()
-        view = discord.ui.View()
-        if isinstance(item, PrimalModal):
-            async def show_modal(s: discord.ui.Button, interaction: discord.Interaction):
-                await interaction.response.send_modal(modal)
-                s.values = [modal.value]
+    def get_selection_view(self) -> PaginatorSelectView['SettingItem']:
+        def get_embeds(values: list[SettingItem]):
+            settings_string = ''
+            for s in values:
+                settings_string += f'**{s.title()} - {s.type.__name__}**\nCurrent: {s.value}\n\n'
+            embed = discord.Embed(
+                title='Settings',
+                description=settings_string
+            )
+            return [embed]
+        settings = [x for x in self.all_settings()]
+        titles = [x.title() for x in settings]
+        view = PaginatorSelectView(settings, titles, get_embeds)
+        return view
 
-            modal = item
-            item = discord.ui.Button(label='Enter value', style=discord.ButtonStyle.green)
-            item.callback = MethodType(show_modal, item)
-        view.add_item(item)
+    def get_item_view(self, setting: 'SettingItem'):
+        view = SettingItemView(setting)
         return view
 
     # noinspection PyMethodMayBeStatic
@@ -124,6 +131,23 @@ class Settings:
                 return role
         return None
 
+    async def run(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        await interaction.followup.send(content='Building Settings')
+        while True:
+            view = self.get_selection_view()
+            embeds = view.get_embeds(view.get_paged_values())
+            await interaction.edit_original_response(content=None, view=view, embeds=embeds)
+            if await view.wait():
+                return
+            i = view.last_interaction
+            setting = view.selected
+            view = setting.get_view()
+            await i.edit_original_response(embed=setting.get_embed(), view=view)
+            if await view.wait():
+                return
+            setting.value = view.value
+
 
 class SettingItem(Generic[V]):
     def __init__(self, key: str, default_value: Optional[V], v_type: type[V], *, nullable=False):
@@ -140,8 +164,25 @@ class SettingItem(Generic[V]):
             return self.key == other.key and self.value == other.value
         return NotImplemented
 
+    def __hash__(self):
+        return hash(f'{self.type.__name__}.{self.key}.{self.value}')
+
+    def title(self):
+        return self.key.replace('_', ' ').title()
+
     def to_dict(self) -> dict[str, V]:
         return {self.key: self.value}
+
+    def get_view(self):
+        view = SettingItemView(self)
+        return view
+
+    def get_embed(self):
+        return discord.Embed(
+            title=self.title(),
+            description=f'{self.type.__name__}\n\nCurrent Value: {self.value}',
+            colour=discord.Colour.green()
+        )
 
 
 class SettingItemView(discord.ui.View):
@@ -150,6 +191,7 @@ class SettingItemView(discord.ui.View):
         self.timed_out = False
         self.value = None
         self.setting = setting
+        self.build_view()
 
     def get_ui_item(self):
         if self.setting.type in (int, str, float):
@@ -174,18 +216,25 @@ class SettingItemView(discord.ui.View):
         if isinstance(item, PrimalModal):
             async def show_modal(s: discord.ui.Button, interaction: discord.Interaction):
                 await interaction.response.send_modal(modal)
+                if await modal.wait():
+                    return
                 self.value = modal.value
+                self.stop()
 
             modal = item
             item = discord.ui.Button(label='Enter Value', style=discord.ButtonStyle.green)
             item.callback = MethodType(show_modal, item)
-        elif isinstance(item, discord.ui.Select) and type(item) is not BoolSelect:
+        elif isinstance(item, (discord.ui.Select,
+                               discord.ui.ChannelSelect,
+                               discord.ui.RoleSelect,
+                               discord.ui.UserSelect)) and type(item) is not BoolSelect:
             async def set_value(s: discord.ui.Select, interaction: discord.Interaction):
                 if len(s.values) == 1:
-                    self.value = self.setting.type(s.values[0])
+                    self.value = s.values[0]
                 else:
-                    self.value = [self.setting.type(x) for x in s.values]
+                    self.value = [x for x in s.values]
                 await interaction.response.defer()
+                self.stop()
             item.callback = MethodType(set_value, item)
         self.add_item(item)
 
