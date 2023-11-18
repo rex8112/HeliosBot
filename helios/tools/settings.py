@@ -245,6 +245,11 @@ class SettingItemView(discord.ui.View):
                 else:
                     self.value = [x for x in s.values]
                 await interaction.response.defer()
+                if isinstance(self.value, discord.app_commands.AppCommandChannel):
+                    new_value = self.value.resolve()
+                    if new_value is None:
+                        new_value = await self.value.fetch()
+                    self.value = new_value
                 self.stop()
             item.callback = MethodType(set_value, item)
         self.add_item(item)

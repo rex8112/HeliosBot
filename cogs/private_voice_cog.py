@@ -65,7 +65,7 @@ class PrivateVoiceCog(commands.Cog):
     async def on_voice_state_update(self, member: discord.Member,
                                     before: discord.VoiceState,
                                     after: discord.VoiceState):
-        if not after:
+        if not after.channel:
             return
         await self.bot.wait_until_ready()
         server = self.bot.servers.get(member.guild.id)
@@ -90,9 +90,9 @@ class PrivateVoiceCog(commands.Cog):
                 mem,
                 template=last_template
             )
-            await voice.save()
             await mem.member.move_to(voice.channel,
                                      reason='Created private Voice Channel.')
+            await voice.save()
 
     async def allow(self, interaction: discord.Interaction,
                     user: discord.Member):
