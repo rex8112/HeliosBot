@@ -48,6 +48,9 @@ class ServerSettings(Settings):
     points_per_minute = SettingItem('points_per_minute', 1, int)
     private_create = SettingItem('private_create', None, discord.VoiceChannel)
     points_name = SettingItem('points_name', 'mins', str)
+    mute_points_per_second = SettingItem('mute_points_per_second', 1, int)
+    mute_seconds_per_increase = SettingItem('mute_seconds_per_increase', 60, int)
+    music_points_per_minute = SettingItem('music_points_per_minute', 2, int)
 
 
 class Server:

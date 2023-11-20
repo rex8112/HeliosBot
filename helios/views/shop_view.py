@@ -56,7 +56,6 @@ class ShopView(discord.ui.View):
 
 
 class TempMuteView(discord.ui.View):
-    PRICE_PER_SECOND = 1
 
     def __init__(self, author: 'HeliosMember'):
         super().__init__(timeout=180)
@@ -70,11 +69,13 @@ class TempMuteView(discord.ui.View):
     async def get_value(self):
         if not self.selected_member:
             return 0
+        price_per_second = self.author.server.settings.mute_points_per_second.value
+        increase_seconds = self.author.server.settings.mute_seconds_per_increase.value
         seconds = await self.selected_member.get_point_mute_duration()
         value = 0
         for _ in range(self.selected_seconds):
-            tier = int(seconds // 60)
-            value += int(self.PRICE_PER_SECOND * math.pow(2, tier))
+            tier = int(seconds // increase_seconds)
+            value += int(price_per_second * math.pow(2, tier))
             seconds += 1
         return value
 

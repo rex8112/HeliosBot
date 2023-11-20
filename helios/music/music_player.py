@@ -114,7 +114,8 @@ class MusicPlayer:
 
     async def song_finished(self, exception: Optional[Exception]) -> None:
         duration_played = self.seconds_running()
-        cost = int((duration_played * 2) / 60)
+        cost_per_minute = self.server.settings.music_points_per_minute.value
+        cost = int((duration_played * cost_per_minute) / 60)
         await self.currently_playing.requester.add_points(-cost, 'Helios', f'Music Charged for {cost/2}'
                                                                            f' minutes')
         if self._stopping:
