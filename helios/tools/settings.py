@@ -142,6 +142,7 @@ class Settings:
         return None
 
     async def run(self, interaction: discord.Interaction):
+        self.done = False
         await interaction.response.defer(ephemeral=True)
         await interaction.followup.send(content='Building Settings')
         while self.done is False:
