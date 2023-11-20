@@ -79,7 +79,7 @@ class MemberManager:
         tasks = []
         settings = self.server.settings
         for m in self.members.values():
-            tasks.append(m.check_voice(settings.points_per_minute, settings.partial))
+            tasks.append(m.check_voice(settings.points_per_minute.value, settings.partial.value))
         if tasks:
             await asyncio.wait(tasks)
 

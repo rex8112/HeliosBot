@@ -44,6 +44,7 @@ class MusicPlayer:
         self.server = server
         self.currently_playing: Optional['Song'] = None
         self.playlists: dict[discord.VoiceChannel, Playlist] = {}
+        self.tips = 0
         self._vc: Optional[discord.VoiceClient] = None
         self._started: Optional[datetime] = None
         self._ended: Optional[datetime] = None
@@ -113,13 +114,24 @@ class MusicPlayer:
         return self._vc and self._vc.is_connected()
 
     async def song_finished(self, exception: Optional[Exception]) -> None:
+        if self._stopping:
+            return
+
         duration_played = self.seconds_running()
         cost_per_minute = self.server.settings.music_points_per_minute.value
         cost = int((duration_played * cost_per_minute) / 60)
         await self.currently_playing.requester.add_points(-cost, 'Helios', f'Music Charged for {cost/2}'
                                                                            f' minutes')
-        if self._stopping:
-            return
+        if self.tips > 0:
+            embed = discord.Embed(
+                title=f'Tipped for {self.currently_playing.title}',
+                colour=Colour.success(),
+                description=f'You have been tipped **{self.tips}** times.'
+            )
+            try:
+                await self.currently_playing.requester.member.send(embed=embed)
+            except (discord.Forbidden, discord.HTTPException, AttributeError):
+                ...
 
         self.stop_song()
 
@@ -168,6 +180,7 @@ class MusicPlayer:
 
     def stop_song(self) -> bool:
         self._stopping = True
+        self.tips = 0
         self.currently_playing = None
         self._started = None
         self._ended = datetime.now().astimezone()
@@ -273,6 +286,7 @@ class MusicPlayerView(discord.ui.View):
         mems = self.mp.members_in_channel()
         self.skip.label = f'Skip ({len(self.voted_to_skip)}/{math.ceil(mems/2)})'
         disable = self.mp.currently_playing is None
+        self.tip_button.label = f'Tip 10 {self.mp.server.points_name.capitalize()}'
         self.tip_button.disabled = disable
         self.skip.disabled = disable or len(self.voted_to_skip) >= math.ceil(self.mp.members_in_channel() / 2)
         self.show_queue.disabled = len(self.mp.playlist.songs) == 0
@@ -335,6 +349,7 @@ class MusicPlayerView(discord.ui.View):
             await interaction.followup.send(content='You can\'t tip yourself.')
             return
         if member.points >= 10:
+            self.mp.tips += 1
             await member.transfer_points(requester, 10, 'Music Tip')
             await interaction.followup.send(content=f'Successfully tipped {requester.member.display_name} **10** '
                                                     f'{self.mp.server.points_name.capitalize()}')
