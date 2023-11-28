@@ -103,3 +103,19 @@ class VoiceView(discord.ui.View):
         await voice.update_permissions(template)
         await voice.update_message()
         await template.save()
+
+    @discord.ui.select(cls=discord.ui.UserSelect, placeholder='Add to Allowed')
+    async def allow_user(self, interaction: discord.Interaction, select: discord.ui.UserSelect):
+        member = select.values[0]
+        await interaction.response.defer(thinking=True, ephemeral=True)
+        await self.voice.allow(member)
+        await interaction.followup.send(f'{member.mention} Allowed in '
+                                        f'{self.voice.channel.mention}.')
+
+    @discord.ui.select(cls=discord.ui.UserSelect, placeholder='Add to Denied')
+    async def deny_user(self, interaction: discord.Interaction, select: discord.ui.UserSelect):
+        member = select.values[0]
+        await interaction.response.defer(thinking=True, ephemeral=True)
+        await self.voice.deny(member)
+        await interaction.followup.send(f'{member.mention} Denied in '
+                                        f'{self.voice.channel.mention}.')

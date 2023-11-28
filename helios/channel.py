@@ -578,14 +578,18 @@ class VoiceChannel(Channel):
         return embed
 
     async def update_message(self):
+        if self.owner:
+            view = VoiceView(self)
+        else:
+            view = None
         if self._message is None:
             self._message = await self.channel.send(
                 embed=self._get_menu_embed(),
-                view=VoiceView(self)
+                view=view
             )
         else:
             await self._message.edit(embed=self._get_menu_embed(),
-                                     view=VoiceView(self))
+                                     view=view)
 
     async def allow(self, member: discord.Member):
         mem, perms = self.get_template().allow(member)
