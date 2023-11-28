@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from ..server import Server
     from ..member import HeliosMember
 
-__all__ = ('ShopView', 'TempMuteView')
+__all__ = ('ShopView', 'TempMuteView', 'TempDeafenView')
 
 
 class ShopView(discord.ui.View):
@@ -45,7 +45,8 @@ class ShopView(discord.ui.View):
         for item in self.shop.items:
             async def callback(s: discord.ui.Button, interaction: discord.Interaction):
                 author = self.server.members.get(interaction.user.id)
-                await item.purchase(author, interaction)
+                i = self.shop.get_item(s.label)
+                await i.purchase(author, interaction)
             button = discord.ui.Button(
                 style=discord.ButtonStyle.grey,
                 label=item.name,
@@ -202,3 +203,48 @@ class TempMuteView(discord.ui.View):
             return
         await interaction.response.defer()
         self.stop()
+
+
+class TempDeafenView(TempMuteView):
+
+    async def get_value(self):
+        if not self.selected_member:
+            return 0
+        price_per_second = self.author.server.settings.deafen_points_per_second.value
+        increase_seconds = self.author.server.settings.deafen_seconds_per_increase.value
+        seconds = await self.selected_member.get_point_deafen_duration()
+        value = 0
+        for _ in range(self.selected_seconds):
+            tier = int(seconds // increase_seconds)
+            value += int(price_per_second * math.pow(2, tier))
+            seconds += 1
+        return value
+
+    def get_embed(self) -> discord.Embed:
+        embed = super().get_embed()
+        embed.title = 'Temp Deafen'
+        return embed
+
+    async def verify_member(self, member: discord.Member):
+        member: 'HeliosMember' = self.author.server.members.get(member.id)
+        if member.is_noob():
+            self.error_message = f'{member.member.display_name} is still too new to be deafened.'
+            self.selected_member = None
+            return False
+        if not member.member.voice:
+            self.error_message = f'{member.member.display_name} is not in a voice channel.'
+            self.selected_member = None
+            return False
+        if member.member.voice.deaf:
+            self.error_message = f'{member.member.display_name} is already deafened.'
+            self.selected_member = None
+            return False
+        if member == self.author.server.me:
+            self.error_message = f'You can not deafen me, that would be a waste. I\'m not programmed to hear you.'
+            self.selected_member = None
+            return False
+        # if member.member.top_role > member.member.guild.me.top_role or member.member.guild.owner == member.member:
+        #     self.error_message = f'I am sorry, I could not mute {member.member.display_name} even if I wanted to.'
+        #     self.selected_member = None
+        #     return False
+        return True

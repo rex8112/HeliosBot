@@ -55,7 +55,7 @@ class HeliosMember(HasFlags):
         self.templates: list['VoiceTemplate'] = []
         self.flags = []
 
-        self.allow_on_voice = True
+        self._allow_on_voice = 0
 
         self.max_horses = 8
 
@@ -67,6 +67,7 @@ class HeliosMember(HasFlags):
                                                      tzinfo=datetime.datetime.utcnow().astimezone().tzinfo), 0)
 
         self._temp_mute_data: Optional[tuple['HeliosMember', int]] = None
+        self._temp_deafen_data: Optional[tuple['HeliosMember', int]] = None
         self._last_check = get_floor_now()
         self._partial = 0
         self._changed = False
@@ -131,6 +132,17 @@ class HeliosMember(HasFlags):
     @property
     def unpaid_ap(self):
         return int(self._activity_points - self._ap_paid)
+
+    @property
+    def allow_on_voice(self) -> bool:
+        return self._allow_on_voice == 0
+
+    @allow_on_voice.setter
+    def allow_on_voice(self, value: bool):
+        if value is True and self._allow_on_voice > 0:
+            self._allow_on_voice -= 1
+        else:
+            self._allow_on_voice += 1
 
     def add_activity_points(self, amt: int):
         self._activity_points += amt
@@ -334,7 +346,7 @@ class HeliosMember(HasFlags):
             if self.member.voice.mute is False:
                 unmuter = await self.who_unmuted()
                 hel = self.server.me
-                if unmuter and unmuter != muter.member:
+                if unmuter and unmuter != muter.member and unmuter != hel.member:
                     member = self.server.members.get(unmuter.id)
                     v = Violation.new_shop(member, hel, cost,
                                            f'Unmuting {self.member.name} during a temporary mute.')
@@ -343,7 +355,7 @@ class HeliosMember(HasFlags):
                         title='Notice of Refund',
                         colour=discord.Colour.green(),
                         description='Due to unexpected interference, your last Shop purchase was invalidated and you '
-                                    f'have been refuned **{cost}** {self.server.points_name.capitalize()}.'
+                                    f'have been refunded **{cost}** {self.server.points_name.capitalize()}.'
                     )
                     await muter.add_points(cost, 'Helios', 'Helios Shop Refund: Temp Mute')
                     await muter.member.send(embed=embed)
@@ -375,6 +387,81 @@ class HeliosMember(HasFlags):
                 continue
         return None
 
+    async def temp_deafen(self, duration: int, deafener: 'HeliosMember', price: int):
+        async def undeafen(m):
+            await asyncio.sleep(duration)
+            if await self.temp_undeafen():
+                await self.bot.event_manager.delete_action(m)
+
+        if self.member.voice:
+            try:
+                embed = discord.Embed(
+                    title='Deafened',
+                    colour=discord.Colour.orange(),
+                    description=f'Someone spent **{price}** {self.server.points_name.capitalize()} to deafen you for '
+                                f'**{duration}** seconds.'
+                )
+
+                await self.member.edit(deafen=True, reason=f'{deafener.member.name} temp deafened for {duration} seconds')
+                await self.member.send(embed=embed)
+            except discord.Forbidden:
+                return False
+            self._temp_deafen_data = (deafener, price)
+            self.allow_on_voice = False
+            model = await self.bot.event_manager.add_action('on_voice', self, 'undeafen')
+            self.bot.loop.create_task(undeafen(model))
+            return True
+        return False
+
+    async def temp_undeafen(self):
+        self.allow_on_voice = True
+        muter, cost = self._temp_deafen_data  # type: HeliosMember, int
+        self._temp_deafen_data = None
+        if self.member.voice:
+            if self.member.voice.mute is False:
+                unmuter = await self.who_undeafened()
+                hel = self.server.me
+                if unmuter and unmuter != muter.member and unmuter != hel.member:
+                    member = self.server.members.get(unmuter.id)
+                    v = Violation.new_shop(member, hel, cost,
+                                           f'Undeafening {self.member.name} during a temporary deafen.')
+                    await self.server.court.new_violation(v)
+                    embed = discord.Embed(
+                        title='Notice of Refund',
+                        colour=discord.Colour.green(),
+                        description='Due to unexpected interference, your last Shop purchase was invalidated and you '
+                                    f'have been refunded **{cost}** {self.server.points_name.capitalize()}.'
+                    )
+                    await muter.add_points(cost, 'Helios', 'Helios Shop Refund: Temp Mute')
+                    await muter.member.send(embed=embed)
+
+            embed = discord.Embed(
+                title='Undeafened',
+                colour=discord.Colour.green(),
+                description=f'You have been undeafened.'
+            )
+
+            await self.member.edit(deafen=False)
+
+            try:
+                await self.member.send(embed=embed)
+            except discord.Forbidden:
+                ...
+            return True
+        else:
+            return False
+
+    async def who_undeafened(self) -> Optional[Union[discord.Member, discord.User]]:
+        async for audit in self.guild.audit_logs(action=discord.AuditLogAction.member_update):
+            if audit.target != self.member:
+                continue
+            try:
+                if audit.changes.before.deaf is True and audit.changes.after.deaf is False:
+                    return audit.user
+            except AttributeError:
+                continue
+        return None
+
     async def get_point_mute_duration(self, force=False) -> int:
         ago = datetime.datetime.now().astimezone() - datetime.timedelta(seconds=15)
         if force is False and self._point_mutes_cache[0] > ago:
@@ -391,6 +478,31 @@ class HeliosMember(HasFlags):
                     if not audit.reason:
                         continue
                     regex = r'muted for (\d{1,2}) seconds'
+                    groups = re.search(regex, audit.reason).groups()
+                    if len(groups) == 1:
+                        seconds += int(groups[0])
+            except AttributeError:
+                ...
+
+        self._point_mutes_cache = (datetime.datetime.now().astimezone(), int(seconds))
+        return int(seconds)
+
+    async def get_point_deafen_duration(self, force=False) -> int:
+        ago = datetime.datetime.now().astimezone() - datetime.timedelta(seconds=15)
+        if force is False and self._point_mutes_cache[0] > ago:
+            return self._point_mutes_cache[1]
+        day_ago = discord.utils.utcnow() - datetime.timedelta(hours=12)
+        seconds = 0
+        async for audit in self.guild.audit_logs(after=day_ago, oldest_first=True, limit=None,
+                                                 action=discord.AuditLogAction.member_update):
+            if audit.target != self.member:
+                continue
+
+            try:
+                if audit.changes.before.deaf is False and audit.changes.after.deaf is True:
+                    if not audit.reason:
+                        continue
+                    regex = r'deafened for (\d{1,2}) seconds'
                     groups = re.search(regex, audit.reason).groups()
                     if len(groups) == 1:
                         seconds += int(groups[0])

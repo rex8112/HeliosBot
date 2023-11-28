@@ -24,7 +24,7 @@ from typing import Callable, TYPE_CHECKING, Awaitable, Optional
 
 import discord
 
-from .views import TempMuteView
+from .views import TempMuteView, TempDeafenView
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
@@ -77,7 +77,7 @@ class Shop:
         for item in self.items:
             if item.name == name:
                 return item
-            return None
+        return None
 
     def _get_items(self) -> list['ShopItem']:
         items = []
@@ -129,6 +129,54 @@ class Shop:
             colour=discord.Colour.green()
         )
         if not await view.selected_member.temp_mute(view.selected_seconds, member, view.value):
+            embed = discord.Embed(
+                title='Something Went Wrong',
+                colour=discord.Colour.red(),
+                description='Sorry, I could not mute this person.'
+            )
+            await message.edit(embed=embed, view=None)
+            return 0
+        await message.edit(embed=embed, view=None)
+        return view.value
+
+    @shop_item('Deafen')
+    async def shop_deafen(self: ShopItem, member: 'HeliosMember', interaction: discord.Interaction):
+        """Price: variable
+        Server mute someone who is in a voice channel for an amount of time."""
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        # server = self.shop.bot.servers.get(interaction.guild_id)
+        view = TempDeafenView(member)
+        embed = view.get_embed()
+
+        message: discord.WebhookMessage = await interaction.followup.send(embed=embed, view=view)
+        if await view.wait():
+            embed = discord.Embed(
+                title='Timed out',
+                colour=discord.Colour.red()
+            )
+            await message.edit(embed=embed, view=None)
+            return 0
+
+        if not view.confirmed:
+            embed = discord.Embed(
+                title='Cancelled',
+                colour=discord.Colour.red()
+            )
+            await message.edit(embed=embed, view=None)
+            return 0
+        if member.points < view.value:
+            embed = discord.Embed(
+                title=f'Not Enough {member.server.points_name.capitalize()}',
+                colour=discord.Colour.red()
+            )
+            await message.edit(embed=embed, view=None)
+            return 0
+
+        embed = discord.Embed(
+            title='Purchased!',
+            colour=discord.Colour.green()
+        )
+        if not await view.selected_member.temp_deafen(view.selected_seconds, member, view.value):
             embed = discord.Embed(
                 title='Something Went Wrong',
                 colour=discord.Colour.red(),

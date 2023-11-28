@@ -222,12 +222,23 @@ class ViolationModel(BaseModel):
         table_name = 'violations'
 
 
+class CourtModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    type = IntegerField()
+    date = DatetimeTzField()
+    judge = ForeignKeyField(MemberModel, backref='judges')
+    decision = BooleanField(null=True)
+    jury = JSONField(default=[])
+
+    class Meta:
+        table_name = 'courts'
+
+
 class CaseModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
     plaintiff = ForeignKeyField(MemberModel, backref='plaintiff_cases')
     defendant = ForeignKeyField(MemberModel, backref='defendant_cases')
-    court_date = DatetimeTzField()
-    decision = BooleanField(null=True)
+    court = ForeignKeyField(CourtModel, backref='cases')
     punishment = JSONField(default={})
     punished = BooleanField(default=False)
     finished = DatetimeTzField(null=True)

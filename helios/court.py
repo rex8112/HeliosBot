@@ -73,3 +73,8 @@ class Court:
     @manage_violations.before_loop
     async def manage_violations_before(self):
         await self.bot.wait_until_ready()
+
+
+class Case:
+    def __init__(self):
+        ...
