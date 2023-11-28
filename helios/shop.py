@@ -142,7 +142,7 @@ class Shop:
     @shop_item('Deafen')
     async def shop_deafen(self: ShopItem, member: 'HeliosMember', interaction: discord.Interaction):
         """Price: variable
-        Server mute someone who is in a voice channel for an amount of time."""
+        Server deafen someone who is in a voice channel for an amount of time."""
         await interaction.response.defer(ephemeral=True, thinking=True)
         # server = self.shop.bot.servers.get(interaction.guild_id)
         view = TempDeafenView(member)
