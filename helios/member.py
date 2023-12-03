@@ -392,18 +392,17 @@ class HeliosMember(HasFlags):
             await asyncio.sleep(duration)
             if await self.temp_undeafen():
                 await self.bot.event_manager.delete_action(m)
+            embed = discord.Embed(
+                title='Deafened',
+                colour=discord.Colour.orange(),
+                description=f'Someone spent **{price}** {self.server.points_name.capitalize()} to deafen you for '
+                            f'**{duration}** seconds.'
+            )
+            await self.member.send(embed=embed)
 
         if self.member.voice:
             try:
-                embed = discord.Embed(
-                    title='Deafened',
-                    colour=discord.Colour.orange(),
-                    description=f'Someone spent **{price}** {self.server.points_name.capitalize()} to deafen you for '
-                                f'**{duration}** seconds.'
-                )
-
                 await self.member.edit(deafen=True, reason=f'{deafener.member.name} temp deafened for {duration} seconds')
-                await self.member.send(embed=embed)
             except discord.Forbidden:
                 return False
             self._temp_deafen_data = (deafener, price)
@@ -435,18 +434,7 @@ class HeliosMember(HasFlags):
                     await muter.add_points(cost, 'Helios', 'Helios Shop Refund: Temp Mute')
                     await muter.member.send(embed=embed)
 
-            embed = discord.Embed(
-                title='Undeafened',
-                colour=discord.Colour.green(),
-                description=f'You have been undeafened.'
-            )
-
             await self.member.edit(deafen=False)
-
-            try:
-                await self.member.send(embed=embed)
-            except discord.Forbidden:
-                ...
             return True
         else:
             return False
