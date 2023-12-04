@@ -25,6 +25,7 @@ from typing import Optional, TYPE_CHECKING
 
 import discord
 
+from .generic_views import YesNoView
 from ..modals import VoiceNameChange
 from helios.types import HeliosChannel
 
@@ -119,3 +120,79 @@ class VoiceView(discord.ui.View):
         await self.voice.deny(member)
         await interaction.followup.send(f'{member.mention} Denied in '
                                         f'{self.voice.channel.mention}.')
+
+
+class TemplateView(discord.ui.View):
+    def __init__(self, voice: 'VoiceChannel'):
+        super().__init__()
+        self.voice = voice
+        self.owner = self.voice.owner
+        self.templates = self.voice.owner.templates
+        self.refresh_select()
+
+    def refresh_select(self):
+        self.select_template.options.clear()
+        if len(self.templates) > 1:
+            self.select_template.disabled = False
+            for template in self.templates[1:]:
+                self.select_template.add_option(label=template.name)
+        else:
+            self.select_template.disabled = True
+
+    def get_template(self, name: str):
+        for template in self.templates:
+            if template.name.lower() == name.lower():
+                return template
+        return None
+
+    def new_template(self):
+        temp = self.voice.owner.create_template()
+        self.templates.remove(temp)
+        self.templates.insert(0, temp)
+        return temp
+
+    def switch_template(self, index: int):
+        temp = self.templates.pop(index)
+        self.templates.insert(0, temp)
+
+    async def save(self):
+        await self.owner.save(force=True)
+
+    @discord.ui.select(placeholder='Select Template')
+    async def select_template(self, interaction: discord.Interaction, select: discord.ui.Select):
+        temp = self.get_template(select.values[0])
+        index = self.templates.index(temp)
+        self.switch_template(index)
+        await interaction.response.send_message(content='Applying Template...', ephemeral=True)
+        await self.voice.apply_template(temp)
+        await self.save()
+        self.stop()
+
+    @discord.ui.button(label='New', style=discord.ButtonStyle.green)
+    async def new_template_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        temp = self.new_template()
+        await interaction.response.send_message(content='Applying Template...', ephemeral=True)
+        await self.voice.apply_template(temp)
+        await self.save()
+        self.stop()
+
+    @discord.ui.button(label='Delete Current Template', style=discord.ButtonStyle.red)
+    async def delete_template(self, interaction: discord.Interaction, button: discord.ui.Button):
+        temp = self.templates[0]
+        view = YesNoView(self.owner.member, timeout=15)
+        embed = discord.Embed(
+            title=f'Delete {temp.name}?',
+            colour=discord.Colour.red(),
+            description='This action can not be undone!'
+        )
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await view.wait()
+        if view.value:
+            self.templates.pop(0)
+            if len(self.templates) == 0:
+                self.new_template()
+            await interaction.edit_original_response(content='Applying Template...', embed=None, view=None)
+            await self.voice.apply_template(self.templates[0])
+            await self.save()
+            self.stop()
+
