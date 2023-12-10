@@ -538,10 +538,8 @@ class VoiceChannel(Channel):
 
     def get_template(self) -> Optional['VoiceTemplate']:
         if self.template_owner:
-            templates = list(filter(lambda x: x.name == self.template_name,
-                                    self.template_owner.templates))
-            if len(templates) > 0:
-                return templates[0]
+            if len(self.template_owner.templates) > 0:
+                return self.template_owner.templates[0]
             return None
         return None
 
@@ -557,7 +555,7 @@ class VoiceChannel(Channel):
             private_string = ('This channel **is __not__** visible to anyone '
                               'except admins and those in Allowed')
         embed = discord.Embed(
-            title=f'{self.channel.name} Menu',
+            title=f'{self.get_template().name if self.get_template() else self.channel.name} Menu',
             description=('Any and all settings are controlled from this '
                          'message.\n'
                          f'{owner_string}\n\n{private_string}'),
@@ -610,10 +608,11 @@ class VoiceChannel(Channel):
         await self.update_message()
 
     async def change_name(self, name: str):
-        self.last_name_change = datetime.datetime.now().astimezone()
-        await self.channel.edit(
-            name=name
-        )
+        if name != self.channel.name:
+            self.last_name_change = datetime.datetime.now().astimezone()
+            await self.channel.edit(
+                name=name
+            )
         template = self.get_template()
         template.name = name
         self.template_name = name
@@ -623,15 +622,11 @@ class VoiceChannel(Channel):
 
     async def neutralize(self):
         self.owner = None
-        await self.channel.edit(name=f'<Neutral> {self.channel.name}')
         await self.update_message()
+        await self.channel.edit(name=f'<Neutral> {self.channel.name}')
 
     # noinspection PyArgumentList
     async def apply_template(self, template: 'VoiceTemplate'):
-        await self.channel.edit(
-            name=template.name,
-            nsfw=template.nsfw
-        )
         self.template_name = template.name
         await self.update_permissions(template)
 

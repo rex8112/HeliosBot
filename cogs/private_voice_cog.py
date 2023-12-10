@@ -81,7 +81,7 @@ class PrivateVoiceCog(commands.Cog):
                                                 'exists')
                 return
             if len(mem.templates) > 0:
-                last_template = mem.templates[-1]
+                last_template = mem.templates[0]
             else:
                 last_template = VoiceTemplate(mem, mem.member.name)
                 mem.templates.append(last_template)

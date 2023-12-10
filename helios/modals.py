@@ -51,15 +51,11 @@ class VoiceNameChange(ui.Modal, title='Change Name'):
     def __init__(self, voice: 'VoiceChannel'):
         super().__init__()
         self.voice = voice
+        temp = self.voice.get_template()
+        self.name.default = temp.name
 
     async def on_submit(self, interaction: Interaction) -> None:
-        for template in self.voice.owner.templates:
-            if template.name.lower() == self.name.value.lower():
-                await interaction.response.send_message(
-                    'You already have a template with this name!',
-                    ephemeral=True
-                )
-                return
+        await interaction.response.send_message('Changing Name...', ephemeral=True)
         await self.voice.change_name(self.name.value)
 
     async def on_error(self, interaction: Interaction,
