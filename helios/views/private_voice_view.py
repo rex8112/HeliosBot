@@ -82,6 +82,7 @@ class VoiceView(discord.ui.View):
                 'You are not allowed to edit this channel.',
                 ephemeral=True
             )
+            return
         template = voice.get_template()
         template.private = True
         await interaction.response.defer()
@@ -98,6 +99,7 @@ class VoiceView(discord.ui.View):
                 'You are not allowed to edit this channel.',
                 ephemeral=True
             )
+            return
         template = voice.get_template()
         template.private = False
         await interaction.response.defer()
@@ -107,6 +109,13 @@ class VoiceView(discord.ui.View):
 
     @discord.ui.select(cls=discord.ui.UserSelect, placeholder='Add to Allowed')
     async def allow_user(self, interaction: discord.Interaction, select: discord.ui.UserSelect):
+        voice: 'VoiceChannel' = self.voice
+        if voice.owner != interaction.user:
+            await interaction.response.send_message(
+                'You are not allowed to edit this channel.',
+                ephemeral=True
+            )
+            return
         member = select.values[0]
         await interaction.response.defer(thinking=True, ephemeral=True)
         await self.voice.allow(member)
@@ -115,6 +124,13 @@ class VoiceView(discord.ui.View):
 
     @discord.ui.select(cls=discord.ui.UserSelect, placeholder='Add to Denied')
     async def deny_user(self, interaction: discord.Interaction, select: discord.ui.UserSelect):
+        voice: 'VoiceChannel' = self.voice
+        if voice.owner != interaction.user:
+            await interaction.response.send_message(
+                'You are not allowed to edit this channel.',
+                ephemeral=True
+            )
+            return
         member = select.values[0]
         await interaction.response.defer(thinking=True, ephemeral=True)
         await self.voice.deny(member)
