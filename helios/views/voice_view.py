@@ -143,7 +143,7 @@ class VoiceControllerView(discord.ui.View):
             await interaction.response.defer()
             for mem in self.members:
                 await self.deactivate(mem)
-            self.running = True
+            self.running = False
             self.start_button.disabled = False
             self.stop_button.disabled = True
             await interaction.edit_original_response(embed=self.embed, view=self)
@@ -177,6 +177,7 @@ class VoiceControllerView(discord.ui.View):
             for mem in self.members:
                 if self.is_activated(mem):
                     await self.deactivate(mem)
+                if mem.voice.channel is not None:
                     await mem.remove_roles(self.voice_role)
             self.running = False
             self.server.voice_controllers.remove(self)
