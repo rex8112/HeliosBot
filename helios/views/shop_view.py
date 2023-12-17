@@ -131,7 +131,7 @@ class TempMuteView(discord.ui.View):
             await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
             return
         member: discord.Member = select.values[0]
-        if member.voice is None:
+        if not member.voice:
             member = await member.guild.fetch_member(member.id)
         if not await self.verify_member(member):
             await self.reload_message(interaction)
