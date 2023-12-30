@@ -182,17 +182,11 @@ class TopicChannel(Channel):
 
     @property
     def archive_category(self) -> Optional[discord.CategoryChannel]:
-        channel_id = self.server.settings.archive_category
-        if channel_id:
-            return self.bot.get_channel(channel_id)
-        return None
+        return self.server.settings.archive_category.value
 
     @property
     def topic_category(self) -> Optional[discord.CategoryChannel]:
-        channel_id = self.server.settings.topic_category
-        if channel_id:
-            return self.bot.get_channel(channel_id)
-        return None
+        return self.server.settings.topic_category.value
 
     @property
     def tier(self):
