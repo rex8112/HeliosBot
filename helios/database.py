@@ -99,13 +99,24 @@ class DatetimeTzField(Field):
 class BaseModel(Model):
     @staticmethod
     def update_model_instance(model: Model, data: dict):
+        """Update a model instance with a dictionary."""
         for key, value in data.items():
             old = getattr(model, key)
             if old != value:
                 setattr(model, key, value)
 
     def async_save(self, only=None):
+        """Save the model instance asynchronously."""
         return objects.update(self, only=only)
+
+    def async_update(self, **kwargs):
+        """Update the model instance asynchronously."""
+        self.update_model_instance(self, kwargs)
+        return self.async_save()
+
+    def async_delete(self):
+        """Delete the model instance asynchronously."""
+        return objects.delete(self)
 
     class Meta:
         database = db
@@ -246,6 +257,58 @@ class CaseModel(BaseModel):
 
     class Meta:
         table_name = 'cases'
+
+
+class DynamicVoiceGroupModel(BaseModel):
+    """A model for dynamic voice groups."""
+    id = AutoField(primary_key=True, unique=True)
+    server = ForeignKeyField(ServerModel, backref='voice_groups')
+    min = IntegerField()
+    min_empty = IntegerField(default=1)
+    max = IntegerField(default=0)
+    template = CharField(max_length=25)
+    game_template = CharField(max_length=25)
+
+    class Meta:
+        table_name = 'dynamicvoicegroups'
+
+    @staticmethod
+    async def get_all(server: ServerModel) -> list['DynamicVoiceGroupModel']:
+        """Get all models for a server."""
+        q = DynamicVoiceGroupModel.select().where(DynamicVoiceGroupModel.server == server)
+        return await objects.prefetch(q)
+
+    @staticmethod
+    async def create_model(server: ServerModel, **kwargs):
+        """Create a new model instance in the database."""
+        return await objects.create(DynamicVoiceGroupModel, server=server, **kwargs)
+
+
+class DynamicVoiceModel(BaseModel):
+    """A model for dynamic voice channels."""
+    channel = BigIntegerField(primary_key=True, unique=True)
+    server = ForeignKeyField(ServerModel, backref='dynamic_voices')
+    group = ForeignKeyField(DynamicVoiceGroupModel, backref='dynamic_voices')
+    settings = TextField(default='{}')
+
+    class Meta:
+        table_name = 'dynamicvoices'
+
+    @staticmethod
+    async def get_all(server: ServerModel) -> list['DynamicVoiceModel']:
+        """Get all models for a server."""
+        q = DynamicVoiceModel.select().where(DynamicVoiceModel.server == server)
+        return await objects.prefetch(q)
+
+    @staticmethod
+    async def get_by_channel(channel: int) -> 'DynamicVoiceModel':
+        """Get a model by channel ID."""
+        return await objects.get(DynamicVoiceModel, channel=channel)
+
+    @staticmethod
+    async def create_model(server: ServerModel, **kwargs):
+        """Create a new model instance in the database."""
+        return await objects.create(DynamicVoiceModel, server=server, **kwargs)
 
 
 class PugModel(BaseModel):
