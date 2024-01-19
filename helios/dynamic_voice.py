@@ -25,9 +25,11 @@ import discord
 
 from .database import DynamicVoiceGroupModel, DynamicVoiceModel
 from .tools.settings import Settings, SettingItem
+from .voice_template import VoiceTemplate
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
+    from .member import HeliosMember
     from .server import Server
 
 
@@ -49,6 +51,7 @@ class DynamicVoiceChannel:
         self.custom_name = None
 
         self.db_entry = None
+        self._unsaved = False
 
     # Properties
     @property
@@ -62,6 +65,7 @@ class DynamicVoiceChannel:
     @number.setter
     def number(self, value):
         self.settings.number.value = value
+        self._unsaved = True
 
     @property
     def group(self) -> 'DynamicVoiceGroup':
@@ -70,6 +74,7 @@ class DynamicVoiceChannel:
     @group.setter
     def group(self, value: 'DynamicVoiceGroup'):
         self.settings.group.value = value.id
+        self._unsaved = True
 
     @property
     def owner(self) -> discord.Member:
@@ -78,6 +83,15 @@ class DynamicVoiceChannel:
     @owner.setter
     def owner(self, value: discord.Member):
         self.settings.owner.value = value
+        self._unsaved = True
+
+    @property
+    def h_owner(self) -> 'HeliosMember':
+        return self.server.members.get(self.owner.id)
+
+    @h_owner.setter
+    def h_owner(self, value: 'HeliosMember'):
+        self.owner = value.member
 
     @property
     def private(self) -> bool:
@@ -86,6 +100,7 @@ class DynamicVoiceChannel:
     @private.setter
     def private(self, value: bool):
         self.settings.private.value = value
+        self._unsaved = True
 
     def serialize(self) -> dict:
         return {
@@ -113,7 +128,7 @@ class DynamicVoiceChannel:
 
     # Database Methods
     async def save(self):
-        if self.db_entry:
+        if self.db_entry and self._unsaved:
             await DynamicVoiceModel.async_update(self.db_entry, **self.serialize())
 
     async def delete(self):
@@ -121,23 +136,53 @@ class DynamicVoiceChannel:
         await self.channel.delete()
 
     # Methods
+    def get_majority_game(self):
+        games = {None: 0}
+        for member in self.channel.members:
+            if member.activity is None:
+                games[None] += 1
+                continue
+            if member.activity.name not in games:
+                games[member.activity.name] = 0
+            games[member.activity.name] += 1
+        return max(games, key=lambda x: games[x])
+
     async def update_name(self):
         if self.custom_name:
             await self.channel.edit(name=self.custom_name)
         else:
-            await self.channel.edit(name=self.group.get_name(self.channel.position))
+            game = self.get_majority_game()
+            if game:
+                await self.channel.edit(name=f'{game} {self.group.get_name(self.channel.position)}')
+            else:
+                await self.channel.edit(name=self.group.get_name(self.channel.position))
+
+    def build_template(self) -> VoiceTemplate:
+        template = VoiceTemplate(self.h_owner, self.channel.name)
+        for member, perms in self.channel.overwrites.items():
+            if isinstance(member, discord.Member):
+                if perms.connect:
+                    template.allow(member)
+                else:
+                    template.deny(member)
+        return template
+
+    async def apply_template(self, template: VoiceTemplate):
+        await self.channel.edit(overwrites=template.overwrites)
+        self.custom_name = template.name
 
     def occupied(self):
         return len(self.channel.members) > 0
 
 
 class DynamicVoiceGroup:
-    def __init__(self, server: 'Server', minimum: int, minimum_empty: int, template: str, maximum: int = 0):
+    def __init__(self, server: 'Server', minimum: int, minimum_empty: int, template: str, game_template: str, maximum: int = 0):
         """"
         :param server: The server this group belongs to.
         :param minimum: The minimum number of members required to create a new channel.
         :param minimum_empty: The minimum number of empty channels.
         :param template: The template for the name of the channels. Use {n} for the number.
+        :param game_template: The template for the name of the channels when a game is detected. Use {n} for the number and {g} for the game.
         :param maximum: The maximum number of channels allowed to be created.
         """
         self.server = server
@@ -145,6 +190,7 @@ class DynamicVoiceGroup:
         self.min_empty = minimum_empty
         self.max = maximum
         self.template = template
+        self.game_template = game_template
 
         self.db_entry = None
 
@@ -154,6 +200,9 @@ class DynamicVoiceGroup:
 
     def get_name(self, number: int):
         return self.template.replace('{n}', str(number))
+
+    def get_game_name(self, number: int, game: str):
+        return self.game_template.replace('{n}', str(number)).replace('{g}', game)
 
     def serialize(self) -> dict:
         return {
