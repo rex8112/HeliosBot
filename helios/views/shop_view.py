@@ -107,7 +107,7 @@ class TempMuteView(discord.ui.View):
             self.error_message = f'{member.member.display_name} is still too new to be muted.'
             self.selected_member = None
             return False
-        if not member.member.voice:
+        if member.member.voice is None:
             self.error_message = f'{member.member.display_name} is not in a voice channel.'
             self.selected_member = None
             return False
@@ -131,8 +131,6 @@ class TempMuteView(discord.ui.View):
             await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
             return
         member: discord.Member = select.values[0]
-        if not member.voice:
-            member = await member.guild.fetch_member(member.id)
         if not await self.verify_member(member):
             await self.reload_message(interaction)
             return
