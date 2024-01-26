@@ -274,6 +274,12 @@ class DynamicVoiceGroup:
         return self.template.replace('{n}', str(number))
 
     def get_game_name(self, number: int, game: str):
+        template = self.game_template
+        template.replace('{g}', '')
+        length = len(template)
+        if length + len(game) > 25:
+            game = game[:25 - length - 3] + '...'
+
         return self.game_template.replace('{n}', str(number)).replace('{g}', game)
 
     def serialize(self) -> dict:
