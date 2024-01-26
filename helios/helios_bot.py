@@ -82,11 +82,14 @@ class HeliosBot(commands.Bot):
             interaction: discord.Interaction,
             error: discord.app_commands.AppCommandError
     ):
+        error_message = f'Something went wrong\n```{type(error)}: {error}```\n\nThe developer has been notified.'
+        if isinstance(error, discord.app_commands.errors.MissingPermissions):
+            error_message = f'You do not have permission to use this command.\n\n{error}'
         if interaction.response.is_done():
-            await interaction.followup.send(f'Something went wrong\n```{type(error)}: {error}```')
+            await interaction.followup.send(error_message)
         else:
-            await interaction.response.send_message(f'Something went wrong\n```{type(error)}: {error}```')
+            await interaction.response.send_message(error_message, ephemeral=True)
 
         owner = interaction.client.get_user(180067685986467840)
-        if owner:
+        if owner and not isinstance(error, discord.app_commands.errors.MissingPermissions):
             await owner.send(f'```{traceback.format_exc()}```')
