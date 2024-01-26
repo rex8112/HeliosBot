@@ -26,7 +26,12 @@ import json
 import peewee_async
 from playhouse.migrate import *
 
-db = peewee_async.MySQLDatabase('heliosTesting', user='helios', password='bot', host='192.168.50.99', port=3306)
+from .tools.config import Config
+
+settings = Config.from_file_path()
+
+db = peewee_async.MySQLDatabase(settings.db_path, user=settings.db_username, password=settings.db_password,
+                                host=settings.db_host, port=int(settings.db_port))
 objects = peewee_async.Manager(db)
 
 

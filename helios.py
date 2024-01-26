@@ -52,6 +52,7 @@ intents.message_content = True
 intents.presences = True
 
 settings = Config.from_file_path()
+settings.save()
 bot = HeliosBot(command_prefix='?', description=description, intents=intents, settings=settings)
 
 

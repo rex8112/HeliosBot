@@ -33,6 +33,11 @@ class Config:
         self.api_username = 'admin'
         self.api_password = '123'
         self.randomname_api_key = 'asdfsdf'
+        self.db_path = 'helios.db'
+        self.db_host = 'http://127.0.0.1:8000/'
+        self.db_port = '8000'
+        self.db_username = 'admin'
+        self.db_password = '123'
 
     # Class Methods
     @classmethod
@@ -65,7 +70,12 @@ class Config:
             'api_url': self.api_url,
             'api_username': self.api_username,
             'api_password': self.api_password,
-            'randomname_api_key': self.randomname_api_key
+            'randomname_api_key': self.randomname_api_key,
+            'db_path': self.db_path,
+            'db_host': self.db_host,
+            'db_port': self.db_port,
+            'db_username': self.db_username,
+            'db_password': self.db_password
         }
         self._serialize(data)
 
