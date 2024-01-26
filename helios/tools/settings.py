@@ -35,6 +35,7 @@ class Settings:
     def __init__(self, bot: discord.ext.commands.Bot):
         self.bot = bot
         self.done = False
+        self._load_items()
 
     def __getitem__(self, item):
         value: 'SettingItem' = self._getitem_as_setting(item)
@@ -58,6 +59,11 @@ class Settings:
             item.value = value
         else:
             raise IndexError(f'{key} does not exsit')
+
+    def _load_items(self):
+        for setting in self.all_settings():
+            new_setting = setting.copy()
+            setattr(self, setting.key, new_setting)
 
     def all_settings(self) -> Generator['SettingItem', None, None]:
         for key in dir(self):
@@ -179,6 +185,9 @@ class SettingItem(Generic[V]):
     def __hash__(self):
         return hash(f'{self.type.__name__}.{self.key}.{self.value}')
 
+    def copy(self):
+        return type(self)(self.key, self.value, self.type, nullable=self.nullable)
+
     def title(self):
         return self.key.replace('_', ' ').title()
 
@@ -197,6 +206,16 @@ class SettingItem(Generic[V]):
         )
 
 
+class StringSettingItem(SettingItem[str]):
+    def __init__(self, key: str, default_value: Optional[str] = None, *, nullable=False, max_length=100, min_length=0):
+        super().__init__(key, default_value, str, nullable=nullable)
+        self.max_length = max_length
+        self.min_length = min_length
+
+    def copy(self):
+        return type(self)(self.key, self.value, nullable=self.nullable, max_length=self.max_length, min_length=self.min_length)
+
+
 class SettingItemView(discord.ui.View):
     def __init__(self, setting: 'SettingItem'):
         super().__init__()
@@ -206,7 +225,9 @@ class SettingItemView(discord.ui.View):
         self.build_view()
 
     def get_ui_item(self):
-        if self.setting.type in (int, str, float):
+        if isinstance(self.setting, StringSettingItem):
+            return PrimalModal(f'Enter {self.setting.type} value', self.setting.type, max_length=self.setting.max_length, min_length=self.setting.min_length)
+        elif self.setting.type in (int, str, float):
             return PrimalModal(f'Enter {self.setting.type} value', self.setting.type)
         elif self.setting.type is bool:
             return BoolSelect()
@@ -282,10 +303,16 @@ class BoolSelect(discord.ui.Select):
 class PrimalModal(discord.ui.Modal):
     value_text = discord.ui.TextInput(label='Value')
 
-    def __init__(self, title: str, v_type: type, /):
+    def __init__(self, title: str, v_type: type, /, **kwargs):
         super().__init__(title=title)
         self.type = v_type
         self.value = None
+        self.str_max_length = kwargs.get('max_length', 100)
+        self.str_min_length = kwargs.get('min_length', 0)
+
+        if self.type is str:
+            self.value_text.min_length = self.str_min_length
+            self.value_text.max_length = self.str_max_length
 
     async def on_submit(self, interaction: discord.Interaction, /):
         value = self.value_text.value

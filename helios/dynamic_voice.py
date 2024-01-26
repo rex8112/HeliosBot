@@ -19,18 +19,23 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+import logging
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 import discord
 
 from .database import DynamicVoiceGroupModel, DynamicVoiceModel
-from .tools.settings import Settings, SettingItem
+from .tools.settings import Settings, SettingItem, StringSettingItem
 from .voice_template import VoiceTemplate
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
     from .member import HeliosMember
     from .server import Server
+
+
+logger = logging.getLogger('HeliosLogger.DynamicVoice')
 
 
 class VoiceSettings(Settings):
@@ -41,6 +46,8 @@ class VoiceSettings(Settings):
 
 
 class DynamicVoiceChannel:
+    NAME_COOLDOWN = timedelta(minutes=5)
+
     def __init__(self, manager: 'VoiceManager', channel: discord.VoiceChannel):
         """A dynamic voice channel."""
         self.manager = manager
@@ -52,6 +59,7 @@ class DynamicVoiceChannel:
 
         self.db_entry = None
         self._unsaved = False
+        self._last_name_change = datetime.now().astimezone() - self.NAME_COOLDOWN
 
     # Properties
     @property
@@ -121,7 +129,12 @@ class DynamicVoiceChannel:
         db_channels = await DynamicVoiceModel.get_all(manager.server.db_entry)
 
         for entry in db_channels:
-            channel = cls(manager, manager.server.guild.get_channel(entry.channel))
+            d_channel = manager.server.guild.get_channel(entry.channel)
+            if d_channel is None:
+                await DynamicVoiceModel.async_delete(entry)
+                continue
+            channel = cls(manager, d_channel)
+            channel.settings.load_dict(entry.settings)
             channel.db_entry = entry
             channels.append(channel)
         return channels
@@ -133,6 +146,7 @@ class DynamicVoiceChannel:
 
     async def delete(self):
         await DynamicVoiceModel.async_delete(self.db_entry)
+        del self.manager.channels[self.channel.id]
         await self.channel.delete()
 
     # Methods
@@ -147,15 +161,22 @@ class DynamicVoiceChannel:
             games[member.activity.name] += 1
         return max(games, key=lambda x: games[x])
 
+    def name_on_cooldown(self):
+        return datetime.now().astimezone() - self._last_name_change < self.NAME_COOLDOWN
+
     async def update_name(self):
         if self.custom_name:
-            await self.channel.edit(name=self.custom_name)
+            new_name = self.custom_name
         else:
             game = self.get_majority_game()
             if game:
-                await self.channel.edit(name=f'{game} {self.group.get_name(self.channel.position)}')
+                new_name = self.group.get_game_name(self.number, game)
             else:
-                await self.channel.edit(name=self.group.get_name(self.channel.position))
+                new_name = self.group.get_name(self.number)
+
+        if new_name != self.channel.name and not self.name_on_cooldown():
+            await self.channel.edit(name=new_name)
+            self._last_name_change = datetime.now().astimezone()
 
     def build_template(self) -> VoiceTemplate:
         template = VoiceTemplate(self.h_owner, self.channel.name)
@@ -175,6 +196,14 @@ class DynamicVoiceChannel:
         return len(self.channel.members) > 0
 
 
+class DynamicVoiceGroupSettings(Settings):
+    min = SettingItem('min', 1, int)
+    min_empty = SettingItem('min_empty', 1, int)
+    max = SettingItem('max', 0, int)
+    template = StringSettingItem('template', 'Channel {n}', min_length=3, max_length=25)
+    game_template = StringSettingItem('game_template', 'Channel {n} - {g}', min_length=3, max_length=22)
+
+
 class DynamicVoiceGroup:
     def __init__(self, server: 'Server', minimum: int, minimum_empty: int, template: str, game_template: str, maximum: int = 0):
         """"
@@ -186,18 +215,61 @@ class DynamicVoiceGroup:
         :param maximum: The maximum number of channels allowed to be created.
         """
         self.server = server
-        self.min = minimum
-        self.min_empty = minimum_empty
-        self.max = maximum
-        self.template = template
-        self.game_template = game_template
+        self.settings = DynamicVoiceGroupSettings(self.server.bot)
+        self.settings.min.value = minimum
+        self.settings.min_empty.value = minimum_empty
+        self.settings.max.value = maximum
+        self.settings.template.value = template
+        self.settings.game_template.value = game_template
 
         self.db_entry = None
 
+    # Properties
     @property
     def id(self):
         return self.db_entry.id if self.db_entry else None
 
+    @property
+    def min(self):
+        return self.settings.min.value
+
+    @min.setter
+    def min(self, value):
+        self.settings.min.value = value
+
+    @property
+    def min_empty(self):
+        return self.settings.min_empty.value
+
+    @min_empty.setter
+    def min_empty(self, value):
+        self.settings.min_empty.value = value
+
+    @property
+    def max(self):
+        return self.settings.max.value
+
+    @max.setter
+    def max(self, value):
+        self.settings.max.value = value
+
+    @property
+    def template(self):
+        return self.settings.template.value
+
+    @template.setter
+    def template(self, value):
+        self.settings.template.value = value
+
+    @property
+    def game_template(self):
+        return self.settings.game_template.value
+
+    @game_template.setter
+    def game_template(self, value):
+        self.settings.game_template.value = value
+
+    # Methods
     def get_name(self, number: int):
         return self.template.replace('{n}', str(number))
 
@@ -209,12 +281,13 @@ class DynamicVoiceGroup:
             'min': self.min,
             'min_empty': self.min_empty,
             'max': self.max,
-            'template': self.template
+            'template': self.template,
+            'game_template': self.game_template
         }
 
     @classmethod
-    async def create(cls, server: 'Server', minimum: int, minimum_empty: int, template: str, maximum: int = 0):
-        group = cls(server, minimum, minimum_empty, template, maximum)
+    async def create(cls, server: 'Server', minimum: int, minimum_empty: int, template: str, game_template: str, maximum: int = 0):
+        group = cls(server, minimum, minimum_empty, template, game_template, maximum)
         group.db_entry = await DynamicVoiceGroupModel.create_model(server.db_entry, **group.serialize())
         return group
 
@@ -224,7 +297,7 @@ class DynamicVoiceGroup:
         db_groups = await DynamicVoiceGroupModel.get_all(server.db_entry)
 
         for entry in db_groups:
-            group = cls(server, entry.min, entry.min_empty, entry.template, entry.max)
+            group = cls(server, entry.min, entry.min_empty, entry.template, entry.game_template, entry.max)
             group.db_entry = entry
             groups.append(group)
         return groups
@@ -240,6 +313,8 @@ class VoiceManager:
         self.channels: dict[int, DynamicVoiceChannel] = {}
         self.groups: dict[int, DynamicVoiceGroup] = {}
 
+        self._setup = False
+
     async def setup(self):
         groups = await DynamicVoiceGroup.get_all(self.server)
         for group in groups:
@@ -248,20 +323,28 @@ class VoiceManager:
         channels = await DynamicVoiceChannel.get_all(self)
         for channel in channels:
             self.channels[channel.channel.id] = channel
+        self._setup = True
 
     async def sort_channels(self):
-        channels = sorted(self.channels.values(), key=lambda x: x.channel.number)
-        for i, channel in enumerate(channels):
-            await channel.channel.edit(position=i)
+        pos = 0
+        for group in self.groups.values():
+            channels = sorted(self.get_group_channels(group), key=lambda x: x.number)
+            for channel in channels:
+                await channel.channel.edit(position=pos)
+                pos += 1
 
     async def update_names(self):
         for channel in self.channels.values():
             await channel.update_name()
 
     async def check_channels(self):
+        if not self._setup:
+            return
+
+        logger.debug(f'{self.server.name}: Voice Manager: Checking Groups')
         for group in self.groups.values():
             channels = self.get_group_channels(group)
-            empty = self.get_empty(group)
+            empty = sorted(self.get_empty(group), key=lambda x: x.number, reverse=True)
             channels_to_change = 0
             if len(channels) < group.min:
                 channels_to_change = group.min - len(channels)
@@ -271,6 +354,7 @@ class VoiceManager:
                 channels_to_change = group.min_empty - len(empty)
 
             channels_to_change = min(channels_to_change, group.max - len(channels))
+            channels_to_change = max(channels_to_change, group.min - len(channels))
 
             if channels_to_change > 0:
                 for _ in range(channels_to_change):
@@ -280,17 +364,35 @@ class VoiceManager:
                     if i < abs(channels_to_change):
                         await empty.delete()
 
+        logger.debug(f'{self.server.name}: Voice Manager: Sorting Channels')
         await self.sort_channels()
+        logger.debug(f'{self.server.name}: Voice Manager: Updating Names')
         await self.update_names()
 
     async def create_channel(self, group: 'DynamicVoiceGroup'):
+        number = self.get_next_number(group)
         channel = await self.server.guild.create_voice_channel(
-            name=group.get_name(self.get_next_number(group)),
-            category=self.server.guild.get_channel(self.server.settings.dynamic_voice_category.value)
+            name=group.get_name(number),
+            category=self.server.guild.get_channel(self.server.settings.dynamic_voice_category.value.id)
         )
-        channel = await DynamicVoiceChannel.create(self, channel, group)
+        channel = await DynamicVoiceChannel.create(self, channel)
+        channel.group = group
+        channel.number = number
+        await channel.save()
         self.channels[channel.channel.id] = channel
         return channel
+
+    async def create_group(self, minimum: int, minimum_empty: int, template: str, game_template: str, maximum: int = 0):
+        group = await DynamicVoiceGroup.create(self.server, minimum, minimum_empty, template, game_template, maximum)
+        self.groups[group.id] = group
+        await self.check_channels()
+        return group
+
+    async def delete_group(self, group: 'DynamicVoiceGroup'):
+        for channel in self.get_group_channels(group):
+            await channel.delete()
+        await DynamicVoiceGroupModel.async_delete(group.db_entry)
+        del self.groups[group.id]
 
     def get_next_number(self, group: 'DynamicVoiceGroup'):
         channels = sorted(self.get_group_channels(group), key=lambda x: x.number)

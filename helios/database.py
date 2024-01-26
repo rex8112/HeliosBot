@@ -26,14 +26,14 @@ import json
 import peewee_async
 from playhouse.migrate import *
 
-db = peewee_async.MySQLDatabase('heliosTesting', user='helios', password='bot', host='192.168.40.101', port=3306)
+db = peewee_async.MySQLDatabase('heliosTesting', user='helios', password='bot', host='192.168.50.99', port=3306)
 objects = peewee_async.Manager(db)
 
 
 def initialize_db():
     db.connect()
     db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
-                      EventModel, ViolationModel])
+                      EventModel, ViolationModel, DynamicVoiceModel, DynamicVoiceGroupModel])
 
 
 def get_aware_utc_now():
@@ -288,8 +288,7 @@ class DynamicVoiceModel(BaseModel):
     """A model for dynamic voice channels."""
     channel = BigIntegerField(primary_key=True, unique=True)
     server = ForeignKeyField(ServerModel, backref='dynamic_voices')
-    group = ForeignKeyField(DynamicVoiceGroupModel, backref='dynamic_voices')
-    settings = TextField(default='{}')
+    settings = JSONField(default={})
 
     class Meta:
         table_name = 'dynamicvoices'

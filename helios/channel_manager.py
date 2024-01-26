@@ -22,12 +22,14 @@
 
 import asyncio
 import logging
+import traceback
 from typing import TYPE_CHECKING, Optional
 
 import discord
 
 from .channel import Channel_Dict, Channel, VoiceChannel
 from .database import ChannelModel
+from .dynamic_voice import VoiceManager
 
 if TYPE_CHECKING:
     from .server import Server
@@ -43,6 +45,7 @@ class ChannelManager:
         self.bot: 'HeliosBot' = server.bot
         self.server = server
         self.channels: dict[int, 'HeliosChannel'] = {}
+        self.dynamic_voice = VoiceManager(self.server)
 
         self._task = None
 
@@ -74,6 +77,10 @@ class ChannelManager:
         await self.purge_dead_channels()
         await self.manage_topics()
         await self.manage_voices()
+
+        logger.debug(f'{self.server.name}: Channel Manager: Running Dynamic Voice Check')
+        await self.dynamic_voice.check_channels()
+        logger.debug(f'{self.server.name}: Channel Manager: Dynamic Voice Check Complete')
 
     async def purge_dead_channels(self):
         deletes = []
@@ -172,6 +179,7 @@ class ChannelManager:
             return voice
 
     async def setup(self, channel_data: list[dict] = None):
+        await self.dynamic_voice.setup()
         if not channel_data:
             data = ChannelModel.select().where(ChannelModel.server == self.server.id)
             channel_data = data

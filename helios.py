@@ -25,6 +25,7 @@ import logging
 import os
 import sys
 
+import sentry_sdk
 import discord
 from discord.utils import setup_logging
 
@@ -48,13 +49,10 @@ description = '''The beginnings of a new Helios'''
 intents = discord.Intents.default()
 intents.members = True
 intents.message_content = True
+intents.presences = True
 
 settings = Config.from_file_path()
 bot = HeliosBot(command_prefix='?', description=description, intents=intents, settings=settings)
-
-cogs = [
-    'cogs.testing_cog'
-]
 
 
 '''@bot.event
@@ -75,6 +73,17 @@ async def load_extensions():
 
 
 async def main():
+    # sentry_sdk.init(
+    #     dsn="https://9ab9f3bbbc308cc85e0a1335fca17612@o4506630084952064.ingest.sentry.io/4506630091309056",
+    #     # Set traces_sample_rate to 1.0 to capture 100%
+    #     # of transactions for performance monitoring.
+    #     traces_sample_rate=1.0,
+    #     # Set profiles_sample_rate to 1.0 to profile 100%
+    #     # of sampled transactions.
+    #     # We recommend adjusting this value in production.
+    #     profiles_sample_rate=1.0
+    # )
+
     initialize_db()
     async with bot:
         setup_logging()

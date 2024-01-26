@@ -3,6 +3,7 @@ from .shop import Shop
 from .channel_manager import ChannelManager
 from .colour import Colour
 from .database import db, initialize_db, migrate_members, fix_transaction
+from .dynamic_voice import VoiceManager, DynamicVoiceGroup
 from .exceptions import *
 from .helios_bot import HeliosBot
 from .modals import *
