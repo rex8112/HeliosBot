@@ -56,6 +56,19 @@ class TestingCog(commands.Cog):
         """ /ping """
         await interaction.response.send_message('Pong!')
 
+    @app_commands.command(name='activity')
+    async def activity_command(self, interaction: discord.Interaction):
+        """ /activity """
+        guild = self.bot.get_guild(interaction.guild_id)
+        message = ''
+        for channels in guild.voice_channels:
+            for member in channels.members:
+                if member.activity:
+                    message += f'{member.display_name}: {member.activity.name}\n'
+                else:
+                    message += f'{member.display_name}: None\n'
+        await interaction.response.send_message(f'```{message}```')
+
 
 async def setup(bot: 'HeliosBot') -> None:
     await bot.add_cog(TestingCog(bot))

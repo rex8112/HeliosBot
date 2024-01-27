@@ -159,7 +159,7 @@ class DynamicVoiceChannel:
             if member.activity.name not in games:
                 games[member.activity.name] = 0
             games[member.activity.name] += 1
-        return max(games, key=lambda x: games[x])
+        return max(games, key=games.get)
 
     def name_on_cooldown(self):
         return datetime.now().astimezone() - self._last_name_change < self.NAME_COOLDOWN
