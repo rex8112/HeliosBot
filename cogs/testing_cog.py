@@ -63,11 +63,18 @@ class TestingCog(commands.Cog):
         message = ''
         for channels in guild.voice_channels:
             for member in channels.members:
-                if member.activity:
-                    message += f'{member.display_name}: {member.activity.name}\n'
+                activity = get_game_activity(member)
+                if activity:
+                    message += f'{member.display_name}: {activity}\n'
                 else:
                     message += f'{member.display_name}: None\n'
         await interaction.response.send_message(f'```{message}```')
+
+
+def get_game_activity(member: discord.Member):
+    for activity in member.activities:
+        if isinstance(activity, discord.Game):
+            return activity.name
 
 
 async def setup(bot: 'HeliosBot') -> None:
