@@ -45,6 +45,12 @@ class VoiceSettings(Settings):
     owner = SettingItem('owner', None, discord.Member)
 
 
+def get_game_activity(member: discord.Member):
+    for activity in member.activities:
+        if isinstance(activity, discord.Game):
+            return activity.name
+
+
 class DynamicVoiceChannel:
     NAME_COOLDOWN = timedelta(minutes=5)
 
@@ -153,12 +159,13 @@ class DynamicVoiceChannel:
     def get_majority_game(self):
         games = {None: 0}
         for member in self.channel.members:
-            if member.activity is None:
+            activity = get_game_activity(member)
+            if activity is None:
                 games[None] += 1
                 continue
-            if member.activity.name not in games:
-                games[member.activity.name] = 0
-            games[member.activity.name] += 1
+            if activity not in games:
+                games[activity] = 0
+            games[activity] += 1
         return max(games, key=games.get)
 
     def name_on_cooldown(self):
