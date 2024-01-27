@@ -31,7 +31,7 @@ from .tools.config import Config
 settings = Config.from_file_path()
 
 db = peewee_async.MySQLDatabase(settings.db_path, user=settings.db_username, password=settings.db_password,
-                                host=settings.db_host, port=int(settings.db_port))
+                                host=settings.db_host, port=int(settings.db_port), charset='utf8mb4')
 objects = peewee_async.Manager(db)
 
 
