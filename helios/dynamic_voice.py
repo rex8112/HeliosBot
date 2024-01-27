@@ -47,7 +47,7 @@ class VoiceSettings(Settings):
 
 def get_game_activity(member: discord.Member):
     for activity in member.activities:
-        if isinstance(activity, discord.Game):
+        if not isinstance(activity, discord.CustomActivity):
             return activity.name
 
 
