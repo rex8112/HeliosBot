@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, Optional
 import discord
 
 from .channel import Channel_Dict, Channel, VoiceChannel
-from .database import ChannelModel
+from .database import ChannelModel, objects
 from .dynamic_voice import VoiceManager
 
 if TYPE_CHECKING:
@@ -181,7 +181,8 @@ class ChannelManager:
     async def setup(self, channel_data: list[dict] = None):
         await self.dynamic_voice.setup()
         if not channel_data:
-            data = ChannelModel.select().where(ChannelModel.server == self.server.id)
+            q = ChannelModel.select().where(ChannelModel.server == self.server.id)
+            data = await objects.prefetch(q)
             channel_data = data
 
         deletes = []

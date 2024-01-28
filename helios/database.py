@@ -32,13 +32,15 @@ settings = Config.from_file_path()
 
 db = peewee_async.MySQLDatabase(settings.db_path, user=settings.db_username, password=settings.db_password,
                                 host=settings.db_host, port=int(settings.db_port), charset='utf8mb4')
+db.set_allow_sync(False)
 objects = peewee_async.Manager(db)
 
 
 def initialize_db():
-    db.connect()
-    db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
-                      EventModel, ViolationModel, DynamicVoiceModel, DynamicVoiceGroupModel])
+    with db.allow_sync():
+        db.connect()
+        db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
+                          EventModel, ViolationModel, DynamicVoiceModel, DynamicVoiceGroupModel])
 
 
 def get_aware_utc_now():

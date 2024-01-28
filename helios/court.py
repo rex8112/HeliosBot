@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 
 from discord.ext import tasks
 
-from .database import ViolationModel, objects
+from .database import ViolationModel, objects, MemberModel
 from .enums import ViolationStates
 from .violation import Violation
 
@@ -61,7 +61,7 @@ class Court:
     async def manage_violations(self):
         q = ViolationModel.select().where(ViolationModel.server_id == self.server.db_id,
                                           ViolationModel.state != ViolationStates.Paid.value)
-        violations = await objects.prefetch(q)
+        violations = await objects.prefetch(q, MemberModel.select())
 
         for violation in violations:
             violation = Violation.load(self.server, violation)
