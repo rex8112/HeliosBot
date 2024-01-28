@@ -36,12 +36,14 @@ logger = logging.getLogger('HeliosLogger')
 logger.setLevel(logging.DEBUG)
 consoleHandler = logging.StreamHandler()
 consoleHandler.setLevel(logging.DEBUG)
+fileHandler = logging.FileHandler('helios.log', mode='a')
+fileHandler.setLevel(logging.WARN)
+dt_fmt = '%Y-%m-%d %H:%M:%S'
+formatter = logging.Formatter('[{asctime}] [{levelname:<8}] {name}: {message}', dt_fmt, style='{')
+consoleHandler.setFormatter(formatter)
+fileHandler.setFormatter(formatter)
 logger.addHandler(consoleHandler)
-
-logger2 = logging.getLogger('discord')
-logger2.setLevel(logging.INFO)
-logging.getLogger('discord.http').setLevel(logging.INFO)
-logger2.addHandler(consoleHandler)
+logger.addHandler(fileHandler)
 
 
 description = '''The beginnings of a new Helios'''
@@ -87,7 +89,7 @@ async def main():
 
     initialize_db()
     async with bot:
-        setup_logging()
+        setup_logging(root=False)
         await load_extensions()
         await bot.start(bot.settings.token)
         await asyncio.sleep(0.1)
