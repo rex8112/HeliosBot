@@ -97,7 +97,9 @@ class Channel:
             self.db_entry = await objects.create(ChannelModel, **self.serialize())
             self._new = False
         else:
-            self.db_entry.update_model_instance(self.db_entry, self.serialize())
+            data = self.serialize()
+            del data['server']
+            self.db_entry.update_model_instance(self.db_entry, data)
             await objects.update(self.db_entry)
 
     async def delete(self, del_channel=True):
