@@ -38,6 +38,7 @@ class Config:
         self.db_port = '8000'
         self.db_username = 'admin'
         self.db_password = '123'
+        self.sentry_dsn = ''
 
     # Class Methods
     @classmethod

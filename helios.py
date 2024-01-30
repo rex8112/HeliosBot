@@ -76,16 +76,17 @@ async def load_extensions():
 
 
 async def main():
-    # sentry_sdk.init(
-    #     dsn="https://9ab9f3bbbc308cc85e0a1335fca17612@o4506630084952064.ingest.sentry.io/4506630091309056",
-    #     # Set traces_sample_rate to 1.0 to capture 100%
-    #     # of transactions for performance monitoring.
-    #     traces_sample_rate=1.0,
-    #     # Set profiles_sample_rate to 1.0 to profile 100%
-    #     # of sampled transactions.
-    #     # We recommend adjusting this value in production.
-    #     profiles_sample_rate=1.0
-    # )
+    if settings.sentry_dsn:
+        sentry_sdk.init(
+            dsn=settings.sentry_dsn,
+            # Set traces_sample_rate to 1.0 to capture 100%
+            # of transactions for performance monitoring.
+            traces_sample_rate=1.0,
+            # Set profiles_sample_rate to 1.0 to profile 100%
+            # of sampled transactions.
+            # We recommend adjusting this value in production.
+            profiles_sample_rate=1.0
+        )
 
     initialize_db()
     async with bot:
