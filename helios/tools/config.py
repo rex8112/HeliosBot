@@ -76,7 +76,8 @@ class Config:
             'db_host': self.db_host,
             'db_port': self.db_port,
             'db_username': self.db_username,
-            'db_password': self.db_password
+            'db_password': self.db_password,
+            'sentry_dsn': self.sentry_dsn
         }
         self._serialize(data)
 
