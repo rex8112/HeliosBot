@@ -111,7 +111,7 @@ class Channel:
         finally:
             if self._id in self.manager.channels:
                 self.manager.channels.pop(self._id)
-            self.db_entry.delete_instance()
+            await objects.delete(self.db_entry)
 
     def set_flag(self, flag: str, on: bool):
         if flag not in self._allowed_flags:

@@ -51,6 +51,11 @@ class TestingCog(commands.Cog):
         await self.bot.tree.sync()
         await ctx.send('Commands Synced')
 
+    @commands.command()
+    @commands.is_owner()
+    async def shutdown(self, ctx: commands.Context):
+        await self.bot.close()
+
     @app_commands.command(name='ping')
     async def ping_command(self, interaction: discord.Interaction):
         """ /ping """
