@@ -22,6 +22,7 @@
 import asyncio
 import math
 import re
+import logging
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Optional
 
@@ -37,6 +38,9 @@ if TYPE_CHECKING:
     from .song import Song
     from ..server import Server
     from ..member import HeliosMember
+
+
+logger = logging.getLogger('HeliosLogger.Music')
 
 
 class MusicPlayer:
@@ -83,7 +87,9 @@ class MusicPlayer:
                 self._control_view = None
             await self._vc.move_to(channel)
         else:
+            logger.debug(f'{self.server.name}: Music Player: Joining {channel.name}')
             self._vc = await channel.connect()
+            logger.debug(f'{self.server.name}: Music Player: Joined {channel.name}')
         self._leaving = False
         self._control_view = MusicPlayerView(self)
         self._control_view.update_buttons()
@@ -100,8 +106,8 @@ class MusicPlayer:
 
         try:
             await self._control_message.delete()
-        except (discord.Forbidden, discord.NotFound):
-            ...
+        except (discord.Forbidden, discord.NotFound, AttributeError) as e:
+            logger.warning(f'{self.server.name}: Music Player: Failed to delete control message: {e}')
         self._control_message = None
 
         if self._control_message is not None:
