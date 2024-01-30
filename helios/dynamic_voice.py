@@ -159,6 +159,8 @@ class DynamicVoiceChannel:
     def get_majority_game(self):
         games = {None: 0}
         for member in self.channel.members:
+            if member.bot:
+                continue
             activity = get_game_activity(member)
             if activity is None:
                 games[None] += 1
