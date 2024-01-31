@@ -22,11 +22,15 @@
 
 import datetime
 import json
+from typing import TYPE_CHECKING
 
 import peewee_async
 from playhouse.migrate import *
 
 from .tools.config import Config
+
+if TYPE_CHECKING:
+    from .member import HeliosMember
 
 settings = Config.from_file_path()
 
@@ -238,6 +242,16 @@ class ViolationModel(BaseModel):
 
     class Meta:
         table_name = 'violations'
+
+    @staticmethod
+    async def get_violation(violation_id: int, /):
+        q = ViolationModel.select().where(ViolationModel.id == violation_id)
+        return await objects.prefetch(q, MemberModel.select())
+
+    @staticmethod
+    async def get_violations(member: 'HeliosMember'):
+        q = ViolationModel.select().where(ViolationModel.user_id == member.db_id).order_by(ViolationModel.id.desc())
+        return await objects.prefetch(q, MemberModel.select())
 
 
 class CourtModel(BaseModel):

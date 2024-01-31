@@ -49,12 +49,11 @@ class Court:
         return v
 
     async def get_violation(self, violation_id: int, /):
-        v = await objects.get(ViolationModel, id=violation_id)
+        v = await ViolationModel.get_violation(violation_id)
         return Violation.load(self.server, v)
 
     async def get_violations(self, member: 'HeliosMember'):
-        q = ViolationModel.select().where(ViolationModel.user_id == member.db_id).order_by(ViolationModel.id.desc())
-        violations = await objects.prefetch(q)
+        violations = await ViolationModel.get_violations(member)
         return [Violation.load(self.server, x) for x in violations]
 
     @tasks.loop(seconds=30)

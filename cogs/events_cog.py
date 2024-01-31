@@ -52,7 +52,7 @@ class EventsCog(commands.Cog):
     async def on_message(self, message: discord.Message):
         if message.author == self.bot.user:
             return
-        if message.guild.me in message.mentions and message.author.voice:
+        if message.guild and message.guild.me in message.mentions and message.author.voice:
             if not message.author.voice.channel:
                 return
             channel = message.author.voice.channel
