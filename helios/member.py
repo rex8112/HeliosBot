@@ -270,7 +270,9 @@ class HeliosMember(HasFlags):
             self._id = self._db_entry.id
             self._changed = False
         if self._changed or force:
-            self._db_entry.update_model_instance(self._db_entry, self.serialize())
+            data = self.serialize()
+            del data['server']
+            self._db_entry.update_model_instance(self._db_entry, data)
             await self._db_entry.async_save()
             self._changed = False
 
