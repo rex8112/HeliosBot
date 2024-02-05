@@ -127,7 +127,7 @@ class ChannelManager:
         topic_channels.sort(key=lambda x: x.points, reverse=True)
 
         for i, c in enumerate(topic_channels):
-            if i > 9:
+            if i > 9 or c.pending:
                 e_state.append(c.evaluate_state())
                 e_save.append(c.save())
         if e_state:
