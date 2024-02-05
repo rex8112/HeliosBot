@@ -22,13 +22,12 @@
 
 import asyncio
 import logging
-import traceback
 from typing import TYPE_CHECKING, Optional, Union
 
 import discord
 
 from .channel import Channel_Dict, Channel, VoiceChannel
-from .database import ChannelModel, objects, TopicModel
+from .database import ChannelModel, objects
 from .dynamic_voice import VoiceManager
 from .topics import TopicChannel
 
@@ -120,7 +119,6 @@ class ChannelManager:
         if len(topic_channels) == 0:
             return
         e_values = []
-        e_move = []
         e_state = []
         e_save = []
         for c in topic_channels:
