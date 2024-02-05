@@ -23,13 +23,14 @@
 import asyncio
 import logging
 import traceback
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union
 
 import discord
 
 from .channel import Channel_Dict, Channel, VoiceChannel
-from .database import ChannelModel, objects
+from .database import ChannelModel, objects, TopicModel
 from .dynamic_voice import VoiceManager
+from .topics import TopicChannel
 
 if TYPE_CHECKING:
     from .server import Server
@@ -45,20 +46,27 @@ class ChannelManager:
         self.bot: 'HeliosBot' = server.bot
         self.server = server
         self.channels: dict[int, 'HeliosChannel'] = {}
+        self.topic_channels: dict[int, TopicChannel] = {}
         self.dynamic_voice = VoiceManager(self.server)
 
         self._task = None
 
-    def get(self, channel_id: int) -> Optional[Channel]:
-        return self.channels.get(channel_id)
+    def get(self, channel_id: int) -> Optional[Union[Channel, TopicChannel]]:
+        channel = self.channels.get(channel_id)
+        if not channel:
+            channel = self.topic_channels.get(channel_id)
+        return channel
 
     def get_type(self, t: str) -> list['HeliosChannel']:
         return list(filter(lambda x: x.channel_type == t, self.channels.values()))
 
-    def _add_channel(self, channel: 'HeliosChannel'):
+    def _add_channel(self, channel: Union['HeliosChannel', 'TopicChannel']):
         if self.get(channel.id):
             raise NotImplemented
-        self.channels[channel.id] = channel
+        if isinstance(channel, TopicChannel):
+            self.topic_channels[channel.id] = channel
+        else:
+            self.channels[channel.id] = channel
 
     def create_run_task(self):
         if not self._task:
@@ -89,27 +97,53 @@ class ChannelManager:
             if v.alive is False:
                 deletes_keys.append(k)
                 deletes.append(v.delete(del_channel=False))
+        for k, v in self.topic_channels.items():
+            if v.alive is False:
+                deletes_keys.append(k)
+                deletes.append(v.delete(del_channel=False))
         if len(deletes) > 0:
             await asyncio.wait(deletes)
             for k in deletes_keys:
-                del self.channels[k]
+                try:
+                    del self.channels[k]
+                except KeyError:
+                    ...
+                try:
+                    del self.topic_channels[k]
+                except KeyError:
+                    ...
 
     async def manage_topics(self):
-        """Run evaluate_tiers and evaluate_state on all topic channels."""
-        topic_channels = self.get_type('topic')
-        e_tiers = []
+        """Get channel points, sort by them and evaluate_state on the lower channels after the tenth channel."""
+        topic_channels = list(filter(lambda x: x.active, self.topic_channels.values()))
+        pinned = list(filter(lambda x: x.pinned, self.topic_channels.values()))
+        if len(topic_channels) == 0:
+            return
+        e_values = []
+        e_move = []
         e_state = []
         e_save = []
         for c in topic_channels:
-            e_tiers.append(c.evaluate_tier())
-            e_state.append(c.evaluate_state())
-            e_save.append(c.save())
-        if len(e_tiers) > 0:
-            logger.debug(f'{self.server.name}: Evaluating Topic Tiers')
-            await asyncio.wait(e_tiers)
-            logger.debug(f'{self.server.name}: Evaluating Topic States')
+            e_values.append(c.get_points())
+        await asyncio.wait(e_values)
+        topic_channels.sort(key=lambda x: x.points, reverse=True)
+
+        for i, c in enumerate(topic_channels):
+            if i > 9:
+                e_state.append(c.evaluate_state())
+                e_save.append(c.save())
+        if e_state:
             await asyncio.wait(e_state)
             await asyncio.wait(e_save)
+
+        pinned_len = len(pinned)
+        for i, c in enumerate(pinned):
+            if c.channel.position > pinned_len:
+                await c.channel.edit(position=i+1)
+        for i, c in enumerate(topic_channels, start=pinned_len):
+            if c.channel.position != i + 1:
+                logger.debug(f'{c.channel.name} is at {c.channel.position} should be at {i + 1}')
+                await c.channel.edit(position=i + 1)
 
     async def manage_voices(self):
         voice_channels: list[VoiceChannel] = self.get_type('private_voice')
@@ -145,17 +179,16 @@ class ChannelManager:
         await ch.save()
         return True, 'Created Successfully!'
 
-    async def create_topic(self, name: str, owner: discord.User) -> tuple[bool, str]:
-        topics = self.get_type('topic')
+    async def create_topic(self, name: str, owner: 'HeliosMember') -> tuple[bool, str]:
+        topics = self.topic_channels.values()
         for t in topics:
             if t.channel.name.lower() == name.lower():
                 return False, f'Channel already exists: {t.channel.mention}'
         category = self.bot.get_channel(self.server.settings.topic_category.value.id)
         if category:
             new_channel = await category.create_text_channel(name=name)
-            channel_type = Channel_Dict.get('topic')
-            channel = channel_type.new(self, new_channel.id)
-            channel.settings['creator'] = owner.id
+            channel = TopicChannel(self.server, new_channel)
+            channel.creator = owner
             self._add_channel(channel)
             await channel.save()
             return True, f'{channel.channel.mention} created successfully!'
@@ -197,6 +230,14 @@ class ChannelManager:
                         neutralize.append(c.neutralize())
             else:
                 deletes.append(c.delete(del_channel=False))
+
+        topic_channels = await TopicChannel.get_all(self.server)
+        for t in topic_channels:
+            if t.alive:
+                self.topic_channels[t.id] = t
+            else:
+                deletes.append(t.delete(del_channel=False))
+
         if len(deletes) > 0:
             await asyncio.wait(deletes)
         if neutralize:

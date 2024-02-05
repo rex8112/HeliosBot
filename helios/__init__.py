@@ -9,6 +9,7 @@ from .helios_bot import HeliosBot
 from .modals import *
 from .member import HeliosMember
 from .server_manager import ServerManager
+from .topics import TopicChannel
 from .views import *
 from .violation import Violation
 from .voice_template import VoiceTemplate

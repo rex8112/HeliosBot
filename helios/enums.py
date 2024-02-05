@@ -32,3 +32,10 @@ class ViolationStates(Enum):
     Due = 1
     Illegal = 2
     Paid = 3
+
+
+class TopicChannelStates(Enum):
+    Active = 0
+    PendingArchive = 1
+    Archived = 2
+    Pinned = 3

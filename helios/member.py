@@ -144,6 +144,10 @@ class HeliosMember(HasFlags):
         else:
             self._allow_on_voice += 1
 
+    @property
+    def db_entry(self) -> MemberModel:
+        return self._db_entry
+
     def add_activity_points(self, amt: int):
         self._activity_points += amt
         self._changed = True

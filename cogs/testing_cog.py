@@ -61,7 +61,7 @@ class TestingCog(commands.Cog):
         """ /ping """
         await interaction.response.send_message('Pong!')
 
-    @app_commands.command(name='activity')
+    # @app_commands.command(name='activity')
     async def activity_command(self, interaction: discord.Interaction):
         """ /activity """
         guild = self.bot.get_guild(interaction.guild_id)
@@ -74,6 +74,15 @@ class TestingCog(commands.Cog):
                 else:
                     message += f'{member.display_name}: None\n'
         await interaction.response.send_message(f'```{message}```')
+
+    # @app_commands.command(name='channelpositions')
+    async def channel_positions(self, interaction: discord.Interaction):
+        """ /channelpositions """
+        guild = self.bot.get_guild(interaction.guild_id)
+        message = ''
+        for channel in guild.channels:
+            message += f'{channel.name}: {channel.position}\n'
+        await interaction.response.send_message(f'```{message}```', ephemeral=True)
 
 
 def get_game_activity(member: discord.Member):

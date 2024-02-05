@@ -26,36 +26,56 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from helios import TopicCreation
+from helios import TopicCreation, TopicChannel
 
 if TYPE_CHECKING:
     from helios import HeliosBot, Server
 
 
-class TopicCog(commands.Cog):
+class TopicCog(commands.GroupCog, name='topic'):
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
 
-    @app_commands.command(name='topic', description='Create a new topic')
+    @app_commands.command(name='new', description='Create a new topic')
     async def topic_create(
             self,
             interaction: discord.Interaction,
-            channel: Optional[discord.TextChannel] = None,
-            tier: Optional[int] = 1
+            name: str,
     ):
-        if channel:
-            if channel.permissions_for(interaction.user).manage_channels:
-                bot: 'HeliosBot' = interaction.client
-                server: 'Server' = bot.servers.get(interaction.guild_id)
-                result, result_message = await server.channels.add_topic(channel, interaction.user, tier)
-                await interaction.response.send_message(result_message, ephemeral=True)
-            else:
-                await interaction.response.send_message(
-                    'You do not have permission to do this, try without parameters',
-                    ephemeral=True
-                )
+        server = self.bot.servers.get(guild_id=interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        result, result_message = await server.channels.create_topic(name, member)
+        await interaction.response.send_message(result_message, ephemeral=True)
+
+    @app_commands.command(name='pin', description='Pin a topic')
+    @commands.has_permissions(manage_channels=True)
+    async def topic_pin(
+            self,
+            interaction: discord.Interaction,
+            channel: discord.TextChannel
+    ):
+        server = self.bot.servers.get(guild_id=interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        topic = server.channels.get(channel.id)
+        if isinstance(topic, TopicChannel):
+            await topic.pin(member)
+            await topic.save()
+            pinned = topic.pinned
+            await interaction.response.send_message(f'Topic is now {"pinned" if pinned else "unpinned"}',
+                                                    ephemeral=True)
         else:
-            await interaction.response.send_modal(TopicCreation())
+            await interaction.response.send_message(f'Channel is not a topic', ephemeral=True)
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.author == self.bot.user or message.guild is None:
+            return
+        server = self.bot.servers.get(guild_id=message.guild.id)
+        channel = server.channels.get(message.channel.id)
+        if isinstance(channel, TopicChannel):
+            if not channel.active:
+                await channel.restore(server.members.get(message.author.id))
+                await channel.save()
 
 
 async def setup(bot: 'HeliosBot'):

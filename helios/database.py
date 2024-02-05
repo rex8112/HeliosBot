@@ -44,7 +44,7 @@ def initialize_db():
     with db.allow_sync():
         db.connect()
         db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
-                          EventModel, ViolationModel, DynamicVoiceModel, DynamicVoiceGroupModel])
+                          EventModel, ViolationModel, DynamicVoiceModel, DynamicVoiceGroupModel, TopicModel])
 
 
 def get_aware_utc_now():
@@ -329,6 +329,41 @@ class DynamicVoiceModel(BaseModel):
     async def create_model(server: ServerModel, **kwargs):
         """Create a new model instance in the database."""
         return await objects.create(DynamicVoiceModel, server=server, **kwargs)
+
+
+class TopicModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    channel_id = BigIntegerField(unique=True)
+    server = ForeignKeyField(ServerModel, backref='topics')
+    points = IntegerField()
+    state = IntegerField()
+    creator = ForeignKeyField(MemberModel, backref='topics', null=True)
+    archive_message = BigIntegerField(null=True)
+    archive_date = DatetimeTzField(null=True)
+    created = DatetimeTzField(default=get_aware_utc_now)
+    updated = DatetimeTzField(default=get_aware_utc_now)
+
+    class Meta:
+        table_name = 'topics'
+
+    def async_save(self, only=None):
+        self.updated = get_aware_utc_now()
+        return super().async_save(only=only)
+
+    @staticmethod
+    def async_create(channel_id: int, server: ServerModel, creator: MemberModel, points: int, state: int):
+        return objects.create(TopicModel, channel_id=channel_id, server=server, creator=creator, points=points,
+                              state=state)
+
+    @staticmethod
+    async def get_by_channel(channel_id: int) -> 'TopicModel':
+        q = TopicModel.select().where(TopicModel.channel_id == channel_id)
+        return await objects.prefetch(q, MemberModel.select(), ServerModel.select())
+
+    @staticmethod
+    async def get_all(server: ServerModel) -> list['TopicModel']:
+        q = TopicModel.select().where(TopicModel.server == server)
+        return await objects.prefetch(q, MemberModel.select(), ServerModel.select())
 
 
 class PugModel(BaseModel):

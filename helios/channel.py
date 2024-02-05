@@ -438,13 +438,12 @@ class TopicChannel(Channel):
         return embed
 
     def _get_saved_embed(self) -> discord.Embed:
-        cur_tier = self.tier
-        word = 'Archive' if cur_tier > 1 else 'Deletion'
+        word = 'Archive'
         if self.get_flag('ARCHIVED'):
             embed = discord.Embed(
                 colour=discord.Colour.green(),
                 title='Channel Restored',
-                description=f'Channel restored at {cur_tier} tier.'
+                description=f'Channel restored.'
             )
         else:
             embed = discord.Embed(
