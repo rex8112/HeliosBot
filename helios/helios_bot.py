@@ -67,7 +67,6 @@ class HeliosBot(commands.Bot):
             api_password=self.settings.api_password,
             name_api_key=self.settings.randomname_api_key
         )
-        self.add_view(TopicView(self))
         self.add_dynamic_items(ViolationPayButton)
 
     async def on_ready(self):
