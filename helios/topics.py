@@ -170,6 +170,8 @@ class TopicChannel:
         await self.channel.edit(name=f'🛑{self.channel.name}')
 
     async def archive(self) -> None:
+        if self.archive_category is None:
+            return
         self.state = TopicChannelStates.Archived
         await self.channel.edit(category=self.archive_category, sync_permissions=True)
         if self.archive_message is None:

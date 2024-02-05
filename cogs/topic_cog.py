@@ -47,6 +47,18 @@ class TopicCog(commands.GroupCog, name='topic'):
         result, result_message = await server.channels.create_topic(name, member)
         await interaction.response.send_message(result_message, ephemeral=True)
 
+    @app_commands.command(name='add', description='Add an existing channel as a topic')
+    @commands.has_permissions(manage_channels=True)
+    async def topic_add(
+            self,
+            interaction: discord.Interaction,
+            channel: discord.TextChannel
+    ):
+        server = self.bot.servers.get(guild_id=interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        result, result_message = await server.channels.add_topic(channel, member)
+        await interaction.response.send_message(result_message, ephemeral=True)
+
     @app_commands.command(name='pin', description='Pin a topic')
     @commands.has_permissions(manage_channels=True)
     async def topic_pin(

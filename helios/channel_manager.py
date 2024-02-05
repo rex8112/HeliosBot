@@ -166,21 +166,22 @@ class ChannelManager:
         if update_message:
             await asyncio.wait(update_message)
 
-    async def add_topic(self, channel: discord.TextChannel, owner: discord.User, tier=1) -> tuple[bool, str]:
+    async def add_topic(self, channel: discord.TextChannel, owner: 'HeliosMember') -> tuple[bool, str]:
         if self.channels.get(channel.id):
-            return False, 'This channel already exists.'
-        channel_type = Channel_Dict.get('topic')
-        ch = channel_type.new(self, channel.id)
-        ch.settings['creator'] = owner.id
-        ch.settings['tier'] = tier
+            return False, 'This channel is already important.'
+        category = self.bot.get_channel(self.server.settings.topic_category.value.id)
+        if category:
+            await channel.edit(category=category, sync_permissions=True)
+        ch = TopicChannel(self.server, channel)
+        ch.creator = owner
         self._add_channel(ch)
         await ch.save()
-        return True, 'Created Successfully!'
+        return True, 'Added Successfully!'
 
     async def create_topic(self, name: str, owner: 'HeliosMember') -> tuple[bool, str]:
         topics = self.topic_channels.values()
         for t in topics:
-            if t.channel.name.lower() == name.lower():
+            if t.channel.name.lower() == name.lower().replace(' ', '-'):
                 return False, f'Channel already exists: {t.channel.mention}'
         category = self.bot.get_channel(self.server.settings.topic_category.value.id)
         if category:
