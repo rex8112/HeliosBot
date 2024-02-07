@@ -162,6 +162,13 @@ class MusicPlayer:
 
         if self._leaving:
             return
+        if exception or not self.is_connected():
+            return
+        await self.play_next()
+
+    async def play_next(self):
+        if not self.is_connected():
+            return False
         cont = False
         next_song = None
 
@@ -177,17 +184,7 @@ class MusicPlayer:
         if next_song is None:
             await self.update_message()
             return
-        if exception or not self.is_connected():
-            return
         await self.play_song(next_song)
-
-    async def play_next(self):
-        if not self.is_connected():
-            return False
-        next_song = self.playlist.next()
-        if next_song is None:
-            return False
-        return await self.play_song(next_song)
 
     async def play_song(self, song: 'Song') -> bool:
         if not self.is_connected():
