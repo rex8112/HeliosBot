@@ -27,17 +27,20 @@ from .processor import *
 __all__ = ('Song',)
 
 if TYPE_CHECKING:
+    from .playlist import YoutubePlaylist
     from ..member import HeliosMember
 
 
 class Song:
-    def __init__(self, title: str, author: str, url: str, duration: int, thumbnail: str, *, requester: 'HeliosMember' = None):
+    def __init__(self, title: str, author: str, url: str, duration: int, thumbnail: str, *,
+                 requester: 'HeliosMember' = None, playlist: 'YoutubePlaylist' = None):
         self.title = title
         self.author = author
         self.url = url
         self.duration = duration
         self.thumbnail = thumbnail
         self.requester = requester
+        self.playlist = playlist
 
     def __eq__(self, other):
         if isinstance(other, Song):
@@ -45,10 +48,16 @@ class Song:
         return NotImplemented
 
     @classmethod
-    async def from_url(cls, url: str, *, requester: 'HeliosMember' = None):
+    async def from_url(cls, url: str, *, requester: 'HeliosMember' = None, playlist: 'YoutubePlaylist' = None):
         data = await get_info(url, process=False)
-        return cls(data['title'], data['uploader'], data['webpage_url'], data['duration'], data['thumbnail'],
-                   requester=requester)
+        return cls.from_info(data, requester=requester, playlist=playlist)
+
+    @classmethod
+    def from_info(cls, info: dict, *, requester: 'HeliosMember' = None, playlist: 'YoutubePlaylist' = None):
+        url = info['url'] if 'url' in info else info['webpage_url']
+        thumbnail = info['thumbnails'][-1]['url'] if 'thumbnails' in info else info['thumbnail']
+        return cls(info['title'], info['uploader'], url, info['duration'], thumbnail,
+                   requester=requester, playlist=playlist)
 
     async def audio_source(self):
         return await get_audio_source(self.url)

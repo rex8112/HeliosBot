@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Optional
 import discord
 
 from .song import Song
+from .processor import get_info
 from ..colour import Colour
 from ..views import PaginatorView
 
@@ -39,18 +40,30 @@ class Playlist:
     def __len__(self):
         return len(self.songs)
 
-    async def add_song_url_next(self, url: str, requester: 'HeliosMember'):
+    async def add_song_url(self, url: str, requester: 'HeliosMember', *, play_next: bool = False):
         song = await Song.from_url(url, requester=requester)
-        self.songs.insert(0, song)
+        if play_next:
+            self.add_song_next(song)
+        else:
+            self.add_song(song)
 
-    async def add_song_url(self, url: str, requester: 'HeliosMember'):
-        song = await Song.from_url(url, requester=requester)
+    def add_song_info(self, info: dict, requester: 'HeliosMember', *, play_next: bool = False):
+        song = Song.from_info(info, requester=requester)
+        if play_next:
+            self.add_song_next(song)
+        else:
+            self.add_song(song)
+
+    def add_song(self, song: Song):
         self.songs.append(song)
+
+    def add_song_next(self, song: Song):
+        self.songs.insert(0, song)
 
     def get_embed_songs(self, songs: list['Song']) -> list[discord.Embed]:
         song_string = ''
         for song in songs:
-            dur = timedelta(seconds=song.duration)
+            dur = timedelta(seconds=song.duration) if song.duration is not None else 'Unknown Duration'
             song_string += f'**{self.songs.index(song)+1}. {song.title}**By {song.author}\nDuration: {dur}\n\n'
         if not song_string:
             song_string = 'Nothing in queue'
@@ -79,3 +92,30 @@ class Playlist:
 
     def clear(self):
         self.songs.clear()
+
+
+def extract_playlist_from_info(data):
+    if data.get('_type') == 'playlist':
+        if data.get('entries'):
+            return [x for x in data.get('entries')]
+    return []
+
+
+class YoutubePlaylist(Playlist):
+    def __init__(self, data: dict, requester: 'HeliosMember'):
+        super().__init__()
+        self.requester = requester
+        self.title = data.get('title')
+        self.url = data.get('webpage_url')
+        thumbnails = data.get('thumbnails', [])
+        if thumbnails:
+            self.thumbnail = thumbnails[-1].get('url')
+        else:
+            self.thumbnail = None
+        self.songs = [Song.from_info(x, requester=requester, playlist=self) for x in extract_playlist_from_info(data)]
+        self.total_duration = sum([x.duration if x.duration is not None else 0 for x in self.songs])
+
+    @classmethod
+    async def from_url(cls, url: str, requester: 'HeliosMember'):
+        data = await get_info(url, process=False, is_playlist=True)
+        return cls(data, requester)

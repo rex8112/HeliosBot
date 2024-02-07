@@ -57,16 +57,19 @@ def extract_info_wrapper(*args, **kwargs):
     return data
 
 
-async def get_info(url: str, *, process=True):
+async def get_info(url: str, *, process=True, is_playlist=False):
     loop = asyncio.get_event_loop()
     partial = functools.partial(extract_info_wrapper, url=url, download=False, process=process)
     data = await loop.run_in_executor(None, partial)
-    if data.get('extractor') == 'youtube:tab':
+    if data.get('extractor') == 'youtube:tab' and not is_playlist:
         partial.keywords['url'] = data.get('url')
         data = await loop.run_in_executor(None, partial)
     return data
 
 
 async def get_audio_source(url: str):
-    data = await get_info(url)
-    return discord.FFmpegPCMAudio(source=data['url'], **ffmpeg_options, executable='ffmpeg')
+    try:
+        data = await get_info(url)
+        return discord.FFmpegPCMAudio(source=data['url'], **ffmpeg_options, executable='ffmpeg')
+    except yt_dlp.DownloadError:
+        return None

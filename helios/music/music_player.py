@@ -31,11 +31,11 @@ from discord import Interaction
 from discord.ext import tasks
 from discord.utils import format_dt
 
-from .playlist import Playlist
+from .playlist import Playlist, YoutubePlaylist
+from .song import Song
 from ..colour import Colour
 
 if TYPE_CHECKING:
-    from .song import Song
     from ..server import Server
     from ..member import HeliosMember
 
@@ -45,6 +45,7 @@ logger = logging.getLogger('HeliosLogger.Music')
 
 class MusicPlayer:
     def __init__(self, server: 'Server'):
+        """A class to manage music in a server."""
         self.server = server
         self.currently_playing: Optional['Song'] = None
         self.playlists: dict[discord.VoiceChannel, Playlist] = {}
@@ -73,6 +74,24 @@ class MusicPlayer:
     @property
     def channel(self):
         return self._vc.channel if self._vc else None
+
+    @staticmethod
+    def verify_url(url: str) -> bool:
+        regex = r'https:\/\/(?:www\.)?youtu(?:be\.com|\.be)\/(?:playlist\?list=([^"&?\/\s]+)|(?:watch\?v=)?([^"&?\/\s]{3,11}))'
+        matches = re.match(regex, url, re.RegexFlag.I)
+        return matches is not None
+
+    @staticmethod
+    def is_playlist(url: str) -> bool:
+        return 'playlist' in url
+
+    @staticmethod
+    async def fetch_song(url: str, requester: 'HeliosMember') -> Optional['Song']:
+        return await Song.from_url(url, requester=requester)
+
+    @staticmethod
+    async def fetch_playlist(url: str, requester: 'HeliosMember') -> Optional['YoutubePlaylist']:
+        return await YoutubePlaylist.from_url(url, requester=requester)
 
     async def join_channel(self, channel: discord.VoiceChannel):
         if self.is_connected():
@@ -162,6 +181,14 @@ class MusicPlayer:
             return
         await self.play_song(next_song)
 
+    async def play_next(self):
+        if not self.is_connected():
+            return False
+        next_song = self.playlist.next()
+        if next_song is None:
+            return False
+        return await self.play_song(next_song)
+
     async def play_song(self, song: 'Song') -> bool:
         if not self.is_connected():
             return False
@@ -173,6 +200,8 @@ class MusicPlayer:
         loop = asyncio.get_event_loop()
         audio_source = await song.audio_source()
         await asyncio.sleep(0.5)
+        if audio_source is None:
+            return await self.play_next()
         self._vc.play(audio_source, after=lambda x: loop.create_task(self.song_finished(x)), bitrate=64)
         await self.update_message()
         return True
@@ -195,13 +224,33 @@ class MusicPlayer:
         self._vc.stop()
         if self._control_view:
             self._control_view.voted_to_skip.clear()
+            self._control_view.voted_to_skip_playlist.clear()
         return True
 
     def skip_song(self):
         self._vc.stop()
 
-    async def add_song_url(self, url: str, requester: 'HeliosMember'):
-        await self.playlist.add_song_url(url, requester)
+    def skip_playlist(self):
+        if self.currently_playing and self.currently_playing.playlist:
+            songs = self.currently_playing.playlist.songs
+            for song in songs:
+                try:
+                    self.playlist.songs.remove(song)
+                except ValueError:
+                    ...
+        self.skip_song()
+
+    async def add_song(self, song: 'Song'):
+        """Add a song to the queue."""
+        self.playlist.add_song(song)
+        if self.currently_playing is None:
+            await self.play_song(self.playlist.next())
+        else:
+            await self.update_message()
+
+    async def add_playlist(self, playlist: 'YoutubePlaylist'):
+        """Add a playlist to the queue."""
+        [self.playlist.add_song(x) for x in playlist.songs]
         if self.currently_playing is None:
             await self.play_song(self.playlist.next())
         else:
@@ -263,6 +312,10 @@ class MusicPlayer:
             embed.set_thumbnail(url=self.currently_playing.thumbnail)
             requester = self.currently_playing.requester
             embed.set_author(name=requester.member.display_name, icon_url=requester.member.display_avatar.url)
+            if self.currently_playing.playlist:
+                playlist_string = (f'[{self.currently_playing.playlist.title}]({self.currently_playing.playlist.url})'
+                                   f'\n{self.currently_playing.playlist.songs.index(self.currently_playing)+1}/{len(self.currently_playing.playlist)}')
+                embed.add_field(name='Playlist', value=playlist_string)
 
         nxt_string = 'Nothing'
         try:
@@ -280,6 +333,7 @@ class MusicPlayerView(discord.ui.View):
         super().__init__(timeout=None)
         self.mp = mp
         self.voted_to_skip: set[discord.Member] = set()
+        self.voted_to_skip_playlist: set[discord.Member] = set()
 
     async def interaction_check(self, interaction: discord.Interaction, /) -> bool:
         if interaction.user.voice is None or interaction.user.voice.channel != self.mp.channel:
@@ -294,7 +348,9 @@ class MusicPlayerView(discord.ui.View):
         disable = self.mp.currently_playing is None
         self.tip_button.label = f'Tip 10 {self.mp.server.points_name.capitalize()}'
         self.tip_button.disabled = disable
-        self.skip.disabled = disable or len(self.voted_to_skip) >= math.ceil(self.mp.members_in_channel() / 2)
+        self.skip.disabled = disable or len(self.voted_to_skip) >= math.ceil(mems / 2)
+        self.skip_playlist.label = f'Skip Playlist ({len(self.voted_to_skip_playlist)}/{math.ceil(mems/2)})'
+        self.skip_playlist.disabled = disable or len(self.voted_to_skip_playlist) >= math.ceil(mems / 2) or self.mp.currently_playing.playlist is None
         self.show_queue.disabled = len(self.mp.playlist.songs) == 0
         self.play.label = 'Enqueue' if self.mp.currently_playing else 'Play'
 
@@ -304,14 +360,21 @@ class MusicPlayerView(discord.ui.View):
             await interaction.response.send_message(content='Must be in a VC', ephemeral=True)
             return
         modal = NewSongModal()
+        member = self.mp.server.members.get(interaction.user.id)
         await interaction.response.send_modal(modal)
         await modal.wait()
         if modal.url.value:
-            regex = r'https:\/\/(?:www\.)?youtu(?:be\.com|\.be)\/(?:watch\?v=)?([^"&?\/\s]{11})'
-            matches = re.match(regex, modal.url.value, re.RegexFlag.I)
+            matches = self.mp.verify_url(modal.url.value)
+            is_playlist = self.mp.is_playlist(modal.url.value)
             if matches:
-                await self.mp.add_song_url(modal.url.value, self.mp.server.members.get(modal.interaction.user.id))
-                await modal.interaction.followup.send(content='Song Queued')
+                if is_playlist:
+                    playlist = await self.mp.fetch_playlist(modal.url.value, requester=member)
+                    await self.mp.add_playlist(playlist)
+                    await modal.interaction.followup.send(content=f'Added {len(playlist)} songs to the queue')
+                else:
+                    song = await self.mp.fetch_song(modal.url.value, requester=member)
+                    await self.mp.add_song(song)
+                    await modal.interaction.followup.send(content=f'Added {song.title} to the queue')
             else:
                 await modal.interaction.followup.send(content='Invalid URL Given')
 
@@ -361,6 +424,29 @@ class MusicPlayerView(discord.ui.View):
                                                     f'{self.mp.server.points_name.capitalize()}')
         else:
             await interaction.followup.send(content=f'Not enough {self.mp.server.points_name.capitalize()}')
+
+    @discord.ui.button(label='Skip Playlist', style=discord.ButtonStyle.red, row=1)
+    async def skip_playlist(self, interaction: discord.Interaction, _: discord.ui.Button):
+        update = False
+        if interaction.user not in self.voted_to_skip_playlist:
+            self.voted_to_skip_playlist.add(interaction.user)
+            update = True
+            await interaction.response.send_message(content='Voted to skip!', ephemeral=True)
+        else:
+            await interaction.response.send_message(content='Already voted!', ephemeral=True)
+
+        if len(self.voted_to_skip_playlist) >= math.ceil(self.mp.members_in_channel() / 2):
+            self.voted_to_skip_playlist.clear()
+            self.update_buttons()
+            self.mp.skip_playlist()
+            update = True
+
+        if update:
+            message = interaction.message
+            if message is None:
+                return
+            self.update_buttons()
+            await message.edit(view=self)
 
     @discord.ui.button(label='Refresh', row=1)
     async def refresh_message(self, interaction: discord.Interaction, _):

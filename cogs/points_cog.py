@@ -134,11 +134,17 @@ class PointsCog(commands.Cog):
 
         if not server.music_player.is_connected():
             await server.music_player.join_channel(interaction.user.voice.channel)
-        regex = r'https:\/\/(?:www\.)?youtu(?:be\.com|\.be)\/(?:watch\?v=)?([^"&?\/\s]{11})'
-        matches = re.match(regex, song, re.RegexFlag.I)
+        matches = server.music_player.verify_url(song)
+        is_playlist = server.music_player.is_playlist(song)
         if matches:
-            await server.music_player.add_song_url(song, member)
-            await interaction.followup.send(content='Song Queued')
+            if is_playlist:
+                playlist = await server.music_player.fetch_playlist(song, requester=member)
+                await server.music_player.add_playlist(playlist)
+                await interaction.followup.send(content=f'Added {len(playlist)} songs to the queue')
+            else:
+                song = await server.music_player.fetch_song(song, requester=member)
+                await server.music_player.add_song(song)
+                await interaction.followup.send(content=f'Added {song.title} to the queue')
         else:
             await interaction.followup.send(content='Invalid URL Given')
 
