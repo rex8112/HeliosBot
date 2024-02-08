@@ -114,7 +114,7 @@ class ChannelManager:
 
     async def manage_topics(self):
         """Get channel points, sort by them and evaluate_state on the lower channels after the tenth channel."""
-        topic_channels = list(filter(lambda x: x.active, self.topic_channels.values()))
+        topic_channels = list(filter(lambda x: x.active or x.pending, self.topic_channels.values()))
         pinned = list(filter(lambda x: x.pinned, self.topic_channels.values()))
         if len(topic_channels) == 0:
             return
