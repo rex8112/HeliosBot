@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 class Song:
     def __init__(self, title: str, author: str, url: str, duration: int, thumbnail: str, *,
-                 requester: 'HeliosMember' = None, playlist: 'YoutubePlaylist' = None):
+                 requester: 'HeliosMember' = None, playlist: 'YoutubePlaylist' = None, cost: int = None):
         self.title = title
         self.author = author
         self.url = url
@@ -41,11 +41,27 @@ class Song:
         self.thumbnail = thumbnail
         self.requester = requester
         self.playlist = playlist
+        self.cost = cost
 
     def __eq__(self, other):
         if isinstance(other, Song):
             return self.url == other.url
         return NotImplemented
+
+    def __hash__(self):
+        return hash(self.url)
+
+    def percentage(self, time: int):
+        """Get the percentage of the song that has been played."""
+        return time / self.duration
+
+    def calculate_full_song_cost(self) -> int:
+        duration = self.duration
+        if self.requester:
+            cost_per_minute = self.requester.server.settings.music_points_per_minute.value
+        else:
+            cost_per_minute = 0
+        return int((duration * cost_per_minute) / 60)
 
     @classmethod
     async def from_url(cls, url: str, *, requester: 'HeliosMember' = None, playlist: 'YoutubePlaylist' = None):
