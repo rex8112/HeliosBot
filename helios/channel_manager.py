@@ -124,7 +124,7 @@ class ChannelManager:
         for c in topic_channels:
             e_values.append(c.get_points())
         await asyncio.wait(e_values)
-        topic_channels.sort(key=lambda x: x.points, reverse=True)
+        topic_channels.sort(key=lambda x: x.points if not x.pending else 0, reverse=True)
 
         for i, c in enumerate(topic_channels):
             if i > 9 or c.pending:
@@ -135,13 +135,15 @@ class ChannelManager:
             await asyncio.wait(e_save)
 
         pinned_len = len(pinned)
-        for i, c in enumerate(pinned):
+        last_pinned_pos = 0
+        for i, c in enumerate(pinned, start=1):
             if c.channel.position > pinned_len:
-                await c.channel.edit(position=i+1)
-        for i, c in enumerate(topic_channels, start=pinned_len):
-            if c.channel.position != i + 1:
-                logger.debug(f'{c.channel.name} is at {c.channel.position} should be at {i + 1}')
-                await c.channel.edit(position=i + 1)
+                await c.channel.edit(position=i)
+                last_pinned_pos = i
+        for i, c in enumerate(topic_channels, start=last_pinned_pos + 1):
+            if c.channel.position != i:
+                logger.debug(f'{c.channel.name} is at {c.channel.position} should be at {i}')
+                await c.channel.edit(position=i)
 
     async def manage_voices(self):
         voice_channels: list[VoiceChannel] = self.get_type('private_voice')
