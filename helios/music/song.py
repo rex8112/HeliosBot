@@ -42,6 +42,7 @@ class Song:
         self.requester = requester
         self.playlist = playlist
         self.cost = cost
+        self.vote_skip = set()
 
     def __eq__(self, other):
         if isinstance(other, Song):
@@ -56,12 +57,18 @@ class Song:
         return time / self.duration
 
     def calculate_full_song_cost(self) -> int:
+        """Calculate the full cost of the song."""
         duration = self.duration
         if self.requester:
             cost_per_minute = self.requester.server.settings.music_points_per_minute.value
         else:
             cost_per_minute = 0
         return int((duration * cost_per_minute) / 60)
+
+    def calculate_cost(self, time: int) -> int:
+        """Calculate the cost of the song based on the time played."""
+        full_cost = self.calculate_full_song_cost()
+        return int(self.percentage(time) * full_cost)
 
     @classmethod
     async def from_url(cls, url: str, *, requester: 'HeliosMember' = None, playlist: 'YoutubePlaylist' = None):

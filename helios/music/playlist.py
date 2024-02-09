@@ -113,9 +113,20 @@ class YoutubePlaylist(Playlist):
         else:
             self.thumbnail = None
         self.songs = [Song.from_info(x, requester=requester, playlist=self) for x in extract_playlist_from_info(data)]
+        self.unplayed = self.songs.copy()
+        self.played = []
         self.total_duration = sum([x.duration if x.duration is not None else 0 for x in self.songs])
+        self.vote_skip = set()
 
     @classmethod
     async def from_url(cls, url: str, requester: 'HeliosMember'):
         data = await get_info(url, process=False, is_playlist=True)
         return cls(data, requester)
+
+    def next(self):
+        try:
+            song = self.unplayed.pop(0)
+            self.played.append(song)
+            return song
+        except IndexError:
+            return None
