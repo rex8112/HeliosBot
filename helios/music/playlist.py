@@ -19,6 +19,7 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+import random
 from datetime import time, timedelta
 from typing import TYPE_CHECKING, Optional
 
@@ -122,6 +123,11 @@ class YoutubePlaylist(Playlist):
     async def from_url(cls, url: str, requester: 'HeliosMember'):
         data = await get_info(url, process=False, is_playlist=True)
         return cls(data, requester)
+
+    def shuffle(self):
+        self.unplayed = self.songs.copy()
+        self.played = []
+        random.shuffle(self.unplayed)
 
     def next(self):
         try:
