@@ -122,31 +122,7 @@ class PointsCog(commands.Cog):
     @app_commands.guild_only()
     async def play_command(self, interaction: discord.Interaction, song: str):
         server = self.bot.servers.get(interaction.guild_id)
-        member = server.members.get(interaction.user.id)
-        if interaction.user.voice is None:
-            await interaction.response.send_message(content='Must be in a VC', ephemeral=True)
-            return
-        if server.music_player.channel and interaction.user.voice.channel != server.music_player.channel:
-            await interaction.response.send_message(content=f'I am currently busy, sorry.')
-            return
-
-        await interaction.response.defer(ephemeral=True)
-
-        if not server.music_player.is_connected():
-            await server.music_player.join_channel(interaction.user.voice.channel)
-        matches = server.music_player.verify_url(song)
-        is_playlist = server.music_player.is_playlist(song)
-        if matches:
-            if is_playlist:
-                playlist = await server.music_player.fetch_playlist(song, requester=member)
-                await server.music_player.add_playlist(playlist)
-                await interaction.followup.send(content=f'Added {len(playlist)} songs to the queue')
-            else:
-                song = await server.music_player.fetch_song(song, requester=member)
-                await server.music_player.add_song(song)
-                await interaction.followup.send(content=f'Added {song.title} to the queue')
-        else:
-            await interaction.followup.send(content='Invalid URL Given')
+        await server.music_player.member_play(interaction, song)
 
     async def who_is(self, interaction: discord.Interaction, member: discord.Member):
         server = self.bot.servers.get(interaction.guild_id)

@@ -19,6 +19,7 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+import asyncio
 
 from typing import TYPE_CHECKING
 
@@ -43,6 +44,9 @@ class Song:
         self.playlist = playlist
         self.cost = cost
         self.vote_skip = set()
+        self.tips = 0
+
+        self.finished = asyncio.Event()
 
     def __eq__(self, other):
         if isinstance(other, Song):
@@ -59,6 +63,8 @@ class Song:
     def calculate_full_song_cost(self) -> int:
         """Calculate the full cost of the song."""
         duration = self.duration
+        if duration is None:
+            return 0
         if self.requester:
             cost_per_minute = self.requester.server.settings.music_points_per_minute.value
         else:
@@ -84,3 +90,12 @@ class Song:
 
     async def audio_source(self):
         return await get_audio_source(self.url)
+
+    async def wait(self):
+        await self.finished.wait()
+
+    def set_finished(self):
+        self.finished.set()
+
+    def set_unfinished(self):
+        self.finished.clear()

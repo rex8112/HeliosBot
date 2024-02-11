@@ -43,3 +43,7 @@ class Colour:
     @staticmethod
     def music():
         return Colour.helios()
+
+    @staticmethod
+    def playlist():
+        return discord.Colour.from_str('#a6790d')

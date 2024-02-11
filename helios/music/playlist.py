@@ -117,7 +117,9 @@ class YoutubePlaylist(Playlist):
         self.unplayed = self.songs.copy()
         self.played = []
         self.total_duration = sum([x.duration if x.duration is not None else 0 for x in self.songs])
+        self.total_cost = sum([x.calculate_full_song_cost() for x in self.songs])
         self.vote_skip = set()
+        self.tips = 0
 
     @classmethod
     async def from_url(cls, url: str, requester: 'HeliosMember'):
