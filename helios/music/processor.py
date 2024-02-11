@@ -26,6 +26,8 @@ import yt_dlp
 
 import discord
 
+__all__ = ('get_info', 'get_audio_source')
+
 ytdlopts = {
     'format': 'bestaudio/best',
     'outtmpl': 'downloads/%(extractor)s-%(id)s-%(title)s.%(ext)s',

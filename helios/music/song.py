@@ -19,6 +19,7 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+import asyncio
 
 from typing import TYPE_CHECKING
 
@@ -33,7 +34,7 @@ if TYPE_CHECKING:
 
 class Song:
     def __init__(self, title: str, author: str, url: str, duration: int, thumbnail: str, *,
-                 requester: 'HeliosMember' = None, playlist: 'YoutubePlaylist' = None):
+                 requester: 'HeliosMember' = None, playlist: 'YoutubePlaylist' = None, cost: int = None):
         self.title = title
         self.author = author
         self.url = url
@@ -41,11 +42,39 @@ class Song:
         self.thumbnail = thumbnail
         self.requester = requester
         self.playlist = playlist
+        self.cost = cost
+        self.vote_skip = set()
+        self.tips = 0
+
+        self.finished = asyncio.Event()
 
     def __eq__(self, other):
         if isinstance(other, Song):
             return self.url == other.url
         return NotImplemented
+
+    def __hash__(self):
+        return hash(self.url)
+
+    def percentage(self, time: int):
+        """Get the percentage of the song that has been played."""
+        return time / self.duration
+
+    def calculate_full_song_cost(self) -> int:
+        """Calculate the full cost of the song."""
+        duration = self.duration
+        if duration is None:
+            return 0
+        if self.requester:
+            cost_per_minute = self.requester.server.settings.music_points_per_minute.value
+        else:
+            cost_per_minute = 0
+        return int((duration * cost_per_minute) / 60)
+
+    def calculate_cost(self, time: int) -> int:
+        """Calculate the cost of the song based on the time played."""
+        full_cost = self.calculate_full_song_cost()
+        return int(self.percentage(time) * full_cost)
 
     @classmethod
     async def from_url(cls, url: str, *, requester: 'HeliosMember' = None, playlist: 'YoutubePlaylist' = None):
@@ -61,3 +90,12 @@ class Song:
 
     async def audio_source(self):
         return await get_audio_source(self.url)
+
+    async def wait(self):
+        await self.finished.wait()
+
+    def set_finished(self):
+        self.finished.set()
+
+    def set_unfinished(self):
+        self.finished.clear()

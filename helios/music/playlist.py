@@ -19,6 +19,7 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+import random
 from datetime import time, timedelta
 from typing import TYPE_CHECKING, Optional
 
@@ -113,9 +114,27 @@ class YoutubePlaylist(Playlist):
         else:
             self.thumbnail = None
         self.songs = [Song.from_info(x, requester=requester, playlist=self) for x in extract_playlist_from_info(data)]
+        self.unplayed = self.songs.copy()
+        self.played = []
         self.total_duration = sum([x.duration if x.duration is not None else 0 for x in self.songs])
+        self.total_cost = sum([x.calculate_full_song_cost() for x in self.songs])
+        self.vote_skip = set()
+        self.tips = 0
 
     @classmethod
     async def from_url(cls, url: str, requester: 'HeliosMember'):
         data = await get_info(url, process=False, is_playlist=True)
         return cls(data, requester)
+
+    def shuffle(self):
+        self.unplayed = self.songs.copy()
+        self.played = []
+        random.shuffle(self.unplayed)
+
+    def next(self):
+        try:
+            song = self.unplayed.pop(0)
+            self.played.append(song)
+            return song
+        except IndexError:
+            return None
