@@ -320,7 +320,7 @@ class HeliosMember(HasFlags):
     async def temp_mute(self, duration: int, muter: 'HeliosMember', price: int):
         async def unmute(m):
             await asyncio.sleep(duration)
-            if await self.temp_unmute():
+            if await self.temp_unmute(duration):
                 await self.bot.event_manager.delete_action(m)
 
         if self.member.voice:
@@ -344,13 +344,13 @@ class HeliosMember(HasFlags):
             return True
         return False
 
-    async def temp_unmute(self):
+    async def temp_unmute(self, duration: int = 90):
         self.allow_on_voice = True
         muter, cost = self._temp_mute_data  # type: HeliosMember, int
         self._temp_mute_data = None
         if self.member.voice:
             if self.member.voice.mute is False:
-                unmuter = await self.who_unmuted()
+                unmuter = await self.who_unmuted(duration)
                 hel = self.server.me
                 if unmuter and unmuter != muter.member and unmuter != hel.member:
                     member = self.server.members.get(unmuter.id)
@@ -382,8 +382,10 @@ class HeliosMember(HasFlags):
         else:
             return False
 
-    async def who_unmuted(self) -> Optional[Union[discord.Member, discord.User]]:
-        async for audit in self.guild.audit_logs(action=discord.AuditLogAction.member_update):
+    async def who_unmuted(self, duration: int = 90) -> Optional[Union[discord.Member, discord.User]]:
+        after = discord.utils.utcnow() - datetime.timedelta(seconds=duration)
+        async for audit in self.guild.audit_logs(action=discord.AuditLogAction.member_update, after=after,
+                                                 oldest_first=False):
             if audit.target != self.member:
                 continue
             try:
@@ -396,7 +398,7 @@ class HeliosMember(HasFlags):
     async def temp_deafen(self, duration: int, deafener: 'HeliosMember', price: int):
         async def undeafen(m):
             await asyncio.sleep(duration)
-            if await self.temp_undeafen():
+            if await self.temp_undeafen(duration):
                 await self.bot.event_manager.delete_action(m)
             embed = discord.Embed(
                 title='Deafened',
@@ -418,13 +420,13 @@ class HeliosMember(HasFlags):
             return True
         return False
 
-    async def temp_undeafen(self):
+    async def temp_undeafen(self, duration: int = 90):
         self.allow_on_voice = True
         muter, cost = self._temp_deafen_data  # type: HeliosMember, int
         self._temp_deafen_data = None
         if self.member.voice:
             if self.member.voice.mute is False:
-                unmuter = await self.who_undeafened()
+                unmuter = await self.who_undeafened(duration)
                 hel = self.server.me
                 if unmuter and unmuter != muter.member and unmuter != hel.member:
                     member = self.server.members.get(unmuter.id)
@@ -437,7 +439,7 @@ class HeliosMember(HasFlags):
                         description='Due to unexpected interference, your last Shop purchase was invalidated and you '
                                     f'have been refunded **{cost}** {self.server.points_name.capitalize()}.'
                     )
-                    await muter.add_points(cost, 'Helios', 'Helios Shop Refund: Temp Mute')
+                    await muter.add_points(cost, 'Helios', 'Helios Shop Refund: Temp Deafen')
                     await muter.member.send(embed=embed)
 
             await self.member.edit(deafen=False)
@@ -445,8 +447,10 @@ class HeliosMember(HasFlags):
         else:
             return False
 
-    async def who_undeafened(self) -> Optional[Union[discord.Member, discord.User]]:
-        async for audit in self.guild.audit_logs(action=discord.AuditLogAction.member_update):
+    async def who_undeafened(self, duration: int = 90) -> Optional[Union[discord.Member, discord.User]]:
+        after = discord.utils.utcnow() - datetime.timedelta(seconds=duration)
+        async for audit in self.guild.audit_logs(action=discord.AuditLogAction.member_update, after=after,
+                                                 oldest_first=False):
             if audit.target != self.member:
                 continue
             try:
