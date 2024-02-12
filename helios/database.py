@@ -247,7 +247,7 @@ class ViolationModel(BaseModel):
     async def get_violation(violation_id: int, /):
         q = ViolationModel.select().where(ViolationModel.id == violation_id)
         res = await objects.prefetch(q, MemberModel.select())
-        return res[0] if len(res) > 0 else None
+        return [x for x in res][0] if res else None
 
     @staticmethod
     async def get_violations(member: 'HeliosMember'):
