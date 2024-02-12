@@ -84,7 +84,7 @@ class Violation:
         return {
             'server_id': self.user.server.db_id,
             'user_id': self.user.db_id,
-            'victim_id': self.victim.db_id,
+            'victim_id': self.victim.db_id if self.victim else None,
             'type': self.type.value,
             'state': self.state.value,
             'cost': self.cost,
