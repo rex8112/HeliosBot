@@ -104,9 +104,9 @@ class Violation:
 
     @classmethod
     def load(cls, server: 'Server', db_entry: ViolationModel):
-        user = server.members.get(db_entry.user_id)
+        user = server.members.get(db_entry.user.member_id)
         if db_entry.victim:
-            victim = server.members.get(db_entry.victim_id)
+            victim = server.members.get(db_entry.victim.member_id)
         else:
             victim = None
         v = cls(user, victim, ViolationTypes(db_entry.type), db_entry.cost, db_entry.description, db_entry.due_date)
