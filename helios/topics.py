@@ -87,6 +87,10 @@ class TopicChannel:
         return self.state == TopicChannelStates.Active or self.pinned
 
     @property
+    def active_only(self):
+        return self.state == TopicChannelStates.Active
+
+    @property
     def pending(self):
         return self.state == TopicChannelStates.PendingArchive
 
