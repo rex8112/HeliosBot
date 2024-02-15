@@ -138,8 +138,8 @@ class PointsCog(commands.Cog):
                 tsks.append(member.payout_activity_points())
             saves.append(server.members.save_all())
         if tsks:
-            await asyncio.wait(tsks)
-            await asyncio.wait(saves)
+            await asyncio.gather(*tsks)
+            await asyncio.gather(*saves)
 
 
 async def setup(bot: 'HeliosBot'):

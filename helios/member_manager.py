@@ -81,14 +81,14 @@ class MemberManager:
         for m in self.members.values():
             tasks.append(m.check_voice(settings.points_per_minute.value, settings.partial.value))
         if tasks:
-            await asyncio.wait(tasks)
+            await asyncio.gather(*tasks)
 
     async def save_all(self):
         saves = []
         for m in self.members.values():
             saves.append(m.save())
         if len(saves) > 0:
-            await asyncio.wait(saves)
+            await asyncio.gather(*saves)
 
     async def setup(self, member_data: list[MemberModel] = None):
         if member_data is None:
@@ -107,6 +107,6 @@ class MemberManager:
                 tasks.append(m.save())
             self.members[m.member.id] = m
         if len(tasks) > 0:
-            await asyncio.wait(tasks)
+            await asyncio.gather(*tasks)
         #  self.bot.loop.create_task(self.manage_members())
 

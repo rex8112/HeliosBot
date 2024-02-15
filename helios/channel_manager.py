@@ -101,7 +101,7 @@ class ChannelManager:
                 deletes_keys.append(k)
                 deletes.append(v.delete(del_channel=False))
         if len(deletes) > 0:
-            await asyncio.wait(deletes)
+            await asyncio.gather(*deletes)
             for k in deletes_keys:
                 try:
                     del self.channels[k]
@@ -124,7 +124,7 @@ class ChannelManager:
         e_save = []
         for c in topic_channels:
             e_values.append(c.get_points())
-        await asyncio.wait(e_values)
+        await asyncio.gather(*e_values)
         topic_channels.sort(key=lambda x: x.points if not x.pending else 0, reverse=True)
 
         for i, c in enumerate(topic_channels):
@@ -132,8 +132,8 @@ class ChannelManager:
                 e_state.append(c.evaluate_state())
                 e_save.append(c.save())
         if e_state:
-            await asyncio.wait(e_state)
-            await asyncio.wait(e_save)
+            await asyncio.gather(*e_state)
+            await asyncio.gather(*e_save)
 
         pinned_len = len(pinned)
         last_pinned_pos = 0
@@ -162,12 +162,12 @@ class ChannelManager:
             else:
                 update_message.append(v.update_message())
         if delete:
-            await asyncio.wait(delete)
+            await asyncio.gather(*delete)
         if neutralize:
-            await asyncio.wait(neutralize)
-            await asyncio.wait(save)
+            await asyncio.gather(*neutralize)
+            await asyncio.gather(*save)
         if update_message:
-            await asyncio.wait(update_message)
+            await asyncio.gather(*update_message)
 
     async def add_topic(self, channel: discord.TextChannel, owner: 'HeliosMember') -> tuple[bool, str]:
         if self.channels.get(channel.id):
@@ -241,8 +241,8 @@ class ChannelManager:
                 deletes.append(t.delete(del_channel=False))
 
         if len(deletes) > 0:
-            await asyncio.wait(deletes)
+            await asyncio.gather(*deletes)
         if neutralize:
-            await asyncio.wait(neutralize)
+            await asyncio.gather(*neutralize)
         logger.debug(f'Adding {self.server.id}: Channel Manager to event loop')
         #  self.create_run_task()

@@ -51,7 +51,7 @@ class ServerManager:
         await server.save()
         tasks.append(server.channels.setup())
         tasks.append(server.members.setup())
-        await asyncio.wait(tasks)
+        await asyncio.gather(*tasks)
         #  await server.stadium.setup()
         self.servers[guild.id] = server
         return server
@@ -64,7 +64,7 @@ class ServerManager:
                     server.members.manage_members(),
                     server.channels.manage_channels()
                 ]
-                await asyncio.wait(tasks)
+                await asyncio.gather(*tasks)
             await asyncio.sleep(60)
 
     async def setup(self):
@@ -98,6 +98,6 @@ class ServerManager:
 
         logger.info(f'{len(self.bot.guilds)} Servers loaded in {time.time() - start_time} seconds')
         start_time = time.time()
-        await asyncio.wait(tasks)
+        await asyncio.gather(*tasks)
         logger.info(f'Channels and Members loaded in {time.time() - start_time} seconds')
         self.bot.loop.create_task(self.manage_servers())
