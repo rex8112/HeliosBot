@@ -134,13 +134,8 @@ class ChannelManager:
             await asyncio.wait(e_state)
             await asyncio.wait(e_save)
 
-        pinned_len = len(pinned)
-        last_pinned_pos = 0
-        for i, c in enumerate(pinned, start=1):
-            if c.channel.position > pinned_len:
-                await c.channel.edit(position=i)
-                last_pinned_pos = i
-        for i, c in enumerate(topic_channels, start=last_pinned_pos + 1):
+        topic_channels = pinned + topic_channels
+        for i, c in enumerate(topic_channels, start=1):
             if c.channel.position != i:
                 logger.debug(f'{c.channel.name} is at {c.channel.position} should be at {i}')
                 await c.channel.edit(position=i)
