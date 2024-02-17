@@ -138,7 +138,7 @@ class MusicPlayer:
                 if shuffle:
                     playlist.shuffle()
                 await server.music_player.add_playlist(playlist)
-                await message.edit(content=f'Added {len(playlist)} songs to the queue', view=False)
+                await message.edit(content=f'Added {len(playlist)} songs to the queue', view=None)
             else:
                 song = await server.music_player.fetch_song(url, requester=member)
                 if song is None:
@@ -316,7 +316,7 @@ class MusicPlayer:
 
     async def add_playlist(self, playlist: 'YoutubePlaylist'):
         """Add a playlist to the queue."""
-        [self.playlist.add_song(x) for x in playlist.songs]
+        [self.playlist.add_song(x) for x in playlist.unplayed]
         if self.currently_playing is None:
             await self.play_song(self.playlist.next())
         else:
@@ -391,13 +391,14 @@ class MusicPlayer:
         embeds.append(embed)
 
         if self.currently_playing and self.currently_playing.playlist:
+            playlist = self.currently_playing.playlist
             delta = timedelta(seconds=self.playlist_time_left())
             end_time = datetime.now().astimezone() + delta
             playlist_embed = discord.Embed(
                 title='Playlist',
                 colour=Colour.playlist(),
                 description=f'[{self.currently_playing.playlist.title}]({self.currently_playing.playlist.url})\n'
-                            f'{self.currently_playing.playlist.songs.index(self.currently_playing)+1}/'
+                            f'{len(playlist.played)+1}/'
                             f'{len(self.currently_playing.playlist)}\n\nEnds {format_dt(end_time, "R")}'
             )
             playlist_embed.set_thumbnail(url=self.currently_playing.playlist.thumbnail)
