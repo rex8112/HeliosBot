@@ -62,10 +62,13 @@ def extract_info_wrapper(*args, **kwargs):
 async def get_info(url: str, *, process=True, is_playlist=False):
     loop = asyncio.get_event_loop()
     partial = functools.partial(extract_info_wrapper, url=url, download=False, process=process)
-    data = await loop.run_in_executor(None, partial)
-    if data.get('extractor') == 'youtube:tab' and not is_playlist:
-        partial.keywords['url'] = data.get('url')
+    try:
         data = await loop.run_in_executor(None, partial)
+        if data.get('extractor') == 'youtube:tab' and not is_playlist:
+            partial.keywords['url'] = data.get('url')
+            data = await loop.run_in_executor(None, partial)
+    except yt_dlp.DownloadError:
+        return None
     return data
 
 

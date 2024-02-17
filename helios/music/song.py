@@ -79,7 +79,7 @@ class Song:
     @classmethod
     async def from_url(cls, url: str, *, requester: 'HeliosMember' = None, playlist: 'YoutubePlaylist' = None):
         data = await get_info(url, process=False)
-        return cls.from_info(data, requester=requester, playlist=playlist)
+        return cls.from_info(data, requester=requester, playlist=playlist) if data is not None else None
 
     @classmethod
     def from_info(cls, info: dict, *, requester: 'HeliosMember' = None, playlist: 'YoutubePlaylist' = None):

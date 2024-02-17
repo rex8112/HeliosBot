@@ -124,7 +124,7 @@ class YoutubePlaylist(Playlist):
     @classmethod
     async def from_url(cls, url: str, requester: 'HeliosMember'):
         data = await get_info(url, process=False, is_playlist=True)
-        return cls(data, requester)
+        return cls(data, requester) if data is not None else None
 
     def shuffle(self):
         self.unplayed = self.songs.copy()

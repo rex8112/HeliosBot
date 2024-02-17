@@ -34,6 +34,7 @@ from discord.utils import format_dt
 from .playlist import Playlist, YoutubePlaylist
 from .song import Song
 from ..colour import Colour
+from ..views.generic_views import YesNoView
 
 if TYPE_CHECKING:
     from ..server import Server
@@ -122,15 +123,27 @@ class MusicPlayer:
         if matches:
             if is_playlist:
                 playlist = await server.music_player.fetch_playlist(url, requester=member)
+                if playlist is None:
+                    await interaction.followup.send('Sorry, I could not get that, is it private or typed wrong?')
+                    return
                 cost = playlist.total_cost
                 if member.points < cost:
                     await interaction.followup.send(content=f'Not enough {server.points_name.capitalize()} to play this playlist. '
                                                             f'Cost: {cost} {server.points_name.capitalize()}')
                     return
+                view = YesNoView(interaction.user)
+                message = await interaction.followup.send(content=f'Would you like to shuffle this playlist?', view=view)
+                await view.wait()
+                shuffle = view.value if view.value is not None else False
+                if shuffle:
+                    playlist.shuffle()
                 await server.music_player.add_playlist(playlist)
-                await interaction.followup.send(content=f'Added {len(playlist)} songs to the queue')
+                await message.edit(content=f'Added {len(playlist)} songs to the queue', view=False)
             else:
                 song = await server.music_player.fetch_song(url, requester=member)
+                if song is None:
+                    await interaction.followup.send('Sorry, I could not get that, is it private or typed wrong?')
+                    return
                 await server.music_player.add_song(song)
                 await interaction.followup.send(content=f'Added {song.title} to the queue')
         else:
@@ -150,7 +163,10 @@ class MusicPlayer:
             await self._vc.move_to(channel)
         else:
             logger.debug(f'{self.server.name}: Music Player: Joining {channel.name}')
-            self._vc = await channel.connect()
+            try:
+                self._vc = await channel.connect(self_deaf=True)
+            except asyncio.TimeoutError:
+                self._vc = await channel.connect(self_deaf=True)
             logger.debug(f'{self.server.name}: Music Player: Joined {channel.name}')
         self._leaving = False
         self._control_view = MusicPlayerView(self)
