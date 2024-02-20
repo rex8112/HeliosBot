@@ -47,3 +47,15 @@ class Colour:
     @staticmethod
     def playlist():
         return discord.Colour.from_str('#a6790d')
+
+    @staticmethod
+    def poker_table():
+        return Colour.helios()
+
+    @staticmethod
+    def poker_players():
+        return Colour.helios()
+
+    @staticmethod
+    def poker_playing():
+        return Colour.helios()

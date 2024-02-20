@@ -60,8 +60,10 @@ for i in range(3):
     names.append(name)
 
 print('Preparing Game...')
+print(state.blinds_or_straddles)
 
 while state.status:
+    print(state.bets)
     if state.can_post_ante():
         print(state.post_ante())
     elif state.can_collect_bets():
