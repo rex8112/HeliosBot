@@ -93,7 +93,16 @@ class TexasHoldEm:
         self._delete_action = None
 
     async def run_game(self):
-        ...
+        self.evaluate_phase()
+        if self.phase == Phase.ANTE_POSTING:
+            try:
+                while True:
+                    self.state.post_ante()
+            except ValueError:
+                ...
+            self.evaluate_phase()
+        if self.phase == Phase.BLIND_OR_STRADDLE_POSTING:
+            ...
 
     async def start_game(self):
         self.create_state()

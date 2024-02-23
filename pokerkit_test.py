@@ -63,25 +63,25 @@ print('Preparing Game...')
 print(state.blinds_or_straddles)
 
 while state.status:
-    print(state.bets)
+    print('Bets', state.bets)
     if state.can_post_ante():
-        print(state.post_ante())
+        print('Ante', state.post_ante())
     elif state.can_collect_bets():
-        print(state.collect_bets())
+        print('Collecting', state.collect_bets())
     elif state.can_post_blind_or_straddle():
-        print(state.post_blind_or_straddle())
+        print('Post Blinds', state.post_blind_or_straddle())
     elif state.can_burn_card():
-        print(state.burn_card())
+        print('Burn Cards', state.burn_card())
     elif state.can_deal_hole():
-        print(state.deal_hole())
+        print('Deal Hole', state.deal_hole())
     elif state.can_deal_board():
-        print(state.deal_board())
+        print('Deal Board', state.deal_board())
     elif state.can_kill_hand():
-        print(state.kill_hand())
+        print('Kill Hand', state.kill_hand())
     elif state.can_push_chips():
-        print(state.push_chips())
+        print('Push Chips', state.push_chips())
     elif state.can_pull_chips():
-        print(state.pull_chips())
+        print('Pull Chips', state.pull_chips())
     else:
         if state.actor_index is not None:
             print(names[state.actor_index], list(state.get_down_cards(state.actor_index)), state.board_cards, state.stacks[state.actor_index])
