@@ -22,6 +22,7 @@
 import asyncio
 import concurrent.futures
 import re
+import pathlib
 from typing import TYPE_CHECKING
 
 import discord
@@ -60,6 +61,16 @@ class TestingCog(commands.Cog):
     async def ping_command(self, interaction: discord.Interaction):
         """ /ping """
         await interaction.response.send_message('Pong!')
+
+    @app_commands.command(name='riverimage')
+    async def river_image(self, interaction: discord.Interaction):
+        """Post a picture example for the river"""
+        img = pathlib.Path('./helios/resources/RiverTemplate.png')
+        embed = discord.Embed(
+            title='Testing'
+        )
+        embed.set_image(url='attachment://river.png')
+        await interaction.response.send_message(embed=embed, file=discord.File(img, 'river.png'))
 
     # @app_commands.command(name='activity')
     async def activity_command(self, interaction: discord.Interaction):

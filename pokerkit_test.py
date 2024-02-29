@@ -82,6 +82,9 @@ while state.status:
         print('Push Chips', state.push_chips())
     elif state.can_pull_chips():
         print('Pull Chips', state.pull_chips())
+    elif state.can_show_or_muck_hole_cards():
+        res = state.show_or_muck_hole_cards(True)
+        print('Show or Muck', res)
     else:
         if state.actor_index is not None:
             print(names[state.actor_index], list(state.get_down_cards(state.actor_index)), state.board_cards, state.stacks[state.actor_index])
@@ -90,5 +93,6 @@ while state.status:
         print(state.total_pot_amount)
         print(state.min_completion_betting_or_raising_to_amount, state.max_completion_betting_or_raising_to_amount)
         print(state.checking_or_calling_amount)
+        print('Fold: ', state.can_fold(), 'Check/Call: ', state.can_check_or_call())
         string = input('Action: ')
         print(parse_action(state, f'p{(state.actor_index if state.actor_index is not None else state.showdown_index)+1} ' + string))

@@ -86,6 +86,9 @@ class HeliosMember(HasFlags):
         else:
             return NotImplemented
 
+    def __str__(self):
+        return self.member.display_name
+
     @property
     def id(self):
         return self.member.id
