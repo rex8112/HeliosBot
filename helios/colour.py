@@ -50,7 +50,7 @@ class Colour:
 
     @staticmethod
     def poker_table():
-        return Colour.helios()
+        return discord.Colour.from_str('#35654d')
 
     @staticmethod
     def poker_players():
@@ -58,4 +58,4 @@ class Colour:
 
     @staticmethod
     def poker_playing():
-        return Colour.helios()
+        return discord.Colour.from_str('#08adc7')

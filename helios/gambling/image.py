@@ -20,12 +20,18 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 import io
+from typing import Union
+
 from PIL import Image
+from pokerkit import Card
 
 
-def get_card_images(cards: tuple[str, ...], slots: int) -> io.BytesIO:
+def get_card_images(cards: tuple[Union[str, Card], ...], slots: int) -> io.BytesIO:
     if len(cards) > slots:
         raise ValueError('Cards must be less than the slots.')
+
+    if len(cards) >= 1 and isinstance(cards[0], Card):
+        cards = [f'{x.rank}{x.suit}' for x in cards]
 
     width = 10 + (155 * slots)
     background = Image.new(mode='RGBA', size=(width, 220), color=(255, 0, 0, 0))
@@ -39,6 +45,7 @@ def get_card_images(cards: tuple[str, ...], slots: int) -> io.BytesIO:
         x += 155
     b = io.BytesIO()
     background.save(b, 'PNG')
+    b.seek(0)
     return b
 
 

@@ -43,7 +43,7 @@ class EventManager:
     async def add_action(self, trigger: EventTrigger, member: Union['HeliosMember', discord.abc.Snowflake],
                          action: str) -> Awaitable[EventModel]:
         return await self.db_manager.create(EventModel, trigger=trigger, action=action, target_id=member.id,
-                                            server_id=member.server.id)
+                                            server_id=member.server.id if getattr(member, 'server', None) else member.guild.id)
 
     async def get_actions(self, trigger: EventTrigger, member: 'HeliosMember') -> list[EventModel]:
         q = EventModel.select().where(EventModel.trigger == trigger, EventModel.target_id == member.id,
