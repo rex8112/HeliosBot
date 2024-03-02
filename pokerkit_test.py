@@ -79,7 +79,8 @@ while state.status:
     elif state.can_kill_hand():
         print('Kill Hand', state.kill_hand())
     elif state.can_push_chips():
-        print('Push Chips', state.push_chips())
+        push = state.push_chips()
+        print('Push Chips', push)
     elif state.can_pull_chips():
         print('Pull Chips', state.pull_chips())
     elif state.can_show_or_muck_hole_cards():

@@ -23,10 +23,11 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union, Any
 
 import discord
-from pokerkit import NoLimitTexasHoldem, State
+from pokerkit import NoLimitTexasHoldem, State, Hand, Card, ChipsPushing, Folding, CheckingOrCalling, \
+    CompletionBettingOrRaisingTo
 
 from .image import get_card_images
 from ..colour import Colour
@@ -74,6 +75,12 @@ class Player:
         return self.member.__hash__()
 
 
+def get_winners(players: list[Player], hands: list[Hand]):
+    top = max(hands)
+    winners = [x for x, y in zip(players, hands) if y == top]
+    return winners
+
+
 class TexasHoldEm:
     MAX_PLAYERS = 10
 
@@ -92,6 +99,8 @@ class TexasHoldEm:
         self._last_game_time: datetime = datetime.now().astimezone()
         self._delete_action = None
         self._ending = False
+        self._hands = []
+        self._last_action = ''
 
     @property
     def big_blind(self):
@@ -109,7 +118,12 @@ class TexasHoldEm:
             return bb
 
     async def create_table(self):
-        self._channel = await self.server.guild.create_text_channel(f'{self.buy_in}-texasholdem')
+        overwrites = {
+            self.server.guild.default_role: discord.PermissionOverwrite(send_messages=False),
+            self.server.me: discord.PermissionOverwrite(send_messages=True)
+        }
+        category = self.server.settings.gambling_category.value
+        self._channel = await category.create_text_channel(f'{self.buy_in}-texasholdem', overwrites=overwrites)
         self._delete_action = await self.server.bot.event_manager.add_action('on_start', self._channel, 'delete_channel')
         self._control_message = await self._channel.send(embed=self.get_player_embed(), view=TableView(self))
 
@@ -130,10 +144,15 @@ class TexasHoldEm:
         if view is not None:
             kwargs['view'] = view
 
+        if self.state is not None and self.state.board_cards:
+            img = discord.File(get_card_images(tuple(self.state.board_cards), 5), 'river.png')
+            kwargs['files'] = [img]
+
         if self._message is None:
             self._message = await self._channel.send(**kwargs)
         else:
-            await self._message.edit(embeds=kwargs.get('embeds'), view=kwargs.get('view'))
+            await self._message.edit(embeds=kwargs.get('embeds'), view=kwargs.get('view'),
+                                     attachments=kwargs.get('files', []))
         await self.update_control_message()
 
     async def update_control_message(self, view=None):
@@ -147,6 +166,17 @@ class TexasHoldEm:
             self._control_message = await self._channel.send(**kwargs)
         else:
             await self._control_message.edit(embeds=kwargs.get('embeds'), view=kwargs.get('view'))
+
+    def process_action(self, action: Any):
+        if isinstance(action, Folding):
+            self._last_action = f'{self._current_players[action.player_index].member} **folded**.'
+        elif isinstance(action, CheckingOrCalling):
+            a_string = 'checked' if action.amount == 0 else 'called'
+            self._last_action = f'{self._current_players[action.player_index].member} **{a_string}**.'
+        elif isinstance(action, CompletionBettingOrRaisingTo):
+            self._last_action = f'{self._current_players[action.player_index].member} raised **{action.amount:,}**.'
+        elif isinstance(action, str):
+            self._last_action = action
 
     def start(self):
         asyncio.create_task(self.run_task())
@@ -167,11 +197,17 @@ class TexasHoldEm:
                     for player in self.players.keys():
                         await self.withdraw(player)
                     await self.delete_table()
+            except discord.NotFound as e:
+                logger.error(f'Channel not found: {e}', exc_info=True)
+                for player in self.players.keys():
+                    await self.withdraw(player)
+                await self.delete_table()
             except Exception as e:
-                logger.exception(e)
+                logger.error(e, exc_info=True)
 
     async def run_game(self):
         self.evaluate_phase()
+        messages = []
         while self.phase != Phase.END:
             if self.phase == Phase.ANTE_POSTING:
                 self.state.post_ante()
@@ -180,7 +216,13 @@ class TexasHoldEm:
             elif self.phase == Phase.BURN_CARD:
                 self.state.burn_card()
             elif self.phase == Phase.HAND_KILLING:
-                self.state.kill_hand()
+                # Game is over, show winners before killing hands
+                await self.update_message()
+                await asyncio.sleep(2)
+                messages.append(await self.show_winners())
+                await asyncio.sleep(5)
+                while self.state.can_kill_hand():
+                    self.state.kill_hand()
             elif self.phase == Phase.CHIPS_PUSHING:
                 self.state.push_chips()
             elif self.phase == Phase.CHIPS_PULLING:
@@ -195,27 +237,25 @@ class TexasHoldEm:
             elif self.phase == Phase.BETTING:
                 await self.do_betting()
             elif self.phase == Phase.SHOWDOWN:
+                # No more betting, show cards
                 await self.update_message()
                 await asyncio.sleep(2)
-                messages = []
                 while self.state.can_show_or_muck_hole_cards():
                     res = self.state.show_or_muck_hole_cards(True)
                     messages.append(await self.show_cards(self._current_players[res.player_index],
-                                                          tuple(str(x) for x in res.hole_cards)))
+                                                          tuple(res.hole_cards)))
                     await asyncio.sleep(1)
-                await asyncio.sleep(1)
-                messages.append(await self.show_winners())
-                await asyncio.sleep(3)
-                tasks = (x.delete() for x in messages)
-                await asyncio.gather(*tasks, return_exceptions=True)
+                self._hands = list(self.state.get_up_hands(0))
 
             self.evaluate_phase()
+        tasks = (x.delete() for x in messages)
+        await asyncio.gather(*tasks, return_exceptions=True)
 
     async def do_betting(self):
         while self.state.can_check_or_call() or self.state.can_fold():
             if self.waiting_for() in self.players.values():
-                view = BettingView(self)
-                timer = datetime.now().astimezone() + timedelta(seconds=45)
+                view = BettingView(self, timeout=45)
+                timer = datetime.now().astimezone() + timedelta(seconds=30)
                 await self.update_message(view, timer=timer)
                 tasks = (asyncio.create_task(view.wait()), asyncio.create_task(asyncio.sleep(30)))
                 await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
@@ -238,16 +278,18 @@ class TexasHoldEm:
 
     async def end_game(self):
         self._last_game_time = datetime.now().astimezone()
+        self._hands = []
         for i, player in enumerate(self._current_players):
             player.stack = self.state.stacks[i]
-            if player.left:
+            if player.left or player.stack == 0:
                 await self.remove_player(player)
 
     async def remove_player(self, member: Player):
         del self.players[member.member]
         stack = member.stack
         if stack > 0:
-            await member.member.add_points(stack, 'Helios', 'Texas Hold \'Em Payout')
+            # await member.member.add_points(stack, 'Helios', 'Texas Hold \'Em Payout')
+            ...
 
     async def withdraw(self, member: 'HeliosMember'):
         if member in self.players:
@@ -263,11 +305,11 @@ class TexasHoldEm:
             raise ValueError('Game is full.')
         player = Player(member, self.buy_in)
         self.players[member] = player
-        await member.add_points(-self.buy_in, 'Helios', 'Texas Hold \'Em Buy In')
+        # await member.add_points(-self.buy_in, 'Helios', 'Texas Hold \'Em Buy In')
 
-    async def show_cards(self, member: Player, cards: tuple[str, ...]):
+    async def show_cards(self, member: Player, cards: tuple[Union[str, Card], ...]):
         embed = discord.Embed(
-            title=f'{member}\'s Cards',
+            title=f'{member.member}\'s Cards',
             colour=Colour.poker_table(),
             description=str(self.state.get_hand(self._current_players.index(member), 0))
         )
@@ -280,15 +322,17 @@ class TexasHoldEm:
     async def show_winners(self):
         pots = list(self.state.pots)
         main = pots[0]
-        winners = list(self._current_players[x] for x in main.player_indices)
-        names = and_join(list(str(x) for x in winners))
+        winners = get_winners(self._current_players, list(self.state.get_up_hands(0)))
+        names = and_join(list(str(x.member) for x in winners))
         embed = discord.Embed(
-            title=f'{names} Win the Pot!',
+            title=f'{names} Wins the Pot!',
             colour=Colour.poker_table(),
-            description=f'{main.amount:,} in the Pot!'
+            description=f'{main.amount:,} in the Pot!\n\nWins with a '
+                        f'{self.state.get_up_hand(winners[0].player_index, 0)}!'
         )
         for pot in pots[1:]:
-            winners = list(self._current_players[x] for x in pot.player_indices)
+            pot_contributors = list(self._current_players[x] for x in pot.player_indices)
+            winners = get_winners(pot_contributors, list(self._hands[x.player_index] for x in pot_contributors))
             names = and_join(list(str(x) for x in winners))
             embed.add_field(name='Side Pot', value=f'Winners: **{names}**\nAmount: {pot.amount:,}')
         return await self._channel.send(embed=embed)
@@ -319,6 +363,8 @@ class TexasHoldEm:
         index = self.state.actor_index
         if index is None:
             index = self.state.showdown_index
+        if index is None:
+            return None
         return self._current_players[index]
 
     def waiting_for_index(self):
@@ -360,16 +406,15 @@ class TexasHoldEm:
             title='Players',
             colour=Colour.poker_players()
         )
-        if self.state is None:
-            embed.description = 'No Game Running'
-            return embed
 
-        for i, player in enumerate(self._current_players):
-            stack = self.state.stacks[i] if self.phase != Phase.END else player.stack
+        for i, player in enumerate(self.players.values()):
+            stack = self.state.stacks[i] if self.phase != Phase.END and player in self._current_players else player.stack
             if player.left:
-                value = f'**(Left)**\n'
+                value = f'**Left**\n'
             elif player not in self._current_players:
-                value = f'**(Joining)**\n'
+                value = f'**Joining**\n'
+            elif self.phase != Phase.END and self.state.statuses[player.player_index] is False:
+                value = f'*Folded*\n'
             else:
                 value = ''
             value += f'Stack: {stack:,}'
@@ -380,16 +425,21 @@ class TexasHoldEm:
             )
         return embed
 
-    def get_table_embed(self, river: bool = False, /):
+    def get_table_embed(self):
         embed = discord.Embed(
             title=f'{self.buy_in:,} {self.server.points_name.capitalize()} Texas Hold \'Em',
             colour=Colour.poker_table(),
             description=f'Buy In: {self.buy_in:,}\nBig Blind: {self.big_blind:,}\nSmall Blind: {self.small_blind:,}'
         )
-        if river:
-            embed.set_image(url='attachment://river.png')
-        else:
-            embed.set_image(url=None)
+        if self.state is not None and list(self.state.pots):
+            pots = list(self.state.pots)
+            main = pots[0]
+            embed.add_field(name='Main Pot', value=f'Amount: **{main.amount:,}**')
+            for pot in pots[1:]:
+                pot_contributors = list(self._current_players[x] for x in pot.player_indices)
+                names = and_join(list(str(x.member) for x in pot_contributors))
+                embed.add_field(name='Side Pot', value=f'Contributors: {names}\nAmount: **{pot.amount:,}**')
+        embed.set_image(url='attachment://river.png')
         return embed
 
     def get_playing_embed(self, timer: Optional[datetime] = None):
@@ -411,7 +461,14 @@ class TexasHoldEm:
                 description='Revealing Cards...'
             )
             return embed
+
         current = self.waiting_for()
+        if current is None:
+            return discord.Embed(
+                title='No ones turn',
+                colour=Colour.poker_playing()
+            )
+
         embed = discord.Embed(
             title=f'Current Turn: {current.member}',
             colour=Colour.poker_playing()
@@ -427,6 +484,8 @@ class TexasHoldEm:
             embed.description = 'Show or Muck?'
         if timer is not None:
             embed.add_field(name='Time Remaining', value=discord.utils.format_dt(timer, 'R'))
+        if self._last_action:
+            embed.add_field(name='Last Action', value=self._last_action)
         return embed
 
     def get_embeds(self, timer: Optional[datetime] = None):
@@ -444,6 +503,7 @@ class TableView(discord.ui.View):
         self.update_buttons()
 
     def update_buttons(self):
+        self.join_button.label = f'Join {self.game.buy_in:,}'
         self.join_button.disabled = len(self.game.players) >= self.game.MAX_PLAYERS
         self.leave_button.disabled = len(self.game.players) == 0
 
@@ -465,7 +525,8 @@ class TableView(discord.ui.View):
         member = self.game.server.members.get(interaction.user.id)
         if member not in self.game.players:
             return await interaction.response.send_message('You are not in the game!', ephemeral=True)
-
+        if self.game.waiting_for() == self.game.players[member]:
+            return await interaction.response.send_message('You can not leave during your turn!', ephemeral=True)
         await self.game.withdraw(member)
         await interaction.response.send_message('You have left the game!', ephemeral=True)
         self.update_buttons()
@@ -480,11 +541,20 @@ class BettingView(discord.ui.View):
         self.update_buttons()
 
     def update_buttons(self):
-        self.low_bet.label = self.state.min_completion_betting_or_raising_to_amount
-        self.double_bet.label = self.state.min_completion_betting_or_raising_to_amount * 2
-        self.double_bet.disabled = (self.state.min_completion_betting_or_raising_to_amount * 2
-                                    > self.state.max_completion_betting_or_raising_to_amount)
-        self.max_bet.label = self.state.max_completion_betting_or_raising_to_amount
+
+        if self.state.min_completion_betting_or_raising_to_amount is not None:
+            self.low_bet.label = self.state.min_completion_betting_or_raising_to_amount
+            self.double_bet.label = self.state.min_completion_betting_or_raising_to_amount * 2
+            self.double_bet.disabled = (self.state.min_completion_betting_or_raising_to_amount * 2
+                                        > self.state.max_completion_betting_or_raising_to_amount)
+        else:
+            self.low_bet.disabled = True
+            self.double_bet.disabled = True
+        if self.state.max_completion_betting_or_raising_to_amount is not None:
+            self.max_bet.label = self.state.max_completion_betting_or_raising_to_amount
+        else:
+            self.max_bet.disabled = True
+            self.custom_bet.disabled = True
         self.fold_button.disabled = not self.state.can_fold()
         self.check_button.label = 'Check' if self.state.checking_or_calling_amount == 0 else 'Call'
 
@@ -493,7 +563,7 @@ class BettingView(discord.ui.View):
         if interaction.user != self.game.waiting_for().member.member:
             return await interaction.response.send_message('It is not your turn!', ephemeral=True)
         amt = self.state.min_completion_betting_or_raising_to_amount
-        self.state.complete_bet_or_raise_to(amt)
+        self.game.process_action(self.state.complete_bet_or_raise_to(amt))
         await interaction.response.defer()
         self.stop()
 
@@ -502,7 +572,7 @@ class BettingView(discord.ui.View):
         if interaction.user != self.game.waiting_for().member.member:
             return await interaction.response.send_message('It is not your turn!', ephemeral=True)
         amt = self.state.min_completion_betting_or_raising_to_amount * 2
-        self.state.complete_bet_or_raise_to(amt)
+        self.game.process_action(self.state.complete_bet_or_raise_to(amt))
         await interaction.response.defer()
         self.stop()
 
@@ -511,7 +581,7 @@ class BettingView(discord.ui.View):
         if interaction.user != self.game.waiting_for().member.member:
             return await interaction.response.send_message('It is not your turn!', ephemeral=True)
         amt = self.state.max_completion_betting_or_raising_to_amount
-        self.state.complete_bet_or_raise_to(amt)
+        self.game.process_action(self.state.complete_bet_or_raise_to(amt))
         await interaction.response.defer()
         self.stop()
 
@@ -526,27 +596,22 @@ class BettingView(discord.ui.View):
                 and self.state.min_completion_betting_or_raising_to_amount
                 <= modal.amount_selected
                 <= self.state.max_completion_betting_or_raising_to_amount):
-            self.state.complete_bet_or_raise_to(modal.amount_selected)
-            await interaction.response.defer()
+            self.game.process_action(self.state.complete_bet_or_raise_to(modal.amount_selected))
             self.stop()
-        else:
-            await interaction.response.send_message('You must provide an actual number within your '
-                                                    'min and max amounts.',
-                                                    ephemeral=True)
 
     @discord.ui.button(label='Check/Call', style=discord.ButtonStyle.green, row=1)
     async def check_button(self, interaction: discord.Interaction, _):
         if interaction.user != self.game.waiting_for().member.member:
             return await interaction.response.send_message('It is not your turn!', ephemeral=True)
         await interaction.response.defer()
-        self.state.check_or_call()
+        self.game.process_action(self.state.check_or_call())
         self.stop()
 
     @discord.ui.button(label='Fold', style=discord.ButtonStyle.red, row=1)
     async def fold_button(self, interaction: discord.Interaction, _):
         if interaction.user != self.game.waiting_for().member.member:
             return await interaction.response.send_message('It is not your turn!', ephemeral=True)
-        self.state.fold()
+        self.game.process_action(self.state.fold())
         await interaction.response.defer()
         self.stop()
 
@@ -562,7 +627,7 @@ class BettingView(discord.ui.View):
             title=f'{member}\'s Cards',
             colour=Colour.poker_table()
         )
-        cards = tuple(str(x) for x in self.game.state.get_down_cards(self.game._current_players.index(player)))
+        cards = tuple(self.game.state.get_down_cards(self.game._current_players.index(player)))
         img = discord.File(get_card_images(cards, 2), 'hand.png', description=str(cards))
         embed.set_image(url='attachment://hand.png')
         await interaction.response.send_message(embed=embed, file=img, ephemeral=True)

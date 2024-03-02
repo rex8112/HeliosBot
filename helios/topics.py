@@ -77,7 +77,7 @@ class TopicChannel:
 
     @property
     def alive(self):
-        if self.bot.get_channel(self.id):
+        if self.channel is not None and self.bot.get_channel(self.id):
             return True
         else:
             return False
@@ -119,8 +119,6 @@ class TopicChannel:
     @classmethod
     async def load(cls, server: 'Server', db_entry: TopicModel):
         channel = server.guild.get_channel(db_entry.channel_id)
-        if not channel:
-            return None
         self = cls(server, channel)
         self.db_entry = db_entry
         self.points = db_entry.points

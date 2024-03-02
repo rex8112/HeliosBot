@@ -28,7 +28,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 import helios
-from helios import ShopView
+from helios import ShopView, TexasHoldEm
 from helios.shop import *
 
 if TYPE_CHECKING:
@@ -124,12 +124,32 @@ class PointsCog(commands.Cog):
         server = self.bot.servers.get(interaction.guild_id)
         await server.music_player.member_play(interaction, song)
 
+    @app_commands.command(name='texasholdem')
+    @app_commands.describe(buy_in='The amount of points to buy in with')
+    @app_commands.guild_only()
+    async def texas_holdem(self, interaction: discord.Interaction, buy_in: int = 1000):
+        """ Create a Texas Holdem game. """
+        server = self.bot.servers.get(interaction.guild_id)
+        category = server.settings.gambling_category.value
+        if category is None:
+            await interaction.response.send_message('No gambling category set.', ephemeral=True)
+            return
+        if buy_in > 1_000_000:
+            await interaction.response.send_message('Max buy in is 1,000,000', ephemeral=True)
+            return
+        if buy_in < 100:
+            await interaction.response.send_message('Minimum buy in is 100', ephemeral=True)
+            return
+        texas_holdem = TexasHoldEm(server, buy_in=buy_in)
+        await interaction.response.send_message('Creating Texas Holdem', ephemeral=True)
+        texas_holdem.start()
+
     async def who_is(self, interaction: discord.Interaction, member: discord.Member):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(member.id)
         await interaction.response.send_message(embed=member.profile(), ephemeral=True)
 
-    @tasks.loop(time=time(hour=0, minute=0, tzinfo=datetime.utcnow().astimezone().tzinfo))
+    @tasks.loop(time=time(hour=0, minute=0, tzinfo=datetime.now().astimezone().tzinfo))
     async def pay_ap(self):
         tsks = []
         saves = []

@@ -38,7 +38,7 @@ def get_card_images(cards: tuple[Union[str, Card], ...], slots: int) -> io.Bytes
     x = 10
     for card in cards:
         try:
-            card = Image.open(f'../resources/cards/{card}.png')
+            card = Image.open(f'./helios/resources/cards/{card}.png')
             background.paste(card, (x, 10), mask=card)
         except FileNotFoundError:
             ...

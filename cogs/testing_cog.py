@@ -80,14 +80,6 @@ class TestingCog(commands.Cog):
         await interaction.response.send_message(embed=embed, file=discord.File(b, 'river.png'))
         b.close()
 
-    @app_commands.command(name='texasholdem')
-    async def texas_holdem(self, interaction: discord.Interaction):
-        """ /texasholdem """
-        server = self.bot.servers.get(interaction.guild_id)
-        texas_holdem = TexasHoldEm(server, buy_in=1000)
-        await interaction.response.send_message('Texas Holdem Created... Hopefully.', ephemeral=True)
-        texas_holdem.start()
-
     # @app_commands.command(name='activity')
     async def activity_command(self, interaction: discord.Interaction):
         """ /activity """

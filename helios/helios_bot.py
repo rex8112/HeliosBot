@@ -19,7 +19,7 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
-
+import asyncio
 import logging
 import traceback
 from typing import Optional
@@ -69,10 +69,27 @@ class HeliosBot(commands.Bot):
         )
         self.add_dynamic_items(ViolationPayButton)
 
+    async def run_startup_actions(self):
+        rem_actions = []
+        res = await self.event_manager.get_all_trigger_actions('on_start')
+        for r in res:
+            if r.action == 'delete_channel':
+                try:
+                    c = self.get_channel(r.target_id)
+                    if c:
+                        await c.delete()
+                except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                    ...
+                rem_actions.append(self.event_manager.delete_action(r))
+        await asyncio.gather(*rem_actions)
+
     async def on_ready(self):
         logger.info(f'Logged in as {self.user} (ID: {self.user.id})')
         if self.ready_once:
             logger.debug('Beginning server load')
+            logger.debug('Running startup actions')
+            await self.run_startup_actions()
+            logger.debug('Running server setup')
             await self.servers.setup()
             self.ready_once = False
 

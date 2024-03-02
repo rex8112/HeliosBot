@@ -235,7 +235,7 @@ class ChannelManager:
 
         topic_channels = await TopicChannel.get_all(self.server)
         for t in topic_channels:
-            if t.alive:
+            if t and t.alive:
                 self.topic_channels[t.id] = t
             else:
                 deletes.append(t.delete(del_channel=False))

@@ -54,6 +54,7 @@ class ServerSettings(Settings):
     music_points_per_minute = SettingItem('music_points_per_minute', 2, int)
     deafen_points_per_second = SettingItem('deafen_points_per_second', 1, int)
     deafen_seconds_per_increase = SettingItem('deafen_seconds_per_increase', 30, int)
+    gambling_category = SettingItem('gambling_category', None, discord.CategoryChannel)
 
 
 class Server:
