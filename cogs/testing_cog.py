@@ -21,12 +21,17 @@
 #  SOFTWARE.
 import asyncio
 import concurrent.futures
+import io
 import re
+import pathlib
 from typing import TYPE_CHECKING
+from PIL import Image
 
 import discord
 from discord import app_commands
 from discord.ext import commands
+
+from helios import TexasHoldEm
 
 if TYPE_CHECKING:
     from helios import HeliosBot
@@ -60,6 +65,20 @@ class TestingCog(commands.Cog):
     async def ping_command(self, interaction: discord.Interaction):
         """ /ping """
         await interaction.response.send_message('Pong!')
+
+    @app_commands.command(name='riverimage')
+    async def river_image(self, interaction: discord.Interaction):
+        """Post a picture example for the river"""
+        img = Image.open('./helios/resources/RiverTemplate.png')
+        b = io.BytesIO()
+        img.save(b, format='PNG')
+        b.seek(0)
+        embed = discord.Embed(
+            title='Testing'
+        )
+        embed.set_image(url='attachment://river.png')
+        await interaction.response.send_message(embed=embed, file=discord.File(b, 'river.png'))
+        b.close()
 
     # @app_commands.command(name='activity')
     async def activity_command(self, interaction: discord.Interaction):
