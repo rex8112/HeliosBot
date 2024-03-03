@@ -258,7 +258,7 @@ class TexasHoldEm:
 
     async def do_betting(self):
         while self.state.can_check_or_call() or self.state.can_fold():
-            if self.waiting_for() in self.players.values():
+            if not self.waiting_for().left:
                 player = self.waiting_for()
                 view = BettingView(self, timeout=45)
                 timer = datetime.now().astimezone() + timedelta(seconds=30)
