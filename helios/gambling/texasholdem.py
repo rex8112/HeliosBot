@@ -70,12 +70,17 @@ class Player:
         self.player_index = None
         self.stack = stack
         self.left = False
+        self.idle = False
 
     def __hash__(self):
         return self.member.__hash__()
 
 
 def get_winners(players: list[Player], hands: list[Hand]):
+    for i, hand in enumerate(hands.copy()):
+        if hand is None:
+            players.pop(i)
+            hands.pop(i)
     top = max(hands)
     winners = [x for x, y in zip(players, hands) if y == top]
     return winners
@@ -254,6 +259,7 @@ class TexasHoldEm:
     async def do_betting(self):
         while self.state.can_check_or_call() or self.state.can_fold():
             if self.waiting_for() in self.players.values():
+                player = self.waiting_for()
                 view = BettingView(self, timeout=45)
                 timer = datetime.now().astimezone() + timedelta(seconds=30)
                 await self.update_message(view, timer=timer)
@@ -262,6 +268,9 @@ class TexasHoldEm:
                 if not view.is_finished():
                     view.stop()
                     self.skip_turn()
+                    player.idle = True
+                else:
+                    player.idle = False
             else:
                 self.skip_turn()
         while self.state.can_collect_bets():
@@ -281,7 +290,7 @@ class TexasHoldEm:
         self._hands = []
         for i, player in enumerate(self._current_players):
             player.stack = self.state.stacks[i]
-            if player.left or player.stack == 0:
+            if player.left or player.stack == 0 or player.idle:
                 await self.remove_player(player)
 
     async def remove_player(self, member: Player):
