@@ -292,6 +292,7 @@ class TexasHoldEm:
             player.stack = self.state.stacks[i]
             if player.left or player.stack == 0 or player.idle:
                 await self.remove_player(player)
+        await self.update_message()
 
     async def remove_player(self, member: Player):
         del self.players[member.member]
@@ -454,7 +455,7 @@ class TexasHoldEm:
     def get_playing_embed(self, timer: Optional[datetime] = None):
         if self.state is None:
             return discord.Embed(
-                title='No ones turn',
+                title='Waiting for next game',
                 colour=Colour.poker_playing()
             )
         if self.phase == Phase.DEALING:
