@@ -283,6 +283,7 @@ class TexasHoldEm:
             self.state.fold()
 
     async def start_game(self):
+        self.build_current_players()
         self.create_state()
 
     async def end_game(self):
@@ -290,6 +291,7 @@ class TexasHoldEm:
         self._hands = []
         for i, player in enumerate(self._current_players):
             player.stack = self.state.stacks[i]
+            player.player_index = None
             if player.left or player.stack == 0 or player.idle:
                 await self.remove_player(player)
         await self.update_message()
@@ -354,7 +356,6 @@ class TexasHoldEm:
             self._current_players.append(player)
 
     def create_state(self):
-        self.build_current_players()
         stacks = [x.stack for x in self._current_players]
         self.state = NoLimitTexasHoldem.create_state(
             (),
