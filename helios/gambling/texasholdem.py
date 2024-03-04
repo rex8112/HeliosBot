@@ -77,10 +77,13 @@ class Player:
 
 
 def get_winners(players: list[Player], hands: list[Hand]):
-    for i, hand in enumerate(hands.copy()):
+    index_to_remove = []
+    for i, hand in enumerate(hands):
         if hand is None:
-            players.pop(i)
-            hands.pop(i)
+            index_to_remove.append(i)
+    for i in reversed(index_to_remove):
+        del players[i]
+        del hands[i]
     top = max(hands)
     winners = [x for x, y in zip(players, hands) if y == top]
     return winners
@@ -325,7 +328,7 @@ class TexasHoldEm:
             colour=Colour.poker_table(),
             description=str(self.state.get_hand(self._current_players.index(member), 0))
         )
-        img = discord.File(get_card_images(cards, 2), 'hand.png', description=str(cards))
+        img = discord.File(get_card_images(cards, 5), 'hand.png', description=str(cards))
         embed.set_image(url='attachment://hand.png')
         ret = await self._channel.send(embed=embed, file=img)
         img.close()
@@ -552,7 +555,6 @@ class BettingView(discord.ui.View):
         self.update_buttons()
 
     def update_buttons(self):
-
         if self.state.min_completion_betting_or_raising_to_amount is not None:
             self.low_bet.label = self.state.min_completion_betting_or_raising_to_amount
             self.double_bet.label = self.state.min_completion_betting_or_raising_to_amount * 2
@@ -567,7 +569,8 @@ class BettingView(discord.ui.View):
             self.max_bet.disabled = True
             self.custom_bet.disabled = True
         self.fold_button.disabled = not self.state.can_fold()
-        self.check_button.label = 'Check' if self.state.checking_or_calling_amount == 0 else 'Call'
+        self.check_button.label = 'Check' if self.state.checking_or_calling_amount == 0 \
+            else f'Call {self.state.checking_or_calling_amount:,}'
 
     @discord.ui.button(label='low', style=discord.ButtonStyle.gray)
     async def low_bet(self, interaction: discord.Interaction, _):
@@ -639,7 +642,7 @@ class BettingView(discord.ui.View):
             colour=Colour.poker_table()
         )
         cards = tuple(self.game.state.get_down_cards(self.game._current_players.index(player)))
-        img = discord.File(get_card_images(cards, 2), 'hand.png', description=str(cards))
+        img = discord.File(get_card_images(cards, 5), 'hand.png', description=str(cards))
         embed.set_image(url='attachment://hand.png')
         await interaction.response.send_message(embed=embed, file=img, ephemeral=True)
         img.close()
