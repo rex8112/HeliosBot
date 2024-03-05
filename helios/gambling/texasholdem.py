@@ -202,7 +202,7 @@ class TexasHoldEm:
                     await self.end_game()
                     await self.update_message()
                 if self._last_game_time < datetime.now().astimezone() - timedelta(minutes=5):
-                    for player in self.players.keys():
+                    for player in list(self.players.keys()):
                         await self.withdraw(player)
                     await self.delete_table()
             except discord.NotFound as e:
