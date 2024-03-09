@@ -234,7 +234,9 @@ class TexasHoldEm:
             elif self.phase == Phase.CHIPS_PUSHING:
                 self.state.push_chips()
             elif self.phase == Phase.CHIPS_PULLING:
-                self.state.pull_chips()
+                res = self.state.pull_chips()
+                player = self._current_players[res.player_index]
+                player.stack += res.amount
             elif self.phase == Phase.DEALING:
                 await self.update_message()
                 while self.state.can_deal_hole():
@@ -277,7 +279,11 @@ class TexasHoldEm:
             else:
                 self.skip_turn()
         while self.state.can_collect_bets():
-            self.state.collect_bets()
+            res = self.state.collect_bets()
+            bets = res.bets
+            for i, bet in enumerate(bets):
+                player = self._current_players[i]
+                player.stack -= bet
 
     def skip_turn(self):
         if self.state.checking_or_calling_amount == 0:
@@ -293,10 +299,10 @@ class TexasHoldEm:
         self._last_game_time = datetime.now().astimezone()
         self._hands = []
         for i, player in enumerate(self._current_players):
-            player.stack = self.state.stacks[i]
             player.player_index = None
             if player.left or player.stack == 0 or player.idle:
                 await self.remove_player(player)
+        self.state = None
         await self.update_message()
 
     async def remove_player(self, member: Player):
