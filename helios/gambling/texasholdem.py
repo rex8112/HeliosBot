@@ -224,15 +224,13 @@ class TexasHoldEm:
             elif self.phase == Phase.BURN_CARD:
                 self.state.burn_card()
             elif self.phase == Phase.HAND_KILLING:
-                # Game is over, show winners before killing hands
+                self.state.kill_hand()
+            elif self.phase == Phase.CHIPS_PUSHING:
+                # Game over, push chips and show winners
                 await self.update_message()
                 await asyncio.sleep(2)
-                messages.append(await self.show_winners())
+                messages.append(await self.show_winners(self.state.push_chips()))
                 await asyncio.sleep(5)
-                while self.state.can_kill_hand():
-                    self.state.kill_hand()
-            elif self.phase == Phase.CHIPS_PUSHING:
-                self.state.push_chips()
             elif self.phase == Phase.CHIPS_PULLING:
                 res = self.state.pull_chips()
                 player = self._current_players[res.player_index]
@@ -340,22 +338,19 @@ class TexasHoldEm:
         img.close()
         return ret
 
-    async def show_winners(self):
-        pots = list(self.state.pots)
-        main = pots[0]
-        winners = get_winners(self._current_players, list(self.state.get_up_hands(0)))
-        names = and_join(list(str(x.member) for x in winners))
+    async def show_winners(self, push: ChipsPushing):
+        amounts = list(push.amounts)
+        winners: list[tuple[Player, int]] = list(zip(self._current_players, amounts))
+        winners.sort(key=lambda x: x[1], reverse=True)
+        winner_strings = []
+        for winner, amount in winners:
+            if amount > 0:
+                winner_strings.append(f'{winner.member} won **{amount:,}**!')
         embed = discord.Embed(
-            title=f'{names} Wins the Pot!',
+            title=f'Winners!',
             colour=Colour.poker_table(),
-            description=f'{main.amount:,} in the Pot!\n\nWins with a '
-                        f'{self.state.get_up_hand(winners[0].player_index, 0)}!'
+            description='\n'.join(winner_strings)
         )
-        for pot in pots[1:]:
-            pot_contributors = list(self._current_players[x] for x in pot.player_indices)
-            winners = get_winners(pot_contributors, list(self._hands[x.player_index] for x in pot_contributors))
-            names = and_join(list(str(x) for x in winners))
-            embed.add_field(name='Side Pot', value=f'Winners: **{names}**\nAmount: {pot.amount:,}')
         return await self._channel.send(embed=embed)
 
     def build_current_players(self):
