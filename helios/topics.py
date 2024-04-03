@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 
 def _get_archive_time():
-    return datetime.now().astimezone() + timedelta(hours=30)
+    return datetime.now().astimezone() + timedelta(hours=24)
 
 
 class TopicChannel:
