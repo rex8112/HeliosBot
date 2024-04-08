@@ -323,6 +323,23 @@ class HeliosMember(HasFlags):
         self._ap_paid = self._activity_points
         return points
 
+    async def voice_mute(self):
+        actions = self.bot.event_manager.get_specific_actions('on_voice', self, 'unmute')
+        [await self.bot.event_manager.delete_action(x) for x in actions]
+        if self.member.voice.channel is None:
+            await self.bot.event_manager.add_action('on_voice', self, 'mute')
+            return True
+        elif self.member.voice.mute is False:
+            await self.member.edit(mute=True)
+
+    async def voice_unmute(self):
+        actions = self.bot.event_manager.get_specific_actions('on_voice', self, 'mute')
+        [await self.bot.event_manager.delete_action(x) for x in actions]
+        if self.member.voice.channel is None:
+            await self.bot.event_manager.add_action('on_voice', self, 'unmute')
+        elif self.member.voice.mute is True:
+            await self.member.edit(mute=False)
+
     async def temp_mute(self, duration: int, muter: 'HeliosMember', price: int):
         async def unmute(m):
             await asyncio.sleep(duration)

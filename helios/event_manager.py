@@ -52,6 +52,13 @@ class EventManager:
         l: list[EventModel] = [x for x in actions]
         return l
 
+    async def get_specific_actions(self, trigger: EventTrigger, member: 'HeliosMember', action: str):
+        q = EventModel.select().where(EventModel.trigger == trigger, EventModel.target_id == member.id,
+                                      EventModel.server_id == member.server.id, EventModel.action == action)
+        actions = await self.db_manager.prefetch(q)
+        l: list[EventModel] = [x for x in actions]
+        return l
+
     async def get_all_trigger_actions(self, trigger: EventTrigger):
         q = EventModel.select().where(EventModel.trigger == trigger)
         actions = await self.db_manager.prefetch(q)

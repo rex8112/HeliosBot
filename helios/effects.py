@@ -83,3 +83,24 @@ class Effect:
         self.applied = False
         self._applied_at = None
 
+
+class MuteEffect(Effect):
+    def __init__(self, target: 'HeliosMember', duration: int, *, cost: int = None, muter: 'HeliosMember' = None):
+        super().__init__(target, duration)
+        self.cost = cost
+        self.muter = muter
+
+    async def apply(self):
+        await super().apply()
+        await self.target.voice_mute()
+
+    async def remove(self):
+        await super().remove()
+        await self.target.voice_unmute()
+
+    async def enforce(self):
+        voice = self.target.member.voice
+        if voice is not None and voice.channel is not None:
+            if voice.mute is False:
+                await self.target.member.edit(mute=True)
+
