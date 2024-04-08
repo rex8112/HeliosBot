@@ -326,7 +326,8 @@ class HeliosMember(HasFlags):
     async def voice_mute(self):
         actions = self.bot.event_manager.get_specific_actions('on_voice', self, 'unmute')
         [await self.bot.event_manager.delete_action(x) for x in actions]
-        if self.member.voice.channel is None:
+        voice = self.member.voice
+        if voice is None or voice.channel is None:
             await self.bot.event_manager.add_action('on_voice', self, 'mute')
             return True
         elif self.member.voice.mute is False:
@@ -335,10 +336,30 @@ class HeliosMember(HasFlags):
     async def voice_unmute(self):
         actions = self.bot.event_manager.get_specific_actions('on_voice', self, 'mute')
         [await self.bot.event_manager.delete_action(x) for x in actions]
-        if self.member.voice.channel is None:
+        voice = self.member.voice
+        if voice is None or voice.channel is None:
             await self.bot.event_manager.add_action('on_voice', self, 'unmute')
         elif self.member.voice.mute is True:
             await self.member.edit(mute=False)
+
+    async def voice_deafen(self):
+        actions = self.bot.event_manager.get_specific_actions('on_voice', self, 'undeafen')
+        [await self.bot.event_manager.delete_action(x) for x in actions]
+        voice = self.member.voice
+        if voice is None or voice.channel is None:
+            await self.bot.event_manager.add_action('on_voice', self, 'deafen')
+            return True
+        elif self.member.voice.deaf is False:
+            await self.member.edit(deafen=True)
+
+    async def voice_undeafen(self):
+        actions = self.bot.event_manager.get_specific_actions('on_voice', self, 'deafen')
+        [await self.bot.event_manager.delete_action(x) for x in actions]
+        voice = self.member.voice
+        if voice is None or voice.channel is None:
+            await self.bot.event_manager.add_action('on_voice', self, 'undeafen')
+        elif self.member.voice.deaf is True:
+            await self.member.edit(deafen=False)
 
     async def temp_mute(self, duration: int, muter: 'HeliosMember', price: int):
         async def unmute(m):

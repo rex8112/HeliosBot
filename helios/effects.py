@@ -104,3 +104,24 @@ class MuteEffect(Effect):
             if voice.mute is False:
                 await self.target.member.edit(mute=True)
 
+
+class DeafenEffect(Effect):
+    def __init__(self, target: 'HeliosMember', duration: int, *, cost: int = None, deafener: 'HeliosMember' = None):
+        super().__init__(target, duration)
+        self.cost = cost
+        self.deafener = deafener
+
+    async def apply(self):
+        await super().apply()
+        await self.target.voice_deafen()
+
+    async def remove(self):
+        await super().remove()
+        await self.target.voice_undeafen()
+
+    async def enforce(self):
+        voice = self.target.member.voice
+        if voice is not None and voice.channel is not None:
+            if voice.deaf is False:
+                await self.target.member.edit(deafen=True)
+
