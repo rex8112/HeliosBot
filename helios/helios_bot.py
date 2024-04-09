@@ -60,6 +60,11 @@ class HeliosBot(commands.Bot):
     async def remove_startup(model: EventModel):
         await objects.delete(model)
 
+    def get_helios_member(self, identifier: str):
+        values = identifier.split('.')
+        server = self.servers.get(int(values[1]))
+        return server.members.get(int(values[2])) if server is not None else None
+
     async def setup_hook(self) -> None:
         self.tree.on_error = self.on_slash_error
         self.helios_http = HTTPClient(

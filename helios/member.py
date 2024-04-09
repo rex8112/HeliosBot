@@ -101,6 +101,10 @@ class HeliosMember(HasFlags):
         return self._db_entry.id
 
     @property
+    def json_identifier(self):
+        return f'HM.{self.id}.{self.server.id}'
+
+    @property
     def server(self) -> 'Server':
         return self.manager.server
 

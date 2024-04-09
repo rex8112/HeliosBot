@@ -102,10 +102,31 @@ class Effect:
             return self.duration
         return self.duration - (datetime.now() - self._applied_at).total_seconds()
 
+    def serialize_target(self) -> Union[str, int]:
+        name = type(self.target).__name__
+        if name == 'HeliosMember':
+            return self.target.json_identifier
+        else:
+            return self.target.id
+
+    @staticmethod
+    def deserialize_target(name: Union[str, int], bot: 'HeliosBot'):
+        if isinstance(name, str):
+            return bot.get_helios_member(name)
+        else:
+            server = bot.servers.get(name)
+            if server is not None:
+                return server
+            channel = bot.get_channel(name)
+            if channel is not None:
+                server = bot.servers.get(channel.guild.id)
+                channel = server.channels.dynamic_voice.channels.get(name)
+                return channel
+
     def to_dict(self):
         return {
             'type': self.type,
-            'target': self.target.id,
+            'target': self.serialize_target(),
             'duration': self.duration,
             'applied': self.applied,
             'applied_at': self._applied_at.isoformat() if self._applied_at else None,
@@ -123,9 +144,13 @@ class Effect:
         for subcls in cls.__subclasses__():
             if subcls.type == data['type']:
                 return subcls.from_dict(data, bot)
-        effect = cls(data['target'], data['duration'])
+        target = cls.deserialize_target(data['target'], bot)
+        if target is None:
+            return None
+        effect = cls(target, data['duration'])
         effect.applied = data['applied']
         effect._applied_at = datetime.fromisoformat(data['applied_at']) if data['applied_at'] else None
+        effect.load_extras(data['extra'])
         return effect
 
     async def apply(self):
@@ -141,10 +166,20 @@ class Effect:
 
 
 class MuteEffect(Effect):
-    def __init__(self, target: 'HeliosMember', duration: int, *, cost: int = None, muter: 'HeliosMember' = None):
+    def __init__(self, target: 'HeliosMember', duration: int, *, cost: int = 0, muter: 'HeliosMember' = None):
         super().__init__(target, duration)
         self.cost = cost
         self.muter = muter
+
+    def to_dict_extras(self):
+        return {
+            'cost': self.cost,
+            'muter': self.muter.id if self.muter else None
+        }
+
+    def load_extras(self, data: dict):
+        self.cost = data.get('cost', self.cost)
+        self.muter = self.target.server.members.get(data.get('muter'))
 
     def get_mute_embed(self):
         embed = discord.Embed(
@@ -176,6 +211,16 @@ class DeafenEffect(Effect):
         super().__init__(target, duration)
         self.cost = cost
         self.deafener = deafener
+
+    def to_dict_extras(self):
+        return {
+            'cost': self.cost,
+            'deafener': self.deafener.id if self.deafener else None
+        }
+
+    def load_extras(self, data: dict):
+        self.cost = data.get('cost', self.cost)
+        self.deafener = self.target.server.members.get(data.get('deafener'))
 
     def get_deafen_embed(self):
         embed = discord.Embed(
