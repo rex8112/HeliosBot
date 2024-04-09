@@ -88,6 +88,8 @@ class EffectsManager:
 
 
 class Effect:
+    type = 'Effect'
+
     def __init__(self, target: EffectTarget, duration: int):
         self.target = target
         self.duration = duration
@@ -99,6 +101,32 @@ class Effect:
         if self._applied_at is None:
             return self.duration
         return self.duration - (datetime.now() - self._applied_at).total_seconds()
+
+    def to_dict(self):
+        return {
+            'type': self.type,
+            'target': self.target.id,
+            'duration': self.duration,
+            'applied': self.applied,
+            'applied_at': self._applied_at.isoformat() if self._applied_at else None,
+            'extra': self.to_dict_extras()
+        }
+
+    def to_dict_extras(self):
+        return {}
+
+    def load_extras(self, data: dict):
+        pass
+
+    @classmethod
+    def from_dict(cls, data: dict, bot: 'HeliosBot'):
+        for subcls in cls.__subclasses__():
+            if subcls.type == data['type']:
+                return subcls.from_dict(data, bot)
+        effect = cls(data['target'], data['duration'])
+        effect.applied = data['applied']
+        effect._applied_at = datetime.fromisoformat(data['applied_at']) if data['applied_at'] else None
+        return effect
 
     async def apply(self):
         self._applied_at = datetime.now()
