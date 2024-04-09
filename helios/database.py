@@ -44,7 +44,8 @@ def initialize_db():
     with db.allow_sync():
         db.connect()
         db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
-                          EventModel, ViolationModel, DynamicVoiceModel, DynamicVoiceGroupModel, TopicModel])
+                          EventModel, ViolationModel, DynamicVoiceModel, DynamicVoiceGroupModel, TopicModel,
+                          EffectModel])
 
 
 def get_aware_utc_now():
@@ -369,6 +370,7 @@ class TopicModel(BaseModel):
 
 class EffectModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
+    type = CharField(30)
     target = CharField(80)
     duration = IntegerField()
     applied = BooleanField()
@@ -376,7 +378,7 @@ class EffectModel(BaseModel):
     extra = JSONField(default=dict())
 
     class Meta:
-        table_name = 'topics'
+        table_name = 'effects'
 
     @classmethod
     async def new(cls, type: str, target: str, duration: int,
@@ -387,7 +389,7 @@ class EffectModel(BaseModel):
                                     applied_at=applied_at, extra=extra)
 
     @classmethod
-    async def get_all(cls):
+    async def get_all(cls) -> list['EffectModel']:
         q = cls.select()
         return await objects.prefetch(q)
 

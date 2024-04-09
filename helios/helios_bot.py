@@ -62,8 +62,8 @@ class HeliosBot(commands.Bot):
 
     def get_helios_member(self, identifier: str):
         values = identifier.split('.')
-        server = self.servers.get(int(values[1]))
-        return server.members.get(int(values[2])) if server is not None else None
+        server = self.servers.get(int(values[2]))
+        return server.members.get(int(values[1])) if server is not None else None
 
     async def setup_hook(self) -> None:
         self.tree.on_error = self.on_slash_error
@@ -100,6 +100,7 @@ class HeliosBot(commands.Bot):
             await self.servers.setup()
             logger.debug('Starting effects manager')
             _ = self.loop.create_task(self.effects.manage_effects())
+            await self.effects.fetch_all()
             logger.debug('Finished setup')
             self.ready_once = False
 

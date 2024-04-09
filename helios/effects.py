@@ -26,6 +26,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Union, Optional
 
 import discord
+from playhouse.shortcuts import model_to_dict
 
 from .database import EffectModel
 
@@ -68,8 +69,10 @@ class EffectsManager:
     async def fetch_all(self):
         models = await EffectModel.get_all()
         for model in models:
-            effect = Effect.from_dict(dict(model), self.bot)
-            self._add_effect(effect)
+            effect = Effect.from_dict(model_to_dict(model), self.bot)
+            if effect is not None:
+                effect.db_entry = model
+                self._add_effect(effect)
 
     def _add_effect(self, effect: 'Effect'):
         target = effect.target
@@ -80,12 +83,15 @@ class EffectsManager:
     async def add_effect(self, effect: 'Effect'):
         self._add_effect(effect)
         await effect.apply()
+        effect.db_entry = await EffectModel.new(**effect.to_dict())
 
     async def remove_effect(self, effect: 'Effect'):
         target = effect.target
         try:
             self.effects[target].remove(effect)
             await effect.remove()
+            if effect.db_entry is not None:
+                await effect.db_entry.async_delete()
         except (ValueError, KeyError):
             pass
 
@@ -105,13 +111,15 @@ class Effect:
         self.target = target
         self.duration = duration
         self.applied = False
+        self.db_entry = None
+
         self._applied_at: Optional[datetime] = None
 
     @property
     def time_left(self):
         if self._applied_at is None:
             return self.duration
-        return self.duration - (datetime.now() - self._applied_at).total_seconds()
+        return self.duration - (datetime.now().astimezone() - self._applied_at).total_seconds()
 
     def serialize_target(self) -> Union[str, int]:
         name = type(self.target).__name__
@@ -122,6 +130,10 @@ class Effect:
 
     @staticmethod
     def deserialize_target(name: Union[str, int], bot: 'HeliosBot'):
+        try:
+            name = int(name)
+        except ValueError:
+            pass
         if isinstance(name, str):
             return bot.get_helios_member(name)
         else:
@@ -140,7 +152,7 @@ class Effect:
             'target': self.serialize_target(),
             'duration': self.duration,
             'applied': self.applied,
-            'applied_at': self._applied_at.isoformat() if self._applied_at else None,
+            'applied_at': self._applied_at,
             'extra': self.to_dict_extras()
         }
 
@@ -160,12 +172,12 @@ class Effect:
             return None
         effect = cls(target, data['duration'])
         effect.applied = data['applied']
-        effect._applied_at = datetime.fromisoformat(data['applied_at']) if data['applied_at'] else None
+        effect._applied_at = data['applied_at']
         effect.load_extras(data['extra'])
         return effect
 
     async def apply(self):
-        self._applied_at = datetime.now()
+        self._applied_at = datetime.now().astimezone()
         self.applied = True
 
     async def enforce(self):
