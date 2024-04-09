@@ -28,6 +28,7 @@ import discord
 from discord.ext import commands
 
 from .database import EventModel, objects
+from .effects import EffectsManager
 from .event_manager import EventManager
 from .http import HTTPClient
 from .server import Server
@@ -42,6 +43,7 @@ class HeliosBot(commands.Bot):
     def __init__(self, command_prefix, *, intents, settings: Config, **options):
         self.servers = ServerManager(self)
         self.event_manager = EventManager(self, objects)
+        self.effects = EffectsManager(self)
         self.settings = settings
         self.ready_once = True
         self.helios_http: Optional[HTTPClient] = None
@@ -91,6 +93,9 @@ class HeliosBot(commands.Bot):
             await self.run_startup_actions()
             logger.debug('Running server setup')
             await self.servers.setup()
+            logger.debug('Starting effects manager')
+            _ = self.loop.create_task(self.effects.manage_effects())
+            logger.debug('Finished setup')
             self.ready_once = False
 
     @staticmethod

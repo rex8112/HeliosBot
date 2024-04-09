@@ -324,7 +324,7 @@ class HeliosMember(HasFlags):
         return points
 
     async def voice_mute(self):
-        actions = self.bot.event_manager.get_specific_actions('on_voice', self, 'unmute')
+        actions = await self.bot.event_manager.get_specific_actions('on_voice', self, 'unmute')
         [await self.bot.event_manager.delete_action(x) for x in actions]
         voice = self.member.voice
         if voice is None or voice.channel is None:
@@ -334,7 +334,7 @@ class HeliosMember(HasFlags):
             await self.member.edit(mute=True)
 
     async def voice_unmute(self):
-        actions = self.bot.event_manager.get_specific_actions('on_voice', self, 'mute')
+        actions = await self.bot.event_manager.get_specific_actions('on_voice', self, 'mute')
         [await self.bot.event_manager.delete_action(x) for x in actions]
         voice = self.member.voice
         if voice is None or voice.channel is None:
@@ -343,7 +343,7 @@ class HeliosMember(HasFlags):
             await self.member.edit(mute=False)
 
     async def voice_deafen(self):
-        actions = self.bot.event_manager.get_specific_actions('on_voice', self, 'undeafen')
+        actions = await self.bot.event_manager.get_specific_actions('on_voice', self, 'undeafen')
         [await self.bot.event_manager.delete_action(x) for x in actions]
         voice = self.member.voice
         if voice is None or voice.channel is None:
@@ -353,7 +353,7 @@ class HeliosMember(HasFlags):
             await self.member.edit(deafen=True)
 
     async def voice_undeafen(self):
-        actions = self.bot.event_manager.get_specific_actions('on_voice', self, 'deafen')
+        actions = await self.bot.event_manager.get_specific_actions('on_voice', self, 'deafen')
         [await self.bot.event_manager.delete_action(x) for x in actions]
         voice = self.member.voice
         if voice is None or voice.channel is None:

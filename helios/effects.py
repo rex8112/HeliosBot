@@ -19,8 +19,13 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+import asyncio
+import logging
+import traceback
 from datetime import datetime
 from typing import TYPE_CHECKING, Union, Optional
+
+import discord
 
 if TYPE_CHECKING:
     from .server import Server
@@ -28,6 +33,8 @@ if TYPE_CHECKING:
     from .member import HeliosMember
     from .helios_bot import HeliosBot
 
+
+logger = logging.getLogger('HeliosLogger.effects')
 
 EffectTarget = Union['HeliosMember', 'DynamicVoiceChannel', 'Server']
 
@@ -37,13 +44,34 @@ class EffectsManager:
         self.bot = bot
         self.effects: dict[EffectTarget, list['Effect']] = {}
 
-    async def add_effect(self, target: EffectTarget, effect: 'Effect'):
+        self._managing = False
+
+    async def manage_effects(self):
+        self._managing = True
+        while self._managing:
+            try:
+                for target, effects in self.effects.items():
+                    for effect in effects:
+                        if effect.time_left <= 0:
+                            await self.remove_effect(effect)
+                        else:
+                            await effect.enforce()
+            except Exception as e:
+                logger.error(f'Error in effect manager: {e}', exc_info=True)
+            await asyncio.sleep(1)
+
+    def stop_managing(self):
+        self._managing = False
+
+    async def add_effect(self, effect: 'Effect'):
+        target = effect.target
         if target not in self.effects:
             self.effects[target] = []
         self.effects[target].append(effect)
         await effect.apply()
 
-    async def remove_effect(self, target: EffectTarget, effect: 'Effect'):
+    async def remove_effect(self, effect: 'Effect'):
+        target = effect.target
         try:
             self.effects[target].remove(effect)
             await effect.remove()
@@ -90,9 +118,19 @@ class MuteEffect(Effect):
         self.cost = cost
         self.muter = muter
 
+    def get_mute_embed(self):
+        embed = discord.Embed(
+            title='Muted',
+            colour=discord.Colour.orange(),
+            description=f'Someone spent **{self.cost}** {self.target.server.points_name.capitalize()} to mute you for '
+                        f'**{self.duration}** seconds.'
+        )
+        return embed
+
     async def apply(self):
         await super().apply()
         await self.target.voice_mute()
+        await self.target.member.send(embed=self.get_mute_embed())
 
     async def remove(self):
         await super().remove()
@@ -111,6 +149,15 @@ class DeafenEffect(Effect):
         self.cost = cost
         self.deafener = deafener
 
+    def get_deafen_embed(self):
+        embed = discord.Embed(
+            title='Deafened',
+            colour=discord.Colour.orange(),
+            description=f'Someone spent **{self.cost}** {self.target.server.points_name.capitalize()} to deafen you for '
+                        f'**{self.duration}** seconds. **The deafen has just ended.**'
+        )
+        return embed
+
     async def apply(self):
         await super().apply()
         await self.target.voice_deafen()
@@ -118,6 +165,7 @@ class DeafenEffect(Effect):
     async def remove(self):
         await super().remove()
         await self.target.voice_undeafen()
+        await self.target.member.send(embed=self.get_deafen_embed())
 
     async def enforce(self):
         voice = self.target.member.voice

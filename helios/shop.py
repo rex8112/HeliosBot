@@ -24,6 +24,7 @@ from typing import Callable, TYPE_CHECKING, Awaitable, Optional
 
 import discord
 
+from .effects import MuteEffect, DeafenEffect
 from .views import TempMuteView, TempDeafenView
 
 if TYPE_CHECKING:
@@ -96,7 +97,7 @@ class Shop:
         """Price: variable
         Server mute someone who is in a voice channel for an amount of time."""
         await interaction.response.defer(ephemeral=True, thinking=True)
-        # server = self.shop.bot.servers.get(interaction.guild_id)
+        server = self.shop.bot.servers.get(interaction.guild_id)
         view = TempMuteView(member)
         embed = view.get_embed()
 
@@ -128,14 +129,9 @@ class Shop:
             title='Purchased!',
             colour=discord.Colour.green()
         )
-        if not await view.selected_member.temp_mute(view.selected_seconds, member, view.value):
-            embed = discord.Embed(
-                title='Something Went Wrong',
-                colour=discord.Colour.red(),
-                description='Sorry, I could not mute this person.'
-            )
-            await message.edit(embed=embed, view=None)
-            return 0
+        selected_member = server.members.get(view.selected_member.id)
+        effect = MuteEffect(selected_member, view.selected_seconds, cost=view.value, muter=member)
+        await server.bot.effects.add_effect(effect)
         await message.edit(embed=embed, view=None)
         return view.value
 
@@ -144,7 +140,7 @@ class Shop:
         """Price: variable
         Server deafen someone who is in a voice channel for an amount of time."""
         await interaction.response.defer(ephemeral=True, thinking=True)
-        # server = self.shop.bot.servers.get(interaction.guild_id)
+        server = self.shop.bot.servers.get(interaction.guild_id)
         view = TempDeafenView(member)
         embed = view.get_embed()
 
@@ -176,13 +172,8 @@ class Shop:
             title='Purchased!',
             colour=discord.Colour.green()
         )
-        if not await view.selected_member.temp_deafen(view.selected_seconds, member, view.value):
-            embed = discord.Embed(
-                title='Something Went Wrong',
-                colour=discord.Colour.red(),
-                description='Sorry, I could not mute this person.'
-            )
-            await message.edit(embed=embed, view=None)
-            return 0
+        selected_member = server.members.get(view.selected_member.id)
+        effect = DeafenEffect(selected_member, view.selected_seconds, cost=view.value, deafener=member)
+        await server.bot.effects.add_effect(effect)
         await message.edit(embed=embed, view=None)
         return view.value
