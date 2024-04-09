@@ -367,6 +367,31 @@ class TopicModel(BaseModel):
         return await objects.prefetch(q, MemberModel.select(), ServerModel.select())
 
 
+class EffectModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    target = CharField(80)
+    duration = IntegerField()
+    applied = BooleanField()
+    applied_at = DatetimeTzField()
+    extra = JSONField(default=dict())
+
+    class Meta:
+        table_name = 'topics'
+
+    @classmethod
+    async def new(cls, type: str, target: str, duration: int,
+                  applied: bool, applied_at: datetime, extra: dict = None):
+        if extra is None:
+            extra = dict()
+        return await objects.create(cls, type=type, target=target, duration=duration, applied=applied,
+                                    applied_at=applied_at, extra=extra)
+
+    @classmethod
+    async def get_all(cls):
+        q = cls.select()
+        return await objects.prefetch(q)
+
+
 class PugModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
     channel_id = BigIntegerField()

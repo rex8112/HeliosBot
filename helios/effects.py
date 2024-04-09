@@ -27,6 +27,8 @@ from typing import TYPE_CHECKING, Union, Optional
 
 import discord
 
+from .database import EffectModel
+
 if TYPE_CHECKING:
     from .server import Server
     from .dynamic_voice import DynamicVoiceChannel
@@ -63,11 +65,20 @@ class EffectsManager:
     def stop_managing(self):
         self._managing = False
 
-    async def add_effect(self, effect: 'Effect'):
+    async def fetch_all(self):
+        models = await EffectModel.get_all()
+        for model in models:
+            effect = Effect.from_dict(dict(model), self.bot)
+            self._add_effect(effect)
+
+    def _add_effect(self, effect: 'Effect'):
         target = effect.target
         if target not in self.effects:
             self.effects[target] = []
         self.effects[target].append(effect)
+
+    async def add_effect(self, effect: 'Effect'):
+        self._add_effect(effect)
         await effect.apply()
 
     async def remove_effect(self, effect: 'Effect'):
