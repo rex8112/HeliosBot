@@ -180,7 +180,10 @@ class ChannelManager:
         for t in topics:
             if t.channel.name.lower() == name.lower().replace(' ', '-'):
                 return False, f'Channel already exists: {t.channel.mention}'
-        category = self.bot.get_channel(self.server.settings.topic_category.value.id)
+        if self.server.settings.topic_category.value is not None:
+            category = self.bot.get_channel(self.server.settings.topic_category.value.id)
+        else:
+            category = None
         if category:
             new_channel = await category.create_text_channel(name=name)
             channel = TopicChannel(self.server, new_channel)
