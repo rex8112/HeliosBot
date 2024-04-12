@@ -130,7 +130,8 @@ class Shop:
             colour=discord.Colour.green()
         )
         selected_member = server.members.get(view.selected_member.id)
-        effect = MuteEffect(selected_member, view.selected_seconds, cost=view.value, muter=member)
+        effect = MuteEffect(selected_member, view.selected_seconds, cost=view.value, muter=member,
+                            reason=f'{member.member.name} temp muted for {view.selected_seconds} seconds.')
         await server.bot.effects.add_effect(effect)
         await message.edit(embed=embed, view=None)
         return view.value
@@ -173,7 +174,8 @@ class Shop:
             colour=discord.Colour.green()
         )
         selected_member = server.members.get(view.selected_member.id)
-        effect = DeafenEffect(selected_member, view.selected_seconds, cost=view.value, deafener=member)
+        effect = DeafenEffect(selected_member, view.selected_seconds, cost=view.value, deafener=member,
+                              reason=f'{member.member.name} temp deafened for {view.selected_seconds} seconds.')
         await server.bot.effects.add_effect(effect)
         await message.edit(embed=embed, view=None)
         return view.value
