@@ -158,6 +158,17 @@ class HeliosMember(HasFlags):
     def db_entry(self) -> MemberModel:
         return self._db_entry
 
+    @property
+    def effects(self):
+        return self.bot.effects.get_effects(self)
+
+    def has_effect(self, effect: str):
+        effects = self.effects
+        for e in effects:
+            if e.type.lower() == effect.lower():
+                return True
+        return False
+
     def add_activity_points(self, amt: int):
         self._activity_points += amt
         self._changed = True

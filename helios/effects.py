@@ -105,8 +105,6 @@ class EffectsManager:
 
 
 class Effect:
-    type = 'Effect'
-
     def __init__(self, target: EffectTarget, duration: int):
         self.target = target
         self.duration = duration
@@ -114,6 +112,10 @@ class Effect:
         self.db_entry = None
 
         self._applied_at: Optional[datetime] = None
+
+    @property
+    def type(self):
+        return type(self).__name__
 
     @property
     def time_left(self):
@@ -292,4 +294,40 @@ class DeafenEffect(Effect):
         if voice is not None and voice.channel is not None:
             if voice.deaf is False:
                 await self.target.member.edit(deafen=True)
+
+
+class ShieldEffect(Effect):
+    def __init__(self, target: 'HeliosMember', duration: int, *, cost: int = None):
+        super().__init__(target, duration)
+        self.cost = cost
+
+    def to_dict_extras(self):
+        return {
+            'cost': self.cost
+        }
+
+    def load_extras(self, data: dict):
+        self.cost = data.get('cost', self.cost)
+
+    async def apply(self):
+        await super().apply()
+        try:
+            await self.target.member.edit(nick=f'🚫{self.target.member.display_name}')
+        except Exception as e:
+            logger.error(f'Error applying shield effect: {e}', exc_info=True)
+
+    async def remove(self):
+        await super().remove()
+        try:
+            await self.target.member.edit(nick=self.target.member.display_name.replace('🚫', ''))
+        except Exception as e:
+            logger.error(f'Error removing shield effect: {e}', exc_info=True)
+
+    async def enforce(self):
+        name = self.target.member.display_name
+        if '🚫' not in name:
+            try:
+                await self.target.member.edit(nick='🚫' + name)
+            except Exception as e:
+                logger.error(f'Error enforcing shield effect: {e}', exc_info=True)
 
