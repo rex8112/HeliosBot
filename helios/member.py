@@ -327,7 +327,7 @@ class HeliosMember(HasFlags):
         self._ap_paid = self._activity_points
         return points
 
-    async def voice_mute(self):
+    async def voice_mute(self, *, reason=None):
         actions = await self.bot.event_manager.get_specific_actions('on_voice', self, 'unmute')
         [await self.bot.event_manager.delete_action(x) for x in actions]
         voice = self.member.voice
@@ -335,18 +335,18 @@ class HeliosMember(HasFlags):
             await self.bot.event_manager.add_action('on_voice', self, 'mute')
             return True
         elif self.member.voice.mute is False:
-            await self.member.edit(mute=True)
+            await self.member.edit(mute=True, reason=reason)
 
-    async def voice_unmute(self):
+    async def voice_unmute(self, *, reason=None):
         actions = await self.bot.event_manager.get_specific_actions('on_voice', self, 'mute')
         [await self.bot.event_manager.delete_action(x) for x in actions]
         voice = self.member.voice
         if voice is None or voice.channel is None:
             await self.bot.event_manager.add_action('on_voice', self, 'unmute')
         elif self.member.voice.mute is True:
-            await self.member.edit(mute=False)
+            await self.member.edit(mute=False, reason=reason)
 
-    async def voice_deafen(self):
+    async def voice_deafen(self, *, reason=None):
         actions = await self.bot.event_manager.get_specific_actions('on_voice', self, 'undeafen')
         [await self.bot.event_manager.delete_action(x) for x in actions]
         voice = self.member.voice
@@ -354,16 +354,16 @@ class HeliosMember(HasFlags):
             await self.bot.event_manager.add_action('on_voice', self, 'deafen')
             return True
         elif self.member.voice.deaf is False:
-            await self.member.edit(deafen=True)
+            await self.member.edit(deafen=True, reason=reason)
 
-    async def voice_undeafen(self):
+    async def voice_undeafen(self, *, reason=None):
         actions = await self.bot.event_manager.get_specific_actions('on_voice', self, 'deafen')
         [await self.bot.event_manager.delete_action(x) for x in actions]
         voice = self.member.voice
         if voice is None or voice.channel is None:
             await self.bot.event_manager.add_action('on_voice', self, 'undeafen')
         elif self.member.voice.deaf is True:
-            await self.member.edit(deafen=False)
+            await self.member.edit(deafen=False, reason=reason)
 
     async def temp_mute(self, duration: int, muter: 'HeliosMember', price: int):
         async def unmute(m):

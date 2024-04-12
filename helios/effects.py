@@ -189,22 +189,34 @@ class Effect:
 
 
 class MuteEffect(Effect):
-    def __init__(self, target: 'HeliosMember', duration: int, *, cost: int = 0, muter: 'HeliosMember' = None):
+    def __init__(self, target: 'HeliosMember', duration: int, *, cost: int = 0, muter: 'HeliosMember' = None,
+                 force: bool = False, reason: str = None, embed: discord.Embed = None):
         super().__init__(target, duration)
         self.cost = cost
         self.muter = muter
+        self.force = force
+        self.reason = reason
+        self.embed = embed
 
     def to_dict_extras(self):
         return {
             'cost': self.cost,
-            'muter': self.muter.id if self.muter else None
+            'muter': self.muter.id if self.muter else None,
+            'force': self.force,
+            'reason': self.reason,
+            'embed': self.embed.to_dict() if self.embed else None
         }
 
     def load_extras(self, data: dict):
         self.cost = data.get('cost', self.cost)
         self.muter = self.target.server.members.get(data.get('muter'))
+        self.force = data.get('force', self.force)
+        self.reason = data.get('reason', self.reason)
+        self.embed = discord.Embed.from_dict(data.get('embed')) if data.get('embed') else None
 
     def get_mute_embed(self):
+        if self.embed is not None:
+            return self.embed
         embed = discord.Embed(
             title='Muted',
             colour=discord.Colour.orange(),
@@ -215,7 +227,7 @@ class MuteEffect(Effect):
 
     async def apply(self):
         await super().apply()
-        await self.target.voice_mute()
+        await self.target.voice_mute(reason=self.reason)
         await self.target.member.send(embed=self.get_mute_embed())
 
     async def remove(self):
@@ -230,22 +242,34 @@ class MuteEffect(Effect):
 
 
 class DeafenEffect(Effect):
-    def __init__(self, target: 'HeliosMember', duration: int, *, cost: int = None, deafener: 'HeliosMember' = None):
+    def __init__(self, target: 'HeliosMember', duration: int, *, cost: int = None, deafener: 'HeliosMember' = None,
+                 force: bool = False, reason: str = None, embed: discord.Embed = None):
         super().__init__(target, duration)
         self.cost = cost
         self.deafener = deafener
+        self.force = force
+        self.reason = reason
+        self.embed = embed
 
     def to_dict_extras(self):
         return {
             'cost': self.cost,
-            'deafener': self.deafener.id if self.deafener else None
+            'deafener': self.deafener.id if self.deafener else None,
+            'force': self.force,
+            'reason': self.reason,
+            'embed': self.embed.to_dict() if self.embed else None
         }
 
     def load_extras(self, data: dict):
         self.cost = data.get('cost', self.cost)
         self.deafener = self.target.server.members.get(data.get('deafener'))
+        self.force = data.get('force', self.force)
+        self.reason = data.get('reason', self.reason)
+        self.embed = discord.Embed.from_dict(data.get('embed')) if data.get('embed') else None
 
     def get_deafen_embed(self):
+        if self.embed is not None:
+            return self.embed
         embed = discord.Embed(
             title='Deafened',
             colour=discord.Colour.orange(),
@@ -256,7 +280,7 @@ class DeafenEffect(Effect):
 
     async def apply(self):
         await super().apply()
-        await self.target.voice_deafen()
+        await self.target.voice_deafen(reason=self.reason)
 
     async def remove(self):
         await super().remove()
