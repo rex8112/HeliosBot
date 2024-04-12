@@ -107,7 +107,7 @@ class TempMuteView(discord.ui.View):
             self.error_message = f'{member.member.display_name} is still too new to be muted.'
             self.selected_member = None
             return False
-        if member.member.voice is None:
+        if member.member.voice is None or not member.member.voice.channel.permissions_for(self.author.member).view_channel:
             self.error_message = f'{member.member.display_name} is not in a voice channel.'
             self.selected_member = None
             return False
@@ -229,7 +229,7 @@ class TempDeafenView(TempMuteView):
             self.error_message = f'{member.member.display_name} is still too new to be deafened.'
             self.selected_member = None
             return False
-        if not member.member.voice:
+        if not member.member.voice or not member.member.voice.channel.permissions_for(self.author.member).view_channel:
             self.error_message = f'{member.member.display_name} is not in a voice channel.'
             self.selected_member = None
             return False
