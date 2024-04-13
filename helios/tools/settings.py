@@ -91,7 +91,9 @@ class Settings:
         def get_embeds(values: list[SettingItem]):
             settings_string = ''
             for s in values:
-                settings_string += f'**{s.title()} - {s.type.__name__}**\nCurrent: {s.value}\n\n'
+                settings_string += (f'**{s.get_title()}**'
+                                    f'\n{"" if s.description is None else s.description}'
+                                    f'\n__{s.type.__name__}__ - Current: {s.value}\n\n')
             embed = discord.Embed(
                 title='Settings',
                 description=settings_string
@@ -104,7 +106,7 @@ class Settings:
             view.stop()
 
         settings = [x for x in self.all_settings()]
-        titles = [x.title() for x in settings]
+        titles = [x.get_title() for x in settings]
         view = PaginatorSelectView(settings, titles, get_embeds)
         button = discord.ui.Button(label='Close', style=discord.ButtonStyle.red)
         button.callback = MethodType(done, button)
@@ -168,11 +170,15 @@ class Settings:
 
 
 class SettingItem(Generic[V]):
-    def __init__(self, key: str, default_value: Optional[V], v_type: type[V], *, nullable=False):
+    def __init__(self, key: str, default_value: Optional[V], v_type: type[V], *, group=None, title=None,
+                 description=None, nullable=False):
         self.key: str = key
         self.value: Optional[V] = default_value
         self.type: type[V] = v_type
         self.nullable: bool = nullable
+        self.group = group
+        self.title = title
+        self.description = description
 
     def __repr__(self):
         return f'SettingItem<{self.type.__name__}, {self.value}>'
@@ -186,10 +192,11 @@ class SettingItem(Generic[V]):
         return hash(f'{self.type.__name__}.{self.key}.{self.value}')
 
     def copy(self):
-        return type(self)(self.key, self.value, self.type, nullable=self.nullable)
+        return type(self)(self.key, self.value, self.type, nullable=self.nullable, group=self.group, title=self.title,
+                          description=self.description)
 
-    def title(self):
-        return self.key.replace('_', ' ').title()
+    def get_title(self):
+        return self.key.replace('_', ' ').title() if self.title is None else self.title
 
     def to_dict(self) -> dict[str, V]:
         return {self.key: self.value}
@@ -200,20 +207,22 @@ class SettingItem(Generic[V]):
 
     def get_embed(self):
         return discord.Embed(
-            title=self.title(),
+            title=self.get_title(),
             description=f'{self.type.__name__}\n\nCurrent Value: {self.value}',
             colour=discord.Colour.green()
         )
 
 
 class StringSettingItem(SettingItem[str]):
-    def __init__(self, key: str, default_value: Optional[str] = None, *, nullable=False, max_length=100, min_length=0):
-        super().__init__(key, default_value, str, nullable=nullable)
+    def __init__(self, key: str, default_value: Optional[str] = None, *, group=None, title=None,
+                 description=None, nullable=False, max_length=100, min_length=0):
+        super().__init__(key, default_value, str, nullable=nullable, group=group, title=title, description=description)
         self.max_length = max_length
         self.min_length = min_length
 
     def copy(self):
-        return type(self)(self.key, self.value, nullable=self.nullable, max_length=self.max_length, min_length=self.min_length)
+        return type(self)(self.key, self.value, nullable=self.nullable, max_length=self.max_length,
+                          min_length=self.min_length, group=self.group, title=self.title, description=self.description)
 
 
 class SettingItemView(discord.ui.View):

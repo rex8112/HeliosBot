@@ -40,25 +40,52 @@ if TYPE_CHECKING:
 
 
 class ServerSettings(Settings):
-    archive_category = SettingItem('archive_category', None, discord.CategoryChannel)
-    topic_category = SettingItem('topic_category', None, discord.CategoryChannel)
-    voice_controller = SettingItem('voice_controller', None, discord.Role)
-    verified_role = SettingItem('verified_role', None, discord.Role)
-    partial = SettingItem('partial', 4, int)
-    points_per_minute = SettingItem('points_per_minute', 1, int)
+    archive_category = SettingItem('archive_category', None, discord.CategoryChannel,
+                                   group='Topic Settings', title='Archive Category',
+                                   description='The category to archive topics to.')
+    topic_category = SettingItem('topic_category', None, discord.CategoryChannel,
+                                 group='Topic Settings', title='Topic Category',
+                                 description='The category to create topics in.')
+    voice_controller = SettingItem('voice_controller', None, discord.Role,
+                                   group='Misc', title='In Game Voice Controller Role',
+                                   description='The role that signifies a user is in a voice controlled state.')
+    verified_role = SettingItem('verified_role', None, discord.Role,
+                                group='Misc', title='Verified Role',
+                                description='The role that signifies a user has been verified.')
+    partial = SettingItem('partial', 4, int,
+                          group='Points', title='Lonely Coefficient',
+                          description='The number of minutes it takes to earn a point when alone.')
+    points_per_minute = SettingItem('points_per_minute', 1, int,
+                                    group='Points', title='Points Per Minute',
+                                    description='The number of points a user earns per minute.')
+    points_name = SettingItem('points_name', 'mins', str,
+                              group='Points', title='Points Name',
+                              description='The name of the points.')
     private_create = SettingItem('private_create', None, discord.VoiceChannel)
-    dynamic_voice_category = SettingItem('dynamic_voice_category', None, discord.CategoryChannel)
-    points_name = SettingItem('points_name', 'mins', str)
-    mute_points_per_second = SettingItem('mute_points_per_second', 1, int)
-    mute_seconds_per_increase = SettingItem('mute_seconds_per_increase', 60, int)
-    music_points_per_minute = SettingItem('music_points_per_minute', 2, int)
-    deafen_points_per_second = SettingItem('deafen_points_per_second', 1, int)
-    deafen_seconds_per_increase = SettingItem('deafen_seconds_per_increase', 30, int)
-    gambling_category = SettingItem('gambling_category', None, discord.CategoryChannel)
+    dynamic_voice_category = SettingItem('dynamic_voice_category', None, discord.CategoryChannel,
+                                         group='Dynamic Voice', title='Dynamic Voice Category',
+                                         description='The category to create dynamic voice channels in.')
+    mute_points_per_second = SettingItem('mute_points_per_second', 1, int,
+                                         group='Shop', title='Mute: Points Per Second',
+                                         description='The number of points it costs to mute someone per second.')
+    mute_seconds_per_increase = SettingItem('mute_seconds_per_increase', 60, int,
+                                            group='Shop', title='Mute: Seconds Per Increase',
+                                            description='The number of seconds it takes to increase the mute cost.')
+    music_points_per_minute = SettingItem('music_points_per_minute', 2, int,
+                                          group='Music', title='Music: Points Per Minute',
+                                          description='The number of points it costs to play music per minute.')
+    deafen_points_per_second = SettingItem('deafen_points_per_second', 1, int,
+                                           group='Shop', title='Deafen: Points Per Second',
+                                           description='The number of points it costs to deafen someone per second.')
+    deafen_seconds_per_increase = SettingItem('deafen_seconds_per_increase', 30, int,
+                                              group='Shop', title='Deafen: Seconds Per Increase',
+                                              description='The number of seconds it takes to increase the deafen cost.')
+    gambling_category = SettingItem('gambling_category', None, discord.CategoryChannel,
+                                    group='Misc', title='Gambling Category',
+                                    description='The category to create gambling channels in.')
 
 
 class Server:
-
     def __init__(self, manager: 'ServerManager', guild: discord.Guild):
         self.loaded = False
         self.bot = manager.bot
