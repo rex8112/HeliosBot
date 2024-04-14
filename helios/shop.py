@@ -149,7 +149,7 @@ class Shop:
 
     @shop_item('Channel Shield')
     async def shop_channel_shield(self: ShopItem, member: 'HeliosMember', interaction: discord.Interaction):
-        """Shield yourself from all effects for a period of time."""
+        """Shield your channel from all effects for a period of time."""
         await interaction.response.defer(ephemeral=True, thinking=True)
         channel = member.member.voice.channel if member.member.voice else None
         if channel is None:
