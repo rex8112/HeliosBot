@@ -82,8 +82,8 @@ class EffectsManager:
         self.effects[target].append(effect)
 
     async def add_effect(self, effect: 'Effect'):
-        self._add_effect(effect)
         if await effect.apply():
+            self._add_effect(effect)
             effect.db_entry = await EffectModel.new(**effect.to_dict())
 
     async def remove_effect(self, effect: 'Effect'):
@@ -243,7 +243,6 @@ class MuteEffect(Effect):
                                 reason=f'Deflected mute on {self.target.member.name}',
                                 embed=embed)
             await self.muter.bot.effects.add_effect(effect)
-            await self.muter.bot.effects.remove_effect(self)
             await deflector.used()
             return False
 
