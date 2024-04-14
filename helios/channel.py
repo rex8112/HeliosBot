@@ -1,10 +1,32 @@
+#  MIT License
+#
+#  Copyright (c) 2023 Riley Winkler
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy
+#  of this software and associated documentation files (the "Software"), to deal
+#  in the Software without restriction, including without limitation the rights
+#  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#  copies of the Software, and to permit persons to whom the Software is
+#  furnished to do so, subject to the following conditions:
+#
+#  The above copyright notice and this permission notice shall be included in all
+#  copies or substantial portions of the Software.
+#
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+#  SOFTWARE.
+
 import datetime
 import json
 from typing import TYPE_CHECKING, Optional, Union
 
 import discord
 
-from .database import ChannelModel, update_model_instance
+from .database import ChannelModel, objects
 from .views import TopicView, VoiceView
 
 if TYPE_CHECKING:
@@ -72,11 +94,13 @@ class Channel:
 
     async def save(self):
         if self._new:
-            self.db_entry = ChannelModel.create(**self.serialize())
+            self.db_entry = await objects.create(ChannelModel, **self.serialize())
             self._new = False
         else:
-            update_model_instance(self.db_entry, self.serialize())
-            self.db_entry.save()
+            data = self.serialize()
+            del data['server']
+            self.db_entry.update_model_instance(self.db_entry, data)
+            await objects.update(self.db_entry)
 
     async def delete(self, del_channel=True):
         try:
@@ -87,7 +111,7 @@ class Channel:
         finally:
             if self._id in self.manager.channels:
                 self.manager.channels.pop(self._id)
-            self.db_entry.delete_instance()
+            await objects.delete(self.db_entry)
 
     def set_flag(self, flag: str, on: bool):
         if flag not in self._allowed_flags:
@@ -160,17 +184,11 @@ class TopicChannel(Channel):
 
     @property
     def archive_category(self) -> Optional[discord.CategoryChannel]:
-        channel_id = self.server.settings.archive_category
-        if channel_id:
-            return self.bot.get_channel(channel_id)
-        return None
+        return self.server.settings.archive_category.value
 
     @property
     def topic_category(self) -> Optional[discord.CategoryChannel]:
-        channel_id = self.server.settings.topic_category
-        if channel_id:
-            return self.bot.get_channel(channel_id)
-        return None
+        return self.server.settings.topic_category.value
 
     @property
     def tier(self):
@@ -420,13 +438,12 @@ class TopicChannel(Channel):
         return embed
 
     def _get_saved_embed(self) -> discord.Embed:
-        cur_tier = self.tier
-        word = 'Archive' if cur_tier > 1 else 'Deletion'
+        word = 'Archive'
         if self.get_flag('ARCHIVED'):
             embed = discord.Embed(
                 colour=discord.Colour.green(),
                 title='Channel Restored',
-                description=f'Channel restored at {cur_tier} tier.'
+                description=f'Channel restored.'
             )
         else:
             embed = discord.Embed(
@@ -516,10 +533,8 @@ class VoiceChannel(Channel):
 
     def get_template(self) -> Optional['VoiceTemplate']:
         if self.template_owner:
-            templates = list(filter(lambda x: x.name == self.template_name,
-                                    self.template_owner.templates))
-            if len(templates) > 0:
-                return templates[0]
+            if len(self.template_owner.templates) > 0:
+                return self.template_owner.templates[0]
             return None
         return None
 
@@ -535,7 +550,7 @@ class VoiceChannel(Channel):
             private_string = ('This channel **is __not__** visible to anyone '
                               'except admins and those in Allowed')
         embed = discord.Embed(
-            title=f'{self.channel.name} Menu',
+            title=f'{self.get_template().name if self.get_template() else self.channel.name} Menu',
             description=('Any and all settings are controlled from this '
                          'message.\n'
                          f'{owner_string}\n\n{private_string}'),
@@ -556,14 +571,18 @@ class VoiceChannel(Channel):
         return embed
 
     async def update_message(self):
+        if self.owner:
+            view = VoiceView(self)
+        else:
+            view = None
         if self._message is None:
             self._message = await self.channel.send(
                 embed=self._get_menu_embed(),
-                view=VoiceView(self)
+                view=view
             )
         else:
             await self._message.edit(embed=self._get_menu_embed(),
-                                     view=VoiceView(self))
+                                     view=view)
 
     async def allow(self, member: discord.Member):
         mem, perms = self.get_template().allow(member)
@@ -584,10 +603,11 @@ class VoiceChannel(Channel):
         await self.update_message()
 
     async def change_name(self, name: str):
-        self.last_name_change = datetime.datetime.now().astimezone()
-        await self.channel.edit(
-            name=name
-        )
+        if name != self.channel.name:
+            self.last_name_change = datetime.datetime.now().astimezone()
+            await self.channel.edit(
+                name=name
+            )
         template = self.get_template()
         template.name = name
         self.template_name = name
@@ -597,15 +617,11 @@ class VoiceChannel(Channel):
 
     async def neutralize(self):
         self.owner = None
-        await self.channel.edit(name=f'<Neutral> {self.channel.name}')
         await self.update_message()
+        await self.channel.edit(name=f'<Neutral> {self.channel.name}')
 
     # noinspection PyArgumentList
     async def apply_template(self, template: 'VoiceTemplate'):
-        await self.channel.edit(
-            name=template.name,
-            nsfw=template.nsfw
-        )
         self.template_name = template.name
         await self.update_permissions(template)
 

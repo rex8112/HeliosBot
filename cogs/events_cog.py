@@ -1,9 +1,31 @@
+#  MIT License
+#
+#  Copyright (c) 2023 Riley Winkler
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy
+#  of this software and associated documentation files (the "Software"), to deal
+#  in the Software without restriction, including without limitation the rights
+#  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#  copies of the Software, and to permit persons to whom the Software is
+#  furnished to do so, subject to the following conditions:
+#
+#  The above copyright notice and this permission notice shall be included in all
+#  copies or substantial portions of the Software.
+#
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+#  SOFTWARE.
+
 from typing import TYPE_CHECKING
 
 import discord
 from discord.ext import commands
 
-from helios.tools.views import YesNoView
+from helios import YesNoView
 
 if TYPE_CHECKING:
     from helios import HeliosBot
@@ -30,7 +52,7 @@ class EventsCog(commands.Cog):
     async def on_message(self, message: discord.Message):
         if message.author == self.bot.user:
             return
-        if message.guild.me in message.mentions and message.author.voice:
+        if message.guild and message.guild.me in message.mentions and message.author.voice:
             if not message.author.voice.channel:
                 return
             channel = message.author.voice.channel
@@ -48,7 +70,7 @@ class EventsCog(commands.Cog):
             )
             await view.wait()
             if view.value:
-                await message.channel.send(mention_string, allowed_mentions=discord.AllowedMentions(users=allowed))
+                await message.channel.send(mention_string)
             else:
                 try:
                     await mess.delete()

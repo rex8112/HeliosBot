@@ -1,15 +1,32 @@
+#  MIT License
+#
+#  Copyright (c) 2023 Riley Winkler
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy
+#  of this software and associated documentation files (the "Software"), to deal
+#  in the Software without restriction, including without limitation the rights
+#  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#  copies of the Software, and to permit persons to whom the Software is
+#  furnished to do so, subject to the following conditions:
+#
+#  The above copyright notice and this permission notice shall be included in all
+#  copies or substantial portions of the Software.
+#
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+#  SOFTWARE.
+
 import traceback
 from typing import TYPE_CHECKING
 
 from discord import ui, Interaction
 
-from .exceptions import BetError
-from .horses.enumerations import BetType
-
 if TYPE_CHECKING:
     from .server import Server
-    from .member import HeliosMember
-    from .horses.race import Race
     from .helios_bot import HeliosBot
     from .channel import VoiceChannel
 
@@ -28,76 +45,17 @@ class TopicCreation(ui.Modal, title='New Topic'):
         await interaction.response.send_message('Sorry, something went wrong.', ephemeral=True)
 
 
-class BetModal(ui.Modal, title=f'Bet'):
-    type = ui.TextInput(label='Bet Type', placeholder='win, place, show', required=True)
-    horse_name = ui.TextInput(label='Horse', placeholder='HorsesName or #', required=True)
-    amount = ui.TextInput(label='Amount', required=True)
-
-    def __init__(self, er: 'Race', member: 'HeliosMember'):
-        if len(er.name) > 41:
-            name = er.name[:41]
-        else:
-            name = er.name
-        super().__init__(title=f'{name} Bet',
-                         timeout=er.time_until_race.seconds)
-        self.race = er
-        self.member = member
-
-    async def on_submit(self, interaction: Interaction) -> None:
-        types: dict[str, BetType] = {
-            'win': BetType.win,
-            'place': BetType.place,
-            'show': BetType.show
-        }
-        if self.type.value.lower() not in ['place', 'win', 'show']:
-            raise BetError('Type must be win, place, or show.')
-        try:
-            amt = int(self.amount.value)
-        except ValueError:
-            raise BetError('Must input a valid number.')
-        try:
-            horse_index = int(self.horse_name.value)
-            horse = self.race.horses[horse_index - 1]
-        except (ValueError, IndexError):
-            horse = self.race.find_horse(self.horse_name.value)
-        if horse is None:
-            raise BetError('You must type a valid horse name or number that '
-                           'is registered to this race.')
-        if self.member.points < amt:
-            raise BetError(f'You only have {self.member.points} points.')
-        elif amt <= 0:
-            raise BetError('You have to actually bet something.')
-        self.race.bet(types[self.type.value.lower()], self.member, horse, amt)
-        self.member.points -= amt
-        await self.member.save()
-        await self.race.save()
-        await interaction.response.send_message(
-            f'You have placed a {types[self.type.value.lower()].name} bet on {horse.name} for {amt}.', ephemeral=True)
-        await self.race.message.edit(embed=self.race.get_betting_embed())
-
-    async def on_error(self, interaction: Interaction, error: Exception) -> None:
-        if isinstance(error, BetError):
-            await interaction.response.send_message(str(error), ephemeral=True)
-        else:
-            traceback.print_exc()
-            await interaction.response.send_message('Sorry, something went wrong.', ephemeral=True)
-
-
 class VoiceNameChange(ui.Modal, title='Change Name'):
     name = ui.TextInput(label='Name', min_length=3, max_length=25)
 
     def __init__(self, voice: 'VoiceChannel'):
         super().__init__()
         self.voice = voice
+        temp = self.voice.get_template()
+        self.name.default = temp.name
 
     async def on_submit(self, interaction: Interaction) -> None:
-        for template in self.voice.owner.templates:
-            if template.name.lower() == self.name.value.lower():
-                await interaction.response.send_message(
-                    'You already have a template with this name!',
-                    ephemeral=True
-                )
-                return
+        await interaction.response.send_message('Changing Name...', ephemeral=True)
         await self.voice.change_name(self.name.value)
 
     async def on_error(self, interaction: Interaction,
