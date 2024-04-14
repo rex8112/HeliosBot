@@ -186,6 +186,12 @@ class HeliosMember(HasFlags):
         return self.activity_points < 1440
 
     def is_shielded(self):
+        if self.member.voice is not None:
+            channel = self.member.voice.channel
+            if channel is not None:
+                channel = self.server.channels.dynamic_voice.channels.get(channel.id)
+                if channel.has_effect('channelshieldeffect'):
+                    return True
         return self.has_effect('shieldeffect')
 
     def profile(self) -> discord.Embed:

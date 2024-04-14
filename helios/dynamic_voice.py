@@ -62,6 +62,7 @@ class DynamicVoiceChannel:
         self.settings = VoiceSettings(self.bot)
 
         self.custom_name = None
+        self.prefix = ''
 
         self.db_entry = None
         self._unsaved = False
@@ -71,6 +72,10 @@ class DynamicVoiceChannel:
     @property
     def bot(self) -> 'HeliosBot':
         return self.server.bot
+
+    @property
+    def id(self):
+        return self.channel.id
 
     @property
     def number(self):
@@ -115,6 +120,10 @@ class DynamicVoiceChannel:
     def private(self, value: bool):
         self.settings.private.value = value
         self._unsaved = True
+
+    @property
+    def effects(self):
+        return self.bot.effects.get_effects(self)
 
     def serialize(self) -> dict:
         return {
@@ -185,6 +194,7 @@ class DynamicVoiceChannel:
                 new_name = self.group.get_game_name(self.number, game)
             else:
                 new_name = self.group.get_name(self.number)
+        new_name = self.prefix + new_name
 
         if new_name != self.channel.name and not self.name_on_cooldown():
             await self.channel.edit(name=new_name)
@@ -206,6 +216,13 @@ class DynamicVoiceChannel:
 
     def occupied(self):
         return len(self.channel.members) > 0
+
+    def has_effect(self, effect: str):
+        effects = self.effects
+        for e in effects:
+            if e.type.lower() == effect.lower():
+                return True
+        return False
 
 
 class DynamicVoiceGroupSettings(Settings):

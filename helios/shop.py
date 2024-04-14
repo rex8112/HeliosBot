@@ -24,8 +24,8 @@ from typing import Callable, TYPE_CHECKING, Awaitable, Optional
 
 import discord
 
-from .effects import MuteEffect, DeafenEffect, ShieldEffect, DeflectorEffect
-from .views import TempMuteView, TempDeafenView, DurationView
+from .effects import MuteEffect, DeafenEffect, ShieldEffect, DeflectorEffect, ChannelShieldEffect
+from .views import TempMuteView, TempDeafenView, DurationView, YesNoView
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
@@ -105,9 +105,80 @@ class Shop:
             await interaction.followup.send(embed=embed)
             return 0
         server = self.shop.bot.servers.get(interaction.guild_id)
+        view = YesNoView(member.member, timeout=30)
+        cost = 200
+        embed = discord.Embed(
+            title='Deflector',
+            description=f'Are you sure you want to purchase the deflector for up to one hour for {cost}?',
+            colour=discord.Colour.blurple()
+        )
+
+        message: discord.WebhookMessage = await interaction.followup.send(embed=embed, view=view)
+        if await view.wait():
+            embed = discord.Embed(
+                title='Timed out',
+                colour=discord.Colour.red()
+            )
+            await message.edit(embed=embed, view=None)
+            return 0
+
+        if not view.value:
+            embed = discord.Embed(
+                title='Cancelled',
+                colour=discord.Colour.red()
+            )
+            await message.edit(embed=embed, view=None)
+            return 0
+        if member.points < cost:
+            embed = discord.Embed(
+                title=f'Not Enough {member.server.points_name.capitalize()}',
+                colour=discord.Colour.red()
+            )
+            await message.edit(embed=embed, view=None)
+            return 0
+
+        embed = discord.Embed(
+            title='Purchased!',
+            colour=discord.Colour.green()
+        )
+        effect = DeflectorEffect(member, 60 * 60, cost=cost)
+        await server.bot.effects.add_effect(effect)
+        await message.edit(embed=embed, view=None)
+        return cost
+
+    @shop_item('Channel Shield')
+    async def shop_channel_shield(self: ShopItem, member: 'HeliosMember', interaction: discord.Interaction):
+        """Shield yourself from all effects for a period of time."""
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        channel = member.member.voice.channel if member.member.voice else None
+        if channel is None:
+            embed = discord.Embed(
+                title='Not in Voice',
+                description='You must be in a voice channel to purchase this item.',
+                colour=discord.Colour.red()
+            )
+            await interaction.followup.send(embed=embed)
+            return 0
+        channel = member.server.channels.dynamic_voice.channels.get(channel.id)
+        if channel is None:
+            embed = discord.Embed(
+                title='Not in Dynamic Voice',
+                description='You must be in a dynamic voice channel to purchase this item.',
+                colour=discord.Colour.red()
+            )
+            await interaction.followup.send(embed=embed)
+            return 0
+        if channel.has_effect('ChannelShieldEffect'):
+            embed = discord.Embed(
+                title='Shielded',
+                description='This channel is already shielded from effects.',
+                colour=discord.Colour.red()
+            )
+            await interaction.followup.send(embed=embed)
+            return 0
         view = DurationView(member, [('1 Hour', 1), ('2 Hours', 2), ('3 Hours', 3),
                                      ('4 Hours', 4), ('5 Hours', 5)],
-                            120, 'Hour(s)')
+                            300, 'Hour(s)')
         embed = view.get_embed()
 
         message: discord.WebhookMessage = await interaction.followup.send(embed=embed, view=view)
@@ -138,8 +209,8 @@ class Shop:
             title='Purchased!',
             colour=discord.Colour.green()
         )
-        effect = DeflectorEffect(member, view.selected_time * 60 * 60, cost=view.get_cost())
-        await server.bot.effects.add_effect(effect)
+        effect = ChannelShieldEffect(channel, view.selected_time * 60 * 60, cost=view.get_cost())
+        await channel.bot.effects.add_effect(effect)
         await message.edit(embed=embed, view=None)
         return view.get_cost()
 

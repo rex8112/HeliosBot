@@ -397,3 +397,33 @@ class DeflectorEffect(Effect):
         await super().remove()
         await self.target.member.send(embed=embed)
 
+
+class ChannelShieldEffect(Effect):
+    def __init__(self, target: 'DynamicVoiceChannel', duration: int, *, cost: int = None,
+                 shielder: 'HeliosMember' = None):
+        super().__init__(target, duration)
+        self.cost = cost
+        self.shielder = shielder
+
+    def to_dict_extras(self):
+        return {
+            'cost': self.cost,
+            'shielder': self.shielder.id if self.shielder else None
+        }
+
+    def load_extras(self, data: dict):
+        self.cost = data.get('cost', self.cost)
+        self.shielder = self.target.server.members.get(data.get('shielder')) if data.get('shielder') else None
+
+    async def apply(self):
+        await super().apply()
+        self.target.prefix = '🫧'
+        return True
+
+    async def remove(self):
+        await super().remove()
+        self.target.prefix = ''
+
+    async def enforce(self):
+        self.target.prefix = '🫧'
+
