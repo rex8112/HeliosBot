@@ -232,14 +232,14 @@ class MuteEffect(Effect):
         return embed
 
     async def apply(self):
-        if self.target.has_effect('DeflectorEffect'):
+        if self.target.has_effect('DeflectorEffect') and not self.force:
             deflector = next(effect for effect in self.target.effects if isinstance(effect, DeflectorEffect))
             embed = discord.Embed(
                 title='Mute Deflected',
                 colour=discord.Colour.red(),
                 description=f'You tried to mute {self.target.member.name}, but it was deflected!'
             )
-            effect = MuteEffect(self.muter, self.duration, cost=self.cost, force=self.force,
+            effect = MuteEffect(self.muter, self.duration, cost=self.cost, force=True,
                                 reason=f'Deflected mute on {self.target.member.name}',
                                 embed=embed)
             await self.muter.bot.effects.add_effect(effect)
@@ -300,14 +300,14 @@ class DeafenEffect(Effect):
         return embed
 
     async def apply(self):
-        if self.target.has_effect('DeflectorEffect'):
+        if self.target.has_effect('DeflectorEffect') and not self.force:
             deflector = next(effect for effect in self.target.effects if isinstance(effect, DeflectorEffect))
             embed = discord.Embed(
                 title='Deafen Deflected',
                 colour=discord.Colour.red(),
                 description=f'You tried to deafen {self.target.member.name}, but it was deflected!'
             )
-            effect = DeafenEffect(self.deafener, self.duration, cost=self.cost, force=self.force,
+            effect = DeafenEffect(self.deafener, self.duration, cost=self.cost, force=True,
                                   reason=f'Deflected deafen on {self.target.member.name}',
                                   embed=embed)
             await self.deafener.bot.effects.add_effect(effect)
