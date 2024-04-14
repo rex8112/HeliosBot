@@ -80,6 +80,17 @@ class ServerSettings(Settings):
     deafen_seconds_per_increase = SettingItem('deafen_seconds_per_increase', 30, int,
                                               group='Shop', title='Deafen: Seconds Per Increase',
                                               description='The number of seconds it takes to increase the deafen cost.')
+    shield_points_per_hour = SettingItem('shield_points_per_hour', 100, int,
+                                         group='Shop', title='Shield: Points Per Second',
+                                         description='The number of points it costs to shield someone per hour.')
+    deflector_points_per_hour = SettingItem('shield_points_per_hour', 200, int,
+                                            group='Shop', title='Deflector: Points Per Second',
+                                            description='The number of points it costs to put a deflector on per hour.')
+    channel_shield_points_per_hour = SettingItem('channel_shield_points_per_hour', 300, int,
+                                                 group='Shop', title='Channel Shield: Points Per Second',
+                                                 description='The number of points it costs to shield a channel per '
+                                                             'hour.')
+
     gambling_category = SettingItem('gambling_category', None, discord.CategoryChannel,
                                     group='Misc', title='Gambling Category',
                                     description='The category to create gambling channels in.')

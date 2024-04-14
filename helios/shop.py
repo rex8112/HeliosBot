@@ -28,6 +28,7 @@ from .effects import MuteEffect, DeafenEffect, ShieldEffect, DeflectorEffect, Ch
 from .views import TempMuteView, TempDeafenView, DurationView, YesNoView
 
 if TYPE_CHECKING:
+    from .server import Server
     from .helios_bot import HeliosBot
     from .member import HeliosMember
 
@@ -104,9 +105,9 @@ class Shop:
             )
             await interaction.followup.send(embed=embed)
             return 0
-        server = self.shop.bot.servers.get(interaction.guild_id)
+        server = self.shop.bot.servers.get(interaction.guild_id)  # type: Server
+        cost = server.settings.deflector_points_per_hour.value
         view = YesNoView(member.member, timeout=30)
-        cost = 200
         embed = discord.Embed(
             title='Deflector',
             description=f'Are you sure you want to purchase the deflector for up to one hour for {cost}?',
@@ -176,9 +177,11 @@ class Shop:
             )
             await interaction.followup.send(embed=embed)
             return 0
+        server = self.shop.bot.servers.get(interaction.guild_id)  # type: Server
+        cost = server.settings.channel_shield_points_per_hour.value
         view = DurationView(member, [('1 Hour', 1), ('2 Hours', 2), ('3 Hours', 3),
                                      ('4 Hours', 4), ('5 Hours', 5)],
-                            300, 'Hour(s)')
+                            cost, 'Hour(s)')
         embed = view.get_embed()
 
         message: discord.WebhookMessage = await interaction.followup.send(embed=embed, view=view)
@@ -226,10 +229,11 @@ class Shop:
             )
             await interaction.followup.send(embed=embed)
             return 0
-        server = self.shop.bot.servers.get(interaction.guild_id)
+        server = self.shop.bot.servers.get(interaction.guild_id)  # type: Server
+        cost = server.settings.shield_points_per_hour.value
         view = DurationView(member, [('1 Hour', 1), ('2 Hours', 2), ('3 Hours', 3),
                                      ('4 Hours', 4), ('5 Hours', 5)],
-                            60, 'Hour(s)')
+                            cost, 'Hour(s)')
         embed = view.get_embed()
 
         message: discord.WebhookMessage = await interaction.followup.send(embed=embed, view=view)
