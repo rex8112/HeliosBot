@@ -232,7 +232,7 @@ class MuteEffect(Effect):
         return embed
 
     async def apply(self):
-        if self.target.has_effect('DeflectorEffect'):
+        if self.target.has_effect('DeflectorEffect') and not self.force:
             deflector = next(effect for effect in self.target.effects if isinstance(effect, DeflectorEffect))
             embed = discord.Embed(
                 title='Mute Deflected',
@@ -300,7 +300,7 @@ class DeafenEffect(Effect):
         return embed
 
     async def apply(self):
-        if self.target.has_effect('DeflectorEffect'):
+        if self.target.has_effect('DeflectorEffect') and not self.force:
             deflector = next(effect for effect in self.target.effects if isinstance(effect, DeflectorEffect))
             embed = discord.Embed(
                 title='Deafen Deflected',
