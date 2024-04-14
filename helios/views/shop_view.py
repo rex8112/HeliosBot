@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from ..server import Server
     from ..member import HeliosMember
 
-__all__ = ('ShopView', 'TempMuteView', 'TempDeafenView')
+__all__ = ('ShopView', 'TempMuteView', 'TempDeafenView', 'DurationView')
 
 
 class ShopView(discord.ui.View):
@@ -54,6 +54,72 @@ class ShopView(discord.ui.View):
             )
             button.callback = MethodType(callback, button)
             self.add_item(button)
+
+
+class DurationView(discord.ui.View):
+    def __init__(self, author: 'HeliosMember', options: list[tuple[str, int]] = None, price_per_time: int = 1,
+                 time_label: str = 'Seconds'):
+        super().__init__(timeout=180)
+        self.author = author
+        self.selected_time: int = 1
+        self.confirmed = False
+        self.error_message: str = ''
+        self.options = options or [('5s', 5), ('15s', 15), ('30s', 30), ('45s', 45), ('60s', 60)]
+        self.time_label = time_label
+        self.price_per_second = price_per_time
+        self.build_buttons()
+
+    def get_cost(self):
+        return self.selected_time * self.price_per_second
+
+    def get_embed(self) -> discord.Embed:
+        embed = discord.Embed(
+            title='Duration',
+            colour=discord.Colour.blurple(),
+            description=self.error_message
+        )
+        embed.add_field(name='Duration', value=f'{self.selected_time:,} {self.time_label}')
+        embed.add_field(name='Price', value=f'{self.get_cost()} {self.author.server.points_name.capitalize()}')
+        embed.set_footer(text=f'Your {self.author.server.points_name.capitalize()}: {self.author.points}')
+        return embed
+
+    async def reload_message(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        embed = self.get_embed()
+        await interaction.edit_original_response(embed=embed, view=self)
+
+    def make_callback(self, seconds: int):
+        async def callback(_: discord.ui.Button, interaction: discord.Interaction):
+            self.selected_time = seconds
+            await self.reload_message(interaction)
+        return callback
+
+    def build_buttons(self):
+        for label, seconds in self.options:
+            button = discord.ui.Button(
+                style=discord.ButtonStyle.grey,
+                label=label
+            )
+            button.callback = MethodType(self.make_callback(seconds), button)
+            self.add_item(button)
+
+    @discord.ui.button(label='Purchase', style=discord.ButtonStyle.green, row=2)
+    async def confirm_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
+        await interaction.response.defer()
+        self.confirmed = True
+        self.stop()
+
+    @discord.ui.button(label='Cancel', style=discord.ButtonStyle.red, row=2)
+    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
+        await interaction.response.defer()
+        self.stop()
+
 
 
 class TempMuteView(discord.ui.View):
@@ -119,7 +185,7 @@ class TempMuteView(discord.ui.View):
             self.error_message = f'You can not mute me.'
             self.selected_member = None
             return False
-        if member.has_effect('shieldeffect'):
+        if member.is_shielded():
             self.error_message = f'{member.member.display_name} is shielded.'
             self.selected_member = None
             return False
@@ -245,7 +311,7 @@ class TempDeafenView(TempMuteView):
             self.error_message = f'You can not deafen me, that would be a waste. I\'m not programmed to hear you.'
             self.selected_member = None
             return False
-        if member.has_effect('shieldeffect'):
+        if is_shielded(member):
             self.error_message = f'{member.member.display_name} is shielded.'
             self.selected_member = None
             return False

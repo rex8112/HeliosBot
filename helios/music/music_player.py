@@ -145,7 +145,7 @@ class MusicPlayer:
                     await interaction.followup.send('Sorry, I could not get that, is it private or typed wrong?')
                     return
                 await server.music_player.add_song(song)
-                await interaction.followup.send(content=f'Added {song.title} to the queue')
+                await interaction.followup.send(content=f'Added {song.get_title} to the queue')
         else:
             await interaction.followup.send(content='Invalid URL Given')
 

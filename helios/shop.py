@@ -24,8 +24,8 @@ from typing import Callable, TYPE_CHECKING, Awaitable, Optional
 
 import discord
 
-from .effects import MuteEffect, DeafenEffect
-from .views import TempMuteView, TempDeafenView
+from .effects import MuteEffect, DeafenEffect, ShieldEffect, DeflectorEffect
+from .views import TempMuteView, TempDeafenView, DurationView
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
@@ -92,11 +92,128 @@ class Shop:
                 items.append(attr)
         return items
 
+    @shop_item('Deflector')
+    async def shop_deflector(self: ShopItem, member: 'HeliosMember', interaction: discord.Interaction):
+        """Deflect a mute or deafen effect back to sender."""
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        if member.is_shielded():
+            embed = discord.Embed(
+                title='Shielded',
+                description='You are already shielded from effects.',
+                colour=discord.Colour.red()
+            )
+            await interaction.followup.send(embed=embed)
+            return 0
+        server = self.shop.bot.servers.get(interaction.guild_id)
+        view = DurationView(member, [('1 Hour', 1), ('2 Hours', 2), ('3 Hours', 3),
+                                     ('4 Hours', 4), ('5 Hours', 5)],
+                            120, 'Hour(s)')
+        embed = view.get_embed()
+
+        message: discord.WebhookMessage = await interaction.followup.send(embed=embed, view=view)
+        if await view.wait():
+            embed = discord.Embed(
+                title='Timed out',
+                colour=discord.Colour.red()
+            )
+            await message.edit(embed=embed, view=None)
+            return 0
+
+        if not view.confirmed:
+            embed = discord.Embed(
+                title='Cancelled',
+                colour=discord.Colour.red()
+            )
+            await message.edit(embed=embed, view=None)
+            return 0
+        if member.points < view.get_cost():
+            embed = discord.Embed(
+                title=f'Not Enough {member.server.points_name.capitalize()}',
+                colour=discord.Colour.red()
+            )
+            await message.edit(embed=embed, view=None)
+            return 0
+
+        embed = discord.Embed(
+            title='Purchased!',
+            colour=discord.Colour.green()
+        )
+        effect = DeflectorEffect(member, view.selected_time * 60 * 60, cost=view.get_cost())
+        await server.bot.effects.add_effect(effect)
+        await message.edit(embed=embed, view=None)
+        return view.get_cost()
+
+    @shop_item('Shield')
+    async def shop_shield(self: ShopItem, member: 'HeliosMember', interaction: discord.Interaction):
+        """Shield yourself from all effects for a period of time."""
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        if member.is_shielded():
+            embed = discord.Embed(
+                title='Shielded',
+                description='You are already shielded from effects.',
+                colour=discord.Colour.red()
+            )
+            await interaction.followup.send(embed=embed)
+            return 0
+        server = self.shop.bot.servers.get(interaction.guild_id)
+        view = DurationView(member, [('1 Hour', 1), ('2 Hours', 2), ('3 Hours', 3),
+                                     ('4 Hours', 4), ('5 Hours', 5)],
+                            60, 'Hour(s)')
+        embed = view.get_embed()
+
+        message: discord.WebhookMessage = await interaction.followup.send(embed=embed, view=view)
+        if await view.wait():
+            embed = discord.Embed(
+                title='Timed out',
+                colour=discord.Colour.red()
+            )
+            await message.edit(embed=embed, view=None)
+            return 0
+
+        if not view.confirmed:
+            embed = discord.Embed(
+                title='Cancelled',
+                colour=discord.Colour.red()
+            )
+            await message.edit(embed=embed, view=None)
+            return 0
+        if member.points < view.get_cost():
+            embed = discord.Embed(
+                title=f'Not Enough {member.server.points_name.capitalize()}',
+                colour=discord.Colour.red()
+            )
+            await message.edit(embed=embed, view=None)
+            return 0
+
+        embed = discord.Embed(
+            title='Purchased!',
+            colour=discord.Colour.green()
+        )
+        effect = ShieldEffect(member, view.selected_time * 60 * 60, cost=view.get_cost())
+        await server.bot.effects.add_effect(effect)
+        await message.edit(embed=embed, view=None)
+        return view.get_cost()
+
     @shop_item('Mute')
     async def shop_mute(self: ShopItem, member: 'HeliosMember', interaction: discord.Interaction):
-        """Price: variable
-        Server mute someone who is in a voice channel for an amount of time."""
+        """Server mute someone who is in a voice channel for an amount of time."""
         await interaction.response.defer(ephemeral=True, thinking=True)
+        if member.is_shielded():
+            embed = discord.Embed(
+                title='Shielded',
+                description='You are currently shielded from effects.',
+                colour=discord.Colour.red()
+            )
+            await interaction.followup.send(embed=embed)
+            return 0
+        if member.member.voice is None:
+            embed = discord.Embed(
+                title='Not in Voice',
+                description='You must be in a voice channel to purchase this item.',
+                colour=discord.Colour.red()
+            )
+            await interaction.followup.send(embed=embed)
+            return 0
         server = self.shop.bot.servers.get(interaction.guild_id)
         view = TempMuteView(member)
         embed = view.get_embed()
@@ -138,9 +255,24 @@ class Shop:
 
     @shop_item('Deafen')
     async def shop_deafen(self: ShopItem, member: 'HeliosMember', interaction: discord.Interaction):
-        """Price: variable
-        Server deafen someone who is in a voice channel for an amount of time."""
+        """Server deafen someone who is in a voice channel for an amount of time."""
         await interaction.response.defer(ephemeral=True, thinking=True)
+        if member.is_shielded():
+            embed = discord.Embed(
+                title='Shielded',
+                description='You are currently shielded from effects.',
+                colour=discord.Colour.red()
+            )
+            await interaction.followup.send(embed=embed)
+            return 0
+        if member.member.voice is None:
+            embed = discord.Embed(
+                title='Not in Voice',
+                description='You must be in a voice channel to purchase this item.',
+                colour=discord.Colour.red()
+            )
+            await interaction.followup.send(embed=embed)
+            return 0
         server = self.shop.bot.servers.get(interaction.guild_id)
         view = TempDeafenView(member)
         embed = view.get_embed()

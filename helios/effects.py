@@ -26,6 +26,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Union, Optional
 
 import discord
+from discord.utils import utcnow
 from playhouse.shortcuts import model_to_dict
 
 from .database import EffectModel
@@ -82,8 +83,8 @@ class EffectsManager:
 
     async def add_effect(self, effect: 'Effect'):
         self._add_effect(effect)
-        await effect.apply()
-        effect.db_entry = await EffectModel.new(**effect.to_dict())
+        if await effect.apply():
+            effect.db_entry = await EffectModel.new(**effect.to_dict())
 
     async def remove_effect(self, effect: 'Effect'):
         target = effect.target
@@ -121,7 +122,9 @@ class Effect:
     def time_left(self):
         if self._applied_at is None:
             return self.duration
-        return self.duration - (datetime.now().astimezone() - self._applied_at).total_seconds()
+        now = utcnow()
+        diff = now - self._applied_at
+        return self.duration - diff.total_seconds()
 
     def serialize_target(self) -> Union[str, int]:
         name = type(self.target).__name__
@@ -167,7 +170,7 @@ class Effect:
     @classmethod
     def from_dict(cls, data: dict, bot: 'HeliosBot'):
         for subcls in cls.__subclasses__():
-            if subcls.type == data['type']:
+            if subcls.__name__ == data['type']:
                 return subcls.from_dict(data, bot)
         target = cls.deserialize_target(data['target'], bot)
         if target is None:
@@ -179,8 +182,9 @@ class Effect:
         return effect
 
     async def apply(self):
-        self._applied_at = datetime.now().astimezone()
+        self._applied_at = utcnow()
         self.applied = True
+        return True
 
     async def enforce(self):
         raise NotImplementedError
@@ -228,9 +232,25 @@ class MuteEffect(Effect):
         return embed
 
     async def apply(self):
+        if self.target.has_effect('DeflectorEffect'):
+            deflector = next(effect for effect in self.target.effects if isinstance(effect, DeflectorEffect))
+            embed = discord.Embed(
+                title='Mute Deflected',
+                colour=discord.Colour.red(),
+                description=f'You tried to mute {self.target.member.name}, but it was deflected!'
+            )
+            effect = MuteEffect(self.muter, self.duration, cost=self.cost, force=self.force,
+                                reason=f'Deflected mute on {self.target.member.name}',
+                                embed=embed)
+            await self.muter.bot.effects.add_effect(effect)
+            await self.muter.bot.effects.remove_effect(self)
+            await deflector.used()
+            return False
+
         await super().apply()
         await self.target.voice_mute(reason=self.reason)
         await self.target.member.send(embed=self.get_mute_embed())
+        return True
 
     async def remove(self):
         await super().remove()
@@ -281,13 +301,29 @@ class DeafenEffect(Effect):
         return embed
 
     async def apply(self):
+        if self.target.has_effect('DeflectorEffect'):
+            deflector = next(effect for effect in self.target.effects if isinstance(effect, DeflectorEffect))
+            embed = discord.Embed(
+                title='Deafen Deflected',
+                colour=discord.Colour.red(),
+                description=f'You tried to deafen {self.target.member.name}, but it was deflected!'
+            )
+            effect = DeafenEffect(self.deafener, self.duration, cost=self.cost, force=self.force,
+                                  reason=f'Deflected deafen on {self.target.member.name}',
+                                  embed=embed)
+            await self.deafener.bot.effects.add_effect(effect)
+            await self.deafener.bot.effects.remove_effect(self)
+            await deflector.used()
+            return False
         await super().apply()
         await self.target.voice_deafen(reason=self.reason)
+        return True
 
     async def remove(self):
         await super().remove()
         await self.target.voice_undeafen()
-        await self.target.member.send(embed=self.get_deafen_embed())
+        if not self.target.has_effect('DeflectorEffect'):
+            await self.target.member.send(embed=self.get_deafen_embed())
 
     async def enforce(self):
         voice = self.target.member.voice
@@ -315,6 +351,7 @@ class ShieldEffect(Effect):
             await self.target.member.edit(nick=f'🚫{self.target.member.display_name}')
         except Exception as e:
             logger.error(f'Error applying shield effect: {e}', exc_info=True)
+        return True
 
     async def remove(self):
         await super().remove()
@@ -330,4 +367,33 @@ class ShieldEffect(Effect):
                 await self.target.member.edit(nick='🚫' + name)
             except Exception as e:
                 logger.error(f'Error enforcing shield effect: {e}', exc_info=True)
+
+
+class DeflectorEffect(Effect):
+    def __init__(self, target: 'HeliosMember', duration: int, *, cost: int = None):
+        super().__init__(target, duration)
+        self.cost = cost
+
+    def to_dict_extras(self):
+        return {
+            'cost': self.cost
+        }
+
+    async def used(self):
+        await self.target.bot.effects.remove_effect(self)
+
+    def load_extras(self, data: dict):
+        self.cost = data.get('cost', self.cost)
+
+    async def enforce(self):
+        pass
+
+    async def remove(self):
+        embed = discord.Embed(
+            title='Deflector Expired',
+            colour=discord.Colour.red(),
+            description='Your deflector has expired!'
+        )
+        await super().remove()
+        await self.target.member.send(embed=embed)
 

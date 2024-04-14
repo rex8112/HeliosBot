@@ -185,6 +185,9 @@ class HeliosMember(HasFlags):
     def is_noob(self):
         return self.activity_points < 1440
 
+    def is_shielded(self):
+        return self.has_effect('shieldeffect')
+
     def profile(self) -> discord.Embed:
         embed = discord.Embed(
             title=self.member.display_name,
