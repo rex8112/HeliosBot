@@ -41,13 +41,9 @@ class HTTPError(HeliosException):
         super().__init__(f'Error Code: {status_code}: {message}', *args)
 
 
-class HorseError(HeliosException):
+class MusicError(HeliosException):
     ...
 
 
-class BetError(HorseError):
-    ...
-
-
-class BidError(HorseError):
+class ConnectError(MusicError):
     ...
