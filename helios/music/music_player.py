@@ -34,6 +34,7 @@ from discord.utils import format_dt
 from .playlist import Playlist, YoutubePlaylist
 from .song import Song
 from ..colour import Colour
+from ..exceptions import ConnectError
 from ..views.generic_views import YesNoView
 
 if TYPE_CHECKING:
@@ -128,8 +129,9 @@ class MusicPlayer:
                     return
                 cost = playlist.total_cost
                 if member.points < cost:
-                    await interaction.followup.send(content=f'Not enough {server.points_name.capitalize()} to play this playlist. '
-                                                            f'Cost: {cost} {server.points_name.capitalize()}')
+                    await interaction.followup.send(content=f'Not enough {server.points_name.capitalize()} to play this'
+                                                            f' playlist. Cost: {cost} '
+                                                            f'{server.points_name.capitalize()}')
                     return
                 view = YesNoView(interaction.user)
                 message = await interaction.followup.send(content=f'Would you like to shuffle this playlist?', view=view)
@@ -145,7 +147,7 @@ class MusicPlayer:
                     await interaction.followup.send('Sorry, I could not get that, is it private or typed wrong?')
                     return
                 await server.music_player.add_song(song)
-                await interaction.followup.send(content=f'Added {song.get_title} to the queue')
+                await interaction.followup.send(content=f'Added {song.title} to the queue')
         else:
             await interaction.followup.send(content='Invalid URL Given')
 
@@ -163,10 +165,17 @@ class MusicPlayer:
             await self._vc.move_to(channel)
         else:
             logger.debug(f'{self.server.name}: Music Player: Joining {channel.name}')
-            try:
-                self._vc = await channel.connect(self_deaf=True)
-            except asyncio.TimeoutError:
-                self._vc = await channel.connect(self_deaf=True)
+            tries = 0
+            while not self.is_connected() and tries < 3:
+                try:
+                    self._vc = await channel.connect(self_deaf=True)
+                except (asyncio.TimeoutError, discord.HTTPException) as e:
+                    logger.error(f'{self.server.name}: Music Player: Failed to join {channel.name}: {e}')
+                    await asyncio.sleep(1)
+                tries += 1
+
+            if not self.is_connected():
+                raise ConnectError(f'Failed to join {channel.name}')
             logger.debug(f'{self.server.name}: Music Player: Joined {channel.name}')
         self._leaving = False
         self._control_view = MusicPlayerView(self)
