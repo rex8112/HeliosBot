@@ -311,7 +311,7 @@ class TempDeafenView(TempMuteView):
             self.error_message = f'You can not deafen me, that would be a waste. I\'m not programmed to hear you.'
             self.selected_member = None
             return False
-        if is_shielded(member):
+        if member.is_shielded():
             self.error_message = f'{member.member.display_name} is shielded.'
             self.selected_member = None
             return False
