@@ -19,9 +19,10 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+import json
 import logging
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Union
 
 import discord
 
@@ -43,6 +44,9 @@ class VoiceSettings(Settings):
     group = SettingItem('group', None, int)
     private = SettingItem('private', False, bool)
     owner = SettingItem('owner', None, discord.Member)
+    template = StringSettingItem('template', None)
+    control_message = SettingItem('control_message', None, discord.Message)
+    inactive = SettingItem('inactive', False, bool)
 
 
 def get_game_activity(member: discord.Member):
@@ -125,6 +129,36 @@ class DynamicVoiceChannel:
     def effects(self):
         return self.bot.effects.get_effects(self)
 
+    @property
+    def template(self):
+        return VoiceTemplate(self.h_owner, self.channel.name, data=json.loads(self.settings.template.value))
+
+    @template.setter
+    def template(self, value: Optional[VoiceTemplate]):
+        if value is None:
+            self.settings.template.value = None
+        else:
+            self.settings.template.value = json.dumps(value.serialize())
+        self._unsaved = True
+
+    @property
+    def _control_message(self) -> Union[discord.Message, discord.PartialMessage, None]:
+        return self.settings.control_message.value
+
+    @_control_message.setter
+    def _control_message(self, value: discord.Message):
+        self.settings.control_message.value = value
+        self._unsaved = True
+
+    @property
+    def inactive(self) -> bool:
+        return self.settings.inactive.value
+
+    @inactive.setter
+    def inactive(self, value: bool):
+        self.settings.inactive.value = value
+        self._unsaved = True
+
     def serialize(self) -> dict:
         return {
             'channel': self.channel.id,
@@ -165,6 +199,17 @@ class DynamicVoiceChannel:
         await self.channel.delete()
 
     # Methods
+    async def get_control_message(self):
+        if self._control_message:
+            if not isinstance(self._control_message, discord.Message):
+                try:
+                    return await self._control_message.fetch()
+                except discord.NotFound:
+                    ...
+            else:
+                return self._control_message
+        return None
+
     def get_majority_game(self):
         games = {None: 0}
         for member in self.channel.members:
@@ -200,14 +245,22 @@ class DynamicVoiceChannel:
             await self.channel.edit(name=new_name)
             self._last_name_change = datetime.now().astimezone()
 
-    def build_template(self) -> VoiceTemplate:
-        template = VoiceTemplate(self.h_owner, self.channel.name)
-        for member, perms in self.channel.overwrites.items():
-            if isinstance(member, discord.Member):
-                if perms.connect:
-                    template.allow(member)
-                else:
-                    template.deny(member)
+    def build_template(self, owner: 'HeliosMember') -> VoiceTemplate:
+        template = VoiceTemplate(owner, self.channel.name)
+        channel = self.channel
+        last_template = owner.templates[0] if owner.templates else None
+        if last_template:
+            use = True
+            for member in channel.members:
+                if member.id in last_template.denied:
+                    use = False
+                    break
+            if use:
+                template = last_template
+        else:
+            for member in channel.members:
+                template.allow(member)
+            template.private = True
         return template
 
     async def apply_template(self, template: VoiceTemplate):
@@ -223,6 +276,37 @@ class DynamicVoiceChannel:
             if e.type.lower() == effect.lower():
                 return True
         return False
+
+    async def make_private(self, owner: 'HeliosMember'):
+        if not self.private:
+            self.owner = owner.member
+            self.private = True
+            template = self.build_template(owner)
+            self.template = template
+            await self.apply_template(template)
+            await self.save()
+
+    async def unmake_private(self):
+        if self.private:
+            self.private = False
+            self.template = None
+            self.owner = None
+            await self.channel.purge(limit=None, bulk=True, check=lambda x: x != self._control_message)
+
+    async def make_active(self):
+        if self.inactive:
+            self.inactive = False
+            await self.update_name()
+            await self.channel.edit(sync_permissions=True)
+            await self.save()
+
+    async def make_inactive(self):
+        if not self.inactive:
+            self.inactive = True
+            await self.channel.edit(
+                overwrites={self.server.guild.default_role: discord.PermissionOverwrite(view_channel=False)}
+            )
+            await self.save()
 
 
 class DynamicVoiceGroupSettings(Settings):
