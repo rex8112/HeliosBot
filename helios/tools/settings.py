@@ -125,6 +125,8 @@ class Settings:
             return item.value
         elif item.type in (discord.CategoryChannel, discord.VoiceChannel, discord.TextChannel, discord.Role):
             return item.value.id
+        elif item.type is discord.Message:
+            return f'{item.value.channel.id}:{item.value.id}'
 
     def deserialize_item(self, v_type: type, value: Any):
         if value is None:
@@ -141,6 +143,10 @@ class Settings:
             return self.get_role(int(value))
         elif v_type in (discord.CategoryChannel, discord.VoiceChannel, discord.TextChannel):
             return self.bot.get_channel(int(value))
+        elif v_type is discord.Message:
+            channel_id, message_id = value.split(':')
+            channel = self.bot.get_channel(int(channel_id))
+            return channel.get_partial_message(int(message_id))
 
     def get_role(self, role_id: int) -> Optional[discord.Role]:
         for guild in self.bot.guilds:
