@@ -100,6 +100,10 @@ class ChannelManager:
             if v.alive is False:
                 deletes_keys.append(k)
                 deletes.append(v.delete(del_channel=False))
+        for k, v in self.dynamic_voice.channels.items():
+            if v.alive is False:
+                deletes_keys.append(k)
+                deletes.append(v.delete())
         if len(deletes) > 0:
             await asyncio.gather(*deletes)
             for k in deletes_keys:

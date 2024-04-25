@@ -49,7 +49,7 @@ class DynamicVoiceState(Enum):
 class VoiceSettings(Settings):
     number = SettingItem('number', 1, int)
     group = SettingItem('group', None, int)
-    state = SettingItem('state', 0, int)
+    state = SettingItem('state', 1, int)
     owner = SettingItem('owner', None, discord.Member)
     template = StringSettingItem('template', None)
     control_message = SettingItem('control_message', None, discord.Message)
@@ -98,12 +98,12 @@ class DynamicVoiceChannel:
         self._unsaved = True
 
     @property
-    def group(self) -> 'DynamicVoiceGroup':
-        return self.manager.groups[self.settings.group.value]
+    def group(self) -> Optional['DynamicVoiceGroup']:
+        return self.manager.groups[self.settings.group.value] if self.settings.group.value is not None else None
 
     @group.setter
-    def group(self, value: 'DynamicVoiceGroup'):
-        self.settings.group.value = value.id
+    def group(self, value: Optional['DynamicVoiceGroup']):
+        self.settings.group.value = value.id if value else None
         self._unsaved = True
 
     @property
@@ -166,6 +166,17 @@ class DynamicVoiceChannel:
         self.settings.inactive.value = value
         self._unsaved = True
 
+    @property
+    def inactive_overwrites(self):
+        return {self.server.guild.default_role: discord.PermissionOverwrite(view_channel=False)}
+
+    @property
+    def alive(self):
+        if self.channel is not None and self.bot.get_channel(self.id):
+            return True
+        else:
+            return False
+
     def serialize(self) -> dict:
         return {
             'channel': self.channel.id,
@@ -203,7 +214,10 @@ class DynamicVoiceChannel:
     async def delete(self):
         await DynamicVoiceModel.async_delete(self.db_entry)
         del self.manager.channels[self.channel.id]
-        await self.channel.delete()
+        try:
+            await self.channel.delete()
+        except discord.NotFound:
+            ...
 
     # Methods
     async def get_control_message(self):
@@ -238,6 +252,8 @@ class DynamicVoiceChannel:
         return datetime.now().astimezone() - self._last_name_change < self.NAME_COOLDOWN
 
     async def update_name(self):
+        if self.state == DynamicVoiceState.INACTIVE:
+            return
         if self.custom_name:
             new_name = self.custom_name
         else:
@@ -287,6 +303,7 @@ class DynamicVoiceChannel:
     async def make_private(self, owner: 'HeliosMember'):
         """Make the channel private."""
         if self.state != DynamicVoiceState.PRIVATE:
+            self.unmake_active()
             self.owner = owner.member
             self.state = DynamicVoiceState.PRIVATE
             template = self.build_template(owner)
@@ -301,22 +318,30 @@ class DynamicVoiceChannel:
             self.owner = None
             await self.channel.purge(limit=None, bulk=True, check=lambda x: x != self._control_message)
 
-    async def make_active(self):
+    async def make_active(self, group: 'DynamicVoiceGroup'):
         """Make the channel active."""
         if self.state != DynamicVoiceState.ACTIVE:
             await self.unmake_private()
             self.state = DynamicVoiceState.ACTIVE
-            self.number = self.manager.get_next_number(self.group)
+            self.number = self.manager.get_next_number(group)
+            self.group = group
             await self.channel.edit(sync_permissions=True)
             await self.save()
+
+    def unmake_active(self):
+        """Unmake the channel active."""
+        if self.state == DynamicVoiceState.ACTIVE:
+            self.group = None
+            self.number = 0
 
     async def make_inactive(self):
         """Make the channel inactive."""
         if self.state != DynamicVoiceState.INACTIVE:
+            self.unmake_active()
             await self.unmake_private()
             self.state = DynamicVoiceState.INACTIVE
             await self.channel.edit(
-                overwrites={self.server.guild.default_role: discord.PermissionOverwrite(view_channel=False)}
+                overwrites=self.inactive_overwrites
             )
             await self.save()
 
@@ -438,6 +463,14 @@ class DynamicVoiceGroup:
             await DynamicVoiceGroupModel.async_update(self.db_entry, **self.serialize())
 
 
+def need_sorting(all_channels):
+    discord_channels = all_channels[0].channel.category.voice_channels
+    for i, channel in enumerate(all_channels):
+        if channel.channel != discord_channels[i]:
+            return True
+    return False
+
+
 class VoiceManager:
     def __init__(self, server: 'Server'):
         self.server = server
@@ -445,6 +478,10 @@ class VoiceManager:
         self.groups: dict[int, DynamicVoiceGroup] = {}
 
         self._setup = False
+
+    @property
+    def inactive_overwrites(self):
+        return {self.server.guild.default_role: discord.PermissionOverwrite(view_channel=False)}
 
     async def setup(self):
         groups = await DynamicVoiceGroup.get_all(self.server)
@@ -457,12 +494,20 @@ class VoiceManager:
         self._setup = True
 
     async def sort_channels(self):
-        pos = 0
+        all_channels = []
         for group in self.groups.values():
-            channels = sorted(self.get_group_channels(group), key=lambda x: x.number)
-            for channel in channels:
-                await channel.channel.edit(position=pos)
-                pos += 1
+            all_channels += sorted(self.get_active(group), key=lambda x: x.number)
+
+        for channel in all_channels:  # Make sure all channels are in the correct category
+            category = self.server.settings.dynamic_voice_category.value
+            if channel.channel.category != self.server.guild.get_channel(
+                    self.server.settings.dynamic_voice_category.value.id):
+                logger.warning(f'{channel.channel.name} was not in the correct category. Moving it.')
+                await channel.channel.edit(category=category)
+
+        if need_sorting(all_channels):
+            for i, channel in enumerate(all_channels):
+                await channel.channel.edit(position=i)
 
     async def update_names(self):
         for channel in self.channels.values():
@@ -472,48 +517,66 @@ class VoiceManager:
         if not self._setup:
             return
 
+        all_max = 0
         logger.debug(f'{self.server.name}: Voice Manager: Checking Groups')
         for group in self.groups.values():
+            all_max += group.max
             active = self.get_active(group)
             empty = sorted(self.get_empty(group), key=lambda x: x.number, reverse=True)
-            inactive = self.get_inactive(group)
-            total = len(active) + len(inactive)
             channels_to_change = 0
-            if len(active) < group.min:
+            if len(active) < group.min:  # If there are not enough active channels to meet the minimum
                 channels_to_change = group.min - len(active)
-            elif len(empty) < group.min_empty:
+            elif len(empty) < group.min_empty:  # If there are not enough empty channels to meet the empty minimum
                 channels_to_change = group.min_empty - len(empty)
-            elif len(empty) > group.min_empty:
+            elif len(empty) > group.min_empty:  # If there are too many empty channels
                 channels_to_change = group.min_empty - len(empty)
 
-            channels_to_change = min(channels_to_change, group.max - len(active))
-            channels_to_change = max(channels_to_change, group.min - len(active))
+            channels_to_change = min(channels_to_change, group.max - len(active))  # Keep at most the maximum
+            channels_to_change = max(channels_to_change, group.min - len(active))  # Keep at least the minimum
+            logger.debug(f'{self.server.name}: Voice Manager: {group.template} - {channels_to_change} channels to change')
 
             if channels_to_change > 0:
                 for _ in range(channels_to_change):
-                    if len(inactive) > 0:
-                        await inactive.pop().make_active()
-                    else:
-                        await self.create_channel(group)
+                    channel = await self.get_inactive_channel()
+                    await channel.make_active(group)
             elif channels_to_change < 0:
                 for i, empty in enumerate(empty):
                     if i < abs(channels_to_change):
                         await empty.make_inactive()
+                    else:
+                        break
+
+        # Check if the group has too many channels and remove inactive channels to try and meet that
+        inactive = self.get_inactive()
+        if 0 < all_max < len(inactive):
+            to_delete = len(inactive) - all_max
+            for i in range(to_delete):
+                try:
+                    await inactive.pop().delete()
+                except IndexError:
+                    break
 
         logger.debug(f'{self.server.name}: Voice Manager: Updating Names')
         await self.update_names()
         logger.debug(f'{self.server.name}: Voice Manager: Sorting Channels')
         await self.sort_channels()
 
-    async def create_channel(self, group: 'DynamicVoiceGroup'):
-        number = self.get_next_number(group)
+    async def get_inactive_channel(self):
+        inactive = self.get_inactive()
+        ready_inactive = list(filter(lambda x: x.name_on_cooldown() is False, inactive))
+
+        if len(ready_inactive) > 0:
+            return ready_inactive.pop()
+        else:
+            return await self.create_channel()
+
+    async def create_channel(self):
         channel = await self.server.guild.create_voice_channel(
-            name=group.get_name(number),
-            category=self.server.guild.get_channel(self.server.settings.dynamic_voice_category.value.id)
+            name='Inactive Channel',
+            category=self.server.settings.dynamic_voice_category.value,
+            overwrites=self.inactive_overwrites
         )
         channel = await DynamicVoiceChannel.create(self, channel)
-        channel.group = group
-        channel.number = number
         await channel.save()
         self.channels[channel.channel.id] = channel
         return channel
@@ -537,23 +600,34 @@ class VoiceManager:
                 return i
         return len(channels) + 1
 
-    def get_group_channels(self, group: 'DynamicVoiceGroup'):
-        return list(filter(lambda x: x.group == group, self.channels.values()))
+    def get_group_channels(self, group: 'DynamicVoiceGroup') -> list[DynamicVoiceChannel]:
+        try:
+            return list(filter(lambda x: x.group == group, self.channels.values()))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            return []
 
-    def get_active(self, group: 'DynamicVoiceGroup' = None):
+    def get_active(self, group: 'DynamicVoiceGroup' = None) -> list[DynamicVoiceChannel]:
         if group:
             return list(filter(lambda x: x.state == DynamicVoiceState.ACTIVE and x.group == group, self.channels.values()))
         else:
             return list(filter(lambda x: x.state == DynamicVoiceState.ACTIVE, self.channels.values()))
 
-    def get_inactive(self, group: 'DynamicVoiceGroup' = None):
+    def get_inactive(self, group: 'DynamicVoiceGroup' = None) -> list[DynamicVoiceChannel]:
         if group:
             return list(filter(lambda x: x.state == DynamicVoiceState.INACTIVE and x.group == group,
                                self.channels.values()))
         else:
             return list(filter(lambda x: x.state == DynamicVoiceState.INACTIVE, self.channels.values()))
 
-    def get_empty(self, group: 'DynamicVoiceGroup' = None):
+    def get_private(self, group: 'DynamicVoiceGroup' = None) -> list[DynamicVoiceChannel]:
+        if group:
+            return list(filter(lambda x: x.state == DynamicVoiceState.PRIVATE and x.group == group,
+                               self.channels.values()))
+        else:
+            return list(filter(lambda x: x.state == DynamicVoiceState.PRIVATE, self.channels.values()))
+
+    def get_empty(self, group: 'DynamicVoiceGroup' = None) -> list[DynamicVoiceChannel]:
         if group:
             active = self.get_active(group)
         else:
