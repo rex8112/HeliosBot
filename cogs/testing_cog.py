@@ -80,7 +80,7 @@ class TestingCog(commands.Cog):
         await interaction.response.send_message(embed=embed, file=discord.File(b, 'river.png'))
         b.close()
 
-    @app_commands.command(name='activity')
+    # @app_commands.command(name='activity')
     async def activity_command(self, interaction: discord.Interaction):
         """ /activity """
         guild = self.bot.get_guild(interaction.guild_id)
