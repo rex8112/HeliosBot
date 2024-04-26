@@ -47,7 +47,7 @@ class VoiceSettings(Settings):
 
 def get_game_activity(member: discord.Member):
     for activity in member.activities:
-        if not isinstance(activity, discord.CustomActivity):
+        if not isinstance(activity, discord.CustomActivity) and activity.name != 'Hang Status':
             return activity.name
 
 

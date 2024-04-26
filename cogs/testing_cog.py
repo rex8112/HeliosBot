@@ -87,7 +87,7 @@ class TestingCog(commands.Cog):
         message = ''
         for channels in guild.voice_channels:
             for member in channels.members:
-                activity = ', '.join([a.name for a in member.activities])
+                activity = ', '.join([' - '.join([type(a).__name__, a.name]) for a in member.activities])
                 if activity:
                     message += f'{member.display_name}: {activity}\n'
                 else:
