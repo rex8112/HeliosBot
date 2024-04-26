@@ -231,6 +231,9 @@ class DynamicVoiceChannel:
                 return self._control_message
         return None
 
+    async def update_control_message(self):
+        message = await self.get_control_message()
+
     def get_majority_game(self):
         games = {None: 0}
         for member in self.channel.members:
