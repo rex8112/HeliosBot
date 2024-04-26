@@ -80,7 +80,7 @@ class TestingCog(commands.Cog):
         await interaction.response.send_message(embed=embed, file=discord.File(b, 'river.png'))
         b.close()
 
-    # @app_commands.command(name='activity')
+    @app_commands.command(name='activity')
     async def activity_command(self, interaction: discord.Interaction):
         """ /activity """
         guild = self.bot.get_guild(interaction.guild_id)
@@ -89,7 +89,7 @@ class TestingCog(commands.Cog):
             for member in channels.members:
                 activity = ', '.join([a.name for a in member.activities])
                 if activity:
-                    message += f'{member.display_name}: {activity}\n'
+                    message += f'{member.display_name}: {type(activity).__name__} - {activity}\n'
                 else:
                     message += f'{member.display_name}: None\n'
         await interaction.response.send_message(f'```{message}```')
