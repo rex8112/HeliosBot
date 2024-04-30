@@ -58,6 +58,10 @@ class VoiceTemplate:
         if data:
             self._deserialize(data)
 
+    def __eq__(self, o: object) -> bool:
+        if isinstance(o, VoiceTemplate):
+            return self.serialize() == o.serialize()
+
     @property
     def permissions(self) -> list[tuple[Union[discord.Role, discord.Member],
                                         discord.PermissionOverwrite]]:

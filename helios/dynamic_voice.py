@@ -79,6 +79,8 @@ class DynamicVoiceChannel:
         self._unsaved = False
         self._last_name_change = datetime.now().astimezone() - self.NAME_COOLDOWN
 
+        self._template = None
+
     # Properties
     @property
     def bot(self) -> 'HeliosBot':
@@ -138,7 +140,13 @@ class DynamicVoiceChannel:
 
     @property
     def template(self):
-        return VoiceTemplate(self.h_owner, self.channel.name, data=json.loads(self.settings.template.value))
+        if self._template:
+            return self._template
+        temp = VoiceTemplate(self.h_owner, self.channel.name, data=json.loads(self.settings.template.value))
+        if temp in self.h_owner.templates:
+            temp = self.h_owner.templates[self.h_owner.templates.index(temp)]
+        self._template = temp
+        return temp
 
     @template.setter
     def template(self, value: Optional[VoiceTemplate]):
@@ -146,6 +154,7 @@ class DynamicVoiceChannel:
             self.settings.template.value = None
         else:
             self.settings.template.value = json.dumps(value.serialize())
+        self._template = value
         self._unsaved = True
 
     @property
@@ -231,8 +240,20 @@ class DynamicVoiceChannel:
                 return self._control_message
         return None
 
-    async def update_control_message(self):
+    async def send_control_message(self):
+        if self._control_message:
+            try:
+                await self._control_message.delete()
+            except discord.NotFound:
+                ...
+        message = await self.channel.send('This is a control message.')
+        self._control_message = message
+        await self.save()
+
+    async def update_control_message(self, force=False):
         message = await self.get_control_message()
+        if force or message is None or self.channel.last_message != message:
+            await self.send_control_message()
 
     def get_majority_game(self):
         games = {None: 0}
@@ -292,6 +313,7 @@ class DynamicVoiceChannel:
     async def apply_template(self, template: VoiceTemplate):
         await self.channel.edit(overwrites=template.overwrites)
         self.custom_name = template.name
+        self.template = template
 
     def occupied(self):
         return len(self.channel.members) > 0
