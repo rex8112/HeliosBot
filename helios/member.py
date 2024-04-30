@@ -190,7 +190,7 @@ class HeliosMember(HasFlags):
             channel = self.member.voice.channel
             if channel is not None:
                 channel = self.server.channels.dynamic_voice.channels.get(channel.id)
-                if channel.has_effect('channelshieldeffect'):
+                if channel is not None and channel.has_effect('channelshieldeffect'):
                     return True
         return self.has_effect('shieldeffect')
 
