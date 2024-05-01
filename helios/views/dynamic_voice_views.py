@@ -54,7 +54,9 @@ class DynamicVoiceView(ui.View):
     async def dynamic_private(self, button: ui.Button, interaction: Interaction):
         member = self.voice.server.members.get(interaction.user.id)
         if member.member in self.voice.channel.members:
-            ...  # TODO: Convert Channel Process, VOTE unless Move Member permission
+            # TODO: Convert Channel Process, VOTE unless Move Member permission
+            channel = await self.voice.manager.get_inactive_channel()
+            await channel.make_private(member)
         else:
             ...  # TODO: New Channel Process
 
