@@ -50,6 +50,14 @@ class DynamicVoiceView(ui.View):
     async def dynamic_split(self, button: ui.Button, interaction: Interaction):
         ...
 
+    @ui.button(label='Private', style=ButtonStyle.blurple)
+    async def dynamic_private(self, button: ui.Button, interaction: Interaction):
+        member = self.voice.server.members.get(interaction.user.id)
+        if member.member in self.voice.channel.members:
+            ...  # TODO: Convert Channel Process, VOTE unless Move Member permission
+        else:
+            ...  # TODO: New Channel Process
+
 
 class PrivateVoiceView(ui.View):
     def __init__(self, voice: 'DynamicVoiceChannel'):

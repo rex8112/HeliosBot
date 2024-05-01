@@ -78,6 +78,7 @@ class DynamicVoiceChannel:
         self.db_entry = None
         self._unsaved = False
         self._last_name_change = datetime.now().astimezone() - self.NAME_COOLDOWN
+        self._private_on = datetime.now().astimezone()
 
         self._template = None
 
@@ -278,7 +279,9 @@ class DynamicVoiceChannel:
     async def update_name(self):
         if self.state == DynamicVoiceState.INACTIVE:
             return
-        if self.custom_name:
+        if self.state == DynamicVoiceState.PRIVATE:
+            new_name = self.template.name
+        elif self.custom_name:
             new_name = self.custom_name
         else:
             game = self.get_majority_game()
@@ -325,6 +328,17 @@ class DynamicVoiceChannel:
                 return True
         return False
 
+    def remain_private(self):
+        before = datetime.now().astimezone() - timedelta(minutes=5)
+        if self.state != DynamicVoiceState.PRIVATE:
+            return False
+        if len(self.channel.members) > 0:
+            return True
+        elif self._private_on > before:
+            return True
+        else:
+            return False
+
     async def make_private(self, owner: 'HeliosMember'):
         """Make the channel private."""
         if self.state != DynamicVoiceState.PRIVATE:
@@ -333,6 +347,7 @@ class DynamicVoiceChannel:
             self.state = DynamicVoiceState.PRIVATE
             template = self.build_template(owner)
             self.template = template
+            self._private_on = datetime.now().astimezone()
             await self.apply_template(template)
             await self.save()
 
