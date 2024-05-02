@@ -26,7 +26,7 @@ import discord
 
 from helios.tools.modals import PageModal
 
-__all__ = ('PaginatorView', 'PaginatorSelectView', 'YesNoView', 'SelectMemberView')
+__all__ = ('PaginatorView', 'PaginatorSelectView', 'YesNoView', 'SelectMemberView', 'VoteView')
 
 T = TypeVar('T', bound=Hashable)
 
