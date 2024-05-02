@@ -85,8 +85,16 @@ class DynamicVoiceView(ui.View):
 
 
 class PrivateVoiceView(DynamicVoiceView):
+    @ui.button(label='Make Public', style=ButtonStyle.red)
+    async def dynamic_public(self, interaction: Interaction, _: ui.Button):
+        if self.voice.name_on_cooldown():
+            await interaction.response.send_message(content='Can not change to public while name is on cooldown.',
+                                                    ephemeral=True)
+            return
+        # TODO: Finish Method
+
     @ui.button(label='Change Name', style=discord.ButtonStyle.gray,
-               custom_id='voice:name')
+               custom_id='voice:name', row=2)
     async def change_name(self, interaction: discord.Interaction,
                           _: ui.Button):
         voice: 'DynamicVoiceChannel' = self.voice
@@ -99,7 +107,7 @@ class PrivateVoiceView(DynamicVoiceView):
         now = datetime.now().astimezone()
         await interaction.response.send_modal(VoiceNameChange(voice))
 
-    @ui.button(label='Make Private', style=discord.ButtonStyle.green)
+    @ui.button(label='Make Private', style=discord.ButtonStyle.green, row=2)
     async def whitelist(self, interaction: discord.Interaction,
                         _: ui.Button):
         voice: 'DynamicVoiceChannel' = self.voice
@@ -116,7 +124,7 @@ class PrivateVoiceView(DynamicVoiceView):
         await voice.update_control_message(force=True)
         await template.save()
 
-    @ui.button(label='Make Public', style=discord.ButtonStyle.red)
+    @ui.button(label='Make Public', style=discord.ButtonStyle.red, row=2)
     async def blacklist(self, interaction: discord.Interaction,
                         _: ui.Button):
         voice: 'DynamicVoiceChannel' = self.voice
@@ -133,7 +141,7 @@ class PrivateVoiceView(DynamicVoiceView):
         await voice.update_control_message(force=True)
         await template.save()
 
-    @ui.button(label='Templates')
+    @ui.button(label='Templates', row=2)
     async def templates(self, interaction: discord.Interaction, _: ui.Button):
         if self.voice.owner != interaction.user:
             await interaction.response.send_message(
@@ -187,6 +195,7 @@ class TemplateView(ui.View):
         self.voice = voice
         self.owner = self.voice.h_owner
         self.templates = self.voice.h_owner.templates
+        self.new_template_button.label = 'New Template' if self.voice.template.is_stored() else 'Save Current Template'
         self.refresh_select()
 
     def refresh_select(self):
@@ -252,10 +261,14 @@ class TemplateView(ui.View):
 
     @discord.ui.button(label='New Template', style=discord.ButtonStyle.green)
     async def new_template_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        temp = self.new_template()
-        await interaction.response.edit_message(content='Applying Template...', embed=None, view=None)
-        await self.voice.apply_template(temp)
-        await self.voice.update_control_message(force=True)
+        if self.voice.template.is_stored():
+            temp = self.new_template()
+            await interaction.response.edit_message(content='Applying Template...', embed=None, view=None)
+            await self.voice.apply_template(temp)
+            await self.voice.update_control_message(force=True)
+        else:
+            await interaction.response.edit_message(content='Adding Current Template...', embed=None, view=None)
+            self.templates.insert(0, self.voice.template)
         await self.save()
         self.stop()
 

@@ -151,5 +151,8 @@ class VoiceTemplate:
             'denied': list(self.denied.keys())
         }
 
+    def is_stored(self):
+        return self in self.owner.templates
+
     async def save(self):
         await self.owner.save(force=True)
