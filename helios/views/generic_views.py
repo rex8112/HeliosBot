@@ -200,6 +200,8 @@ class VoteView(discord.ui.View):
         self.time = time
 
         self.votes: dict[discord.Member, bool] = {}
+        for voter in self.voters:
+            self.votes[voter] = self.default
 
     def get_results(self):
         yes = 0
