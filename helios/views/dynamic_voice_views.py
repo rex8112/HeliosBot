@@ -21,7 +21,10 @@
 #  SOFTWARE.
 from typing import TYPE_CHECKING
 
-from discord import ui, ButtonStyle, Interaction
+import discord
+from discord import ui, ButtonStyle, Interaction, Color, Embed
+
+from .generic_views import VoteView
 
 if TYPE_CHECKING:
     from ..dynamic_voice import DynamicVoiceChannel
@@ -39,26 +42,44 @@ class DynamicVoiceView(ui.View):
         ...
 
     @ui.button(label='Shop', style=ButtonStyle.blurple)
-    async def dynamic_shop(self, button: ui.Button, interaction: Interaction):
+    async def dynamic_shop(self, interaction: Interaction, button: ui.Button):
         ...
 
     @ui.button(label='Game Controller', style=ButtonStyle.blurple)
-    async def dynamic_game_controller(self, button: ui.Button, interaction: Interaction):
+    async def dynamic_game_controller(self, interaction: Interaction, button: ui.Button):
         ...
 
     @ui.button(label='Split', style=ButtonStyle.blurple)
-    async def dynamic_split(self, button: ui.Button, interaction: Interaction):
+    async def dynamic_split(self, interaction: Interaction, button: ui.Button):
         ...
 
     @ui.button(label='Private', style=ButtonStyle.blurple)
-    async def dynamic_private(self, button: ui.Button, interaction: Interaction):
+    async def dynamic_private(self, interaction: Interaction, button: ui.Button):
         member = self.voice.server.members.get(interaction.user.id)
+        # If member is in the channel, try to convert current channel to private.
         if member.member in self.voice.channel.members:
-            # TODO: Convert Channel Process, VOTE unless Move Member permission
+            # If member has the ability to move members, make the channel private without a vote.
+            if self.voice.channel.permissions_for(member.member).move_members:
+                await self.voice.make_private(member)
+            else:
+                # TODO: Vote Process
+                embed = Embed(title='Vote to Make Channel Private',
+                              description='Would you like to make this channel private?\n'
+                                          '**Vote Expires in 30 seconds.**',
+                              color=Color.blurple())
+                view = VoteView(set(self.voice.channel.members), time=30)
+                mentions = ' '.join([m.mention for m in self.voice.channel.members])
+                await interaction.response.send_message(content=mentions, embed=embed, view=view)
+                message = await interaction.original_response()
+                await view.wait()
+                if view.get_result():
+                    await message.edit(content='Vote Passed', view=None, embed=None, delete_after=10)
+                    await self.voice.make_private(member)
+                else:
+                    await message.edit(content='Vote Failed', view=None, embed=None, delete_after=10)
+        else:
             channel = await self.voice.manager.get_inactive_channel()
             await channel.make_private(member)
-        else:
-            ...  # TODO: New Channel Process
 
 
 class PrivateVoiceView(ui.View):
