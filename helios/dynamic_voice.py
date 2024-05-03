@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Optional, Union
 import discord
 
 from .database import DynamicVoiceGroupModel, DynamicVoiceModel
+from .views import DynamicVoiceView, PrivateVoiceView
 from .tools.settings import Settings, SettingItem, StringSettingItem
 from .voice_template import VoiceTemplate
 
@@ -247,7 +248,11 @@ class DynamicVoiceChannel:
                 await self._control_message.delete()
             except discord.NotFound:
                 ...
-        message = await self.channel.send('This is a control message.')
+        if self.state == DynamicVoiceState.PRIVATE:
+            view = PrivateVoiceView(self)
+        else:
+            view = DynamicVoiceView(self)
+        message = await self.channel.send(embed=view.get_embed(), view=view)
         self._control_message = message
         await self.save()
 
@@ -553,6 +558,11 @@ class VoiceManager:
         for channel in self.channels.values():
             await channel.update_name()
 
+    async def update_control_messages(self):
+        for channel in self.channels.values():
+            if channel.state != DynamicVoiceState.INACTIVE:
+                await channel.update_control_message()
+
     async def check_channels(self):
         if not self._setup:
             return
@@ -596,6 +606,8 @@ class VoiceManager:
                 except IndexError:
                     break
 
+        logger.debug(f'{self.server.name}: Voice Manager: Updating Control Messages')
+        await self.update_control_messages()
         logger.debug(f'{self.server.name}: Voice Manager: Updating Names')
         await self.update_names()
         logger.debug(f'{self.server.name}: Voice Manager: Sorting Channels')

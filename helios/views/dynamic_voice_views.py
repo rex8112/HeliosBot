@@ -32,6 +32,9 @@ if TYPE_CHECKING:
     from ..dynamic_voice import DynamicVoiceChannel
 
 
+__all__ = ('DynamicVoiceView', 'PrivateVoiceView')
+
+
 class DynamicVoiceView(ui.View):
     def __init__(self, voice: 'DynamicVoiceChannel'):
         super().__init__(timeout=None)
@@ -41,7 +44,10 @@ class DynamicVoiceView(ui.View):
         self.dynamic_split.disabled = True
 
     def get_embed(self):
-        ...
+        return Embed(
+            title=f'{self.voice.channel.name}',
+            color=Color.blurple()
+        )
 
     @ui.button(label='Shop', style=ButtonStyle.blurple)
     async def dynamic_shop(self, interaction: Interaction, button: ui.Button):
