@@ -29,7 +29,7 @@ from .generic_views import VoteView, YesNoView
 from ..modals import VoiceNameChange
 
 if TYPE_CHECKING:
-    from ..dynamic_voice import DynamicVoiceChannel
+    from ..dynamic_voice import DynamicVoiceChannel, DynamicVoiceGroup
 
 
 class DynamicVoiceView(ui.View):
@@ -63,6 +63,8 @@ class DynamicVoiceView(ui.View):
             # If member has the ability to move members, make the channel private without a vote.
             if self.voice.channel.permissions_for(member.member).move_members:
                 await self.voice.make_private(member)
+                await self.voice.update_name()
+                await self.voice.update_control_message(force=True)
             else:
                 # TODO: Vote Process
                 embed = Embed(title='Vote to Make Channel Private',
@@ -77,6 +79,8 @@ class DynamicVoiceView(ui.View):
                 if view.get_result():
                     await message.edit(content='Vote Passed', view=None, embed=None, delete_after=10)
                     await self.voice.make_private(member)
+                    await self.voice.update_name()
+                    await self.voice.update_control_message(force=True)
                 else:
                     await message.edit(content='Vote Failed', view=None, embed=None, delete_after=10)
         else:
@@ -85,13 +89,43 @@ class DynamicVoiceView(ui.View):
 
 
 class PrivateVoiceView(DynamicVoiceView):
+    def __init__(self, voice: 'DynamicVoiceChannel'):
+        super().__init__(voice)
+        self.remove_item(self.dynamic_private)
+
     @ui.button(label='Make Public', style=ButtonStyle.red)
     async def dynamic_public(self, interaction: Interaction, _: ui.Button):
+        member = self.voice.server.members.get(interaction.user.id)
         if self.voice.name_on_cooldown():
             await interaction.response.send_message(content='Can not change to public while name is on cooldown.',
                                                     ephemeral=True)
             return
-        # TODO: Finish Method
+        # If member is the owner or has the ability to move members, make the channel public without a vote.
+        if self.voice.owner == interaction.user or self.voice.channel.permissions_for(member.member).move_members:
+            group = list(self.voice.manager.groups.values())[0]
+            await self.voice.make_active(group)
+            await self.voice.update_name()
+            await self.voice.update_control_message(force=True)
+            await interaction.response.send_message(content='Channel is now public.', ephemeral=True)
+            return
+        # Start Vote Process
+        embed = Embed(title='Vote to Make Channel Public',
+                      description='Would you like to make this channel public?\n'
+                                  '**Vote Expires in 30 seconds.**',
+                      color=Color.blurple())
+        view = VoteView(set(self.voice.channel.members), time=30)
+        mentions = ' '.join([m.mention for m in self.voice.channel.members])
+        await interaction.response.send_message(content=mentions, embed=embed, view=view)
+        message = await interaction.original_response()
+        await view.wait()
+        if view.get_result():
+            await message.edit(content='Vote Passed', view=None, embed=None, delete_after=10)
+            group = list(self.voice.manager.groups.values())[0]
+            await self.voice.make_active(group)
+            await self.voice.update_name()
+            await self.voice.update_control_message(force=True)
+        else:
+            await message.edit(content='Vote Failed', view=None, embed=None, delete_after=10)
 
     @ui.button(label='Change Name', style=discord.ButtonStyle.gray,
                custom_id='voice:name', row=2)
