@@ -26,7 +26,10 @@ import discord
 from discord import ui, ButtonStyle, Interaction, Color, Embed
 
 from .generic_views import VoteView, YesNoView
+from ..colour import Colour
 from ..modals import VoiceNameChange
+from .shop_view import ShopView
+from .voice_view import VoiceControllerView
 
 if TYPE_CHECKING:
     from ..dynamic_voice import DynamicVoiceChannel
@@ -38,8 +41,6 @@ class DynamicVoiceView(ui.View):
     def __init__(self, voice: 'DynamicVoiceChannel'):
         super().__init__(timeout=None)
         self.voice = voice
-        self.dynamic_shop.disabled = True
-        self.dynamic_game_controller.disabled = True
         self.dynamic_split.disabled = True
 
     def get_embed(self):
@@ -55,11 +56,45 @@ class DynamicVoiceView(ui.View):
 
     @ui.button(label='Shop', style=ButtonStyle.blurple)
     async def dynamic_shop(self, interaction: Interaction, button: ui.Button):
-        ...
+        server = self.voice.bot.servers.get(interaction.guild_id)
+        embed = discord.Embed(
+            title=f'{interaction.guild.name} Shop',
+            colour=Colour.helios(),
+            description='Available Items'
+        )
+        [embed.add_field(name=x.name, value=x.desc, inline=False) for x in server.shop.items]
+        view = ShopView(server)
+        await interaction.response.send_message(embed=embed, view=view)
 
     @ui.button(label='Game Controller', style=ButtonStyle.blurple)
     async def dynamic_game_controller(self, interaction: Interaction, button: ui.Button):
-        ...
+        if interaction.user not in self.voice.channel.members:
+            await interaction.response.send_message(content='You are not in the channel.', ephemeral=True)
+            return
+        modal = GameControllerModal()
+        await interaction.response.send_modal(modal)
+        if await modal.wait():
+            return
+        name = modal.name
+        maximum = modal.maximum
+        mute = modal.mute
+        deafen = modal.deafen
+        allow_dead = modal.allow_dead
+
+        server = self.voice.bot.servers.get(interaction.guild_id)
+        role = server.voice_controller_role
+        if role is None:
+            await server.guild.create_role(name='VoiceControlled', permissions=discord.Permissions.none())
+        member = await server.members.fetch(interaction.user.id)
+        if member.member.voice:
+            channel = member.member.voice.channel
+        else:
+            return
+        view = VoiceControllerView(server, channel, name=name, maximum=maximum, allow_dead=allow_dead)
+        view.mute = mute
+        view.deafen = deafen
+        await view.join(member.member)
+        view.message = await interaction.channel.send(embed=view.embed, view=view)
 
     @ui.button(label='Split', style=ButtonStyle.blurple)
     async def dynamic_split(self, interaction: Interaction, button: ui.Button):
@@ -97,6 +132,33 @@ class DynamicVoiceView(ui.View):
             channel = await self.voice.manager.get_inactive_channel()
             await channel.make_private(member)
             await interaction.followup.send(f'{channel.channel.mention} created and set to private.')
+
+
+class GameControllerModal(ui.Modal, title='Game Controller Settings'):
+    name = ui.TextInput(label='Name', required=True)
+    maximum = ui.TextInput(label='Maximum', required=True)
+    mute = ui.TextInput(label='Mute', required=True, default='False')
+    deafen = ui.TextInput(label='Deafen', required=True, default='True')
+    allow_dead = ui.TextInput(label='Allow Dead', required=True, default='True')
+
+    def __init__(self, *, timeout=30):
+        super().__init__(timeout=timeout)
+
+    async def on_submit(self, interaction: Interaction) -> None:
+        try:
+            self.name = self.name.value
+            self.maximum = int(self.maximum.value)
+            self.mute = self.mute.value.lower() == 'true'
+            self.deafen = self.deafen.value.lower() == 'true'
+            self.allow_dead = self.allow_dead.value.lower() == 'true'
+        except ValueError:
+            await interaction.response.send_message(
+                'You must provide an actual number.',
+                ephemeral=True
+            )
+            return
+        await interaction.response.defer()
+        self.stop()
 
 
 class PrivateVoiceView(DynamicVoiceView):
