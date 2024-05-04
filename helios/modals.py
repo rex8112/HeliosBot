@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from .server import Server
     from .helios_bot import HeliosBot
     from .channel import VoiceChannel
+    from .dynamic_voice import DynamicVoiceChannel
 
 
 class TopicCreation(ui.Modal, title='New Topic'):
@@ -48,15 +49,15 @@ class TopicCreation(ui.Modal, title='New Topic'):
 class VoiceNameChange(ui.Modal, title='Change Name'):
     name = ui.TextInput(label='Name', min_length=3, max_length=25)
 
-    def __init__(self, voice: 'VoiceChannel'):
+    def __init__(self, voice: 'DynamicVoiceChannel'):
         super().__init__()
         self.voice = voice
-        temp = self.voice.get_template()
+        temp = self.voice.template
         self.name.default = temp.name
 
     async def on_submit(self, interaction: Interaction) -> None:
-        await interaction.response.send_message('Changing Name...', ephemeral=True)
-        await self.voice.change_name(self.name.value)
+        await interaction.response.send_message('Setting Name to Be Changed', ephemeral=True)
+        self.voice.custom_name = self.name.value
 
     async def on_error(self, interaction: Interaction,
                        error: Exception) -> None:

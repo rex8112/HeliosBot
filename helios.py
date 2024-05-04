@@ -36,7 +36,7 @@ logger = logging.getLogger('HeliosLogger')
 logger.setLevel(logging.DEBUG)
 consoleHandler = logging.StreamHandler()
 consoleHandler.setLevel(logging.DEBUG)
-fileHandler = logging.FileHandler('helios.log', mode='a')
+fileHandler = logging.FileHandler('helios.log', mode='a', encoding='utf8')
 fileHandler.setLevel(logging.WARN)
 dt_fmt = '%Y-%m-%d %H:%M:%S'
 formatter = logging.Formatter('[{asctime}] [{levelname:<8}] {name}: {message}', dt_fmt, style='{')

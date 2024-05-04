@@ -65,7 +65,7 @@ class ServerManager:
                     server.channels.manage_channels()
                 ]
                 await asyncio.gather(*tasks, return_exceptions=True)
-            await asyncio.sleep(60)
+            await asyncio.sleep(15)
 
     async def setup(self):
         await self.bot.wait_until_ready()
@@ -100,4 +100,5 @@ class ServerManager:
         start_time = time.time()
         await asyncio.gather(*tasks)
         logger.info(f'Channels and Members loaded in {time.time() - start_time} seconds')
+        # noinspection PyAsyncCall
         self.bot.loop.create_task(self.manage_servers())

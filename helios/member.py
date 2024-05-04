@@ -322,7 +322,14 @@ class HeliosMember(HasFlags):
         if self.member.get_role(role.id):
             return
 
+        embed = discord.Embed(
+            title='Verified!',
+            description='You have been verified!\nIf you are in a voice channel, you may need to rejoin to be able to '
+                        'speak.',
+            colour=discord.Colour.green()
+        )
         await self.member.add_roles(role)
+        await self.member.send(embed=embed)
 
     async def add_points(self, price: int, payee: str, description: str):
         if price == 0:

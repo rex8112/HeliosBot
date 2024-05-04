@@ -19,14 +19,14 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
-
+import asyncio
 from typing import TypeVar, Hashable, Callable, Optional, Generic
 
 import discord
 
 from helios.tools.modals import PageModal
 
-__all__ = ('PaginatorView', 'PaginatorSelectView', 'YesNoView', 'SelectMemberView')
+__all__ = ('PaginatorView', 'PaginatorSelectView', 'YesNoView', 'SelectMemberView', 'VoteView')
 
 T = TypeVar('T', bound=Hashable)
 
@@ -188,3 +188,55 @@ class SelectMemberView(discord.ui.View):
             self.selected = values
         await interaction.response.defer()
         self.stop()
+
+
+class VoteView(discord.ui.View):
+    def __init__(self, voters: set[discord.Member] = None, *, default: bool = False, time: int = 30):
+        super().__init__(timeout=time*2)
+        if voters is None:
+            voters = []
+        self.voters = voters
+        self.default = default
+        self.time = time
+
+        self.votes: dict[discord.Member, bool] = {}
+        for voter in self.voters:
+            self.votes[voter] = self.default
+
+    def get_results(self):
+        yes = 0
+        no = 0
+        for vote in self.votes.values():
+            if vote:
+                yes += 1
+            else:
+                no += 1
+        return yes, no
+
+    def get_result(self):
+        yes, no = self.get_results()
+        if yes > no:
+            return True
+        return False
+
+    def start_timer(self):
+        async def timer():
+            await asyncio.sleep(self.time)
+            self.stop()
+        asyncio.create_task(timer())
+
+    @discord.ui.button(label='Yes', style=discord.ButtonStyle.green)
+    async def yes(self, interaction: discord.Interaction, _: discord.ui.Button):
+        if interaction.user in self.voters:
+            self.votes[interaction.user] = True
+            await interaction.response.send_message('You voted Yes', ephemeral=True)
+        else:
+            await interaction.response.send_message('You are not allowed to vote', ephemeral=True)
+
+    @discord.ui.button(label='No', style=discord.ButtonStyle.red)
+    async def no(self, interaction: discord.Interaction, _: discord.ui.Button):
+        if interaction.user in self.voters:
+            self.votes[interaction.user] = False
+            await interaction.response.send_message('You voted No', ephemeral=True)
+        else:
+            await interaction.response.send_message('You are not allowed to vote', ephemeral=True)

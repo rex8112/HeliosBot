@@ -93,6 +93,12 @@ class EventsCog(commands.Cog):
 
         await server.do_on_voice(helios_member)
 
+        inactive_channels = server.channels.dynamic_voice.get_inactive()
+        for channel in inactive_channels:
+            if after.channel.id == channel.channel.id:
+                await member.edit(voice_channel=None)
+                return
+
         if role is None:
             return
         if role in member.roles:

@@ -58,6 +58,10 @@ class VoiceTemplate:
         if data:
             self._deserialize(data)
 
+    def __eq__(self, o: object) -> bool:
+        if isinstance(o, VoiceTemplate):
+            return self.serialize() == o.serialize()
+
     @property
     def permissions(self) -> list[tuple[Union[discord.Role, discord.Member],
                                         discord.PermissionOverwrite]]:
@@ -146,6 +150,9 @@ class VoiceTemplate:
             'allowed': list(self.allowed.keys()),
             'denied': list(self.denied.keys())
         }
+
+    def is_stored(self):
+        return self in self.owner.templates
 
     async def save(self):
         await self.owner.save(force=True)

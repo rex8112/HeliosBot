@@ -1,3 +1,4 @@
+from .dynamic_voice_views import *
 from .generic_views import *
 from .private_voice_view import *
 from .shop_view import *
