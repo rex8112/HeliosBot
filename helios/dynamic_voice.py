@@ -53,7 +53,7 @@ class VoiceSettings(Settings):
     state = SettingItem('state', 1, int)
     owner = SettingItem('owner', None, discord.Member)
     template = StringSettingItem('template', None)
-    control_message = SettingItem('control_message', None, discord.Message)
+    control_message = SettingItem('control_message', None, discord.PartialMessage)
     inactive = SettingItem('inactive', False, bool)
 
 
@@ -80,6 +80,7 @@ class DynamicVoiceChannel:
         self._unsaved = False
         self._last_name_change = datetime.now().astimezone() - self.NAME_COOLDOWN
         self._private_on = datetime.now().astimezone()
+        self._fetched_control_message = None
 
         self._template = None
 
@@ -121,7 +122,7 @@ class DynamicVoiceChannel:
 
     @property
     def h_owner(self) -> 'HeliosMember':
-        return self.server.members.get(self.owner.id)
+        return self.server.members.get(self.owner.id) if self.owner else None
 
     @h_owner.setter
     def h_owner(self, value: 'HeliosMember'):
@@ -160,12 +161,14 @@ class DynamicVoiceChannel:
         self._unsaved = True
 
     @property
-    def _control_message(self) -> Union[discord.Message, discord.PartialMessage, None]:
+    def _control_message(self) -> Optional[discord.PartialMessage]:
         return self.settings.control_message.value
 
     @_control_message.setter
     def _control_message(self, value: discord.Message):
-        self.settings.control_message.value = value
+        self._fetched_control_message = value
+        partial = value.channel.get_partial_message(value.id)
+        self.settings.control_message.value = partial
         self._unsaved = True
 
     @property
@@ -233,13 +236,13 @@ class DynamicVoiceChannel:
     # Methods
     async def get_control_message(self):
         if self._control_message:
-            if not isinstance(self._control_message, discord.Message):
+            if self._fetched_control_message is None:
                 try:
                     return await self._control_message.fetch()
                 except discord.NotFound:
                     ...
             else:
-                return self._control_message
+                return self._fetched_control_message
         return None
 
     async def send_control_message(self):
@@ -320,7 +323,6 @@ class DynamicVoiceChannel:
 
     async def apply_template(self, template: VoiceTemplate):
         await self.channel.edit(overwrites=template.overwrites)
-        self.custom_name = template.name
         self.template = template
 
     def occupied(self):
@@ -354,14 +356,15 @@ class DynamicVoiceChannel:
             self.template = template
             self._private_on = datetime.now().astimezone()
             await self.apply_template(template)
+            await self.update_name()
             await self.save()
 
     async def unmake_private(self):
         """Unmake the channel private."""
         if self.state == DynamicVoiceState.PRIVATE:
+            await self.channel.purge(limit=None, bulk=True, check=lambda x: x != self._control_message)
             self.template = None
             self.owner = None
-            await self.channel.purge(limit=None, bulk=True, check=lambda x: x != self._control_message)
 
     async def make_active(self, group: 'DynamicVoiceGroup'):
         """Make the channel active."""
@@ -371,6 +374,8 @@ class DynamicVoiceChannel:
             self.number = self.manager.get_next_number(group)
             self.group = group
             await self.channel.edit(sync_permissions=True)
+            await self.update_name()
+            await self.update_control_message(force=True)
             await self.save()
 
     def unmake_active(self):
@@ -556,7 +561,10 @@ class VoiceManager:
 
     async def update_names(self):
         for channel in self.channels.values():
-            await channel.update_name()
+            try:
+                await channel.update_name()
+            except AttributeError:
+                ...
 
     async def update_control_messages(self):
         for channel in self.channels.values():
@@ -596,6 +604,11 @@ class VoiceManager:
                     else:
                         break
 
+        private = self.get_private()
+        for channel in private:
+            if not channel.remain_private():
+                await channel.make_inactive()
+
         # Check if the group has too many channels and remove inactive channels to try and meet that
         inactive = self.get_inactive()
         if 0 < all_max < len(inactive):
@@ -606,12 +619,15 @@ class VoiceManager:
                 except IndexError:
                     break
 
-        logger.debug(f'{self.server.name}: Voice Manager: Updating Control Messages')
-        await self.update_control_messages()
-        logger.debug(f'{self.server.name}: Voice Manager: Updating Names')
-        await self.update_names()
-        logger.debug(f'{self.server.name}: Voice Manager: Sorting Channels')
-        await self.sort_channels()
+        try:
+            logger.debug(f'{self.server.name}: Voice Manager: Updating Control Messages')
+            await self.update_control_messages()
+            logger.debug(f'{self.server.name}: Voice Manager: Updating Names')
+            await self.update_names()
+            logger.debug(f'{self.server.name}: Voice Manager: Sorting Channels')
+            await self.sort_channels()
+        except Exception as e:
+            logger.error(e, exc_info=True)
 
     async def get_inactive_channel(self):
         inactive = self.get_inactive()
