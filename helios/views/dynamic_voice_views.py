@@ -29,8 +29,7 @@ from .generic_views import VoteView, YesNoView
 from ..modals import VoiceNameChange
 
 if TYPE_CHECKING:
-    from ..dynamic_voice import DynamicVoiceChannel, DynamicVoiceGroup
-
+    from ..dynamic_voice import DynamicVoiceChannel
 
 __all__ = ('DynamicVoiceView', 'PrivateVoiceView')
 
@@ -44,10 +43,15 @@ class DynamicVoiceView(ui.View):
         self.dynamic_split.disabled = True
 
     def get_embed(self):
-        return Embed(
+        embed = Embed(
             title=f'{self.voice.channel.name}',
             color=Color.blurple()
         )
+        embed.add_field(name='Shop', value='Open a Shop')
+        embed.add_field(name='Game Controller', value='Open a Game Controller to control mutes for in game voice chat.')
+        embed.add_field(name='Split', value='Split the channel into two separate channels.')
+        embed.add_field(name='Private', value='Make the channel private.')
+        return embed
 
     @ui.button(label='Shop', style=ButtonStyle.blurple)
     async def dynamic_shop(self, interaction: Interaction, button: ui.Button):
@@ -61,7 +65,7 @@ class DynamicVoiceView(ui.View):
     async def dynamic_split(self, interaction: Interaction, button: ui.Button):
         ...
 
-    @ui.button(label='Private', style=ButtonStyle.blurple)
+    @ui.button(label='Private', style=ButtonStyle.red)
     async def dynamic_private(self, interaction: Interaction, button: ui.Button):
         member = self.voice.server.members.get(interaction.user.id)
         # If member is in the channel, try to convert current channel to private.
@@ -72,7 +76,7 @@ class DynamicVoiceView(ui.View):
                 await interaction.followup.send(f'{self.voice.channel.mention} set to private.')
                 await self.voice.update_control_message(force=True)
             else:
-                # TODO: Vote Process
+                # Vote Process
                 embed = Embed(title='Vote to Make Channel Private',
                               description='Would you like to make this channel private?\n'
                                           '**Vote Expires in 30 seconds.**',
@@ -103,6 +107,38 @@ class PrivateVoiceView(DynamicVoiceView):
             self.whitelist.disabled = True
         else:
             self.blacklist.disabled = True
+
+    def get_embed(self) -> discord.Embed:
+        owner = self.voice.h_owner
+        template = self.voice.template
+        owner_string = ''
+        if owner:
+            owner_string = f'Owner: {owner.member.mention}'
+        private_string = ('This channel **is** visible to everyone except '
+                          'those in Denied')
+        if template.private:
+            private_string = ('This channel **is __not__** visible to anyone '
+                              'except admins and those in Allowed')
+        embed = discord.Embed(
+            title=f'{template.name if template else self.voice.channel.name} Menu',
+            description=('Any and all settings are controlled from this '
+                         'message.\n'
+                         f'{owner_string}\n\n{private_string}'),
+            colour=discord.Colour.blurple()
+        )
+        allowed_string = '\n'.join(x.mention
+                                   for x in template.allowed.values())
+        denied_string = '\n'.join(x.mention
+                                  for x in template.denied.values())
+        embed.add_field(
+            name='Allowed',
+            value=allowed_string if allowed_string else 'None'
+        )
+        embed.add_field(
+            name='Denied',
+            value=denied_string if denied_string else 'None'
+        )
+        return embed
 
     @ui.button(label='Public', style=ButtonStyle.red)
     async def dynamic_public(self, interaction: Interaction, _: ui.Button):
@@ -181,7 +217,7 @@ class PrivateVoiceView(DynamicVoiceView):
                 ephemeral=True
             )
             return
-        template = voice.get_template()
+        template = voice.template
         template.private = False
         await interaction.response.defer()
         await voice.apply_template(template)
@@ -214,6 +250,7 @@ class PrivateVoiceView(DynamicVoiceView):
         template.allow(member)
         await self.voice.apply_template(template)
         await template.save()
+        await self.voice.update_control_message(force=True)
         await interaction.followup.send(f'{member.mention} Allowed in '
                                         f'{self.voice.channel.mention}.')
 
@@ -232,6 +269,7 @@ class PrivateVoiceView(DynamicVoiceView):
         template.deny(member)
         await self.voice.apply_template(template)
         await template.save()
+        await self.voice.update_control_message(force=True)
         await interaction.followup.send(f'{member.mention} Denied in '
                                         f'{self.voice.channel.mention}.')
 
