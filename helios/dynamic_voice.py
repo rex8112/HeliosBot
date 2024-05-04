@@ -307,18 +307,18 @@ class DynamicVoiceChannel:
         template = VoiceTemplate(owner, self.channel.name)
         channel = self.channel
         last_template = owner.templates[0] if owner.templates else None
+        use = False
         if last_template:
             use = True
             for member in channel.members:
                 if member.id in last_template.denied:
                     use = False
                     break
-            if use:
-                template = last_template
-        else:
-            for member in channel.members:
-                template.allow(member)
-            template.private = True
+        if use:
+            return last_template
+        for member in channel.members:
+            template.allow(member)
+        template.private = True
         return template
 
     async def apply_template(self, template: VoiceTemplate):
