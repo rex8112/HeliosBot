@@ -103,6 +103,7 @@ class DynamicVoiceView(ui.View):
         if member.member in self.voice.channel.members:
             # If member has the ability to move members, make the channel private without a vote.
             if self.voice.channel.permissions_for(member.member).move_members or len(self.voice.channel.members) == 1:
+                await interaction.response.defer(thinking=True, ephemeral=True)
                 await self.voice.make_private(member)
                 await interaction.followup.send(f'{self.voice.channel.mention} set to private.')
                 await self.voice.update_control_message(force=True)
