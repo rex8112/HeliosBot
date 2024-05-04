@@ -52,16 +52,16 @@ class PrivateVoiceCog(commands.Cog):
             callback=self.clear
         )
 
-        self.bot.tree.add_command(self.allow_context)
-        self.bot.tree.add_command(self.deny_context)
+        # self.bot.tree.add_command(self.allow_context)
+        # self.bot.tree.add_command(self.deny_context)
         self.bot.tree.add_command(self.clear_context)
 
     async def cog_unload(self) -> None:
-        self.bot.tree.remove_command(self.allow_context.name, type=self.allow_context.type)
-        self.bot.tree.remove_command(self.deny_context.name, type=self.deny_context.type)
+        # self.bot.tree.remove_command(self.allow_context.name, type=self.allow_context.type)
+        # self.bot.tree.remove_command(self.deny_context.name, type=self.deny_context.type)
         self.bot.tree.remove_command(self.clear_context.name, type=self.clear_context.type)
 
-    @commands.Cog.listener()
+    # @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member,
                                     before: discord.VoiceState,
                                     after: discord.VoiceState):
@@ -143,12 +143,15 @@ class PrivateVoiceCog(commands.Cog):
                     member: discord.Member):
         server = self.bot.servers.get(interaction.guild_id)
         if server:
-            private_voices = server.channels.get_type('private_voice')
-            owned = list(filter(lambda x: x.owner == interaction.user,
-                                private_voices))
+            private_voices = server.channels.dynamic_voice.get_private()
+            private_channel = None
+            for channel in private_voices:
+                if member in channel.channel.members and channel.owner == interaction.user:
+                    private_channel = channel
+                    break
             await interaction.response.defer(ephemeral=True)
-            if len(owned) > 0:
-                channel = owned[0]
+            if private_channel:
+                channel = private_channel
                 await channel.clear(member)
                 await interaction.followup.send(f'{member.mention} Cleared '
                                                 f'from {channel.channel.mention}'

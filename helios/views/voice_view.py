@@ -44,10 +44,13 @@ class VoiceControllerView(discord.ui.View):
         self.max = maximum
         self.running = False
         self.mute = False
-        self.deafen = False
+        self.deafen = True
         self.members: list[discord.Member] = []
         if not allow_dead:
             self.remove_item(self.die_button)
+
+        self.mute_button.style = discord.ButtonStyle.green if self.mute else discord.ButtonStyle.red
+        self.deafen_button.style = discord.ButtonStyle.green if self.deafen else discord.ButtonStyle.red
 
     @property
     def host(self) -> Optional[discord.Member]:
@@ -133,6 +136,8 @@ class VoiceControllerView(discord.ui.View):
             self.running = True
             self.start_button.disabled = True
             self.stop_button.disabled = False
+            self.mute_button.disabled = True
+            self.deafen_button.disabled = True
             await interaction.edit_original_response(embed=self.embed, view=self)
 
     @discord.ui.button(label='Stop', style=discord.ButtonStyle.gray, row=0,
@@ -146,6 +151,8 @@ class VoiceControllerView(discord.ui.View):
             self.running = False
             self.start_button.disabled = False
             self.stop_button.disabled = True
+            self.mute_button.disabled = False
+            self.deafen_button.disabled = False
             await interaction.edit_original_response(embed=self.embed, view=self)
 
     @discord.ui.button(label='Died', style=discord.ButtonStyle.gray, row=0)
@@ -224,6 +231,31 @@ class VoiceControllerView(discord.ui.View):
                         await self.leave(mem)
 
                 await self.message.edit(embed=self.embed)
+
+    @discord.ui.button(label='Change Settings:', style=discord.ButtonStyle.grey, row=2, disabled=True)
+    async def settings_button(self, interaction: discord.Interaction,
+                              button: discord.Button):
+        ...
+
+    @discord.ui.button(label='Mute', style=discord.ButtonStyle.red, row=2)
+    async def mute_button(self, interaction: discord.Interaction,
+                          button: discord.Button):
+        if interaction.user == self.host:
+            self.mute = not self.mute
+            button.style = discord.ButtonStyle.green if self.mute else discord.ButtonStyle.red
+            await interaction.response.edit_message(embed=self.embed, view=self)
+        else:
+            await interaction.response.send_message('Only the host can change this setting.', ephemeral=True)
+
+    @discord.ui.button(label='Deafen', style=discord.ButtonStyle.red, row=2)
+    async def deafen_button(self, interaction: discord.Interaction,
+                            button: discord.Button):
+        if interaction.user == self.host:
+            self.deafen = not self.deafen
+            button.style = discord.ButtonStyle.green if self.deafen else discord.ButtonStyle.red
+            await interaction.response.edit_message(embed=self.embed, view=self)
+        else:
+            await interaction.response.send_message('Only the host can change this setting.', ephemeral=True)
 
 
 class Selector(discord.ui.View):

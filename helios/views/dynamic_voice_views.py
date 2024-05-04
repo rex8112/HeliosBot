@@ -77,8 +77,6 @@ class DynamicVoiceView(ui.View):
             return
         name = modal.name
         maximum = modal.maximum
-        mute = modal.mute
-        deafen = modal.deafen
         allow_dead = modal.allow_dead
 
         server = self.voice.bot.servers.get(interaction.guild_id)
@@ -91,8 +89,6 @@ class DynamicVoiceView(ui.View):
         else:
             return
         view = VoiceControllerView(server, channel, name=name, maximum=maximum, allow_dead=allow_dead)
-        view.mute = mute
-        view.deafen = deafen
         await view.join(member.member)
         view.message = await interaction.channel.send(embed=view.embed, view=view)
 
@@ -137,8 +133,6 @@ class DynamicVoiceView(ui.View):
 class GameControllerModal(ui.Modal, title='Game Controller Settings'):
     name = ui.TextInput(label='Name', required=True)
     maximum = ui.TextInput(label='Maximum', required=True)
-    mute = ui.TextInput(label='Mute', required=True, default='False')
-    deafen = ui.TextInput(label='Deafen', required=True, default='True')
     allow_dead = ui.TextInput(label='Allow Dead', required=True, default='True')
 
     def __init__(self, *, timeout=30):
@@ -148,8 +142,6 @@ class GameControllerModal(ui.Modal, title='Game Controller Settings'):
         try:
             self.name = self.name.value
             self.maximum = int(self.maximum.value)
-            self.mute = self.mute.value.lower() == 'true'
-            self.deafen = self.deafen.value.lower() == 'true'
             self.allow_dead = self.allow_dead.value.lower() == 'true'
         except ValueError:
             await interaction.response.send_message(
