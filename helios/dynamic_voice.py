@@ -362,7 +362,7 @@ class DynamicVoiceChannel:
     async def unmake_private(self):
         """Unmake the channel private."""
         if self.state == DynamicVoiceState.PRIVATE:
-            await self.channel.purge(limit=None, bulk=True, check=lambda x: x != self._control_message)
+            await self.channel.purge(limit=None, bulk=True)
             self.template = None
             self.owner = None
 
