@@ -57,7 +57,7 @@ class VoiceNameChange(ui.Modal, title='Change Name'):
 
     async def on_submit(self, interaction: Interaction) -> None:
         await interaction.response.send_message('Setting Name to Be Changed', ephemeral=True)
-        self.voice.custom_name = self.name.value
+        self.voice.template.name = self.name.value
 
     async def on_error(self, interaction: Interaction,
                        error: Exception) -> None:
