@@ -180,7 +180,9 @@ class PrivateVoiceView(DynamicVoiceView):
             title=f'{template.name if template else self.voice.channel.name} Menu',
             description=('Any and all settings are controlled from this '
                          'message.\n'
-                         f'{owner_string}\n\n{private_string}'),
+                         f'{owner_string}\n\n'
+                         f'Revert will make the channel public and release control back to Helios.'
+                         f'\n\n{private_string}'),
             colour=discord.Colour.blurple()
         )
         allowed_string = '\n'.join(x.mention
@@ -197,7 +199,7 @@ class PrivateVoiceView(DynamicVoiceView):
         )
         return embed
 
-    @ui.button(label='Public', style=ButtonStyle.red)
+    @ui.button(label='Revert', style=ButtonStyle.red)
     async def dynamic_public(self, interaction: Interaction, _: ui.Button):
         member = self.voice.server.members.get(interaction.user.id)
         if member.member not in self.voice.channel.members:
