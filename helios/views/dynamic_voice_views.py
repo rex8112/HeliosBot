@@ -41,7 +41,6 @@ class DynamicVoiceView(ui.View):
     def __init__(self, voice: 'DynamicVoiceChannel'):
         super().__init__(timeout=None)
         self.voice = voice
-        self.dynamic_split.disabled = True
 
     def get_embed(self):
         embed = Embed(
@@ -94,8 +93,12 @@ class DynamicVoiceView(ui.View):
 
     @ui.button(label='Split', style=ButtonStyle.blurple)
     async def dynamic_split(self, interaction: Interaction, button: ui.Button):
-        # TODO: Implement Split
-        ...
+        member = self.voice.server.members.get(interaction.user.id)
+        if member.member not in self.voice.channel.members:
+            await interaction.response.send_message(content='You are not in the channel.', ephemeral=True)
+            return
+        view = SplitPrepView(self.voice)
+        await interaction.response.send_message(content='Splitting Channel', view=view, ephemeral=True)
 
     @ui.button(label='Private', style=ButtonStyle.red)
     async def dynamic_private(self, interaction: Interaction, button: ui.Button):
@@ -131,6 +134,139 @@ class DynamicVoiceView(ui.View):
             channel = await self.voice.manager.get_inactive_channel()
             await channel.make_private(member)
             await interaction.followup.send(f'{channel.channel.mention} created and set to private.')
+
+
+class SplitPrepView(ui.View):
+    def __init__(self, voice: 'DynamicVoiceChannel'):
+        super().__init__()
+        self.voice = voice
+
+    def get_members_in_game(self, game: str) -> list[discord.Member]:
+        mems = []
+        for member in self.voice.channel.members:
+            h_member = self.voice.server.members.get(member.id)
+            if h_member and h_member.get_game_activity() == game:
+                mems.append(member)
+        return mems
+
+    @ui.button(label='Split By:', style=ButtonStyle.gray, disabled=True)
+    async def split_by(self, interaction: Interaction, button: ui.Button):
+        ...
+
+    @ui.button(label='Game', style=ButtonStyle.blurple)
+    async def split_game(self, interaction: Interaction, button: ui.Button):
+        member = self.voice.server.members.get(interaction.user.id)
+        if member.member not in self.voice.channel.members:
+            await interaction.response.send_message(content='You are not in the channel.', ephemeral=True)
+            return
+        game = member.get_game_activity()
+        if game is None:
+            await interaction.response.send_message(content='You are not in a game.', ephemeral=True)
+            return
+        members = self.get_members_in_game(game)
+        view = SplitView(self.voice, members)
+        await interaction.response.send_message(content='Splitting Channel', view=view, ephemeral=True)
+
+    @ui.button(label='Custom', style=ButtonStyle.blurple)
+    async def split_custom(self, interaction: Interaction, button: ui.Button):
+        member = self.voice.server.members.get(interaction.user.id)
+        if member.member not in self.voice.channel.members:
+            await interaction.response.send_message(content='You are not in the channel.', ephemeral=True)
+            return
+        view = SplitView(self.voice, [member.member])
+        await interaction.response.send_message(content='Splitting Channel', view=view, ephemeral=True)
+
+
+class SplitView(ui.View):
+    def __init__(self, voice: 'DynamicVoiceChannel', members: list[discord.Member]):
+        super().__init__()
+        self.voice = voice
+        self.members = members
+        self.message = None
+        self.selected_channel = None
+        self.update_buttons()
+
+    def update_buttons(self):
+        self.move.disabled = not self.selected_channel
+        to_add = [x for x in self.voice.channel.members if x not in self.members]
+        self.add_member.options = [
+            discord.SelectOption(label=x.display_name, value=str(x.id))
+            for x in to_add
+        ] if to_add else [discord.SelectOption(label='No one to add', value='0')]
+        self.add_member.disabled = not to_add
+        self.remove_member.options = [
+            discord.SelectOption(label=x.display_name, value=str(x.id))
+            for x in self.members
+        ]
+
+    async def update_message(self, interaction: Interaction):
+        self.update_buttons()
+        embed = discord.Embed(
+            title='Splitting Channel',
+            description=f'Moving {len(self.members)} members to {self.selected_channel}',
+            color=discord.Color.blurple()
+        )
+        embed.add_field(name='Members', value='\n'.join([x.mention for x in self.members]))
+        await interaction.edit_original_response(embed=embed, view=self)
+
+    @ui.button(label='Move', style=ButtonStyle.green)
+    async def move(self, interaction: Interaction, button: ui.Button):
+        if self.voice.channel.permissions_for(interaction.user).move_members:
+            to_move = self.members
+            await interaction.response.send_message(content='Moving Members...', ephemeral=True)
+        else:
+            view = VoteView(set(self.members), time=30, default=True)
+            view.remove_item(view.yes)
+            mentions = ' '.join([m.mention for m in self.members])
+            embed = Embed(
+                title='Vote to Move Members',
+                description=f'Would you like to move to {self.selected_channel.mention}? Clicking nothing assumes '
+                            f'yes.\n**Vote Expires in 30 seconds.**',
+                color=Color.blurple()
+            )
+            await interaction.response.send_message(content=mentions, embed=embed, view=view)
+            view.start_timer()
+            message = await interaction.original_response()
+            await view.wait()
+            to_move = [x for x in self.members if view.votes[x]]
+            if to_move:
+                await message.edit(content=f'Moving {len(to_move)} members.', view=None, embed=None, delete_after=10)
+            else:
+                await message.edit(content='No one moved.', view=None, embed=None, delete_after=10)
+        if to_move:
+            for member in to_move:
+                await member.move_to(self.selected_channel)
+        self.stop()
+
+    @ui.button(label='Cancel', style=ButtonStyle.red)
+    async def cancel(self, interaction: Interaction, button: ui.Button):
+        await interaction.response.edit_message(content='Split Cancelled.', view=None)
+        self.stop()
+
+    @ui.select(cls=ui.ChannelSelect, placeholder='Select Channel', channel_types=[discord.ChannelType.voice])
+    async def channel(self, interaction: Interaction, select: ui.ChannelSelect):
+        self.selected_channel = select.values[0]
+        await interaction.response.defer()
+        await self.update_message(interaction)
+
+    @ui.select(placeholder='Add Member')
+    async def add_member(self, interaction: Interaction, select: ui.Select):
+        member = select.values[0]
+        await interaction.response.defer()
+        member = self.voice.server.members.get(int(member))
+        self.members.append(member.member)
+        await self.update_message(interaction)
+
+    @ui.select(placeholder='Remove Member')
+    async def remove_member(self, interaction: Interaction, select: ui.Select):
+        member = select.values[0]
+        await interaction.response.defer()
+        member = self.voice.server.members.get(int(member))
+        if member.member == interaction.user:
+            await interaction.followup.send(content='You can not remove yourself.', ephemeral=True)
+            return
+        self.members.remove(member.member)
+        await self.update_message(interaction)
 
 
 class GameControllerModal(ui.Modal, title='Game Controller Settings'):

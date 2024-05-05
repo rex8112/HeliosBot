@@ -57,12 +57,6 @@ class VoiceSettings(Settings):
     inactive = SettingItem('inactive', False, bool)
 
 
-def get_game_activity(member: discord.Member):
-    for activity in member.activities:
-        if not isinstance(activity, discord.CustomActivity) and activity.name != 'Hang Status':
-            return activity.name
-
-
 class DynamicVoiceChannel:
     NAME_COOLDOWN = timedelta(minutes=5)
 
@@ -267,9 +261,10 @@ class DynamicVoiceChannel:
     def get_majority_game(self):
         games = {None: 0}
         for member in self.channel.members:
+            h_member = self.server.members.get(member.id)
             if member.bot:
                 continue
-            activity = get_game_activity(member)
+            activity = h_member.get_game_activity()
             if activity is None:
                 games[None] += 1
                 continue

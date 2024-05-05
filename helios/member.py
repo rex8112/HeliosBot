@@ -216,6 +216,11 @@ class HeliosMember(HasFlags):
                 return role.colour
         return colour
 
+    def get_game_activity(self):
+        for activity in self.member.activities:
+            if not isinstance(activity, discord.CustomActivity) and activity.name != 'Hang Status':
+                return activity.name
+
     def _deserialize(self, data: MemberModel):
         if self.member.id != data.member_id:
             raise IdMismatchError('Member Ids do not match.')
