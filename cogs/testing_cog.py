@@ -104,11 +104,5 @@ class TestingCog(commands.Cog):
         await interaction.response.send_message(f'```{message}```', ephemeral=True)
 
 
-def get_game_activity(member: discord.Member):
-    for activity in member.activities:
-        if isinstance(activity, discord.Game):
-            return activity.name
-
-
 async def setup(bot: 'HeliosBot') -> None:
     await bot.add_cog(TestingCog(bot))
