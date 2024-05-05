@@ -94,6 +94,7 @@ class DynamicVoiceView(ui.View):
 
     @ui.button(label='Split', style=ButtonStyle.blurple)
     async def dynamic_split(self, interaction: Interaction, button: ui.Button):
+        # TODO: Implement Split
         ...
 
     @ui.button(label='Private', style=ButtonStyle.red)
@@ -116,6 +117,7 @@ class DynamicVoiceView(ui.View):
                 view = VoteView(set(self.voice.channel.members), time=30)
                 mentions = ' '.join([m.mention for m in self.voice.channel.members])
                 await interaction.response.send_message(content=mentions, embed=embed, view=view)
+                view.start_timer()
                 message = await interaction.original_response()
                 await view.wait()
                 if view.get_result():
@@ -221,6 +223,7 @@ class PrivateVoiceView(DynamicVoiceView):
         view = VoteView(set(self.voice.channel.members), time=30)
         mentions = ' '.join([m.mention for m in self.voice.channel.members])
         await interaction.response.send_message(content=mentions, embed=embed, view=view)
+        view.start_timer()
         message = await interaction.original_response()
         await view.wait()
         if view.get_result():
