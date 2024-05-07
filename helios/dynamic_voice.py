@@ -352,6 +352,7 @@ class DynamicVoiceChannel:
             self._private_on = datetime.now().astimezone()
             await self.apply_template(template)
             await self.update_name()
+            await self.update_control_message(force=True)
             await self.save()
 
     async def unmake_private(self):
