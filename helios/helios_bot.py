@@ -123,3 +123,10 @@ class HeliosBot(commands.Bot):
             await owner.send(f'{interaction.user} encountered an error while using a command in {interaction.channel}\n'
                              f'\n{interaction.command.qualified_name} : {interaction.command.parameters}'
                              f'```{traceback.format_exc()}```')
+
+    async def report_error(self, error, custom_msg=''):
+        owner = self.get_user(180067685986467840)
+        if owner and not isinstance(error, discord.app_commands.errors.MissingPermissions):
+            await owner.send(
+                f'{custom_msg}\n'
+                f'```{traceback.format_exc()}```')
