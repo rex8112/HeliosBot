@@ -122,6 +122,8 @@ class DynamicVoiceView(ui.View):
             if await temp_view.wait():
                 return
             template = temp_view.selected
+            member.templates.remove(template)
+            member.templates.insert(0, template)
             await member.save(True)
 
         # If member is in the channel, try to convert current channel to private.
