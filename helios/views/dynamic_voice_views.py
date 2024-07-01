@@ -43,6 +43,7 @@ class DynamicVoiceView(ui.View):
     def __init__(self, voice: 'DynamicVoiceChannel'):
         super().__init__(timeout=None)
         self.voice = voice
+        self.waiting = False
 
     def get_embed(self):
         embed = Embed(
@@ -136,22 +137,29 @@ class DynamicVoiceView(ui.View):
                 await self.voice.update_control_message(force=True)
             else:
                 # Vote Process
-                embed = Embed(title='Vote to Make Channel Private',
-                              description='Would you like to make this channel private?\n'
-                                          '**Vote Expires in 30 seconds.**',
-                              color=Color.blurple())
-                view = VoteView(set(self.voice.channel.members), time=30)
-                mentions = ' '.join([m.mention for m in self.voice.channel.members])
-                await interaction.edit_original_response(content=mentions, embed=embed, view=view)
-                view.start_timer()
-                message = await interaction.original_response()
-                await view.wait()
-                if view.get_result():
-                    await message.edit(content='Vote Passed', view=None, embed=None, delete_after=10)
-                    await self.voice.make_private(member, template)
-                    await self.voice.update_control_message(force=True)
-                else:
-                    await message.edit(content='Vote Failed', view=None, embed=None, delete_after=10)
+                if self.waiting:
+                    await interaction.edit_original_response(content='Vote already in progress.', embed=None, view=None)
+                    return
+                self.waiting = True
+                try:
+                    embed = Embed(title='Vote to Make Channel Private',
+                                  description='Would you like to make this channel private?\n'
+                                              '**Vote Expires in 30 seconds.**',
+                                  color=Color.blurple())
+                    view = VoteView(set(self.voice.channel.members), time=30)
+                    mentions = ' '.join([m.mention for m in self.voice.channel.members])
+                    await interaction.edit_original_response(content=mentions, embed=embed, view=view)
+                    view.start_timer()
+                    message = await interaction.original_response()
+                    await view.wait()
+                    if view.get_result():
+                        await message.edit(content='Vote Passed', view=None, embed=None, delete_after=10)
+                        await self.voice.make_private(member, template)
+                        await self.voice.update_control_message(force=True)
+                    else:
+                        await message.edit(content='Vote Failed', view=None, embed=None, delete_after=10)
+                finally:
+                    self.waiting = False
         else:
             channel = await self.voice.manager.get_inactive_channel()
             await channel.make_private(member, template)
@@ -238,6 +246,12 @@ class SplitView(ui.View):
             to_move = self.members
             await interaction.response.send_message(content='Moving Members...', ephemeral=True)
         else:
+            if self.voice.server.cooldowns.on_cooldown('split', interaction.user.id):
+                time_left = self.voice.server.cooldowns.remaining_time('split', interaction.user.id)
+                await interaction.response.send_message(content=f'You are on cooldown. '
+                                                                f'Try again in {time_left.total_seconds()} seconds.',
+                                                        ephemeral=True)
+                return
             view = VoteView(set(self.members), time=30, default=True)
             # noinspection PyTypeChecker
             view.remove_item(view.yes)
@@ -248,6 +262,7 @@ class SplitView(ui.View):
                             f'yes.\n**Vote Expires in 30 seconds.**',
                 color=Color.blurple()
             )
+            self.voice.server.cooldowns.set_duration('split', interaction.user.id, 900)
             await interaction.response.send_message(content=mentions, embed=embed, view=view)
             view.start_timer()
             message = await interaction.original_response()
@@ -259,7 +274,10 @@ class SplitView(ui.View):
                 await message.edit(content='No one moved.', view=None, embed=None, delete_after=10)
         if to_move:
             for member in to_move:
-                await member.move_to(self.selected_channel)
+                try:
+                    await member.move_to(self.selected_channel)
+                except discord.HTTPException:
+                    pass
         self.stop()
 
     @ui.button(label='Cancel', style=ButtonStyle.red)
