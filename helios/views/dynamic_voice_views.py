@@ -688,9 +688,10 @@ class GetTemplateView(discord.ui.View):
     async def select_template(self, interaction: discord.Interaction, select: discord.ui.Select):
         temp = self.get_template(select.values[0])
         self.selected = temp
+        self.select_button.disabled = False
         await interaction.response.edit_message(embed=self.get_embed(), view=self)
 
-    @discord.ui.button(label='Select', style=discord.ButtonStyle.green)
+    @discord.ui.button(label='Select', style=discord.ButtonStyle.green, disabled=True)
     async def select_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
         self.stop()
