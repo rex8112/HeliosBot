@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Dict, Optional
 import discord
 
 from .channel_manager import ChannelManager
+from .cooldowns import Cooldowns
 from .court import Court
 from .database import ServerModel, objects
 from .exceptions import IdMismatchError
@@ -110,6 +111,7 @@ class Server:
         self.topics = {}
         self.voice_controllers = []
         self.settings = ServerSettings(self.bot)
+        self.cooldowns = Cooldowns()
         self.flags = []
 
         self._new = False
