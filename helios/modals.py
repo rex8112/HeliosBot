@@ -56,6 +56,11 @@ class VoiceNameChange(ui.Modal, title='Change Name'):
         self.name.default = temp.name
 
     async def on_submit(self, interaction: Interaction) -> None:
+        new_name = self.name.value
+        temp = self.voice.h_owner.get_template(new_name)
+        if temp:
+            await interaction.response.send_message('Name already in use.', ephemeral=True)
+            return
         await interaction.response.send_message('Setting Name to Be Changed', ephemeral=True)
         self.voice.template.name = self.name.value
 

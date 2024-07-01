@@ -133,10 +133,12 @@ class YesNoView(discord.ui.View):
         super().__init__(timeout=timeout)
         self.author: discord.Member = author
         self.value: Optional[bool] = None
+        self.last_interaction: Optional[discord.Interaction] = None
 
     @discord.ui.button(label='Yes', style=discord.ButtonStyle.green)
     async def yes(self, interaction: discord.Interaction,
                   button: discord.ui.Button):
+        self.last_interaction = interaction
         if interaction.user == self.author:
             self.value = True
             await interaction.response.defer()
@@ -149,6 +151,7 @@ class YesNoView(discord.ui.View):
     @discord.ui.button(label='No', style=discord.ButtonStyle.red)
     async def no(self, interaction: discord.Interaction,
                  button: discord.ui.Button):
+        self.last_interaction = interaction
         if interaction.user == self.author:
             self.value = False
             await interaction.response.defer()

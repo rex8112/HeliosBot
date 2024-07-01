@@ -20,7 +20,7 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import discord
 from discord import ui, ButtonStyle, Interaction, Color, Embed
@@ -33,6 +33,8 @@ from .voice_view import VoiceControllerView
 
 if TYPE_CHECKING:
     from ..dynamic_voice import DynamicVoiceChannel
+    from ..member import HeliosMember
+    from ..voice_template import VoiceTemplate
 
 __all__ = ('DynamicVoiceView', 'PrivateVoiceView')
 
@@ -103,13 +105,32 @@ class DynamicVoiceView(ui.View):
     @ui.button(label='Private', style=ButtonStyle.red)
     async def dynamic_private(self, interaction: Interaction, button: ui.Button):
         member = self.voice.server.members.get(interaction.user.id)
+
+        embed = Embed(
+            title='Would you like to use your last used template?',
+            description='If you do not have a template, the channel will be set to private by default.',
+            color=Color.blurple()
+        )
+        view = YesNoView(member.member, timeout=15)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await view.wait()
+        template = None
+        if view.value is False:
+            temp_view = GetTemplateView(member)
+            embed = temp_view.get_embed()
+            await view.last_interaction.edit_original_response(embed=embed, view=temp_view)
+            if await temp_view.wait():
+                return
+            template = temp_view.selected
+            await member.save(True)
+
         # If member is in the channel, try to convert current channel to private.
         if member.member in self.voice.channel.members:
             # If member has the ability to move members, make the channel private without a vote.
             if self.voice.channel.permissions_for(member.member).move_members or len(self.voice.channel.members) == 1:
-                await interaction.response.defer(thinking=True, ephemeral=True)
-                await self.voice.make_private(member)
-                await interaction.followup.send(f'{self.voice.channel.mention} set to private.')
+                await self.voice.make_private(member, template)
+                await interaction.edit_original_response(content=f'{self.voice.channel.mention} set to private.',
+                                                         embed=None, view=None)
                 await self.voice.update_control_message(force=True)
             else:
                 # Vote Process
@@ -119,21 +140,21 @@ class DynamicVoiceView(ui.View):
                               color=Color.blurple())
                 view = VoteView(set(self.voice.channel.members), time=30)
                 mentions = ' '.join([m.mention for m in self.voice.channel.members])
-                await interaction.response.send_message(content=mentions, embed=embed, view=view)
+                await interaction.edit_original_response(content=mentions, embed=embed, view=view)
                 view.start_timer()
                 message = await interaction.original_response()
                 await view.wait()
                 if view.get_result():
                     await message.edit(content='Vote Passed', view=None, embed=None, delete_after=10)
-                    await self.voice.make_private(member)
+                    await self.voice.make_private(member, template)
                     await self.voice.update_control_message(force=True)
                 else:
                     await message.edit(content='Vote Failed', view=None, embed=None, delete_after=10)
         else:
-            await interaction.response.defer(thinking=True, ephemeral=True)
             channel = await self.voice.manager.get_inactive_channel()
-            await channel.make_private(member)
-            await interaction.followup.send(f'{channel.channel.mention} created and set to private.')
+            await channel.make_private(member, template)
+            await interaction.edit_original_response(content=f'{channel.channel.mention} created and set to private.',
+                                                     embed=None, view=None)
 
 
 class SplitPrepView(ui.View):
@@ -216,6 +237,7 @@ class SplitView(ui.View):
             await interaction.response.send_message(content='Moving Members...', ephemeral=True)
         else:
             view = VoteView(set(self.members), time=30, default=True)
+            # noinspection PyTypeChecker
             view.remove_item(view.yes)
             mentions = ' '.join([m.mention for m in self.members])
             embed = Embed(
@@ -548,6 +570,11 @@ class TemplateView(ui.View):
             await self.voice.apply_template(temp)
             await self.voice.update_control_message(force=True)
         else:
+            temp = self.owner.get_template(self.voice.template.name)
+            if temp:
+                await interaction.response.edit_message(content='Template Already Exists, please change name first.',
+                                                        embed=None, view=None)
+                return self.stop()
             await interaction.response.edit_message(content='Adding Current Template...', embed=None, view=None)
             self.templates.insert(0, self.voice.template)
         await self.save()
@@ -577,3 +604,80 @@ class TemplateView(ui.View):
             await self.voice.update_control_message(force=True)
             await self.save()
             self.stop()
+
+
+class GetTemplateView(discord.ui.View):
+    def __init__(self, member: 'HeliosMember'):
+        super().__init__(timeout=30)
+        self.member = member
+        self.templates = self.member.templates
+        self.selected: Optional['VoiceTemplate'] = None
+        self.refresh_select()
+
+    def refresh_select(self):
+        self.select_template.options.clear()
+        if len(self.templates) > 0:
+            self.select_template.disabled = False
+            for template in self.templates:
+                self.select_template.add_option(label=template.name)
+        else:
+            self.select_template.disabled = True
+            self.select_template.add_option(label='Nothing')
+
+    def get_embed(self):
+        template = self.selected
+        if template is None:
+            embed = discord.Embed(
+                title='Currently Selected Template',
+                description=f'None',
+                colour=discord.Colour.orange()
+            )
+            return embed
+        embed = discord.Embed(
+            title='Currently Selected Template',
+            description=f'Template: {template.name}\nPrivate: {template.private}',
+            colour=discord.Colour.orange()
+        )
+        allowed_string = '\n'.join(x.mention
+                                   for x in template.allowed.values())
+        denied_string = '\n'.join(x.mention
+                                  for x in template.denied.values())
+        embed.add_field(
+            name='Allowed',
+            value=allowed_string if allowed_string else 'None'
+        )
+        embed.add_field(
+            name='Denied',
+            value=denied_string if denied_string else 'None'
+        )
+        return embed
+
+    def get_template(self, name: str):
+        for template in self.templates:
+            if template.name.lower() == name.lower():
+                return template
+        return None
+
+    def new_template(self):
+        temp = self.member.create_template()
+        self.templates.remove(temp)
+        self.templates.append(temp)
+        return temp
+
+    @discord.ui.select(placeholder='Select Template')
+    async def select_template(self, interaction: discord.Interaction, select: discord.ui.Select):
+        temp = self.get_template(select.values[0])
+        self.selected = temp
+        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+    @discord.ui.button(label='Select', style=discord.ButtonStyle.green)
+    async def select_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
+        self.stop()
+
+    @discord.ui.button(label='New Template', style=discord.ButtonStyle.green)
+    async def new_template_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        temp = self.new_template()
+        self.selected = temp
+        await interaction.response.defer()
+        self.stop()

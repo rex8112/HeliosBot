@@ -177,8 +177,25 @@ class HeliosMember(HasFlags):
         self._activity_points = amt
         self._changed = True
 
+    def get_template(self, name: str):
+        for template in self.templates:
+            if template.name.lower() == name.lower():
+                return template
+        return None
+
     def create_template(self):
-        template = VoiceTemplate(self, name=self.member.name)
+        name = self.member.name
+        exists = True
+        counter = 1
+        while exists:
+            temp = self.get_template(name)
+            if temp is None:
+                exists = False
+            else:
+                name = f'{self.member.name} ({counter})'
+                counter += 1
+
+        template = VoiceTemplate(self, name=name)
         self.templates.append(template)
         return template
 
