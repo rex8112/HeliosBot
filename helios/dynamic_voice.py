@@ -302,13 +302,16 @@ class DynamicVoiceChannel:
         template = VoiceTemplate(owner, self.channel.name)
         channel = self.channel
         last_template = owner.templates[0] if owner.templates else None
-        use = False
+        use = True
         if last_template:
-            use = True
             for member in channel.members:
                 if member.id in last_template.denied:
                     use = False
                     break
+        else:
+            last_template = owner.create_template()
+            for member in channel.members:
+                last_template.allow(member)
         if use:
             return last_template
         for member in channel.members:
@@ -341,13 +344,15 @@ class DynamicVoiceChannel:
         else:
             return False
 
-    async def make_private(self, owner: 'HeliosMember'):
+    async def make_private(self, owner: 'HeliosMember', template: Optional[VoiceTemplate] = None):
         """Make the channel private."""
         if self.state != DynamicVoiceState.PRIVATE:
             self.unmake_active()
             self.owner = owner.member
             self.state = DynamicVoiceState.PRIVATE
-            template = self.build_template(owner)
+            if template is None:
+                template = self.build_template(owner)
+                await owner.save()
             self.template = template
             self._private_on = datetime.now().astimezone()
             await self.apply_template(template)
