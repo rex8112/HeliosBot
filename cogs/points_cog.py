@@ -86,8 +86,12 @@ class PointsCog(commands.Cog):
         )
 
     @app_commands.command(name='transfer', description='Transfer points')
+    @app_commands.describe(target='The member to give points to.', points='The amount of points to give.',
+                           description='An optional description for the transfer.')
     @app_commands.guild_only()
     async def transfer(self, interaction: discord.Interaction, target: discord.Member, points: int, description: str = None):
+        if target == interaction.guild.me:
+            await interaction.response.send_message(content='You can not send me points', ephemeral=True)
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
         target = server.members.get(target.id)
@@ -99,7 +103,8 @@ class PointsCog(commands.Cog):
         await member.transfer_points(target, points, description if description else 'Transferred Points')
         embed = discord.Embed(
             title=f'{server.points_name.capitalize()} Sent',
-            description=f'You have sent **{points}** to {target.member.name}.',
+            description=f'You have sent **{points}** to {target.member.name} in {server.name}.'
+                        f'\n\n{description if description else ""}',
             colour=discord.Colour.red()
         )
         try:
@@ -109,7 +114,8 @@ class PointsCog(commands.Cog):
 
         embed2 = discord.Embed(
             title=f'{server.points_name.capitalize()} Received',
-            description=f'You have received **{points}** from {member.member.name}.',
+            description=f'You have received **{points}** from {member.member.name} in {server.name}.'
+                        f'\n\n{description if description else ""}',
             colour=discord.Colour.green()
         )
         try:
