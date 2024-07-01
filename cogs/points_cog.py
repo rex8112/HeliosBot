@@ -24,6 +24,7 @@ import asyncio
 import re
 from datetime import time, datetime
 
+import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 
@@ -83,6 +84,38 @@ class PointsCog(commands.Cog):
             f'Pending Payment: **{member.unpaid_ap}**',
             ephemeral=True
         )
+
+    @app_commands.command(name='transfer', description='Transfer points')
+    @app_commands.guild_only()
+    async def transfer(self, interaction: discord.Interaction, target: discord.Member, points: int, description: str = None):
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        target = server.members.get(target.id)
+        if points > member.points:
+            await interaction.response.send_message(content='You do not have enough points.'
+                                                            'Check your points with /points',
+                                                    ephemeral=True)
+            return
+        await member.transfer_points(target, points, description if description else 'Transferred Points')
+        embed = discord.Embed(
+            title=f'{server.points_name.capitalize()} Sent',
+            description=f'You have sent **{points}** to {target.member.name}.',
+            colour=discord.Colour.red()
+        )
+        try:
+            await member.member.send(embed=embed)
+        except (discord.Forbidden, discord.HTTPException):
+            ...
+
+        embed2 = discord.Embed(
+            title=f'{server.points_name.capitalize()} Received',
+            description=f'You have received **{points}** from {member.member.name}.',
+            colour=discord.Colour.green()
+        )
+        try:
+            await target.member.send(embed=embed2)
+        except (discord.Forbidden, discord.HTTPException):
+            ...
 
     @app_commands.command(name='leaderboard', description='See a top 10 leaderboard')
     @app_commands.guild_only()
