@@ -131,8 +131,8 @@ class HeliosMember(HasFlags):
     @points.setter
     def points(self, value: int):
         self._changed = True
-        if value < 0:
-            value = 0
+        # if value < 0:
+        #     value = 0
         self._points = value
 
     @property

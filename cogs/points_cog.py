@@ -92,6 +92,10 @@ class PointsCog(commands.Cog):
     async def transfer(self, interaction: discord.Interaction, target: discord.Member, points: int, description: str = None):
         if target == interaction.guild.me:
             await interaction.response.send_message(content='You can not send me points', ephemeral=True)
+            return
+        if points < 1:
+            await interaction.response.send_message(content='You must send at least 1 point', ephemeral=True)
+            return
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
         target = server.members.get(target.id)
@@ -101,6 +105,8 @@ class PointsCog(commands.Cog):
                                                     ephemeral=True)
             return
         await member.transfer_points(target, points, description if description else 'Transferred Points')
+        await interaction.response.send_message(content=f'Sent {points} points to {target.member.display_name}',
+                                                ephemeral=True)
         embed = discord.Embed(
             title=f'{server.points_name.capitalize()} Sent',
             description=f'You have sent **{points}** to {target.member.name} in {server.name}.'

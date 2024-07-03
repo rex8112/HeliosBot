@@ -98,6 +98,7 @@ class VerificationCog(commands.Cog):
     @app_commands.command(name='verifyall',
                           description='Verify All Currently in the Server')
     @app_commands.checks.has_permissions(administrator=True)
+    @app_commands.default_permissions(administrator=True)
     @app_commands.guild_only()
     async def verify_all(self, interaction: discord.Interaction):
         server = self.bot.servers.get(interaction.guild_id)
