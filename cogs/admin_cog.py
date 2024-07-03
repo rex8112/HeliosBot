@@ -41,16 +41,9 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 
-import asyncio
-import re
-from datetime import time, datetime
-
-import discord
 from discord import app_commands
-from discord.ext import commands, tasks
+from discord.ext import commands
 
-import helios
-from helios import ShopView, TexasHoldEm
 from helios.shop import *
 
 if TYPE_CHECKING:

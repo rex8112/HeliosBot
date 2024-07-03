@@ -120,6 +120,7 @@ class TopicChannel:
             TopicModel.update_model_instance(self.db_entry, data)
             await self.db_entry.async_save()
 
+    # noinspection PyUnresolvedReferences
     @classmethod
     async def load(cls, server: 'Server', db_entry: TopicModel):
         channel = server.guild.get_channel(db_entry.channel_id)

@@ -52,40 +52,6 @@ def get_aware_utc_now():
     return datetime.datetime.now(datetime.timezone.utc)
 
 
-def migrate_members():
-    migrator = MySQLMigrator(db)
-    migrate(
-        migrator.rename_table('members', 'oldmembers')
-    )
-    query = OldMemberModel.select()
-    db.create_tables([MemberModel])
-    with db.atomic():
-        for old in query:
-            server_id = old.server.id
-            member_id = old.member_id
-            templates = old.templates
-            settings = old.settings
-            flags = old.flags
-            settings = json.loads(settings)
-            activity_points = settings['activity_points']
-            MemberModel.create(
-                id=old.id,
-                server_id=server_id,
-                member_id=member_id,
-                templates=templates,
-                activity_points=activity_points,
-                flags=flags
-            )
-
-
-# noinspection PyProtectedMember
-def fix_transaction():
-    migrator = MySQLMigrator(db)
-    migrate(
-        migrator.add_column(TransactionModel._meta.table_name, 'created_on', TransactionModel.created_on)
-    )
-
-
 class JSONField(Field):
     field_type = 'text'
 

@@ -238,6 +238,7 @@ class HeliosMember(HasFlags):
             if not isinstance(activity, discord.CustomActivity) and activity.name != 'Hang Status':
                 return activity.name
 
+    # noinspection PyUnresolvedReferences
     def _deserialize(self, data: MemberModel):
         if self.member.id != data.member_id:
             raise IdMismatchError('Member Ids do not match.')

@@ -28,7 +28,6 @@ from discord import ui, Interaction
 if TYPE_CHECKING:
     from .server import Server
     from .helios_bot import HeliosBot
-    from .channel import VoiceChannel
     from .dynamic_voice import DynamicVoiceChannel
 
 
