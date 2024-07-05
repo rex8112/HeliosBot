@@ -82,15 +82,20 @@ class EffectsManager:
         self.effects[target].append(effect)
 
     async def add_effect(self, effect: 'Effect'):
-        if await effect.apply():
-            self._add_effect(effect)
-            effect.db_entry = await EffectModel.new(**effect.to_dict())
+        try:
+            if await effect.apply():
+                self._add_effect(effect)
+                effect.db_entry = await EffectModel.new(**effect.to_dict())
+        except Exception as e:
+            await self.remove_effect(effect)
+            await self.bot.report_error(e, f'Error applying the effect {type(effect).__name__} on'
+                                           f'{effect.target.name}')
 
     async def remove_effect(self, effect: 'Effect'):
         target = effect.target
         try:
-            self.effects[target].remove(effect)
             await effect.remove()
+            self.effects[target].remove(effect)
             if effect.db_entry is not None:
                 await effect.db_entry.async_delete()
         except (ValueError, KeyError):
@@ -248,7 +253,14 @@ class MuteEffect(Effect):
 
         await super().apply()
         await self.target.voice_mute(reason=self.reason)
-        await self.target.member.send(embed=self.get_mute_embed())
+        try:
+            await self.target.member.send(embed=self.get_mute_embed())
+        except discord.Forbidden:
+            try:
+                await self.target.member.voice.channel.send(content=f'{self.target.member.mention}',
+                                                            embed=self.get_mute_embed())
+            except discord.Forbidden:
+                ...
         return True
 
     async def remove(self):

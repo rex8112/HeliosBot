@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from helios import HeliosBot
 
 
+@app_commands.default_permissions(administrator=True)
 class SettingsCog(commands.GroupCog, name='settings'):
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
@@ -37,7 +38,7 @@ class SettingsCog(commands.GroupCog, name='settings'):
 
     @app_commands.command(name='menu', description='Show a menu to edit all settings')
     @app_commands.checks.has_permissions(administrator=True)
-    async def test(self, interaction: discord.Interaction):
+    async def menu(self, interaction: discord.Interaction):
         server = self.bot.servers.get(guild_id=interaction.guild_id)
         await server.settings.run(interaction)
         await server.save()
