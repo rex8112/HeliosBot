@@ -19,10 +19,12 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Optional
 
 import discord
 from discord import ui, ButtonStyle, Interaction
+
+from .database import ThemeModel
 
 if TYPE_CHECKING:
     from .server import Server
@@ -31,6 +33,7 @@ if TYPE_CHECKING:
 
 def sorted_members(members: list['HeliosMember'], key: Callable[['HeliosMember'], int]) -> list['HeliosMember']:
     s_members = sorted(members, key=lambda x: key(x))
+    s_members = filter(lambda x: not x.member.bot, s_members)
     return list(s_members)
 
 
@@ -39,6 +42,23 @@ class ThemeManager:
         self.server = server
         self.current_theme = None
         self.role_map: dict['ThemeRole', discord.Role] = {}
+
+    async def load(self):
+        self.current_theme = await Theme.from_current(self.server)
+        if self.current_theme:
+            self.build_role_map()
+
+    async def build_theme(self, roles: list[discord.Role]):
+        if self.current_theme:
+            self.current_theme.current = False
+            await self.current_theme.save()
+        self.current_theme = Theme(self.server, self.server.name, [ThemeRole(x.name, str(x.colour), len(x.members)) for x in roles])
+        self.current_theme.roles[-1].maximum = -1
+        await self.current_theme.save()
+        self.current_theme.current = True
+        self.current_theme.used = True
+        self.build_role_map()
+        await self.current_theme.save()
 
     def build_role_map(self):
         self.role_map = {}
@@ -50,43 +70,84 @@ class ThemeManager:
     async def sort_members(self):
         if not self.current_theme:
             return
-        members = sorted_members(self.server.members, key=lambda x: x.points)
+        members = sorted_members(self.server.members.members.values(), key=lambda x: x.points)
         member_role_pairs = []
         for theme_role in self.current_theme.roles:
             role = self.role_map[theme_role]
             if not role:
                 continue
-            for i in range(theme_role.maximum):
+            maximum = theme_role.maximum if theme_role.maximum != -1 else len(members)
+            for i in range(maximum):
                 member = members.pop()
                 member_role_pairs.append((member, role))
         for member, role in member_role_pairs:
             has_correct_roles = True
+            roles = list(member.member.roles)
             for theme_role in self.current_theme.roles:
                 d_role = self.role_map[theme_role]
                 if d_role == role:
-                    if d_role not in member.member.roles:
+                    if d_role not in roles:
                         has_correct_roles = False
-                        break
+                        roles.append(d_role)
                 else:
-                    if d_role in member.member.roles:
+                    if d_role in roles:
                         has_correct_roles = False
-                        break
+                        roles.remove(d_role)
             if not has_correct_roles:
                 try:
-                    await member.member.add_roles(role, reason='Theme Sort')
-                    await member.member.remove_roles(*[x for x in self.role_map.values() if x != role],
-                                                     reason='Theme Sort')
+                    await member.member.edit(roles=roles, reason='Theme Sort')
                 except (discord.Forbidden, discord.HTTPException):
                     pass
 
 
 class Theme:
-    def __init__(self, name: str, roles: list['ThemeRole']):
+    def __init__(self, server: 'Server', name: str, roles: list['ThemeRole']):
+        self.server = server
         self.name = name
         self.roles = roles
+        self.current = False
+        self.used = False
+        self.db_entry: Optional[ThemeModel] = None
 
     def has_role(self, role: discord.Role):
         return any(role.name == x.name and role.colour == discord.Colour.from_str(x.color) for x in self.roles)
+
+    async def save(self):
+        if self.db_entry:
+            await self.db_entry.async_update(**self.to_dict())
+        else:
+            d = self.to_dict()
+            self.db_entry = await ThemeModel.create(server=self.server.db_entry, name=d['name'], roles=d['roles'])
+
+    def to_dict(self):
+        return {
+            'name': self.name,
+            'roles': [x.to_dict() for x in self.roles],
+            'current': self.current,
+            'used': self.used
+        }
+
+    @classmethod
+    def from_db(cls, server: 'Server', db_entry: ThemeModel):
+        theme = cls(server, db_entry.name, [ThemeRole.from_dict(x) for x in db_entry.roles])
+        theme.db_entry = db_entry
+        theme.current = db_entry.current
+        theme.used = db_entry.used
+        return theme
+
+    @classmethod
+    async def from_id(cls, server: 'Server', theme_id: int):
+        db_entry = await ThemeModel.get(id=theme_id)
+        if db_entry.server != server.db_entry:
+            return None
+        return cls.from_db(server, db_entry)
+
+    @classmethod
+    async def from_current(cls, server: 'Server'):
+        db_entry = await ThemeModel.get_current(server.db_entry)
+        if not db_entry:
+            return None
+        return cls.from_db(server, db_entry)
 
 
 class ThemeRole:
