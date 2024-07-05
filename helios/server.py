@@ -32,9 +32,10 @@ from .database import ServerModel, objects
 from .exceptions import IdMismatchError
 from .member import HeliosMember
 from .member_manager import MemberManager
-from .shop import Shop
-from .tools.settings import Settings, SettingItem
 from .music import MusicPlayer
+from .shop import Shop
+from .theme import ThemeManager
+from .tools.settings import Settings, SettingItem
 
 if TYPE_CHECKING:
     from .server_manager import ServerManager
@@ -111,6 +112,7 @@ class Server:
         self.topics = {}
         self.voice_controllers = []
         self.settings = ServerSettings(self.bot)
+        self.theme = ThemeManager(self)
         self.cooldowns = Cooldowns()
         self.flags = []
 

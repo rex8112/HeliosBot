@@ -95,6 +95,7 @@ class ServerManager:
                 #  tasks.append(server.stadium.setup())
             self.servers[server.id] = server
             self.bot.add_view(ShopView(server))
+            await server.theme.load()
 
         logger.info(f'{len(self.bot.guilds)} Servers loaded in {time.time() - start_time} seconds')
         start_time = time.time()
