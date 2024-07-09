@@ -1,0 +1,51 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+aiohttp = "*"
+aiomysql = "*"
+aiosignal = "*"
+async-timeout = "*"
+attrs = "*"
+brotli = "*"
+certifi = "*"
+cffi = "*"
+chardet = "*"
+charset-normalizer = "*"
+"discord.py" = {ref = "9345a2a1be550cfb36330f738c23b9866bc8a0df", git = "git+https://github.com/Rapptz/discord.py"}
+frozenlist = "*"
+idna = "*"
+mariadb = "*"
+multidict = "*"
+mutagen = "*"
+mypy = "*"
+mypy-extensions = "*"
+numpy = "*"
+packaging = "*"
+peewee = "*"
+peewee-async = "*"
+pillow = "*"
+pokerkit = "*"
+pycparser = "*"
+pycryptodomex = "*"
+pymysql = "*"
+pynacl = "*"
+python-dateutil = "*"
+requests = "*"
+semantic-version = "*"
+sentry-sdk = "*"
+six = "*"
+tomli = "*"
+typing-extensions = "*"
+urllib3 = "*"
+websockets = "*"
+yarl = "*"
+yt-dlp = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.12"
+python_full_version = "3.12.3"
