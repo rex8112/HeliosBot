@@ -305,7 +305,10 @@ class DynamicVoiceChannel:
         use = True
         if last_template:
             for member in channel.members:
-                if member.id in last_template.denied:
+                if member.id not in last_template.denied:
+                    use = False
+                    break
+                elif last_template.private and member.id not in last_template.allowed:
                     use = False
                     break
         else:
