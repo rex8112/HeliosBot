@@ -20,16 +20,16 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import discord
 from discord import app_commands
 from discord.ext import commands
 
-from helios import TopicCreation, TopicChannel
+from helios import TopicChannel
 
 if TYPE_CHECKING:
-    from helios import HeliosBot, Server
+    from helios import HeliosBot
 
 
 class TopicCog(commands.GroupCog, name='topic'):

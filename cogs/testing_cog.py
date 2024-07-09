@@ -19,19 +19,13 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
-import asyncio
-import concurrent.futures
 import io
-import re
-import pathlib
 from typing import TYPE_CHECKING
-from PIL import Image
 
 import discord
+from PIL import Image
 from discord import app_commands
 from discord.ext import commands
-
-from helios import TexasHoldEm
 
 if TYPE_CHECKING:
     from helios import HeliosBot

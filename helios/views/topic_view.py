@@ -63,6 +63,7 @@ async def send_bad_response(interaction: discord.Interaction, message: str):
         title='Something went wrong',
         description=message
     )
+    # noinspection PyUnresolvedReferences
     if interaction.response.is_done():
         await interaction.followup.send(embed=embed)
     else:

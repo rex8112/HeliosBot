@@ -21,7 +21,6 @@
 #  SOFTWARE.
 import asyncio
 import logging
-import traceback
 from datetime import datetime
 from typing import TYPE_CHECKING, Union, Optional
 
@@ -32,7 +31,6 @@ from playhouse.shortcuts import model_to_dict
 from .database import EffectModel
 
 if TYPE_CHECKING:
-    from .server import Server
     from .dynamic_voice import DynamicVoiceChannel
     from .member import HeliosMember
     from .helios_bot import HeliosBot

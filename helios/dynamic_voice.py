@@ -23,13 +23,13 @@ import json
 import logging
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional
 
 import discord
 
 from .database import DynamicVoiceGroupModel, DynamicVoiceModel
-from .views import DynamicVoiceView, PrivateVoiceView
 from .tools.settings import Settings, SettingItem, StringSettingItem
+from .views import DynamicVoiceView, PrivateVoiceView
 from .voice_template import VoiceTemplate
 
 if TYPE_CHECKING:

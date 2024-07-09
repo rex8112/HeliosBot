@@ -34,7 +34,7 @@ from .http import HTTPClient
 from .server import Server
 from .server_manager import ServerManager
 from .tools import Config
-from .views import TopicView, ViolationPayButton
+from .views import ViolationPayButton
 
 logger = logging.getLogger('HeliosLogger')
 

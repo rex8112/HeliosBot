@@ -25,12 +25,11 @@ import logging
 import os
 import sys
 
-import sentry_sdk
 import discord
-from discord.utils import setup_logging
 from discord.ext import commands
+from discord.utils import setup_logging
 
-from helios import HeliosBot, db, initialize_db
+from helios import db
 from helios.tools import Config
 
 logger = logging.getLogger('HeliosLogger')

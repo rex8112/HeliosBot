@@ -31,8 +31,7 @@ from discord.ext import commands
 from helios import DynamicVoiceGroup, VoiceManager, PaginatorSelectView
 
 if TYPE_CHECKING:
-    from helios import HeliosBot, VoiceChannel
-
+    from helios import HeliosBot
 
 logger = logging.getLogger('Helios.DynamicVoiceCog')
 

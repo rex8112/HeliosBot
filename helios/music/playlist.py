@@ -20,13 +20,13 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 import random
-from datetime import time, timedelta
-from typing import TYPE_CHECKING, Optional
+from datetime import timedelta
+from typing import TYPE_CHECKING
 
 import discord
 
-from .song import Song
 from .processor import get_info
+from .song import Song
 from ..colour import Colour
 from ..views import PaginatorView
 
