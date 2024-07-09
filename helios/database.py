@@ -22,7 +22,7 @@
 
 import datetime
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import peewee_async
 from playhouse.migrate import *
@@ -45,7 +45,7 @@ def initialize_db():
         db.connect()
         db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
                           EventModel, ViolationModel, DynamicVoiceModel, DynamicVoiceGroupModel, TopicModel,
-                          EffectModel])
+                          EffectModel, ThemeModel])
 
 
 def get_aware_utc_now():
@@ -90,7 +90,7 @@ class BaseModel(Model):
     def async_update(self, **kwargs):
         """Update the model instance asynchronously."""
         self.update_model_instance(self, kwargs)
-        return self.async_save()
+        return self.async_save(only=kwargs.keys())
 
     def async_delete(self):
         """Delete the model instance asynchronously."""
@@ -140,6 +140,11 @@ class MemberModel(BaseModel):
 
     class Meta:
         table_name = 'members'
+
+    @staticmethod
+    async def create_model(server: ServerModel, **kwargs):
+        """Create a new model instance in the database."""
+        return await objects.create(MemberModel, server=server, **kwargs)
 
 
 class OldMemberModel(BaseModel):
@@ -358,6 +363,42 @@ class EffectModel(BaseModel):
     async def get_all(cls) -> list['EffectModel']:
         q = cls.select()
         return await objects.prefetch(q)
+
+
+class ThemeModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    server = ForeignKeyField(ServerModel, backref='themes')
+    name = CharField(max_length=25)
+    roles = JSONField(default=[])
+    current = BooleanField(default=False)
+    used = BooleanField(default=False)
+    created = DatetimeTzField(default=get_aware_utc_now)
+
+    class Meta:
+        table_name = 'themes'
+
+    @classmethod
+    async def get_all(cls, server: ServerModel) -> list['ThemeModel']:
+        q = cls.select().where(cls.server == server)
+        return await objects.prefetch(q)
+
+    @classmethod
+    async def get_current(cls, server: ServerModel) -> Optional['ThemeModel']:
+        try:
+            return await objects.get(ThemeModel, server=server, current=True)
+        except DoesNotExist:
+            return None
+
+    @classmethod
+    async def get(cls, id: int) -> Optional['ThemeModel']:
+        try:
+            return await objects.get(ThemeModel, id=id)
+        except DoesNotExist:
+            return None
+
+    @classmethod
+    async def create(cls, server: ServerModel, name: str, roles: list[dict]) -> 'ThemeModel':
+        return await objects.create(cls, server=server, name=name, roles=roles)
 
 
 class PugModel(BaseModel):
