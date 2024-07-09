@@ -2,7 +2,7 @@ from . import tools
 from .shop import Shop
 from .channel_manager import ChannelManager
 from .colour import Colour
-from .database import db, initialize_db, migrate_members, fix_transaction
+from .database import db, initialize_db
 from .dynamic_voice import VoiceManager, DynamicVoiceGroup
 from .exceptions import *
 from .gambling import TexasHoldEm
