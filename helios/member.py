@@ -257,8 +257,6 @@ class HeliosMember(HasFlags):
 
     def serialize(self) -> dict:
         data = {
-            'id': self._id,
-            'server': self.server.id,
             'member_id': self.member.id,
             'templates': json.dumps([x.serialize() for x in self.templates]),
             'flags': json.dumps(self.flags),
@@ -266,8 +264,6 @@ class HeliosMember(HasFlags):
             'points': self._points,
             'ap_paid': self._ap_paid
         }
-        if self._id == 0:
-            del data['id']
         return data
 
     def claim_daily(self) -> bool:
@@ -320,14 +316,13 @@ class HeliosMember(HasFlags):
 
     async def save(self, force=False):
         if self._new:
-            self._db_entry = MemberModel(**self.serialize())
-            await self._db_entry.async_save()
+            data = self.serialize()
+            self._db_entry = await MemberModel.create_model(self.server.db_entry, **data)
             self._new = False
             self._id = self._db_entry.id
             self._changed = False
         if self._changed or force:
             data = self.serialize()
-            del data['server']
             self._db_entry.update_model_instance(self._db_entry, data)
             await self._db_entry.async_save()
             self._changed = False

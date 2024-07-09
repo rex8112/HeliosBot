@@ -175,6 +175,11 @@ class MemberModel(BaseModel):
     class Meta:
         table_name = 'members'
 
+    @staticmethod
+    async def create_model(server: ServerModel, **kwargs):
+        """Create a new model instance in the database."""
+        return await objects.create(MemberModel, server=server, **kwargs)
+
 
 class OldMemberModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
