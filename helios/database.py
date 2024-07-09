@@ -147,18 +147,6 @@ class MemberModel(BaseModel):
         return await objects.create(MemberModel, server=server, **kwargs)
 
 
-class OldMemberModel(BaseModel):
-    id = AutoField(primary_key=True, unique=True)
-    server = ForeignKeyField(ServerModel, backref='oldmembers')
-    member_id = BigIntegerField()
-    templates = TextField(default='[]')
-    settings = TextField(default='')
-    flags = TextField(default='[]')
-
-    class Meta:
-        table_name = 'oldmembers'
-
-
 class TransactionModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
     member = ForeignKeyField(MemberModel, backref='transactions')
