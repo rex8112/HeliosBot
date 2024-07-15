@@ -158,7 +158,7 @@ class PrivateVoiceCog(commands.Cog):
                                                 '.')
             else:
                 await interaction.followup.send(f'You do not currently have a '
-                                                f'channel active.')
+                                                f'channel active. Make sure you are currently in the voice channel.')
         else:
             await interaction.response.send_message(
                 'Critical Failure, tell `rex8112#1200` that server '
