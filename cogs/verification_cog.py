@@ -54,7 +54,7 @@ class VerificationCog(commands.Cog):
                             'below to give them access to the server. If '
                             'you do not know this person then please ignore '
                             'this message.\n\nIf the button is not working you'
-                            ' can also you the /verify command.',
+                            ' can also use the /verify command.',
                 colour=discord.Colour.orange()
             )
             view = VerifyView(helios_member)
@@ -62,13 +62,16 @@ class VerificationCog(commands.Cog):
 
             embed = discord.Embed(
                 title=f'Welcome to {member.guild.name}!',
-                description='This server requires a base level of verification.'
-                            ' Please wait for someone to verify you. Alternatively, '
+                description='This server requires a basic level of verification.'
+                            ' Please wait for your friend to verify you. Alternatively, '
                             'tell the person you know in the discord to hit the Verify'
                             f' button in the {member.guild.system_channel.name} channel.',
                 colour=discord.Colour.orange()
             )
-            await member.send(embed=embed)
+            try:
+                await member.send(embed=embed)
+            except discord.Forbidden:
+                pass
 
     @app_commands.command(name='verify', description='An alternative to verify a new member.')
     @app_commands.guild_only()
