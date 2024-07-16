@@ -57,8 +57,8 @@ class CourtCog(commands.Cog):
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
 
-    @app_commands.command(name='violations', description='See your current violations')
-    @app_commands.guild_only()
+    # @app_commands.command(name='violations', description='See your current violations')
+    # @app_commands.guild_only()
     async def violations(self, interaction: discord.Interaction):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)

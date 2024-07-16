@@ -60,7 +60,7 @@ class TestingCog(commands.Cog):
         """ /ping """
         await interaction.response.send_message('Pong!')
 
-    @app_commands.command(name='riverimage')
+    # @app_commands.command(name='riverimage')
     async def river_image(self, interaction: discord.Interaction):
         """Post a picture example for the river"""
         img = Image.open('./helios/resources/RiverTemplate.png')

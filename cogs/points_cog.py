@@ -167,9 +167,9 @@ class PointsCog(commands.Cog):
         server = self.bot.servers.get(interaction.guild_id)
         await server.music_player.member_play(interaction, song)
 
-    @app_commands.command(name='texasholdem')
-    @app_commands.describe(buy_in='The amount of points to buy in with')
-    @app_commands.guild_only()
+    # @app_commands.command(name='texasholdem')
+    # @app_commands.describe(buy_in='The amount of points to buy in with')
+    # @app_commands.guild_only()
     async def texas_holdem(self, interaction: discord.Interaction, buy_in: int = 1000):
         """ Create a Texas Holdem game. """
         server = self.bot.servers.get(interaction.guild_id)
