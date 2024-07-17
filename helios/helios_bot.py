@@ -26,6 +26,7 @@ from typing import Optional
 
 import discord
 from discord.ext import commands
+from aiohttp import ClientSession
 
 from .database import EventModel, objects
 from .effects import EffectsManager
@@ -47,6 +48,7 @@ class HeliosBot(commands.Bot):
         self.settings = settings
         self.ready_once = True
         self.helios_http: Optional[HTTPClient] = None
+        self._session: Optional[ClientSession] = None
 
         super().__init__(command_prefix, intents=intents, **options)
 
@@ -64,6 +66,11 @@ class HeliosBot(commands.Bot):
         values = identifier.split('.')
         server = self.servers.get(int(values[2]))
         return server.members.get(int(values[1])) if server is not None else None
+
+    def get_session(self):
+        if not self._session:
+            self._session = ClientSession()
+        return self._session
 
     async def setup_hook(self) -> None:
         self.tree.on_error = self.on_slash_error
@@ -103,6 +110,11 @@ class HeliosBot(commands.Bot):
             await self.effects.fetch_all()
             logger.debug('Finished setup')
             self.ready_once = False
+
+    async def on_disconnect(self):
+        if self._session:
+            await self._session.close()
+            self._session = None
 
     @staticmethod
     async def on_slash_error(

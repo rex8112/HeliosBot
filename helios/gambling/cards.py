@@ -41,7 +41,7 @@ class Values(Enum):
     seven = '7'
     eight = '8'
     nine = '9'
-    ten = '10'
+    ten = 'T'
     jack = 'J'
     queen = 'Q'
     king = 'K'
@@ -67,6 +67,13 @@ class Card:
 
     def short(self):
         return f'{self.value.value}{self.suit.value[0]}'
+
+    def bj_value(self):
+        if self.value in [Values.jack, Values.queen, Values.king]:
+            return 10
+        if self.value == Values.ace:
+            return 11
+        return int(self.value.value)
 
 
 class Deck:
@@ -116,11 +123,13 @@ class Deck:
                 deck += cls()
         return deck
 
-    def draw(self):
-        return self.cards.pop()
+    def draw(self, hidden=False):
+        card = self.cards.pop()
+        card.hidden = hidden
+        return card
 
-    def draw_to_hand(self, hand):
-        hand.add_card(self.draw())
+    def draw_to_hand(self, hand, hidden=False):
+        hand.add_card(self.draw(hidden))
 
     def reset(self):
         self.cards = [Card(s, v) for s in Suits for v in Values]
@@ -136,6 +145,18 @@ class Hand:
     def add_card(self, card: Card):
         self.cards.append(card)
 
+    def get_hand_bj_values(self) -> tuple[int, int]:
+        one_value = 0
+        eleven_value = 0
+        for card in self.cards:
+            if card.bj_value() == 11:
+                one_value += 1
+                eleven_value += 11
+            else:
+                one_value += card.bj_value()
+                eleven_value += card.bj_value()
+        return one_value, eleven_value
+
     def get_image(self):
         min_slots = 5
-        return get_card_images(tuple(x.short() for x in self.cards), max(min_slots, len(self.cards)))
+        return get_card_images(tuple(x.short() for x in self.cards if not x.hidden), max(min_slots, len(self.cards)))
