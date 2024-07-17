@@ -19,17 +19,27 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
-from helios.gambling.image import testing_icon, get_bj_hand_image
-from helios.gambling.cards import Card, Values, Suits
+from helios.gambling.image import testing_icon, BlackjackHandImage
+from helios.gambling.cards import Card, Hand, Values, Suits
 
 
 def test_get_bj_hand_image():
-    cards = [Card(Suits.hearts, Values.ace), Card(Suits.hearts, Values.king), Card(Suits.hearts, Values.queen), Card(Suits.hearts, Values.jack), Card(Suits.hearts, Values.ten), Card(Suits.hearts, Values.nine), Card(Suits.hearts, Values.eight)]
+    cards = [Card(Suits.hearts, Values.ace), Card(Suits.hearts, Values.king), Card(Suits.hearts, Values.queen), Card(Suits.hearts, Values.jack)]
+    hand = Hand()
+    hand.add_cards(cards)
     icon = testing_icon()
     name = 'Test Name'
     bet = '1000'
-    img = get_bj_hand_image(cards, icon, name, bet, '21')
-    img.show()
+    image_generator = BlackjackHandImage(hand, icon, name, bet)
+    image = image_generator.get_image(True)
+    image.show()
+    hand.add_cards([Card(Suits.hearts, Values.ten), Card(Suits.hearts, Values.nine), Card(Suits.hearts, Values.eight)])
+    image = image_generator.get_image(True)
+    image.show()
+    hand.cards.clear()
+    hand.add_cards([Card(Suits.hearts, Values.ace), Card(Suits.clubs, Values.ace)])
+    image = image_generator.get_image(True)
+    image.show()
 
 
 if __name__ == '__main__':

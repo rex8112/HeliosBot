@@ -21,15 +21,15 @@
 #  SOFTWARE.
 import io
 import requests
-from typing import Union, TYPE_CHECKING
+from typing import Union, TYPE_CHECKING, Optional
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageOps
+from PIL import Image, ImageDraw, ImageOps, ImageFont
 from pokerkit import Card as PCards
 
 if TYPE_CHECKING:
     from ..member import HeliosMember
-    from .cards import Card
+    from .cards import Card, Hand
 
 
 def get_card_images(cards: tuple[Union[str, PCards], ...], slots: int) -> io.BytesIO:
@@ -55,44 +55,109 @@ def get_card_images(cards: tuple[Union[str, PCards], ...], slots: int) -> io.Byt
     return b
 
 
-def get_bj_hand_image(cards: list['Card'], icon: Image, name: str, bet: str, hand_value: str) -> Image:
-    card_height = 200
-    card_width = 145
-    card_gap = -105
-    card_spots = 10
-    padding = 20
-    width = padding + (card_width * card_spots) + (card_gap * (card_spots - 1)) + padding
+class BlackjackHandImage:
+    def __init__(self, hand: 'Hand', icon: 'Image', name: str, bet: str):
+        self.hand = hand
+        self.icon: Image = icon.copy().resize((64, 64))
+        self.name = name
+        self.bet = bet
 
-    icon = icon.resize((64, 64))
-    content_height = padding + icon.height + 10 + card_height + padding
+        self.padding = 20
+        self.card_spots = 7
+        self.card_width = 145
+        self.card_gap = -105
+        self.card_height = 200
 
-    background = Image.new(mode='RGBA', size=(width, content_height), color=(255, 0, 0, 0))
-    b_draw = ImageDraw.Draw(background)
-    b_draw.rounded_rectangle(((0, 0), background.size), 30, fill='black')
+        self._background: Optional[Image] = None
+        self._currently_shown_cards: list['Card'] = []
+        self._current_image: Optional[Image] = None
 
-    background.paste(icon, (padding, padding), mask=icon)
+    def get_width(self) -> int:
+        return (self.padding + (self.card_width * self.card_spots) + (self.card_gap * (self.card_spots - 1))
+                + self.padding)
 
-    draw = ImageDraw.Draw(background)
-    start_x = padding + icon.width + 10
-    draw.text((start_x, padding), name, fill='white', font_size=20)
-    draw.text((start_x, padding + 30), bet, fill='white', font_size=16)
-    draw.text((width - padding, padding), hand_value, fill='white', font_size=36, anchor='rt')
+    def get_height(self) -> int:
+        return self.padding + self.icon.height + 10 + self.card_height + self.padding
 
-    card_top = background.height - card_height - padding
-    x = padding
-    for card in cards:
-        if card.hidden:
-            # card = Image.open('./helios/resources/cards/back.png')
-            # background.paste(card, (x, 100), mask=card)
-            continue
+    def get_background(self) -> Image:
+        if not self._background:
+            background = Image.new(mode='RGBA', size=(self.get_width(), self.get_height()), color=(255, 0, 0, 0))
+            draw = ImageDraw.Draw(background)
+            draw.rounded_rectangle(((0, 0), background.size), 32, fill='black')
+            background.paste(self.icon, (self.padding, self.padding), mask=self.icon)
+
+            start_x = self.padding + self.icon.width + 10
+            draw.text((start_x, self.padding), self.name, fill='white', font_size=20)
+            draw.text((start_x, self.padding + 30), self.bet, fill='white', font_size=16)
+
+            self._background = background
+        return self._background
+
+    def get_diff(self):
+        new_cards = self.hand.cards
+        diff = []
+        for i, card in enumerate(new_cards):
+            if i >= len(self._currently_shown_cards):
+                diff.append(card)
+            elif card != self._currently_shown_cards[i]:
+                return None
+        return diff
+
+    def draw_turn(self) -> Image:
+        if self._current_image is None:
+            raise ValueError('No current image to draw cards on.')
+        img = self._current_image.copy()
+        draw = ImageDraw.Draw(img)
+        draw.rounded_rectangle(((0, 0), img.size), 32, outline='green', width=5)
+        return img
+
+    def draw_cards(self, cards: list['Card']):
+        if self._current_image is None:
+            raise ValueError('No current image to draw cards on.')
+        x = self.padding + (len(self._currently_shown_cards) * (self.card_width + self.card_gap))
+        card_top = self._current_image.height - self.card_height - self.padding
+        for card in cards:
+            if card.hidden:
+                # card = Image.open('./helios/resources/cards/back.png')
+                # background.paste(card, (x, 100), mask=card)
+                continue
+            else:
+                try:
+                    img = Image.open(f'./helios/resources/cards/{card.short()}.png')
+                    self._current_image.paste(img, (x, card_top), mask=img)
+                except FileNotFoundError:
+                    ...
+            x += self.card_width + self.card_gap
+        if len(cards):
+            self.draw_hand_value()
+
+    def draw_hand_value(self):
+        font = ImageFont.load_default(36)
+        draw = ImageDraw.Draw(self._current_image)
+        bbox = font.getbbox('32')
+
+        draw.rectangle(((self._current_image.width - self.padding - bbox[2], self.padding),
+                        (self._current_image.width - self.padding, self.padding + bbox[3])),
+                       fill='black')
+        hand_value = self.hand.get_hand_bj_values()
+        draw.text((self._current_image.width - self.padding, self.padding), str(hand_value), fill='white',
+                  font_size=36, anchor='rt')
+
+    def get_image(self, is_turn: bool = False) -> Image:
+        diff = self.get_diff()
+
+        if self._current_image is None or diff is None:
+            self._current_image = self.get_background().copy()
+            self._currently_shown_cards = []
+            self.draw_cards(self.hand.cards)
         else:
-            try:
-                img = Image.open(f'./helios/resources/cards/{card.short()}.png')
-                background.paste(img, (x, card_top), mask=img)
-            except FileNotFoundError:
-                ...
-        x += card_width + card_gap
-    return background
+            self.draw_cards(diff)
+        self._currently_shown_cards = self.hand.cards.copy()
+
+        if is_turn:
+            return self.draw_turn()
+
+        return self._current_image
 
 
 def testing_icon():
