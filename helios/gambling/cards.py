@@ -73,6 +73,8 @@ class Card:
             return 10
         if self.value == Values.ace:
             return 11
+        if self.value == Values.ten:
+            return 10
         return int(self.value.value)
 
 
@@ -145,17 +147,25 @@ class Hand:
     def add_card(self, card: Card):
         self.cards.append(card)
 
-    def get_hand_bj_values(self) -> tuple[int, int]:
-        one_value = 0
-        eleven_value = 0
+    def add_cards(self, cards: list[Card]):
+        self.cards += cards
+
+    def get_hand_bj_values(self, show_hidden=True) -> int:
+        value = 0
+        elevens = 0
         for card in self.cards:
+            if card.hidden and not show_hidden:
+                continue
             if card.bj_value() == 11:
-                one_value += 1
-                eleven_value += 11
+                elevens += 1
             else:
-                one_value += card.bj_value()
-                eleven_value += card.bj_value()
-        return one_value, eleven_value
+                value += card.bj_value()
+        for _ in range(elevens):
+            if value + 11 > 21:
+                value += 1
+            else:
+                value += 11
+        return value
 
     def get_image(self):
         min_slots = 5
