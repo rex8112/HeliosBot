@@ -32,6 +32,7 @@ from pokerkit import Card as PCards
 if TYPE_CHECKING:
     from ..member import HeliosMember
     from .cards import Card, Hand
+    from aiohttp import ClientSession
 
 
 def get_card_images(cards: tuple[Union[str, PCards], ...], slots: int) -> io.BytesIO:
@@ -265,9 +266,7 @@ def testing_icon():
     return final
 
 
-async def get_member_icon(member: 'HeliosMember') -> Image:
-    url = member.member.display_avatar.url
-    session = member.bot.get_session()
+async def get_member_icon(session: 'ClientSession', url: str) -> Image:
     async with session.get(url) as response:
         icon_data = io.BytesIO(await response.read())
     img = Image.open(icon_data)
