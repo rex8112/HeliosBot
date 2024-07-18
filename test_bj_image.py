@@ -19,7 +19,7 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
-from helios.gambling.image import testing_icon, BlackjackHandImage
+from helios.gambling.image import testing_icon, BlackjackHandImage, BlackjackImage
 from helios.gambling.cards import Card, Hand, Values, Suits
 
 
@@ -30,16 +30,10 @@ def test_get_bj_hand_image():
     icon = testing_icon()
     name = 'Test Name'
     bet = '1000'
-    image_generator = BlackjackHandImage(hand, icon, name, bet)
-    image = image_generator.get_image(True)
-    image.show()
-    hand.add_cards([Card(Suits.hearts, Values.ten), Card(Suits.hearts, Values.nine), Card(Suits.hearts, Values.eight)])
-    image = image_generator.get_image(True)
-    image.show()
-    hand.cards.clear()
-    hand.add_cards([Card(Suits.hearts, Values.ace), Card(Suits.clubs, Values.ace)])
-    image = image_generator.get_image(True)
-    image.show()
+    image_generators = [BlackjackHandImage(hand, icon, name, bet) for _ in range(4)]
+    bji = BlackjackImage(BlackjackHandImage(hand, icon, 'Dealer', ''), image_generators)
+    img = bji.get_image()
+    img.resize((img.width*2, img.height*2)).save('bj_image.png')
 
 
 if __name__ == '__main__':

@@ -20,6 +20,8 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 import io
+import math
+
 import requests
 from typing import Union, TYPE_CHECKING, Optional
 
@@ -63,7 +65,7 @@ class BlackjackHandImage:
         self.bet = bet
 
         self.padding = 20
-        self.card_spots = 7
+        self.card_spots = 5
         self.card_width = 145
         self.card_gap = -105
         self.card_height = 200
@@ -87,8 +89,8 @@ class BlackjackHandImage:
             background.paste(self.icon, (self.padding, self.padding), mask=self.icon)
 
             start_x = self.padding + self.icon.width + 10
-            draw.text((start_x, self.padding), self.name, fill='white', font_size=20)
-            draw.text((start_x, self.padding + 30), self.bet, fill='white', font_size=16)
+            draw.text((start_x, self.padding), self.name, fill='white', font_size=32)
+            # draw.text((start_x, self.padding + 30), self.bet, fill='white', font_size=16)
 
             self._background = background
         return self._background
@@ -132,7 +134,7 @@ class BlackjackHandImage:
             self.draw_hand_value()
 
     def draw_hand_value(self):
-        font = ImageFont.load_default(36)
+        font = ImageFont.load_default(62)
         draw = ImageDraw.Draw(self._current_image)
         bbox = font.getbbox('32')
 
@@ -141,7 +143,7 @@ class BlackjackHandImage:
                        fill='black')
         hand_value = self.hand.get_hand_bj_values()
         draw.text((self._current_image.width - self.padding, self.padding), str(hand_value), fill='white',
-                  font_size=36, anchor='rt')
+                  font_size=62, anchor='rt')
 
     def get_image(self, is_turn: bool = False) -> Image:
         diff = self.get_diff()
@@ -157,6 +159,75 @@ class BlackjackHandImage:
         if is_turn:
             return self.draw_turn()
 
+        return self._current_image
+
+
+class BlackjackImage:
+    def __init__(self, dealer_hand: 'BlackjackHandImage', hands: list['BlackjackHandImage']):
+        self.dealer_hand = dealer_hand
+        self.hands = hands
+        self.current_hand = 0
+
+        self.padding = 20
+        self.wrap = 4
+
+        self._background: Optional[Image] = None
+        self._current_image: Optional[Image] = None
+        self._last_status: str = ''
+
+    def get_width(self) -> int:
+        return self.padding + sum(x.get_width() + self.padding for x in self.hands[:self.wrap])
+
+    def get_height(self) -> int:
+        hand_height = self.hands[0].get_height() if len(self.hands) < self.wrap + 1 else (self.hands[0].get_height()
+                                                                                          * 2 + self.padding)
+        value = (self.padding
+                 + self.dealer_hand.get_height()
+                 + self.padding
+                 + 150
+                 + self.padding
+                 + hand_height
+                 + self.padding)
+        return value
+
+    def get_background(self) -> Image:
+        if not self._background:
+            background = Image.new(mode='RGBA', size=(self.get_width(), self.get_height()), color=(255, 0, 0, 0))
+            self._background = background
+        return self._background
+
+    def draw_dealer_hand(self):
+        hand = self.dealer_hand.get_image()
+        h_width, h_height = hand.size
+        b_width = self._current_image.width
+
+        hand_mid = h_width // 2
+        background_mid = b_width // 2
+
+        self._current_image.paste(hand, (background_mid - hand_mid, self.padding), mask=hand)
+
+    def draw_hands(self):
+        h_width = self.hands[0].get_width()
+        h_height = self.hands[0].get_height()
+        b_height = self._current_image.height
+        y = b_height - ((h_height + self.padding) * math.ceil(len(self.hands) / self.wrap))
+        x = self.padding
+        for i, hand in enumerate(self.hands):
+            if i == self.wrap:
+                y += h_height + self.padding
+                x = self.padding
+            if i == self.current_hand:
+                hand_image = hand.get_image(True)
+            else:
+                hand_image = hand.get_image()
+            self._current_image.paste(hand_image, (x, y), mask=hand_image)
+            x += h_width + self.padding
+
+    def get_image(self, status: str = ''):
+        self._current_image = self.get_background().copy()
+        self.draw_dealer_hand()
+        self.draw_hands()
+        self._last_status = status
         return self._current_image
 
 
@@ -185,7 +256,6 @@ async def get_member_icon(member: 'HeliosMember') -> Image:
     final.putalpha(mask)
     return final
 
-
 # if __name__ == '__main__':
 #     url = 'https://cdn.discordapp.com/avatars/180067685986467840/39c1647625215203078dd28d0a3f4860.png?size=1024'
 #     icon_data = io.BytesIO(requests.get(url, stream=True).content)
@@ -196,4 +266,3 @@ async def get_member_icon(member: 'HeliosMember') -> Image:
 #     final = ImageOps.fit(img, mask.size, centering=(0.5, 0.5))
 #     final.putalpha(mask)
 #     final.save('icon.png')
-
