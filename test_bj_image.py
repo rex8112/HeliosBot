@@ -24,7 +24,7 @@ from helios.gambling.cards import Card, Hand, Values, Suits
 
 
 def test_get_bj_hand_image():
-    cards = [Card(Suits.hearts, Values.ace), Card(Suits.hearts, Values.king), Card(Suits.hearts, Values.queen), Card(Suits.hearts, Values.jack)]
+    cards = [Card(Suits.hearts, Values.ace), Card(Suits.hearts, Values.king), Card(Suits.hearts, Values.queen), Card(Suits.hearts, Values.jack), Card(Suits.hearts, Values.ten), Card(Suits.hearts, Values.nine)]
     hand = Hand()
     hand.add_cards(cards)
     icon = testing_icon()
@@ -32,7 +32,7 @@ def test_get_bj_hand_image():
     bet = '1000'
     image_generators = [BlackjackHandImage(hand, icon, name, bet) for _ in range(4)]
     bji = BlackjackImage(BlackjackHandImage(hand, icon, 'Dealer', ''), image_generators)
-    img = bji.get_image()
+    img = bji.get_image('Waiting For Player')
     img.resize((img.width*2, img.height*2)).save('bj_image.png')
 
 

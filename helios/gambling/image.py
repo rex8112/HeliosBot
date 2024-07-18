@@ -116,20 +116,33 @@ class BlackjackHandImage:
     def draw_cards(self, cards: list['Card']):
         if self._current_image is None:
             raise ValueError('No current image to draw cards on.')
-        x = self.padding + (len(self._currently_shown_cards) * (self.card_width + self.card_gap))
-        card_top = self._current_image.height - self.card_height - self.padding
+        if len(self._currently_shown_cards) >= self.card_spots:
+            card_x = self.padding + ((len(self._currently_shown_cards) - self.card_spots)
+                                     * (self.card_width + self.card_gap))
+        else:
+            card_x = self.padding + (len(self._currently_shown_cards) * (self.card_width + self.card_gap))
+        card_y = self._current_image.height - self.card_height - self.padding
+        card_num = len(self._currently_shown_cards)
         for card in cards:
+            if card_num == self.card_spots:
+                card_x = self.padding
+            if card_num >= self.card_spots:
+                y = card_y + self.card_height // 3
+            else:
+                y = card_y
+            x = card_x
             if card.hidden:
                 # card = Image.open('./helios/resources/cards/back.png')
-                # background.paste(card, (x, 100), mask=card)
+                # background.paste(card, (x, y), mask=card)
                 continue
             else:
                 try:
                     img = Image.open(f'./helios/resources/cards/{card.short()}.png')
-                    self._current_image.paste(img, (x, card_top), mask=img)
+                    self._current_image.paste(img, (x, y), mask=img)
                 except FileNotFoundError:
                     ...
-            x += self.card_width + self.card_gap
+            card_x += self.card_width + self.card_gap
+            card_num += 1
         if len(cards):
             self.draw_hand_value()
 
@@ -173,7 +186,6 @@ class BlackjackImage:
 
         self._background: Optional[Image] = None
         self._current_image: Optional[Image] = None
-        self._last_status: str = ''
 
     def get_width(self) -> int:
         return self.padding + sum(x.get_width() + self.padding for x in self.hands[:self.wrap])
@@ -223,11 +235,21 @@ class BlackjackImage:
             self._current_image.paste(hand_image, (x, y), mask=hand_image)
             x += h_width + self.padding
 
+    def draw_status(self, status: str):
+        draw = ImageDraw.Draw(self._current_image)
+        font = ImageFont.load_default(70)
+        bbox = font.getbbox(status)
+        bh_middle = self._current_image.height // 2
+        bw_middle = self._current_image.width // 2
+        boxh_middle = bbox[3] // 2
+        boxw_middle = bbox[2] // 2
+        draw.text((bw_middle - boxw_middle, bh_middle - boxh_middle), status, fill='white', font_size=70)
+
     def get_image(self, status: str = ''):
         self._current_image = self.get_background().copy()
         self.draw_dealer_hand()
         self.draw_hands()
-        self._last_status = status
+        self.draw_status(status)
         return self._current_image
 
 
