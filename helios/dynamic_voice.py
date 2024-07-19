@@ -243,7 +243,7 @@ class DynamicVoiceChannel:
         if self._control_message:
             try:
                 await self._control_message.delete()
-            except discord.NotFound:
+            except (discord.NotFound, discord.HTTPException):
                 ...
         if self.state == DynamicVoiceState.PRIVATE:
             view = PrivateVoiceView(self)
