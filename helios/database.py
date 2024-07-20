@@ -22,7 +22,7 @@
 
 import datetime
 import json
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Any
 
 import peewee_async
 from playhouse.migrate import *
@@ -45,7 +45,7 @@ def initialize_db():
         db.connect()
         db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
                           EventModel, ViolationModel, DynamicVoiceModel, DynamicVoiceGroupModel, TopicModel,
-                          EffectModel, ThemeModel])
+                          EffectModel, ThemeModel, BlackjackModel])
 
 
 def get_aware_utc_now():
@@ -387,6 +387,23 @@ class ThemeModel(BaseModel):
     @classmethod
     async def create(cls, server: ServerModel, name: str, roles: list[dict]) -> 'ThemeModel':
         return await objects.create(cls, server=server, name=name, roles=roles)
+
+
+class BlackjackModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    players = JSONField(default=[])
+    hands = JSONField(default=[])
+    bets = JSONField(default=[])
+    winnings = JSONField(default=[])
+    dealer_hand = JSONField(default=[])
+    created = DatetimeTzField(default=get_aware_utc_now)
+
+    class Meta:
+        table_name = 'blackjack'
+
+    @classmethod
+    async def create(cls, players: list) -> 'BlackjackModel':
+        return await objects.create(cls, players=players)
 
 
 class PugModel(BaseModel):

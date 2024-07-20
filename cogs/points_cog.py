@@ -27,7 +27,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 import helios
-from helios import ShopView, TexasHoldEm
+from helios import ShopView, TexasHoldEm, Blackjack
 from helios.shop import *
 
 if TYPE_CHECKING:
@@ -166,6 +166,15 @@ class PointsCog(commands.Cog):
     async def play_command(self, interaction: discord.Interaction, song: str):
         server = self.bot.servers.get(interaction.guild_id)
         await server.music_player.member_play(interaction, song)
+
+    @app_commands.command(name='blackjack', description='Play a game of blackjack')
+    @app_commands.guild_only()
+    async def blackjack(self, interaction: discord.Interaction):
+        server = self.bot.servers.get(interaction.guild_id)
+        channel = interaction.channel
+        bj = Blackjack(server, channel)
+        await interaction.response.send_message('Starting Blackjack', ephemeral=True)
+        await bj.start()
 
     # @app_commands.command(name='texasholdem')
     # @app_commands.describe(buy_in='The amount of points to buy in with')

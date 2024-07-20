@@ -21,3 +21,4 @@
 #  SOFTWARE.
 
 from .texasholdem import TexasHoldEm
+from .blackjack import Blackjack

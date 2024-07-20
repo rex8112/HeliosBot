@@ -20,6 +20,7 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 import asyncio
+import io
 import logging
 import traceback
 from typing import Optional
@@ -131,10 +132,11 @@ class HeliosBot(commands.Bot):
             await interaction.response.send_message(error_message, ephemeral=True)
 
         owner = interaction.client.get_user(180067685986467840)
+        string_io = io.BytesIO(traceback.format_exc().encode())
         if owner and not isinstance(error, discord.app_commands.errors.MissingPermissions):
             await owner.send(f'{interaction.user} encountered an error while using a command in {interaction.channel}\n'
-                             f'\n{interaction.command.qualified_name} : {interaction.command.parameters}'
-                             f'```{traceback.format_exc()}```')
+                             f'\n{interaction.command.qualified_name} : {interaction.command.parameters}',
+                             file=discord.File(string_io, filename='error.txt'))
 
     async def report_error(self, error, custom_msg=''):
         owner = self.get_user(180067685986467840)

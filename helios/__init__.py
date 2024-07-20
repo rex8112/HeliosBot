@@ -5,7 +5,7 @@ from .colour import Colour
 from .database import db, initialize_db
 from .dynamic_voice import VoiceManager, DynamicVoiceGroup
 from .exceptions import *
-from .gambling import TexasHoldEm
+from .gambling import TexasHoldEm, Blackjack
 from .helios_bot import HeliosBot
 from .modals import *
 from .member import HeliosMember

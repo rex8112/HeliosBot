@@ -26,10 +26,10 @@ from .image import get_card_images
 
 
 class Suits(Enum):
-    hearts = 'hearts'
-    diamonds = 'diamonds'
-    clubs = 'clubs'
-    spades = 'spades'
+    hearts = 'h'
+    diamonds = 'd'
+    clubs = 'c'
+    spades = 's'
 
 
 class Values(Enum):
@@ -55,10 +55,10 @@ class Card:
         self.hidden = False
 
     def __str__(self):
-        return f'{self.value} of {self.suit}'
+        return f'{self.value.value}{self.suit.value}'
 
     def __repr__(self):
-        return f'Card<{self.value} of {self.suit}>'
+        return f'Card<{self.value.name} of {self.suit.name}>'
 
     def __eq__(self, o: object):
         if isinstance(o, Card):
@@ -143,6 +143,15 @@ class Deck:
 class Hand:
     def __init__(self):
         self.cards: list[Card] = []
+
+    def to_dict(self):
+        return [str(card) for card in self.cards]
+
+    @classmethod
+    def from_dict(cls, data):
+        hand = cls()
+        hand.add_cards([Card(Suits[card[1]], Values[card[0]]) for card in data])
+        return hand
 
     def add_card(self, card: Card):
         self.cards.append(card)

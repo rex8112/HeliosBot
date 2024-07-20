@@ -59,9 +59,9 @@ def get_card_images(cards: tuple[Union[str, PCards], ...], slots: int) -> io.Byt
 
 
 class BlackjackHandImage:
-    def __init__(self, hand: 'Hand', icon: 'Image', name: str, bet: str):
+    def __init__(self, hand: 'Hand', icon: 'Image', name: str, bet: int):
         self.hand = hand
-        self.icon: Image = icon.copy().resize((64, 64))
+        self.icon: Image = icon.copy().resize((64, 64)).convert('RGBA')
         self.name = name
         self.bet = bet
 
@@ -91,9 +91,11 @@ class BlackjackHandImage:
 
             start_x = self.padding + self.icon.width + 10
             draw.text((start_x, self.padding), self.name, fill='white', font_size=32)
-            # draw.text((start_x, self.padding + 30), self.bet, fill='white', font_size=16)
+            if self.bet:
+                draw.text((start_x, self.padding + 30), f'Bet: {self.bet:,}', fill='white', font_size=24)
 
             self._background = background
+            del draw
         return self._background
 
     def get_diff(self):
@@ -112,6 +114,7 @@ class BlackjackHandImage:
         img = self._current_image.copy()
         draw = ImageDraw.Draw(img)
         draw.rounded_rectangle(((0, 0), img.size), 32, outline='green', width=5)
+        del draw
         return img
 
     def draw_cards(self, cards: list['Card']):
@@ -155,9 +158,10 @@ class BlackjackHandImage:
         draw.rectangle(((self._current_image.width - self.padding - bbox[2], self.padding),
                         (self._current_image.width - self.padding, self.padding + bbox[3])),
                        fill='black')
-        hand_value = self.hand.get_hand_bj_values()
+        hand_value = self.hand.get_hand_bj_values(False)
         draw.text((self._current_image.width - self.padding, self.padding), str(hand_value), fill='white',
                   font_size=62, anchor='rt')
+        del draw
 
     def get_image(self, is_turn: bool = False) -> Image:
         diff = self.get_diff()
@@ -177,10 +181,15 @@ class BlackjackHandImage:
 
 
 class BlackjackImage:
-    def __init__(self, dealer_hand: 'BlackjackHandImage', hands: list['BlackjackHandImage']):
+    def __init__(self, dealer_hand: 'BlackjackHandImage', hands: list['BlackjackHandImage'], current_hand: int = 0,
+                 id: int = 0, winners: list = None):
+        if winners is None:
+            winners = []
         self.dealer_hand = dealer_hand
         self.hands = hands
-        self.current_hand = 0
+        self.current_hand = current_hand
+        self.winners = winners
+        self.id = id
 
         self.padding = 20
         self.wrap = 4
@@ -189,11 +198,12 @@ class BlackjackImage:
         self._current_image: Optional[Image] = None
 
     def get_width(self) -> int:
-        return self.padding + sum(x.get_width() + self.padding for x in self.hands[:self.wrap])
+        return self.padding + sum(self.dealer_hand.get_width() + self.padding for _ in range(self.wrap))
 
     def get_height(self) -> int:
-        hand_height = self.hands[0].get_height() if len(self.hands) < self.wrap + 1 else (self.hands[0].get_height()
-                                                                                          * 2 + self.padding)
+        hand_height = self.dealer_hand.get_height() if len(self.hands) < self.wrap + 1 \
+            else self.dealer_hand.get_height() * 2 + self.padding
+
         value = (self.padding
                  + self.dealer_hand.get_height()
                  + self.padding
@@ -206,6 +216,9 @@ class BlackjackImage:
     def get_background(self) -> Image:
         if not self._background:
             background = Image.new(mode='RGBA', size=(self.get_width(), self.get_height()), color=(255, 0, 0, 0))
+            draw = ImageDraw.Draw(background)
+            draw.text((self.padding, self.padding), f'#{self.id}', fill='white', font_size=64)
+            del draw
             self._background = background
         return self._background
 
@@ -220,6 +233,8 @@ class BlackjackImage:
         self._current_image.paste(hand, (background_mid - hand_mid, self.padding), mask=hand)
 
     def draw_hands(self):
+        if len(self.hands) == 0:
+            return
         h_width = self.hands[0].get_width()
         h_height = self.hands[0].get_height()
         b_height = self._current_image.height
@@ -229,7 +244,7 @@ class BlackjackImage:
             if i == self.wrap:
                 y += h_height + self.padding
                 x = self.padding
-            if i == self.current_hand:
+            if i == self.current_hand or (self.winners and self.winners[i]):
                 hand_image = hand.get_image(True)
             else:
                 hand_image = hand.get_image()
@@ -245,13 +260,14 @@ class BlackjackImage:
         boxh_middle = bbox[3] // 2
         boxw_middle = bbox[2] // 2
         draw.text((bw_middle - boxw_middle, bh_middle - boxh_middle), status, fill='white', font_size=70)
+        del draw
 
     def get_image(self, status: str = ''):
         self._current_image = self.get_background().copy()
         self.draw_dealer_hand()
         self.draw_hands()
         self.draw_status(status)
-        return self._current_image
+        return self._current_image.resize((self._current_image.width * 2, self._current_image.height * 2))
 
 
 def testing_icon():
@@ -261,6 +277,7 @@ def testing_icon():
     mask = Image.new('L', (64, 64), 0)
     draw = ImageDraw.Draw(mask)
     draw.ellipse((0, 0) + mask.size, fill=255)
+    del draw
     final = ImageOps.fit(img, mask.size, centering=(0.5, 0.5))
     final.putalpha(mask)
     return final
@@ -273,6 +290,7 @@ async def get_member_icon(session: 'ClientSession', url: str) -> Image:
     mask = Image.new('L', (64, 64), 0)
     draw = ImageDraw.Draw(mask)
     draw.ellipse((0, 0) + mask.size, fill=255)
+    del draw
     final = ImageOps.fit(img, mask.size, centering=(0.5, 0.5))
     final.putalpha(mask)
     return final
