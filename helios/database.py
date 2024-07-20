@@ -158,6 +158,12 @@ class TransactionModel(BaseModel):
     class Meta:
         table_name = 'transactions'
 
+    @staticmethod
+    async def get_transactions_paginated(member: 'HeliosMember', page: int, limit: int) -> list['TransactionModel']:
+        q = (TransactionModel.select().where(TransactionModel.member_id == member.db_id)
+             .order_by(TransactionModel.id.desc()).paginate(page, limit))
+        return await objects.prefetch(q)
+
 
 class EventModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
