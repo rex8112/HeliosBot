@@ -20,12 +20,14 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 import asyncio
+import io
 import logging
 import traceback
 from typing import Optional
 
 import discord
 from discord.ext import commands
+from aiohttp import ClientSession
 
 from .database import EventModel, objects
 from .effects import EffectsManager
@@ -47,6 +49,7 @@ class HeliosBot(commands.Bot):
         self.settings = settings
         self.ready_once = True
         self.helios_http: Optional[HTTPClient] = None
+        self._session: Optional[ClientSession] = None
 
         super().__init__(command_prefix, intents=intents, **options)
 
@@ -64,6 +67,11 @@ class HeliosBot(commands.Bot):
         values = identifier.split('.')
         server = self.servers.get(int(values[2]))
         return server.members.get(int(values[1])) if server is not None else None
+
+    def get_session(self):
+        if not self._session:
+            self._session = ClientSession()
+        return self._session
 
     async def setup_hook(self) -> None:
         self.tree.on_error = self.on_slash_error
@@ -104,6 +112,11 @@ class HeliosBot(commands.Bot):
             logger.debug('Finished setup')
             self.ready_once = False
 
+    async def on_disconnect(self):
+        if self._session:
+            await self._session.close()
+            self._session = None
+
     @staticmethod
     async def on_slash_error(
             interaction: discord.Interaction,
@@ -119,10 +132,11 @@ class HeliosBot(commands.Bot):
             await interaction.response.send_message(error_message, ephemeral=True)
 
         owner = interaction.client.get_user(180067685986467840)
+        string_io = io.BytesIO(traceback.format_exc().encode())
         if owner and not isinstance(error, discord.app_commands.errors.MissingPermissions):
             await owner.send(f'{interaction.user} encountered an error while using a command in {interaction.channel}\n'
-                             f'\n{interaction.command.qualified_name} : {interaction.command.parameters}'
-                             f'```{traceback.format_exc()}```')
+                             f'\n{interaction.command.qualified_name} : {interaction.command.parameters}',
+                             file=discord.File(string_io, filename='error.txt'))
 
     async def report_error(self, error, custom_msg=''):
         owner = self.get_user(180067685986467840)

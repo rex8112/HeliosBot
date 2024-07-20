@@ -26,13 +26,18 @@ from discord import ui, Interaction
 class AmountModal(ui.Modal, title='Amount'):
     amount = ui.TextInput(label='Amount', required=True)
 
-    def __init__(self, *, default=None, timeout=30):
+    def __init__(self, *, default=None, timeout=30, thinking=False, ephemeral=True):
         super().__init__(timeout=timeout)
         if default:
             self.amount.default = default
         self.amount_selected = None
+        self.thinking = thinking
+        self.ephemeral = ephemeral
+
+        self.last_interaction = None
 
     async def on_submit(self, interaction: Interaction) -> None:
+        self.last_interaction = interaction
         try:
             self.amount_selected = int(self.amount.value)
         except ValueError:
@@ -41,7 +46,7 @@ class AmountModal(ui.Modal, title='Amount'):
                 ephemeral=True
             )
             return
-        await interaction.response.defer()
+        await interaction.response.defer(thinking=self.thinking, ephemeral=self.ephemeral)
         self.stop()
 
 

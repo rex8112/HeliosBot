@@ -21,13 +21,16 @@
 #  SOFTWARE.
 
 import asyncio
+import io
 from datetime import time, datetime
 
+import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 
 import helios
-from helios import ShopView, TexasHoldEm
+from helios import ShopView, TexasHoldEm, Blackjack
+from helios.database import TransactionModel
 from helios.shop import *
 
 if TYPE_CHECKING:
@@ -127,6 +130,23 @@ class PointsCog(commands.Cog):
         except (discord.Forbidden, discord.HTTPException):
             ...
 
+    @app_commands.command(name='transactions', description='View your last 100 transactions')
+    @app_commands.guild_only()
+    async def transactions(self, interaction: discord.Interaction):
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        transactions = await TransactionModel.get_transactions_paginated(member, 1, 100)
+        t_string = ''
+        for t in transactions:
+            t_string += (f'| {t.created_on.strftime("%Y-%m-%d %H:%M:%S")} | {t.payee:25} '
+                         f'| {t.description:50} | {t.amount:>7,} |\n')
+        file = discord.File(io.BytesIO(t_string.encode()), filename='transactions.txt')
+        embed = discord.Embed(
+            title='Transaction History',
+            colour=member.colour()
+        )
+        await interaction.response.send_message(embed=embed, file=file, ephemeral=True)
+
     @app_commands.command(name='leaderboard', description='See a top 10 leaderboard')
     @app_commands.guild_only()
     async def leaderboard(self, interaction: discord.Interaction):
@@ -167,9 +187,18 @@ class PointsCog(commands.Cog):
         server = self.bot.servers.get(interaction.guild_id)
         await server.music_player.member_play(interaction, song)
 
-    @app_commands.command(name='texasholdem')
-    @app_commands.describe(buy_in='The amount of points to buy in with')
+    @app_commands.command(name='blackjack', description='Play a game of blackjack')
     @app_commands.guild_only()
+    async def blackjack(self, interaction: discord.Interaction):
+        server = self.bot.servers.get(interaction.guild_id)
+        channel = interaction.channel
+        bj = Blackjack(server, channel)
+        await interaction.response.send_message('Starting Blackjack', ephemeral=True)
+        await bj.start()
+
+    # @app_commands.command(name='texasholdem')
+    # @app_commands.describe(buy_in='The amount of points to buy in with')
+    # @app_commands.guild_only()
     async def texas_holdem(self, interaction: discord.Interaction, buy_in: int = 1000):
         """ Create a Texas Holdem game. """
         server = self.bot.servers.get(interaction.guild_id)
