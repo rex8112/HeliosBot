@@ -118,13 +118,16 @@ class Blackjack:
         self.view = BlackjackJoinView(self)
         await self.update_message('Waiting For Players to Join')
         tries = 0
-        while len(self.players) < 1:
-            await asyncio.sleep(15)
-            tries += 1
+        last_players = 0
+        while (len(self.players) < 1 or len(self.players) != last_players) and len(self.players) < self.max_players:
             if tries > 4:
                 await self.update_message('Times Up!')
                 await self.message.delete(delay=5)
                 return
+            last_players = len(self.players)
+            await asyncio.sleep(15)
+            if len(self.players) < 1:
+                tries += 1
         try:
             await self.run()
         except Exception as e:
@@ -179,24 +182,36 @@ class Blackjack:
             await self.db_entry.async_update(**self.to_dict())
             await asyncio.sleep(0.5)
 
-        # Player Turns
-        self.current_player = 0
-        while self.current_player < len(self.players):
-            self.view = BlackjackView(self)
-            await self.update_message('Waiting For Player')
-            _, pending = await asyncio.wait([asyncio.create_task(self.view.wait())], timeout=30)
-            if pending:
-                self.view.stop()
-                await self.stand()
-                continue
-        await self.db_entry.async_update(**self.to_dict())
-        self.view = None
-
-        await self.dealer_play()
-
-        await self.update_message('Calculating Winnings')
-        await self.db_entry.async_update(**self.to_dict())
+        await self.update_message('Dealer Checking for Blackjack')
         await asyncio.sleep(1)
+
+        if self.dealer_hand.get_hand_bj_values() == 21:
+            await self.update_message('Dealer Blackjack')
+            await asyncio.sleep(1)
+        else:
+            # Player Turns
+            self.current_player = 0
+            while self.current_player < len(self.players):
+                if self.hands[self.current_player][0].get_hand_bj_values() >= 21:
+                    await self.stand()
+                    continue
+
+                self.view = BlackjackView(self)
+                await self.update_message('Waiting For Player')
+                _, pending = await asyncio.wait([asyncio.create_task(self.view.wait())], timeout=30)
+                if pending:
+                    self.view.stop()
+                    await self.stand()
+                    continue
+            await self.db_entry.async_update(**self.to_dict())
+            self.view = None
+
+            await self.dealer_play()
+
+            await self.update_message('Calculating Winnings')
+            await self.db_entry.async_update(**self.to_dict())
+            await asyncio.sleep(1)
+
         self.calculate_winnings()
         for i, player in enumerate(self.players):
             await player.add_points(self.winnings[i], 'Helios: Blackjack', f'{self.id}: Winnings')
@@ -226,6 +241,7 @@ class Blackjack:
             await self.update_message('Dealer Busts')
         else:
             await self.update_message('Dealer Stands')
+        await asyncio.sleep(1)
 
     def calculate_winnings(self):
         winnings = []
@@ -278,7 +294,7 @@ class BlackjackView(discord.ui.View):
         super().__init__(timeout=30)
         self.blackjack = blackjack
 
-    @discord.ui.button(label='Hit', style=discord.ButtonStyle.primary)
+    @discord.ui.button(label='Hit', style=discord.ButtonStyle.green)
     async def hit(self, interaction: discord.Interaction, button: discord.ui.Button):
         player = self.blackjack.players[self.blackjack.current_player]
         if player.member != interaction.user:
@@ -288,7 +304,7 @@ class BlackjackView(discord.ui.View):
         await self.blackjack.hit()
         self.stop()
 
-    @discord.ui.button(label='Stand', style=discord.ButtonStyle.primary)
+    @discord.ui.button(label='Stand', style=discord.ButtonStyle.red)
     async def stand(self, interaction: discord.Interaction, button: discord.ui.Button):
         player = self.blackjack.players[self.blackjack.current_player]
         if player.member != interaction.user:
@@ -315,11 +331,14 @@ class BlackjackJoinView(discord.ui.View):
             return
         modal = AmountModal(thinking=True)
         await interaction.response.send_modal(modal)
-        if await modal.wait() and modal.amount_selected > 0:
+        if await modal.wait():
+            return
+        if modal.amount_selected <= 0:
+            await modal.last_interaction.followup.send(content=f'You must bet at least 1 {member.server.points_name.capitalize()}.')
             return
         amount = modal.amount_selected
         if amount > member.points:
-            await modal.last_interaction.followup.send(content='You do not have enough points.')
+            await modal.last_interaction.followup.send(content=f'You do not have enough {member.server.points_name.capitalize()}s.')
             return
 
         await self.blackjack.add_player(member, amount)
