@@ -278,7 +278,7 @@ class Blackjack:
 
     def get_image_file(self, state: str) -> discord.File:
         img = BlackjackImage(self.dealer_hand_image, self.hand_images, self.current_player,
-                             self.id if self.id else 0, [bool(x) for x in self.winnings]).get_image(state)
+                             self.id if self.id else 0, self.winnings).get_image(state)
         with io.BytesIO() as img_bytes:
             img.save(img_bytes, format='PNG')
             img_bytes.seek(0)
@@ -344,6 +344,10 @@ class BlackjackView(discord.ui.View):
         await interaction.response.defer()
         await player.add_points(-self.blackjack.bets[self.blackjack.current_player][0], 'Helios: Blackjack',
                                 f'{self.blackjack.id}: Double Down')
+        self.blackjack.bets[self.blackjack.current_player][0] *= 2
+        hand_image = self.blackjack.hand_images[self.blackjack.current_player]
+        hand_image.bet = self.blackjack.bets[self.blackjack.current_player][0]
+        hand_image.get_image(redraw=True)
         await self.blackjack.hit()
         await self.blackjack.stand()
         self.stop()
