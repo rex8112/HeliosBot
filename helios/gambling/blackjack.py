@@ -144,6 +144,10 @@ class Blackjack:
             bet = self.bets[self.players.index(player)][0]
             if bet > player.points:
                 await self.remove_player(player)
+        if len(self.players) < 1:
+            await self.update_message('Not Enough Players')
+            await self.message.delete(delay=5)
+            return
 
         # Create Database Entry and set ID
         self.db_entry = await BlackjackModel.create(self.to_dict()['players'])
