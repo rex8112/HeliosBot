@@ -191,6 +191,9 @@ class Blackjack:
             await asyncio.sleep(3)
 
         if self.dealer_hand.get_hand_bj_values() == 21:
+            for card in self.dealer_hand.cards:
+                card.hidden = False
+            self.generate_hand_images()
             await self.update_message('Dealer Blackjack')
             await asyncio.sleep(1)
         else:
@@ -253,7 +256,9 @@ class Blackjack:
             player_value = self.hands[i][0].get_hand_bj_values()
             bet = self.bets[i][0]
             amount_won = 0
-            if player_value > 21:
+            if len(self.dealer_hand.cards) == 2 and dealer_value == 21:
+                amount_won = 0
+            elif player_value > 21:
                 amount_won = 0
             elif dealer_value > 21:
                 amount_won = bet * 2
