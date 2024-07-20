@@ -333,6 +333,9 @@ class BlackjackJoinView(discord.ui.View):
         await interaction.response.send_modal(modal)
         if await modal.wait():
             return
+        if self.blackjack.id is not None:
+            await modal.last_interaction.followup.send(content='The game has already started.')
+            return
         if modal.amount_selected <= 0:
             await modal.last_interaction.followup.send(content=f'You must bet at least 1 {member.server.points_name.capitalize()}.')
             return
