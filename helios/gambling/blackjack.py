@@ -258,6 +258,8 @@ class Blackjack:
                 amount_won = 0
             elif dealer_value > 21:
                 amount_won = bet * 2
+            elif player_value == dealer_value:
+                amount_won = bet
             elif player_value > dealer_value:
                 amount_won = bet * 2
 
