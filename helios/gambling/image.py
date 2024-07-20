@@ -23,7 +23,7 @@ import io
 import math
 
 import requests
-from typing import Union, TYPE_CHECKING, Optional
+from typing import Union, TYPE_CHECKING, Optional, Literal
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageOps, ImageFont
@@ -82,8 +82,8 @@ class BlackjackHandImage:
     def get_height(self) -> int:
         return self.padding + self.icon.height + 10 + self.card_height + self.padding
 
-    def get_background(self) -> Image:
-        if not self._background:
+    def get_background(self, redraw=False) -> Image:
+        if not self._background or redraw:
             background = Image.new(mode='RGBA', size=(self.get_width(), self.get_height()), color=(255, 0, 0, 0))
             draw = ImageDraw.Draw(background)
             draw.rounded_rectangle(((0, 0), background.size), 32, fill='black')
@@ -108,12 +108,20 @@ class BlackjackHandImage:
                 return None
         return diff
 
-    def draw_turn(self) -> Image:
+    def draw_outline(self, result: Literal['win', 'push', 'lose', 'turn'] = 'turn') -> Image:
         if self._current_image is None:
             raise ValueError('No current image to draw cards on.')
+        if result == 'turn':
+            color = 'green'
+        elif result == 'win':
+            color = 'green'
+        elif result == 'push':
+            color = 'yellow'
+        else:
+            color = 'red'
         img = self._current_image.copy()
         draw = ImageDraw.Draw(img)
-        draw.rounded_rectangle(((0, 0), img.size), 32, outline='green', width=5)
+        draw.rounded_rectangle(((0, 0), img.size), 32, outline=color, width=5)
         del draw
         return img
 
@@ -163,32 +171,32 @@ class BlackjackHandImage:
                   font_size=62, anchor='rt')
         del draw
 
-    def get_image(self, is_turn: bool = False) -> Image:
+    def get_image(self, result: Literal['win', 'push', 'lose', 'turn'] = '', *, redraw=False) -> Image:
         diff = self.get_diff()
 
-        if self._current_image is None or diff is None:
-            self._current_image = self.get_background().copy()
+        if self._current_image is None or diff is None or redraw:
+            self._current_image = self.get_background(redraw).copy()
             self._currently_shown_cards = []
             self.draw_cards(self.hand.cards)
         else:
             self.draw_cards(diff)
         self._currently_shown_cards = self.hand.cards.copy()
 
-        if is_turn:
-            return self.draw_turn()
+        if result:
+            return self.draw_outline(result)
 
         return self._current_image
 
 
 class BlackjackImage:
     def __init__(self, dealer_hand: 'BlackjackHandImage', hands: list['BlackjackHandImage'], current_hand: int = 0,
-                 id: int = 0, winners: list = None):
-        if winners is None:
-            winners = []
+                 id: int = 0, winnings: list = None):
+        if winnings is None:
+            winnings = []
         self.dealer_hand = dealer_hand
         self.hands = hands
         self.current_hand = current_hand
-        self.winners = winners
+        self.winnings = winnings
         self.id = id
 
         self.padding = 20
@@ -244,8 +252,16 @@ class BlackjackImage:
             if i == self.wrap:
                 y += h_height + self.padding
                 x = self.padding
-            if i == self.current_hand or (self.winners and self.winners[i]):
-                hand_image = hand.get_image(True)
+            if i == self.current_hand:
+                hand_image = hand.get_image('turn')
+            elif len(self.winnings) > 0:
+                winnings = self.winnings[i]
+                if winnings == 0:
+                    hand_image = hand.get_image('lose')
+                elif winnings == hand.bet:
+                    hand_image = hand.get_image('push')
+                else:
+                    hand_image = hand.get_image('win')
             else:
                 hand_image = hand.get_image()
             self._current_image.paste(hand_image, (x, y), mask=hand_image)
