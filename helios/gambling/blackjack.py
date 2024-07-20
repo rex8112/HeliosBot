@@ -186,8 +186,9 @@ class Blackjack:
             await self.db_entry.async_update(**self.to_dict())
             await asyncio.sleep(0.5)
 
-        await self.update_message('Dealer Checking for Blackjack')
-        await asyncio.sleep(1)
+        if self.dealer_hand.get_hand_bj_values(False) in [11, 10]:
+            await self.update_message('Dealer Checking for Blackjack')
+            await asyncio.sleep(3)
 
         if self.dealer_hand.get_hand_bj_values() == 21:
             await self.update_message('Dealer Blackjack')
@@ -225,8 +226,6 @@ class Blackjack:
     async def hit(self):
         hand = self.hands[self.current_player][0]
         self.deck.draw_to_hand(hand)
-        if hand.get_hand_bj_values() >= 21:
-            await self.stand()
 
     async def stand(self):
         self.current_player += 1
@@ -299,6 +298,15 @@ class BlackjackView(discord.ui.View):
     def __init__(self, blackjack: Blackjack):
         super().__init__(timeout=30)
         self.blackjack = blackjack
+        self.check_buttons()
+
+    def check_buttons(self):
+        player = self.blackjack.players[self.blackjack.current_player]
+        hand = self.blackjack.hands[self.blackjack.current_player][0]
+        if len(hand.cards) > 2:
+            self.remove_item(self.double_down)
+        elif player.points < self.blackjack.bets[self.blackjack.current_player][0]:
+            self.double_down.disabled = True
 
     @discord.ui.button(label='Hit', style=discord.ButtonStyle.green)
     async def hit(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -317,6 +325,26 @@ class BlackjackView(discord.ui.View):
             await interaction.response.send_message('It is not your turn.', ephemeral=True)
             return
         await interaction.response.defer()
+        await self.blackjack.stand()
+        self.stop()
+
+    @discord.ui.button(label='Double Down', style=discord.ButtonStyle.blurple)
+    async def double_down(self, interaction: discord.Interaction, button: discord.ui.Button):
+        player = self.blackjack.players[self.blackjack.current_player]
+        if player.member != interaction.user:
+            await interaction.response.send_message('It is not your turn.', ephemeral=True)
+            return
+        hand = self.blackjack.hands[self.blackjack.current_player][0]
+        if len(hand.cards) > 2:
+            await interaction.response.send_message('You can only double down on your first turn.', ephemeral=True)
+            return
+        if player.points < self.blackjack.bets[self.blackjack.current_player][0]:
+            await interaction.response.send_message('You do not have enough points to double down.', ephemeral=True)
+            return
+        await interaction.response.defer()
+        await player.add_points(-self.blackjack.bets[self.blackjack.current_player][0], 'Helios: Blackjack',
+                                f'{self.blackjack.id}: Double Down')
+        await self.blackjack.hit()
         await self.blackjack.stand()
         self.stop()
 
