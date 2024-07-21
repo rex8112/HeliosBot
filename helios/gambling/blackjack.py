@@ -46,6 +46,7 @@ def turn_timer(seconds: int) -> Callable[[], Awaitable[None]]:
     return inner
 
 
+# noinspection PyAsyncCall
 class Blackjack:
     def __init__(self, server: 'Server', channel: discord.TextChannel):
         self.server = server
@@ -89,8 +90,8 @@ class Blackjack:
             'winnings': self.winnings,
         }
 
-    async def update_message(self, state: str):
-        img = self.get_image_file(state)
+    async def update_message(self, state: str, timer: int = 0):
+        img = self.get_image_file(state, timer)
         if self.message:
             await self.message.edit(attachments=[img], view=self.view)
         else:
@@ -102,7 +103,6 @@ class Blackjack:
         self.bets.append([bet])
         self.icons.append(await get_member_icon(player.bot.get_session(), player.member.display_avatar.url))
         self.generate_hand_images()
-        await self.update_message('Player Joined')
 
     async def remove_player(self, player: HeliosMember):
         index = self.players.index(player)
@@ -110,24 +110,27 @@ class Blackjack:
         self.hands.pop(index)
         self.bets.pop(index)
         self.icons.pop(index)
+        self.hand_images.pop(index)
 
     async def start(self):
         self.deck.shuffle()
         await self.generate_dealer_image()
         self.generate_hand_images()
         self.view = BlackjackJoinView(self)
-        await self.update_message('Waiting For Players to Join')
-        tries = 0
-        last_players = 0
-        while (len(self.players) < 1 or len(self.players) != last_players) and len(self.players) < self.max_players:
-            if tries > 4:
-                await self.update_message('Times Up!')
-                await self.message.delete(delay=5)
-                return
-            last_players = len(self.players)
-            await asyncio.sleep(15)
-            if len(self.players) < 1:
-                tries += 1
+        seconds = 20
+        await self.update_message('Waiting For Players to Join', seconds)
+        while seconds > 0:
+            await asyncio.sleep(1)
+            seconds -= 1
+            if len(self.players) >= self.max_players:
+                break
+            else:
+                await self.update_message('Waiting For Players to Join', seconds)
+        if len(self.players) < 1:
+            self.view.stop()
+            await self.update_message('Not Enough Players')
+            await self.message.delete(delay=5)
+            return
         try:
             await self.run()
         except Exception as e:
@@ -177,6 +180,7 @@ class Blackjack:
             await asyncio.sleep(0.5)
 
         self.deck.draw_to_hand(self.dealer_hand, hidden=True)
+        await self.update_message('Drawing Cards')
         await self.db_entry.async_update(**self.to_dict())
         await asyncio.sleep(0.5)
 
@@ -225,6 +229,8 @@ class Blackjack:
             await player.add_points(self.winnings[i], 'Helios: Blackjack', f'{self.id}: Winnings')
         await self.update_message('Game Over')
         await self.db_entry.async_update(winnings=self.winnings)
+        new_blackjack = Blackjack(self.server, self.channel)
+        asyncio.create_task(new_blackjack.start())
 
     async def hit(self):
         hand = self.hands[self.current_player][0]
@@ -281,9 +287,9 @@ class Blackjack:
         self.dealer_icon = await get_member_icon(self.server.bot.get_session(),
                                                  self.server.bot.user.display_avatar.url)
 
-    def get_image_file(self, state: str) -> discord.File:
+    def get_image_file(self, state: str, timer: int) -> discord.File:
         img = BlackjackImage(self.dealer_hand_image, self.hand_images, self.current_player,
-                             self.id if self.id else 0, self.winnings).get_image(state)
+                             self.id if self.id else 0, self.winnings).get_image(state, timer)
         with io.BytesIO() as img_bytes:
             img.save(img_bytes, format='PNG')
             img_bytes.seek(0)
@@ -360,7 +366,7 @@ class BlackjackView(discord.ui.View):
 
 class BlackjackJoinView(discord.ui.View):
     def __init__(self, blackjack: Blackjack):
-        super().__init__(timeout=30)
+        super().__init__(timeout=120)
         self.blackjack = blackjack
 
     @discord.ui.button(label='Join', style=discord.ButtonStyle.primary)

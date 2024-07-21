@@ -291,11 +291,18 @@ class BlackjackImage:
         draw.text((bw_middle - boxw_middle, bh_middle - boxh_middle), status, fill='white', font_size=70)
         del draw
 
-    def get_image(self, status: str = ''):
+    def draw_timer(self, timer: int):
+        draw = ImageDraw.Draw(self._current_image)
+        f_size = 64
+        draw.text((self._current_image.width - self.padding, self.padding), f'{timer}', fill='white', font_size=f_size, anchor='rt')
+
+    def get_image(self, status: str = '', timer: int = 0) -> Image:
         self._current_image = self.get_background().copy()
         self.draw_dealer_hand()
         self.draw_hands()
         self.draw_status(status)
+        if timer:
+            self.draw_timer(timer)
         return self._current_image.resize((self._current_image.width * 2, self._current_image.height * 2))
 
 
