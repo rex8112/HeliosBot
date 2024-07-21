@@ -239,7 +239,7 @@ class Blackjack:
         self.generate_hand_images()
         await self.update_message('Dealer Playing')
         await asyncio.sleep(1)
-        while self.dealer_hand.get_hand_bj_values() < 17:
+        while self.dealer_hand.get_hand_bj_values(suppress_eleven=True) < 17:
             self.deck.draw_to_hand(self.dealer_hand)
             await self.update_message('Dealer Playing')
             await asyncio.sleep(1)

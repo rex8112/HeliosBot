@@ -159,14 +159,17 @@ class Hand:
     def add_cards(self, cards: list[Card]):
         self.cards += cards
 
-    def get_hand_bj_values(self, show_hidden=True) -> int:
+    def get_hand_bj_values(self, show_hidden=True, suppress_eleven=False) -> int:
         value = 0
         elevens = 0
         for card in self.cards:
             if card.hidden and not show_hidden:
                 continue
             if card.bj_value() == 11:
-                elevens += 1
+                if suppress_eleven:
+                    value += 1
+                else:
+                    elevens += 1
             else:
                 value += card.bj_value()
         for _ in range(elevens):
