@@ -208,9 +208,13 @@ class BlackjackImage:
     def get_width(self) -> int:
         return self.padding + sum(self.dealer_hand.get_width() + self.padding for _ in range(self.wrap))
 
-    def get_height(self) -> int:
+    def get_hands_height(self) -> int:
         hand_height = self.dealer_hand.get_height() if len(self.hands) < self.wrap + 1 \
             else self.dealer_hand.get_height() * 2 + self.padding
+        return hand_height
+
+    def get_height(self) -> int:
+        hand_height = self.get_hands_height()
 
         value = (self.padding
                  + self.dealer_hand.get_height()
@@ -246,7 +250,7 @@ class BlackjackImage:
         h_width = self.hands[0].get_width()
         h_height = self.hands[0].get_height()
         b_height = self._current_image.height
-        y = b_height - ((h_height + self.padding) * math.ceil(len(self.hands) / self.wrap))
+        y = b_height - self.get_hands_height() - self.padding
         x = self.padding
         for i, hand in enumerate(self.hands):
             if i == self.wrap:
@@ -269,11 +273,18 @@ class BlackjackImage:
 
     def draw_status(self, status: str):
         draw = ImageDraw.Draw(self._current_image)
-        font = ImageFont.load_default(70)
+        f_size = 70
+        font = ImageFont.load_default(f_size)
         bbox = font.getbbox(status)
-        bh_middle = self._current_image.height // 2
+
+        b_height = self._current_image.height
+        bh_middle_start = self.padding + self.dealer_hand.get_height()
+        bh_middle_end = b_height - self.get_hands_height() - self.padding
+        center_h = bh_middle_end - bh_middle_start
+        bh_middle = center_h // 2 + bh_middle_start
+
         bw_middle = self._current_image.width // 2
-        boxh_middle = bbox[3] // 2
+        boxh_middle = f_size // 2
         boxw_middle = bbox[2] // 2
         draw.text((bw_middle - boxw_middle, bh_middle - boxh_middle), status, fill='white', font_size=70)
         del draw
