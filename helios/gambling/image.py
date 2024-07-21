@@ -144,9 +144,11 @@ class BlackjackHandImage:
                 y = card_y
             x = card_x
             if card.hidden:
-                # card = Image.open('./helios/resources/cards/back.png')
-                # background.paste(card, (x, y), mask=card)
-                continue
+                try:
+                    img = Image.open('./helios/resources/cards/back.png')
+                    self._current_image.paste(img, (x, y), mask=img)
+                except FileNotFoundError:
+                    continue
             else:
                 try:
                     img = Image.open(f'./helios/resources/cards/{card.short()}.png')
