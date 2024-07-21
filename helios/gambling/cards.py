@@ -72,7 +72,7 @@ class Card:
         if self.value in [Values.jack, Values.queen, Values.king]:
             return 10
         if self.value == Values.ace:
-            return 11
+            return 1
         if self.value == Values.ten:
             return 10
         return int(self.value.value)
@@ -161,22 +161,16 @@ class Hand:
 
     def get_hand_bj_values(self, show_hidden=True, suppress_eleven=False) -> int:
         value = 0
-        elevens = 0
+        has_ace = False
         for card in self.cards:
             if card.hidden and not show_hidden:
                 continue
-            if card.bj_value() == 11:
-                if suppress_eleven:
-                    value += 1
-                else:
-                    elevens += 1
-            else:
-                value += card.bj_value()
-        for _ in range(elevens):
-            if value + 11 > 21:
-                value += 1
-            else:
-                value += 11
+            if card.bj_value() == 1:
+                has_ace = True
+            value += card.bj_value()
+
+        if has_ace and value <= 11 and not suppress_eleven:
+            value += 10
         return value
 
     def get_image(self):
