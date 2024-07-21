@@ -117,7 +117,7 @@ class Blackjack:
         await self.generate_dealer_image()
         self.generate_hand_images()
         self.view = BlackjackJoinView(self)
-        seconds = 20
+        seconds = 15
         await self.update_message('Waiting For Players to Join', seconds)
         while seconds > 0:
             await asyncio.sleep(1)
@@ -239,13 +239,22 @@ class Blackjack:
     async def stand(self):
         self.current_player += 1
 
+    def is_soft_seventeen(self):
+        if (self.dealer_hand.get_hand_bj_values() == 17
+                and self.dealer_hand.get_hand_bj_values(suppress_eleven=True) < 17):
+            soft_seventeen = True
+        else:
+            soft_seventeen = False
+        return soft_seventeen
+
     async def dealer_play(self):
         for card in self.dealer_hand.cards:
             card.hidden = False
         self.generate_hand_images()
         await self.update_message('Dealer Playing')
         await asyncio.sleep(1)
-        while self.dealer_hand.get_hand_bj_values(suppress_eleven=True) < 17:
+
+        while self.is_soft_seventeen() or self.dealer_hand.get_hand_bj_values() < 17:
             self.deck.draw_to_hand(self.dealer_hand)
             await self.update_message('Dealer Playing')
             await asyncio.sleep(1)
