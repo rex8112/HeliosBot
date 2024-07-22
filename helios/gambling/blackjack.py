@@ -75,7 +75,7 @@ class Blackjack:
     def reset(self):
         self.players = []
         self.icons = []
-        self.deck = Deck.new_many(2)
+        self.deck = Deck()
         self.hands = [Hand()]
         self.bets = []
         self.hand_images = []
@@ -113,7 +113,6 @@ class Blackjack:
         self.hand_images.pop(index)
 
     async def start(self):
-        self.deck.shuffle()
         await self.generate_dealer_image()
         self.generate_hand_images()
         self.view = BlackjackJoinView(self)
@@ -168,6 +167,11 @@ class Blackjack:
         await asyncio.sleep(1)
 
         # Draw Initial Cards
+        if len(self.players) < 5:
+            self.deck = Deck()
+        else:
+            self.deck = Deck.new_many(2)
+        self.deck.shuffle()
         self.deck.draw_to_hand(self.dealer_hand)
         await self.update_message('Drawing Cards')
         await self.db_entry.async_update(**self.to_dict())
