@@ -41,6 +41,7 @@ logger = logging.getLogger('Helios.ThemeCog')
 class ThemeCog(commands.Cog):
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
+        self.sort_themes.start()
 
     async def cog_unload(self) -> None:
         ...
