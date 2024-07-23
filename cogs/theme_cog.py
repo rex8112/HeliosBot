@@ -44,7 +44,7 @@ def get_change_str(changes: list[tuple['HeliosMember', discord.Role, discord.Rol
     for change in changes:
         if last_to_role != change[2]:
             last_to_role = change[2]
-            ch_str += f'### New {last_to_role.mention} Members\n'
+            ch_str += f'### New {last_to_role.mention} Member(s)\n'
         ch_str += f'{change[0].member.mention}\n-# From {change[1].mention if change[1] else "None"}\n'
     return ch_str
 
