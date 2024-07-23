@@ -42,6 +42,9 @@ if TYPE_CHECKING:
 
 
 class ServerSettings(Settings):
+    announcement_channel = SettingItem('announcement_channel', None, discord.TextChannel,
+                                       group='Misc', title='Announcement Channel',
+                                       description='The channel to send announcements to.')
     archive_category = SettingItem('archive_category', None, discord.CategoryChannel,
                                    group='Topic Settings', title='Archive Category',
                                    description='The category to archive topics to.')
@@ -158,6 +161,10 @@ class Server:
     @property
     def me(self) -> 'HeliosMember':
         return self.members.get(self.bot.user.id)
+
+    @property
+    def announcement_channel(self) -> Optional[discord.TextChannel]:
+        return self.settings.announcement_channel.value
 
     @classmethod
     def new(cls, manager: 'ServerManager', guild: discord.Guild):

@@ -32,10 +32,21 @@ from discord.ext import commands, tasks
 from helios import DynamicVoiceGroup, VoiceManager, PaginatorSelectView
 
 if TYPE_CHECKING:
-    from helios import HeliosBot, VoiceChannel
+    from helios import HeliosBot, HeliosMember
 
 
 logger = logging.getLogger('Helios.ThemeCog')
+
+
+def get_change_str(changes: list[tuple['HeliosMember', discord.Role, discord.Role]]) -> str:
+    ch_str = ''
+    last_to_role = None
+    for change in changes:
+        if last_to_role != change[2]:
+            last_to_role = change[2]
+            ch_str += f'### New {last_to_role.mention} Members\n'
+        ch_str += f'{change[0].member.mention}\n-# From {change[1].mention if change[1] else "None"}\n'
+    return ch_str
 
 
 class ThemeCog(commands.Cog):
@@ -69,14 +80,35 @@ class ThemeCog(commands.Cog):
         server = self.bot.servers.get(interaction.guild_id)
         tm = server.theme
         await interaction.response.defer(ephemeral=True)
-        await tm.sort_members()
-        await interaction.followup.send(content='Members sorted by theme.')
+        changes = await tm.sort_members()
+        if changes:
+            logger.info(f'Sorted {len(changes)} member(s) on {server.name}.')
+            changes_str = get_change_str(changes)
+            embed = discord.Embed(
+                title='Role Changes',
+                description=changes_str,
+                colour=discord.Colour.blurple()
+            )
+            await interaction.followup.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
+        else:
+            await interaction.followup.send('No changes were made.')
 
     @tasks.loop(time=time(hour=0, minute=5, tzinfo=datetime.now().astimezone().tzinfo))
     async def sort_themes(self):
         for server in self.bot.servers.servers.values():
             tm = server.theme
-            await tm.sort_members()
+            changes = await tm.sort_members()
+            if changes:
+                logger.info(f'Sorted {len(changes)} members on {server.name}.')
+                changes_str = '\n'.join([f'{x[0].member.mention} : {x[1].mention if x[1] else "None"} -> '
+                                         f'{x[2].mention if x[2] else "None"}' for x in changes])
+                embed = discord.Embed(
+                    title='Role Changes',
+                    description=changes_str,
+                    colour=discord.Colour.blurple()
+                )
+                if server.announcement_channel:
+                    await server.announcement_channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
 
 
 class SelectRoleView(ui.View):
