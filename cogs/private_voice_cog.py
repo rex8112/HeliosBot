@@ -146,7 +146,7 @@ class PrivateVoiceCog(commands.Cog):
             private_voices = server.channels.dynamic_voice.get_private()
             private_channel = None
             for channel in private_voices:
-                if member in channel.channel.members and channel.owner == interaction.user:
+                if interaction.user in channel.channel.members and channel.owner == interaction.user:
                     private_channel = channel
                     break
             await interaction.response.defer(ephemeral=True)

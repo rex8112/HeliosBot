@@ -40,7 +40,7 @@ def sorted_members(members: list['HeliosMember'], key: Callable[['HeliosMember']
 class ThemeManager:
     def __init__(self, server: 'Server'):
         self.server = server
-        self.current_theme = None
+        self.current_theme: Optional['Theme'] = None
         self.role_map: dict['ThemeRole', discord.Role] = {}
 
     async def load(self):
@@ -52,7 +52,8 @@ class ThemeManager:
         if self.current_theme:
             self.current_theme.current = False
             await self.current_theme.save()
-        self.current_theme = Theme(self.server, self.server.name, [ThemeRole(x.name, str(x.colour), len(x.members)) for x in roles])
+        self.current_theme = Theme(self.server, self.server.name,
+                                   [ThemeRole(x.name, str(x.colour), len(x.members)) for x in roles])
         self.current_theme.roles[-1].maximum = -1
         await self.current_theme.save()
         self.current_theme.current = True
@@ -72,6 +73,7 @@ class ThemeManager:
             return
         members = sorted_members(self.server.members.members.values(), key=lambda x: x.points)
         member_role_pairs = []
+        changes: list[tuple['HeliosMember', discord.Role, discord.Role]] = []
         for theme_role in self.current_theme.roles:
             role = self.role_map[theme_role]
             if not role:
@@ -81,6 +83,7 @@ class ThemeManager:
                 member = members.pop()
                 member_role_pairs.append((member, role))
         for member, role in member_role_pairs:
+            old_role = None
             has_correct_roles = True
             roles = list(member.member.roles)
             for theme_role in self.current_theme.roles:
@@ -93,11 +96,14 @@ class ThemeManager:
                     if d_role in roles:
                         has_correct_roles = False
                         roles.remove(d_role)
+                        old_role = d_role
             if not has_correct_roles:
+                changes.append((member, old_role, role))
                 try:
                     await member.member.edit(roles=roles, reason='Theme Sort')
                 except (discord.Forbidden, discord.HTTPException):
                     pass
+        return changes
 
 
 class Theme:
