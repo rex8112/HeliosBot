@@ -203,10 +203,10 @@ class BlackjackHandImage:
 
 
 class BlackjackHandSplitImage(BlackjackHandImage):
-    def __init__(self, hands: list['Hand'], icon: 'Image', name: str, bet: int):
-        super().__init__(hands[0], icon, name, bet)
+    def __init__(self, hands: list['Hand'], icon: 'Image', name: str, bets: list[int]):
+        super().__init__(hands[0], icon, name, bets[0])
         self.hands = hands
-        self.bets = [bet, bet]
+        self.bets = bets
 
     def get_background(self, redraw=False) -> Image:
         if not self._background or redraw:
@@ -234,13 +234,13 @@ class BlackjackHandSplitImage(BlackjackHandImage):
             raise ValueError('No current image to draw cards on.')
 
         y = self._current_image.height - self.card_height - self.padding
-        x = self.padding
+        x = self.padding // 2
         try:
             img = Image.open(f'./helios/resources/cards/{cards[0].short()}.png')
             self._current_image.paste(img, (x, y), mask=img)
         except FileNotFoundError:
             ...
-        x = self._current_image.width - self.card_width - self.padding
+        x = self._current_image.width - self.card_width - self.padding // 2
         try:
             img = Image.open(f'./helios/resources/cards/{cards[1].short()}.png')
             self._current_image.paste(img, (x, y), mask=img)
@@ -249,9 +249,10 @@ class BlackjackHandSplitImage(BlackjackHandImage):
         self.draw_hand_value()
 
     def get_card_centers(self):
-        return [(self.padding + self.card_width // 2,
+        x_pad = self.padding // 2
+        return [(x_pad + self.card_width // 2,
                  self._current_image.height - self.card_height // 2 - self.padding),
-                (self._current_image.width - self.card_width // 2 - self.padding,
+                (self._current_image.width - self.card_width // 2 - x_pad,
                  self._current_image.height - self.card_height // 2 - self.padding)]
 
     def draw_hand_value(self):
@@ -284,7 +285,7 @@ class BlackjackHandSplitImage(BlackjackHandImage):
         draw = ImageDraw.Draw(img)
         x1 = 0
         x2 = img.width // 2
-        y1 = img.height - self.card_height - self.padding - 24 - self.padding
+        y1 = img.height - self.card_height - self.padding - 24 - self.padding - self.padding
         y2 = img.height
         draw.rounded_rectangle(((x1, y1), (x2, y2)), 16, outline=get_result_color(results[0]), width=5)
         x1 = img.width // 2
@@ -303,7 +304,7 @@ class BlackjackHandSplitImage(BlackjackHandImage):
 
         if self._current_image is None or diff is None or redraw:
             self._current_image = self.get_background(redraw).copy()
-            self.draw_cards(self.hand.cards)
+            self.draw_cards([self.hands[0].cards[-1], self.hands[1].cards[-1]])
         else:
             self.draw_cards(diff)
 
@@ -315,13 +316,15 @@ class BlackjackHandSplitImage(BlackjackHandImage):
 
 
 class BlackjackImage:
-    def __init__(self, dealer_hand: 'BlackjackHandImage', hands: list['BlackjackHandImage'], current_hand: int = 0,
-                 id: int = 0, winnings: list = None):
+    def __init__(self, dealer_hand: 'BlackjackHandImage',
+                 hands: list[Union['BlackjackHandImage', 'BlackjackHandSplitImage']], current_hand: int = 0,
+                 current_split_hand: int = 0, id: int = 0, winnings: list = None):
         if winnings is None:
             winnings = []
         self.dealer_hand = dealer_hand
         self.hands = hands
         self.current_hand = current_hand
+        self.current_split_hand = current_split_hand
         self.winnings = winnings
         self.id = id
 
@@ -370,6 +373,7 @@ class BlackjackImage:
 
         self._current_image.paste(hand, (background_mid - hand_mid, self.padding), mask=hand)
 
+    # noinspection PyTypeChecker
     def draw_hands(self):
         if len(self.hands) == 0:
             return
@@ -382,18 +386,29 @@ class BlackjackImage:
             if i == self.wrap:
                 y += h_height + self.padding
                 x = self.padding
+
             if i == self.current_hand:
-                hand_image = hand.get_image('turn')
+                if self.current_split_hand == 0:
+                    results = ['turn', '']
+                else:
+                    results = ['', 'turn']
             elif len(self.winnings) > 0:
                 winnings = self.winnings[i]
-                if winnings == 0:
-                    hand_image = hand.get_image('lose')
-                elif winnings == hand.bet:
-                    hand_image = hand.get_image('push')
-                else:
-                    hand_image = hand.get_image('win')
+                win_results = []
+                for win in winnings:
+                    if win == 0:
+                        win_results.append('lose')
+                    elif win == hand.bet:
+                        win_results.append('push')
+                    else:
+                        win_results.append('win')
+                results = win_results
             else:
-                hand_image = hand.get_image()
+                results = ['', '']
+            if isinstance(hand, BlackjackHandSplitImage):
+                hand_image = hand.get_image(results)
+            else:
+                hand_image = hand.get_image(results[0])
             self._current_image.paste(hand_image, (x, y), mask=hand_image)
             x += h_width + self.padding
 
