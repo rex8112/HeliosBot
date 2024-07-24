@@ -516,7 +516,8 @@ class BlackjackJoinView(discord.ui.View):
                                             f'**{amount/member.points:.2%}** of your points.', view=view)
             if await view.wait() or not view.value:
                 await interaction.edit_original_response(view=None)
-                await view.last_interaction.followup.send(content='You have not joined the game.')
+                if view.last_interaction:
+                    await view.last_interaction.followup.send(content='You have not joined the game.')
                 return
             else:
                 await interaction.edit_original_response(view=None)
