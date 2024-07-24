@@ -137,6 +137,23 @@ class BlackjackHandImage:
         del draw
         return img
 
+    def draw_winnings(self, winnings: list[int]):
+        if self._current_image is None:
+            raise ValueError('No current image to draw cards on.')
+        draw = ImageDraw.Draw(self._current_image)
+        winnings = sum(winnings)
+
+        card_y = self._current_image.height - self.card_height - self.padding
+        y = card_y - self.padding - 24
+        x = self.padding
+
+        win_str = f'Won: {winnings:,}'
+        if winnings <= 0:
+            win_str = 'Lost Bet'
+
+        draw.text((x, y), win_str, fill='white', font_size=24)
+        del draw
+
     def draw_cards(self, cards: list['Card']):
         if self._current_image is None:
             raise ValueError('No current image to draw cards on.')
@@ -185,7 +202,8 @@ class BlackjackHandImage:
                   font_size=62, anchor='rt')
         del draw
 
-    def get_image(self, result: Literal['win', 'push', 'lose', 'turn'] = '', *, redraw=False) -> Image:
+    def get_image(self, result: Literal['win', 'push', 'lose', 'turn'] = '', *, redraw=False,
+                  winnings: Optional[list[int]] = None) -> Image:
         diff = self.get_diff()
 
         if self._current_image is None or diff is None or redraw:
@@ -197,6 +215,8 @@ class BlackjackHandImage:
         self._currently_shown_cards = self.hand.cards.copy()
 
         if result:
+            if winnings:
+                self.draw_winnings(winnings)
             return self.draw_outline(result)
 
         return self._current_image
@@ -219,10 +239,10 @@ class BlackjackHandSplitImage(BlackjackHandImage):
             draw.text((start_x, self.padding), self.name, fill='white', font_size=32)
             card_y = background.height - self.card_height - self.padding
             if self.bets:
-                y = card_y - self.padding - 24
+                y = card_y - 24 - self.padding - self.padding // 2
                 x = self.padding
                 draw.text((x, y), f'{self.bets[0]:,}', fill='white', font_size=24)
-                x = background.width - self.padding - self.card_width
+                x = background.width - self.padding // 2 - self.card_width
                 draw.text((x, y), f'{self.bets[1]:,}', fill='white', font_size=24)
 
             self._background = background
@@ -294,10 +314,30 @@ class BlackjackHandSplitImage(BlackjackHandImage):
         del draw
         return img
 
+    def draw_winnings(self, winnings: list[int]):
+        if self._current_image is None:
+            raise ValueError('No current image to draw cards on.')
+        draw = ImageDraw.Draw(self._current_image)
+
+        card_y = self._current_image.height - self.card_height - self.padding
+        y = card_y - 24 - self.padding - self.padding // 2 + 24 + 10
+        x = self.padding
+        win_str = f'Won: {winnings[0]:,}'
+        if winnings[0] <= 0:
+            win_str = 'Lost Bet'
+        draw.text((x, y), win_str, fill='white', font_size=24)
+
+        x = self._current_image.width - self.padding // 2 - self.card_width
+        win_str = f'Won: {winnings[1]:,}'
+        if winnings[1] <= 0:
+            win_str = 'Lost Bet'
+        draw.text((x, y), win_str, fill='white', font_size=24)
+
     def get_diff(self):
         return [self.hands[0].cards[-1], self.hands[1].cards[-1]]
 
-    def get_image(self, results: list[Literal['win', 'push', 'lose', 'turn', '']] = None, *, redraw=False) -> Image:
+    def get_image(self, results: list[Literal['win', 'push', 'lose', 'turn', '']] = None, *, redraw=False,
+                  winnings: Optional[list[int]] = None) -> Image:
         if results is None:
             results = ['', '']
         diff = self.get_diff()
@@ -309,6 +349,8 @@ class BlackjackHandSplitImage(BlackjackHandImage):
             self.draw_cards(diff)
 
         if results.count('') < 2:
+            if winnings:
+                self.draw_winnings(winnings)
             # noinspection PyTypeChecker
             return self.draw_outline(results)
 
@@ -383,6 +425,10 @@ class BlackjackImage:
         y = b_height - self.get_hands_height() - self.padding
         x = self.padding
         for i, hand in enumerate(self.hands):
+            try:
+                winnings = self.winnings[i]
+            except IndexError:
+                winnings = []
             if i == self.wrap:
                 y += h_height + self.padding
                 x = self.padding
@@ -393,7 +439,6 @@ class BlackjackImage:
                 else:
                     results = ['', 'turn']
             elif len(self.winnings) > 0:
-                winnings = self.winnings[i]
                 win_results = []
                 for win in winnings:
                     if win == 0:
@@ -406,9 +451,9 @@ class BlackjackImage:
             else:
                 results = ['', '']
             if isinstance(hand, BlackjackHandSplitImage):
-                hand_image = hand.get_image(results)
+                hand_image = hand.get_image(results, winnings=winnings)
             else:
-                hand_image = hand.get_image(results[0])
+                hand_image = hand.get_image(results[0], winnings=winnings)
             self._current_image.paste(hand_image, (x, y), mask=hand_image)
             x += h_width + self.padding
 
