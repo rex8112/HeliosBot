@@ -22,6 +22,7 @@
 import asyncio
 import logging
 import io
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Optional, Callable, Awaitable
 
 import discord
@@ -31,6 +32,8 @@ from .cards import Hand, Deck, Card, Suits, Values
 from .image import get_member_icon, BlackjackHandImage, BlackjackImage, BlackjackHandSplitImage
 from ..database import BlackjackModel
 from ..tools.modals import AmountModal
+from ..views.generic_views import YesNoView
+from ..colour import Colour
 
 if TYPE_CHECKING:
     from PIL import Image
@@ -117,15 +120,17 @@ class Blackjack:
         await self.generate_dealer_image()
         self.generate_hand_images()
         self.view = BlackjackJoinView(self)
-        seconds = 15
+        seconds = 30
         await self.update_message('Waiting For Players to Join', seconds)
-        while seconds > 0:
+        then = datetime.now() + timedelta(seconds=seconds)
+        while datetime.now() < then:
             await asyncio.sleep(1)
             seconds -= 1
             if len(self.players) >= self.max_players:
                 break
             else:
-                await self.update_message('Waiting For Players to Join', seconds)
+                await self.update_message('Waiting For Players to Join',
+                                          int((then - datetime.now()).total_seconds()))
         if len(self.players) < 1:
             self.view.stop()
             await self.update_message('Not Enough Players')
@@ -287,11 +292,18 @@ class Blackjack:
                 bet = self.bets[i][j]
                 won = 0
                 if len(self.dealer_hand.cards) == 2 and dealer_value == 21:
-                    won = 0
+                    if len(hand.cards) == 2 and player_value == 21:
+                        won = bet
+                    else:
+                        won = 0
+                elif len(hand.cards) == 2 and player_value == 21:
+                    won = int(bet * 2.5)
                 elif player_value > 21:
                     won = 0
                 elif dealer_value > 21:
                     won = bet * 2
+                elif player_value == dealer_value == 21:
+                    won = int(bet * 1.5)
                 elif player_value == dealer_value:
                     won = bet
                 elif player_value > dealer_value:
@@ -427,6 +439,49 @@ class BlackjackView(discord.ui.View):
         self.stop()
 
 
+rules_embed = discord.Embed(
+    title='Blackjack Rules',
+    colour=Colour.helios(),
+    description='## Goal\n'
+                'The goal of blackjack is to beat the dealer\'s hand without going over 21.\n'
+                '## Bets\n'
+                'Each player must bet at least 1 point to play, there is no maximum.\n'
+                'Bets are taken once the game starts.\n'
+                '## Game Play\n'
+                '1. Players are dealt two cards face up.\n'
+                '2. The dealer is dealt one card face up and one card face down.\n'
+                '3. Players take turns hitting or standing.\n'
+                '4. The dealer plays last.\n'
+                '5. The dealer must hit until they have a hard 17 or higher.\n'
+                '6. Players who have a higher hand than the dealer, without going over 21 win.\n'
+                '## Winning\n'
+                '1. Players who win receive 2x their bet (keep in mind you lose your bet to start playing, so your net '
+                'winnings is your bet amount.)\n'
+                '2. Players who get a natural blackjack (21 with two cards) receive 2.5x their bet.\n'
+                '3. Players who tie with the dealer get their bet back.\n'
+                '4. Players who lose get nothing.\n'
+                '5. If the dealer gets a natural blackjack, all players lose except those who also have a natural '
+                'blackjack, they tie.\n'
+                '6. If the dealer and player both have blackjack from hitting, the player wins 1.5x their bet.\n'
+                '## Moves\n'
+                '1. **Hit** - Take another card.\n'
+                '2. **Stand** - Keep your current hand.\n'
+                '3. **Double Down** - Double your bet and take one more card only.\n'
+                '4. **Split** - If your first two cards are the same, you can split them into two hands, placing an '
+                'equal bet on the second hand, and play those hands separately.\n'
+                '## Time\n'
+                'Players have 30 seconds to make a move, if they do not make a move in time, they will stand.\n'
+                '## Refunds\n'
+                'If the game errors out, and shows error on the table, all players will be refunded their bets '
+                'automatically. '
+                'However, if the game ends due to disconnection, please report the game to my owner for a refund. '
+                '(Do not forget the game ID number.)\n'
+                '## Notes\n'
+                'Helios is not responsible for any stress or loss of sleep due to playing blackjack.\n'
+                '[If you have a gambling problem, please seek help.](<https://www.youtube.com/watch?v=dQw4w9WgXcQ>)\n'
+)
+
+
 class BlackjackJoinView(discord.ui.View):
     def __init__(self, blackjack: Blackjack):
         super().__init__(timeout=120)
@@ -445,17 +500,36 @@ class BlackjackJoinView(discord.ui.View):
         await interaction.response.send_modal(modal)
         if await modal.wait():
             return
-        if self.blackjack.id is not None:
-            await modal.last_interaction.followup.send(content='The game has already started.')
-            return
+        interaction = modal.last_interaction
         if modal.amount_selected <= 0:
-            await modal.last_interaction.followup.send(content=f'You must bet at least 1 {member.server.points_name.capitalize()}.')
+            await interaction.followup.send(content=f'You must bet at least 1 {member.server.points_name.capitalize()}.')
             return
         amount = modal.amount_selected
         if amount > member.points:
-            await modal.last_interaction.followup.send(content=f'You do not have enough {member.server.points_name.capitalize()}s.')
+            await interaction.followup.send(content=f'You do not have enough {member.server.points_name.capitalize()}s.')
+            return
+
+        if amount > member.points * 0.1:
+            view = YesNoView(interaction.user, timeout=15, thinking=True, ephemeral=True)
+            await interaction.followup.send(f'Are you sure you want to bet '
+                                            f'**{amount:,}** {member.server.points_name}? This is '
+                                            f'**{amount/member.points:.2%}** of your points.', view=view)
+            if await view.wait() or not view.value:
+                await interaction.edit_original_response(view=None)
+                await view.last_interaction.followup.send(content='You have not joined the game.')
+                return
+            else:
+                await interaction.edit_original_response(view=None)
+            interaction = view.last_interaction
+
+        if self.blackjack.id is not None:
+            await interaction.followup.send(content='The game has already started.')
             return
 
         await self.blackjack.add_player(member, amount)
-        await modal.last_interaction.followup.send(content=f'You have joined the game with a bet of {amount} '
-                                                           f'{member.server.points_name.capitalize()}.')
+        await interaction.followup.send(content=f'You have joined the game with a bet of {amount} '
+                                                f'{member.server.points_name.capitalize()}.')
+
+    @discord.ui.button(label='Rules', style=discord.ButtonStyle.secondary)
+    async def rules(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message(embed=rules_embed, ephemeral=True)
