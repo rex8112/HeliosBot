@@ -320,15 +320,15 @@ class BlackjackHandSplitImage(BlackjackHandImage):
         draw = ImageDraw.Draw(self._current_image)
 
         card_y = self._current_image.height - self.card_height - self.padding
-        y = card_y - 24 - self.padding - self.padding // 2 + 24 + 10
+        y = card_y - 24 - self.padding - self.padding // 2 + 24
         x = self.padding
-        win_str = f'Won: {winnings[0]:,}'
+        win_str = f'W: {winnings[0]:,}'
         if winnings[0] <= 0:
             win_str = 'Lost Bet'
         draw.text((x, y), win_str, fill='white', font_size=24)
 
         x = self._current_image.width - self.padding // 2 - self.card_width
-        win_str = f'Won: {winnings[1]:,}'
+        win_str = f'W: {winnings[1]:,}'
         if winnings[1] <= 0:
             win_str = 'Lost Bet'
         draw.text((x, y), win_str, fill='white', font_size=24)

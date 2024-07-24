@@ -129,9 +129,11 @@ class PaginatorSelectView(PaginatorView, Generic[T]):
 
 
 class YesNoView(discord.ui.View):
-    def __init__(self, author: discord.Member, *, timeout=5):
+    def __init__(self, author: discord.Member, *, timeout=5, thinking=False, ephemeral=False):
         super().__init__(timeout=timeout)
         self.author: discord.Member = author
+        self.ephemeral = ephemeral
+        self.thinking = thinking
         self.value: Optional[bool] = None
         self.last_interaction: Optional[discord.Interaction] = None
 
@@ -141,7 +143,7 @@ class YesNoView(discord.ui.View):
         self.last_interaction = interaction
         if interaction.user == self.author:
             self.value = True
-            await interaction.response.defer()
+            await interaction.response.defer(thinking=self.thinking, ephemeral=self.ephemeral)
             self.stop()
         else:
             await interaction.response.send_message('You are not allowed to '
@@ -154,7 +156,7 @@ class YesNoView(discord.ui.View):
         self.last_interaction = interaction
         if interaction.user == self.author:
             self.value = False
-            await interaction.response.defer()
+            await interaction.response.defer(thinking=self.thinking, ephemeral=self.ephemeral)
             self.stop()
         else:
             await interaction.response.send_message('You are not allowed to '

@@ -22,6 +22,7 @@
 import asyncio
 import logging
 import io
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Optional, Callable, Awaitable
 
 import discord
@@ -31,6 +32,7 @@ from .cards import Hand, Deck, Card, Suits, Values
 from .image import get_member_icon, BlackjackHandImage, BlackjackImage, BlackjackHandSplitImage
 from ..database import BlackjackModel
 from ..tools.modals import AmountModal
+from ..views.generic_views import YesNoView
 from ..colour import Colour
 
 if TYPE_CHECKING:
@@ -118,15 +120,17 @@ class Blackjack:
         await self.generate_dealer_image()
         self.generate_hand_images()
         self.view = BlackjackJoinView(self)
-        seconds = 15
+        seconds = 30
         await self.update_message('Waiting For Players to Join', seconds)
-        while seconds > 0:
+        then = datetime.now() + timedelta(seconds=seconds)
+        while datetime.now() < then:
             await asyncio.sleep(1)
             seconds -= 1
             if len(self.players) >= self.max_players:
                 break
             else:
-                await self.update_message('Waiting For Players to Join', seconds)
+                await self.update_message('Waiting For Players to Join',
+                                          int((then - datetime.now()).total_seconds()))
         if len(self.players) < 1:
             self.view.stop()
             await self.update_message('Not Enough Players')
@@ -496,20 +500,35 @@ class BlackjackJoinView(discord.ui.View):
         await interaction.response.send_modal(modal)
         if await modal.wait():
             return
-        if self.blackjack.id is not None:
-            await modal.last_interaction.followup.send(content='The game has already started.')
-            return
+        interaction = modal.last_interaction
         if modal.amount_selected <= 0:
-            await modal.last_interaction.followup.send(content=f'You must bet at least 1 {member.server.points_name.capitalize()}.')
+            await interaction.followup.send(content=f'You must bet at least 1 {member.server.points_name.capitalize()}.')
             return
         amount = modal.amount_selected
         if amount > member.points:
-            await modal.last_interaction.followup.send(content=f'You do not have enough {member.server.points_name.capitalize()}s.')
+            await interaction.followup.send(content=f'You do not have enough {member.server.points_name.capitalize()}s.')
+            return
+
+        if amount > member.points * 0.1:
+            view = YesNoView(interaction.user, timeout=15, thinking=True, ephemeral=True)
+            await interaction.followup.send(f'Are you sure you want to bet '
+                                            f'**{amount:,}** {member.server.points_name}? This is '
+                                            f'**{amount/member.points:.2%}** of your points.', view=view)
+            if await view.wait() or not view.value:
+                await interaction.edit_original_response(view=None)
+                await view.last_interaction.followup.send(content='You have not joined the game.')
+                return
+            else:
+                await interaction.edit_original_response(view=None)
+            interaction = view.last_interaction
+
+        if self.blackjack.id is not None:
+            await interaction.followup.send(content='The game has already started.')
             return
 
         await self.blackjack.add_player(member, amount)
-        await modal.last_interaction.followup.send(content=f'You have joined the game with a bet of {amount} '
-                                                           f'{member.server.points_name.capitalize()}.')
+        await interaction.followup.send(content=f'You have joined the game with a bet of {amount} '
+                                                f'{member.server.points_name.capitalize()}.')
 
     @discord.ui.button(label='Rules', style=discord.ButtonStyle.secondary)
     async def rules(self, interaction: discord.Interaction, button: discord.ui.Button):
