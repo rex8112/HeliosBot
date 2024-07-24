@@ -100,8 +100,8 @@ class ThemeCog(commands.Cog):
             changes = await tm.sort_members()
             if changes:
                 logger.info(f'Sorted {len(changes)} members on {server.name}.')
-                changes_str = '\n'.join([f'{x[0].member.mention} : {x[1].mention if x[1] else "None"} -> '
-                                         f'{x[2].mention if x[2] else "None"}' for x in changes])
+                logger.info(f'Sorted {len(changes)} member(s) on {server.name}.')
+                changes_str = get_change_str(changes)
                 embed = discord.Embed(
                     title='Role Changes',
                     description=changes_str,
