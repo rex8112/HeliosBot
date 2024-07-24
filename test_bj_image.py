@@ -19,21 +19,24 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
-from helios.gambling.image import testing_icon, BlackjackHandImage, BlackjackImage
+from helios.gambling.image import testing_icon, BlackjackHandImage, BlackjackImage, BlackjackHandSplitImage
 from helios.gambling.cards import Card, Hand, Values, Suits
 
 
 def test_get_bj_hand_image():
-    cards = [Card(Suits.hearts, Values.ace), Card(Suits.hearts, Values.king), Card(Suits.hearts, Values.queen), Card(Suits.hearts, Values.jack), Card(Suits.hearts, Values.ten), Card(Suits.hearts, Values.nine)]
+    cards = [Card(Suits.hearts, Values.ace), Card(Suits.hearts, Values.king), Card(Suits.hearts, Values.queen)]
     hand = Hand()
     hand.add_cards(cards)
+    hand2 = Hand()
+    hand2.add_cards([Card(Suits.hearts, Values.ace), Card(Suits.hearts, Values.ace)])
     icon = testing_icon()
     name = 'Test Name'
-    bet = '1000'
-    image_generators = [BlackjackHandImage(hand, icon, name, bet) for _ in range(4)]
-    bji = BlackjackImage(BlackjackHandImage(hand, icon, 'Dealer', ''), image_generators)
-    img = bji.get_image('Waiting For Player')
-    img.resize((img.width*2, img.height*2)).save('bj_image.png')
+    bet = 1000
+    image_generators = [BlackjackHandSplitImage([hand, hand2], icon, name, bet) for _ in range(4)]
+    image_generators[0].get_image(['lose', 'push']).show()
+    # bji = BlackjackImage(BlackjackHandImage(hand, icon, 'Dealer', 0), image_generators)
+    # img = bji.get_image('Waiting For Player')
+    # img.resize((img.width*2, img.height*2)).save('bj_image.png')
 
 
 if __name__ == '__main__':

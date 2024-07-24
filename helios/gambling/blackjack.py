@@ -27,8 +27,8 @@ from typing import TYPE_CHECKING, Optional, Callable, Awaitable
 import discord
 
 from ..member import HeliosMember
-from .cards import Hand, Deck, Card
-from .image import get_member_icon, BlackjackHandImage, BlackjackImage
+from .cards import Hand, Deck, Card, Suits, Values
+from .image import get_member_icon, BlackjackHandImage, BlackjackImage, BlackjackHandSplitImage
 from ..database import BlackjackModel
 from ..tools.modals import AmountModal
 
@@ -60,6 +60,7 @@ class Blackjack:
         self.bets: list[list[int]] = []
 
         self.current_player: int = -1
+        self.current_hand: int = 0
         self.max_players: int = 8
         self.winnings = []
         self.id = None
@@ -208,7 +209,7 @@ class Blackjack:
             # Player Turns
             self.current_player = 0
             while self.current_player < len(self.players):
-                if self.hands[self.current_player][0].get_hand_bj_values() >= 21:
+                if self.hands[self.current_player][self.current_hand].get_hand_bj_values() >= 21:
                     await self.stand()
                     continue
 
@@ -230,18 +231,26 @@ class Blackjack:
 
         self.calculate_winnings()
         for i, player in enumerate(self.players):
-            await player.add_points(self.winnings[i], 'Helios: Blackjack', f'{self.id}: Winnings')
+            for j, winning in enumerate(self.winnings[i]):
+                desc = f'{self.id}: Winnings'
+                if j > 0:
+                    desc = f'{self.id}: Split Winnings'
+                await player.add_points(winning, 'Helios: Blackjack', desc)
         await self.update_message('Game Over')
         await self.db_entry.async_update(winnings=self.winnings)
         new_blackjack = Blackjack(self.server, self.channel)
         asyncio.create_task(new_blackjack.start())
 
     async def hit(self):
-        hand = self.hands[self.current_player][0]
+        hand = self.hands[self.current_player][self.current_hand]
         self.deck.draw_to_hand(hand)
 
     async def stand(self):
-        self.current_player += 1
+        if len(self.hands[self.current_player]) > self.current_hand + 1:
+            self.current_hand += 1
+        else:
+            self.current_player += 1
+            self.current_hand = 0
 
     def is_soft_seventeen(self):
         if (self.dealer_hand.get_hand_bj_values() == 17
@@ -272,20 +281,22 @@ class Blackjack:
         winnings = []
         dealer_value = self.dealer_hand.get_hand_bj_values()
         for i, player in enumerate(self.players):
-            player_value = self.hands[i][0].get_hand_bj_values()
-            bet = self.bets[i][0]
-            amount_won = 0
-            if len(self.dealer_hand.cards) == 2 and dealer_value == 21:
-                amount_won = 0
-            elif player_value > 21:
-                amount_won = 0
-            elif dealer_value > 21:
-                amount_won = bet * 2
-            elif player_value == dealer_value:
-                amount_won = bet
-            elif player_value > dealer_value:
-                amount_won = bet * 2
-
+            amount_won = []
+            for j, hand in enumerate(self.hands[i]):
+                player_value = hand.get_hand_bj_values()
+                bet = self.bets[i][j]
+                won = 0
+                if len(self.dealer_hand.cards) == 2 and dealer_value == 21:
+                    won = 0
+                elif player_value > 21:
+                    won = 0
+                elif dealer_value > 21:
+                    won = bet * 2
+                elif player_value == dealer_value:
+                    won = bet
+                elif player_value > dealer_value:
+                    won = bet * 2
+                amount_won.append(won)
             winnings.append(amount_won)
         self.winnings = winnings
         return winnings
@@ -293,7 +304,10 @@ class Blackjack:
     def generate_hand_images(self):
         self.hand_images = []
         for hands, icon, bets, player in zip(self.hands, self.icons, self.bets, self.players):
-            self.hand_images.append(BlackjackHandImage(hands[0], icon, player.member.display_name[:10], bets[0]))
+            if len(hands) > 1:
+                self.hand_images.append(BlackjackHandSplitImage(hands, icon, player.member.display_name[:10], bets))
+            else:
+                self.hand_images.append(BlackjackHandImage(hands[0], icon, player.member.display_name[:10], bets[0]))
         self.dealer_hand_image = BlackjackHandImage(self.dealer_hand, self.dealer_icon, 'Dealer', 0)
 
     async def generate_dealer_image(self):
@@ -301,7 +315,7 @@ class Blackjack:
                                                  self.server.bot.user.display_avatar.url)
 
     def get_image_file(self, state: str, timer: int) -> discord.File:
-        img = BlackjackImage(self.dealer_hand_image, self.hand_images, self.current_player,
+        img = BlackjackImage(self.dealer_hand_image, self.hand_images, self.current_player, self.current_hand,
                              self.id if self.id else 0, self.winnings).get_image(state, timer)
         with io.BytesIO() as img_bytes:
             img.save(img_bytes, format='PNG')
@@ -326,11 +340,16 @@ class BlackjackView(discord.ui.View):
 
     def check_buttons(self):
         player = self.blackjack.players[self.blackjack.current_player]
-        hand = self.blackjack.hands[self.blackjack.current_player][0]
-        if len(hand.cards) > 2:
+        hands = self.blackjack.hands[self.blackjack.current_player]
+        hand = hands[self.blackjack.current_hand]
+        if len(hand.cards) > 2 or (len(hands) > 1 and len(hand.cards) > 1):
             self.remove_item(self.double_down)
-        elif player.points < self.blackjack.bets[self.blackjack.current_player][0]:
+            self.remove_item(self.split)
+        elif player.points < self.blackjack.bets[self.blackjack.current_player][self.blackjack.current_hand]:
             self.double_down.disabled = True
+            self.split.disabled = True
+        elif len(hands) > 1 or hand.cards[0].bj_value() != hand.cards[1].bj_value():
+            self.remove_item(self.split)
 
     @discord.ui.button(label='Hit', style=discord.ButtonStyle.green)
     async def hit(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -358,22 +377,53 @@ class BlackjackView(discord.ui.View):
         if player.member != interaction.user:
             await interaction.response.send_message('It is not your turn.', ephemeral=True)
             return
-        hand = self.blackjack.hands[self.blackjack.current_player][0]
+        hand = self.blackjack.hands[self.blackjack.current_player][self.blackjack.current_hand]
         if len(hand.cards) > 2:
             await interaction.response.send_message('You can only double down on your first turn.', ephemeral=True)
             return
-        if player.points < self.blackjack.bets[self.blackjack.current_player][0]:
+        if player.points < self.blackjack.bets[self.blackjack.current_player][self.blackjack.current_hand]:
             await interaction.response.send_message('You do not have enough points to double down.', ephemeral=True)
             return
         await interaction.response.defer()
-        await player.add_points(-self.blackjack.bets[self.blackjack.current_player][0], 'Helios: Blackjack',
-                                f'{self.blackjack.id}: Double Down')
-        self.blackjack.bets[self.blackjack.current_player][0] *= 2
-        hand_image = self.blackjack.hand_images[self.blackjack.current_player]
-        hand_image.bet = self.blackjack.bets[self.blackjack.current_player][0]
+        await player.add_points(-self.blackjack.bets[self.blackjack.current_player][self.blackjack.current_hand],
+                                'Helios: Blackjack', f'{self.blackjack.id}: Double Down')
+        hand_num = self.blackjack.current_hand
+        player_num = self.blackjack.current_player
+        self.blackjack.bets[player_num][hand_num] *= 2
+        hand_image = self.blackjack.hand_images[player_num]
+        if isinstance(hand_image, BlackjackHandSplitImage):
+            hand_image.bets[hand_num] = self.blackjack.bets[player_num][hand_num]
+        else:
+            hand_image.bet = self.blackjack.bets[player_num][hand_num]
         hand_image.get_image(redraw=True)
         await self.blackjack.hit()
         await self.blackjack.stand()
+        self.stop()
+
+    @discord.ui.button(label='Split', style=discord.ButtonStyle.blurple)
+    async def split(self, interaction: discord.Interaction, button: discord.ui.Button):
+        player = self.blackjack.players[self.blackjack.current_player]
+        if player.member != interaction.user:
+            await interaction.response.send_message('It is not your turn.', ephemeral=True)
+            return
+        hand = self.blackjack.hands[self.blackjack.current_player][0]
+        if len(hand.cards) > 2:
+            await interaction.response.send_message('You can only split on your first turn.', ephemeral=True)
+            return
+        if player.points < self.blackjack.bets[self.blackjack.current_player][0]:
+            await interaction.response.send_message('You do not have enough points to split.', ephemeral=True)
+            return
+        if hand.cards[0].bj_value() != hand.cards[1].bj_value():
+            await interaction.response.send_message('You can only split if your first two cards are the same.', ephemeral=True)
+            return
+        await interaction.response.defer()
+        await player.add_points(-self.blackjack.bets[self.blackjack.current_player][0], 'Helios: Blackjack',
+                                f'{self.blackjack.id}: Split Bet')
+        self.blackjack.bets[self.blackjack.current_player].append(self.blackjack.bets[self.blackjack.current_player][0])
+        new_hand = Hand()
+        new_hand.add_card(hand.cards.pop())
+        self.blackjack.hands[self.blackjack.current_player].append(new_hand)
+        self.blackjack.generate_hand_images()
         self.stop()
 
 
