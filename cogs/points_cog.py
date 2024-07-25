@@ -147,6 +147,24 @@ class PointsCog(commands.Cog):
         )
         await interaction.response.send_message(embed=embed, file=file, ephemeral=True)
 
+    @app_commands.command(name='daily', description='Claim your daily points')
+    @app_commands.guild_only()
+    async def daily(self, interaction: discord.Interaction):
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        points = await member.claim_daily()
+        if points == 0:
+            if member.points >= member.activity_points:
+                await interaction.response.send_message(f'You have too many points to claim daily '
+                                                        f'{server.points_name}.',
+                                                        ephemeral=True)
+            else:
+                await interaction.response.send_message(f'You have already claimed your daily {server.points_name}',
+                                                        ephemeral=True)
+            return
+        await interaction.response.send_message(f'You have claimed **{points}** daily {server.points_name}',
+                                                ephemeral=True)
+
     @app_commands.command(name='leaderboard', description='See a top 10 leaderboard')
     @app_commands.guild_only()
     async def leaderboard(self, interaction: discord.Interaction):
