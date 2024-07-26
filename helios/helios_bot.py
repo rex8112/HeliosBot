@@ -53,6 +53,8 @@ class HeliosBot(commands.Bot):
         self._session: Optional[ClientSession] = None
         self.activities: list[str] = []
 
+        self._last_activity = None
+
         super().__init__(command_prefix, intents=intents, **options)
 
     @staticmethod
@@ -129,16 +131,19 @@ class HeliosBot(commands.Bot):
     @tasks.loop(minutes=5)
     async def check_activity(self):
         if len(self.activities) > 1:
-            new_activity = self.activity.name if self.activity else ''
-            while new_activity == (self.activity.name if self.activity else ''):
+            new_activity = self._last_activity
+            while new_activity == self._last_activity:
                 new_activity = random.choice(self.activities)
             await self.change_presence(activity=discord.CustomActivity(name=new_activity))
+            self._last_activity = new_activity
         elif len(self.activities) == 1:
             if self.activity.name != self.activities[0]:
                 await self.change_presence(activity=discord.CustomActivity(name=self.activities[0]))
+                self._last_activity = self.activities[0]
         else:
             if self.activity:
                 await self.change_presence(activity=None)
+                self._last_activity = None
 
     @staticmethod
     async def on_slash_error(
