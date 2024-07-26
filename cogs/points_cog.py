@@ -62,10 +62,20 @@ def build_leaderboard(author: 'HeliosMember', members: list['HeliosMember'], key
     return leaderboard_string
 
 
+points_activities = [
+    'Don\'t forget /daily',
+    'Try some /blackjack',
+    '/points',
+    'Jam to /play',
+]
+
+
+
 class PointsCog(commands.Cog):
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
         self.pay_ap.start()
+        self.add_activities()
 
         self.who_is_context = app_commands.ContextMenu(
             name='Profile',
@@ -73,6 +83,21 @@ class PointsCog(commands.Cog):
         )
 
         self.bot.tree.add_command(self.who_is_context)
+
+    def cog_unload(self):
+        self.pay_ap.cancel()
+        self.remove_activities()
+
+    def add_activities(self):
+        for activity in points_activities:
+            self.bot.add_activity(activity)
+
+    def remove_activities(self):
+        for activity in points_activities:
+            try:
+                self.bot.remove_activity(activity)
+            except ValueError:
+                ...
 
     @app_commands.command(name='points', description='See your current points')
     @app_commands.guild_only()
