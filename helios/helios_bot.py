@@ -129,10 +129,10 @@ class HeliosBot(commands.Bot):
     @tasks.loop(minutes=5)
     async def check_activity(self):
         if len(self.activities) > 1:
-            new_activity = self.activity.name
-            while new_activity == self.activity.name:
+            new_activity = self.activity.name if self.activity else ''
+            while new_activity == (self.activity.name if self.activity else ''):
                 new_activity = random.choice(self.activities)
-            await self.change_presence(activity=discord.CustomActivity(name=self.activities[0]))
+            await self.change_presence(activity=discord.CustomActivity(name=new_activity))
         elif len(self.activities) == 1:
             if self.activity.name != self.activities[0]:
                 await self.change_presence(activity=discord.CustomActivity(name=self.activities[0]))
