@@ -20,25 +20,24 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 import asyncio
-import logging
 import io
+import logging
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Optional, Callable, Awaitable
 
 import discord
 
-from ..member import HeliosMember
-from .cards import Hand, Deck, Card, Suits, Values
+from .cards import Hand, Deck
 from .image import get_member_icon, BlackjackHandImage, BlackjackImage, BlackjackHandSplitImage
+from ..colour import Colour
 from ..database import BlackjackModel
+from ..member import HeliosMember
 from ..tools.modals import AmountModal
 from ..views.generic_views import YesNoView
-from ..colour import Colour
 
 if TYPE_CHECKING:
     from PIL import Image
-    from ..server import Server
-
+    from .manager import GamblingManager
 
 logger = logging.getLogger('HeliosLogger: Blackjack')
 
@@ -46,13 +45,15 @@ logger = logging.getLogger('HeliosLogger: Blackjack')
 def turn_timer(seconds: int) -> Callable[[], Awaitable[None]]:
     async def inner():
         await asyncio.sleep(seconds)
+
     return inner
 
 
 # noinspection PyAsyncCall
 class Blackjack:
-    def __init__(self, server: 'Server', channel: discord.TextChannel):
-        self.server = server
+    def __init__(self, manager: 'GamblingManager', channel: discord.TextChannel):
+        self.manager = manager
+        self.server = self.manager.server
         self.channel = channel
 
         self.players: list[HeliosMember] = []
@@ -243,8 +244,7 @@ class Blackjack:
                 await player.add_points(winning, 'Helios: Blackjack', desc)
         await self.update_message('Game Over')
         await self.db_entry.async_update(winnings=self.winnings)
-        new_blackjack = Blackjack(self.server, self.channel)
-        asyncio.create_task(new_blackjack.start())
+        asyncio.create_task(self.manager.run_blackjack(self.channel))
 
     async def hit(self):
         hand = self.hands[self.current_player][self.current_hand]
@@ -426,7 +426,8 @@ class BlackjackView(discord.ui.View):
             await interaction.response.send_message('You do not have enough points to split.', ephemeral=True)
             return
         if hand.cards[0].bj_value() != hand.cards[1].bj_value():
-            await interaction.response.send_message('You can only split if your first two cards are the same.', ephemeral=True)
+            await interaction.response.send_message('You can only split if your first two cards are the same.',
+                                                    ephemeral=True)
             return
         await interaction.response.defer()
         await player.add_points(-self.blackjack.bets[self.blackjack.current_player][0], 'Helios: Blackjack',
@@ -502,18 +503,20 @@ class BlackjackJoinView(discord.ui.View):
             return
         interaction = modal.last_interaction
         if modal.amount_selected <= 0:
-            await interaction.followup.send(content=f'You must bet at least 1 {member.server.points_name.capitalize()}.')
+            await interaction.followup.send(
+                content=f'You must bet at least 1 {member.server.points_name.capitalize()}.')
             return
         amount = modal.amount_selected
         if amount > member.points:
-            await interaction.followup.send(content=f'You do not have enough {member.server.points_name.capitalize()}s.')
+            await interaction.followup.send(
+                content=f'You do not have enough {member.server.points_name.capitalize()}s.')
             return
 
         if amount > member.points * 0.1:
             view = YesNoView(interaction.user, timeout=15, thinking=True, ephemeral=True)
             await interaction.followup.send(f'Are you sure you want to bet '
                                             f'**{amount:,}** {member.server.points_name}? This is '
-                                            f'**{amount/member.points:.2%}** of your points.', view=view)
+                                            f'**{amount / member.points:.2%}** of your points.', view=view)
             if await view.wait() or not view.value:
                 await interaction.edit_original_response(view=None)
                 if view.last_interaction:
