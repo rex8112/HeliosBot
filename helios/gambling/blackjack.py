@@ -121,6 +121,7 @@ class Blackjack:
         await self.generate_dealer_image()
         self.generate_hand_images()
         self.view = BlackjackJoinView(self)
+        self.deck.shuffle()
         seconds = 30
         await self.update_message('Waiting For Players to Join', seconds)
         then = datetime.now() + timedelta(seconds=seconds)
@@ -174,32 +175,18 @@ class Blackjack:
         await asyncio.sleep(1)
 
         # Draw Initial Cards
-        if len(self.players) < 5:
-            self.deck = Deck()
-        else:
-            self.deck = Deck.new_many(2)
-        self.deck.shuffle()
-        self.deck.draw_to_hand(self.dealer_hand)
-        await self.update_message('Drawing Cards')
-        await self.db_entry.async_update(**self.to_dict())
-        await asyncio.sleep(0.5)
-
-        for hand in self.hands:
-            self.deck.draw_to_hand(hand[0])
+        for _ in range(2):
+            self.deck.draw_to_hand(self.dealer_hand)
             await self.update_message('Drawing Cards')
             await self.db_entry.async_update(**self.to_dict())
             await asyncio.sleep(0.5)
 
-        self.deck.draw_to_hand(self.dealer_hand, hidden=True)
-        await self.update_message('Drawing Cards')
-        await self.db_entry.async_update(**self.to_dict())
-        await asyncio.sleep(0.5)
-
         for hand in self.hands:
-            self.deck.draw_to_hand(hand[0])
-            await self.update_message('Drawing Cards')
-            await self.db_entry.async_update(**self.to_dict())
-            await asyncio.sleep(0.5)
+            for _ in range(2):
+                self.deck.draw_to_hand(hand[0])
+                await self.update_message('Drawing Cards')
+                await self.db_entry.async_update(**self.to_dict())
+                await asyncio.sleep(0.5)
 
         if self.dealer_hand.get_hand_bj_values(False) in [11, 10]:
             await self.update_message('Dealer Checking for Blackjack')
