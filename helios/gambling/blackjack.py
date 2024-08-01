@@ -129,6 +129,7 @@ class Blackjack:
             await asyncio.sleep(1)
             seconds -= 1
             if len(self.players) >= self.max_players:
+                self.view.stop()
                 break
             else:
                 await self.update_message('Waiting For Players to Join',
