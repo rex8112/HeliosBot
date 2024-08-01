@@ -82,6 +82,7 @@ class PointsCog(commands.Cog):
         await interaction.response.send_message(
             f'Current {server.points_name.capitalize()}: **{member.points:,}**\n'
             f'Activity {server.points_name.capitalize()}: **{member.activity_points:,}**\n'
+            f'Change in the last 24 hours: **{await member.get_24hr_change():,}**\n'
             f'Pending Payment: **{member.unpaid_ap}**',
             ephemeral=True
         )

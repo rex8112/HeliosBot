@@ -24,6 +24,7 @@ import datetime
 import json
 from typing import TYPE_CHECKING, Optional, Any
 
+import discord.utils
 import peewee_async
 from playhouse.migrate import *
 
@@ -163,6 +164,14 @@ class TransactionModel(BaseModel):
         q = (TransactionModel.select().where(TransactionModel.member_id == member.db_id)
              .order_by(TransactionModel.id.desc()).paginate(page, limit))
         return await objects.prefetch(q)
+
+    @staticmethod
+    async def get_24hr_change(member: 'HeliosMember'):
+        ago = discord.utils.utcnow() - datetime.timedelta(days=1)
+        q = (TransactionModel.select(fn.SUM(TransactionModel.amount).alias('day_change'))
+             .where(TransactionModel.member == member.db_entry and TransactionModel.created_on > ago))
+        res = await objects.prefetch(q)
+        return res[0].day_change
 
 
 class EventModel(BaseModel):

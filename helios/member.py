@@ -603,6 +603,9 @@ class HeliosMember(HasFlags):
         self._point_mutes_cache = (datetime.datetime.now().astimezone(), int(seconds))
         return int(seconds)
 
+    async def get_24hr_change(self):
+        return await TransactionModel.get_24hr_change(self)
+
 
 def get_floor_now() -> datetime.datetime:
     now = datetime.datetime.now().astimezone()
