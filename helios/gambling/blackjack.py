@@ -230,6 +230,7 @@ class Blackjack:
                 if j > 0:
                     desc = f'{self.id}: Split Winnings'
                 await player.add_points(winning, 'Helios: Blackjack', desc)
+            self.manager.add_loss(player, sum(self.bets[i]) - sum(self.winnings[i]))
         await self.update_message('Game Over')
         await self.db_entry.async_update(winnings=self.winnings)
         asyncio.create_task(self.manager.run_blackjack(self.channel))
@@ -500,6 +501,15 @@ class BlackjackJoinView(discord.ui.View):
                 content=f'You do not have enough {member.server.points_name.capitalize()}s.')
             return
 
+        if self.blackjack.manager.needs_help(member):
+            dealer_cards = self.blackjack.deck.cards[-2:]
+            dealer_hand = Hand()
+            dealer_hand.add_cards(dealer_cards)
+            if dealer_hand.get_hand_bj_values() == 21:
+                await interaction.followup.send(f'Hey, you have a pretty rough loss streak. '
+                                                f'I strongly recommend not betting on this game.')
+                self.blackjack.manager.helped(member)
+                return
         if amount > member.points * 0.1:
             view = YesNoView(interaction.user, timeout=15, thinking=True, ephemeral=True)
             await interaction.followup.send(f'Are you sure you want to bet '

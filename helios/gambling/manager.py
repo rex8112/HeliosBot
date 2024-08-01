@@ -24,7 +24,7 @@ class GamblingManager:
     def add_loss(self, member: 'HeliosMember', loss: int):
         if member not in self.loss_streak:
             self.loss_streak[member] = loss
-        elif loss == 0:
+        elif loss < 0:
             self.loss_streak[member] = 0
         else:
             self.loss_streak[member] += loss
@@ -37,7 +37,7 @@ class GamblingManager:
 
         if member.activity_points < 10_000:
             return False
-        if self.loss_streak[member] > member.points:
+        if self.loss_streak[member] > member.points >= 1_000:
             return True
         return False
 
