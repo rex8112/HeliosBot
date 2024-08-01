@@ -147,7 +147,7 @@ class PointsCog(commands.Cog):
         )
         await interaction.response.send_message(embed=embed, file=file, ephemeral=True)
 
-    @app_commands.command(name='leaderboard', description='See a top 10 leaderboard')
+    @app_commands.command(name='basic_leaderboard', description='See a top 10 leaderboard')
     @app_commands.guild_only()
     async def leaderboard(self, interaction: discord.Interaction):
         server = self.bot.servers.get(interaction.guild_id)
