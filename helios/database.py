@@ -45,7 +45,7 @@ def initialize_db():
         db.connect()
         db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
                           EventModel, ViolationModel, DynamicVoiceModel, DynamicVoiceGroupModel, TopicModel,
-                          EffectModel, ThemeModel, BlackjackModel])
+                          EffectModel, ThemeModel, BlackjackModel, DailyModel])
 
 
 def get_aware_utc_now():
@@ -410,6 +410,28 @@ class BlackjackModel(BaseModel):
     @classmethod
     async def create(cls, players: list) -> 'BlackjackModel':
         return await objects.create(cls, players=players)
+
+
+class DailyModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    member = ForeignKeyField(MemberModel, backref='dailies')
+    claimed = IntegerField(default=-1)
+
+    class Meta:
+        table_name = 'dailies'
+
+    @classmethod
+    async def claim(cls, member: MemberModel, day: int):
+        try:
+            daily = await objects.get(cls, member=member)
+            if daily.claimed != day:
+                daily.claimed = day
+                await daily.async_save()
+                return True
+            return False
+        except DoesNotExist:
+            await objects.create(cls, member=member, claimed=day)
+            return True
 
 
 class PugModel(BaseModel):

@@ -22,11 +22,12 @@
 import asyncio
 import io
 import logging
+import random
 import traceback
 from typing import Optional
 
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from aiohttp import ClientSession
 
 from .database import EventModel, objects
@@ -50,6 +51,9 @@ class HeliosBot(commands.Bot):
         self.ready_once = True
         self.helios_http: Optional[HTTPClient] = None
         self._session: Optional[ClientSession] = None
+        self.activities: list[str] = []
+
+        self._last_activity = None
 
         super().__init__(command_prefix, intents=intents, **options)
 
@@ -62,6 +66,12 @@ class HeliosBot(commands.Bot):
     @staticmethod
     async def remove_startup(model: EventModel):
         await objects.delete(model)
+
+    def add_activity(self, activity: str):
+        self.activities.append(activity)
+
+    def remove_activity(self, activity: str):
+        self.activities.remove(activity)
 
     def get_helios_member(self, identifier: str):
         values = identifier.split('.')
@@ -109,6 +119,7 @@ class HeliosBot(commands.Bot):
             logger.debug('Starting effects manager')
             _ = self.loop.create_task(self.effects.manage_effects())
             await self.effects.fetch_all()
+            self.check_activity.start()
             logger.debug('Finished setup')
             self.ready_once = False
 
@@ -116,6 +127,23 @@ class HeliosBot(commands.Bot):
         if self._session:
             await self._session.close()
             self._session = None
+
+    @tasks.loop(minutes=5)
+    async def check_activity(self):
+        if len(self.activities) > 1:
+            new_activity = self._last_activity
+            while new_activity == self._last_activity:
+                new_activity = random.choice(self.activities)
+            await self.change_presence(activity=discord.CustomActivity(name=new_activity))
+            self._last_activity = new_activity
+        elif len(self.activities) == 1:
+            if self.activity.name != self.activities[0]:
+                await self.change_presence(activity=discord.CustomActivity(name=self.activities[0]))
+                self._last_activity = self.activities[0]
+        else:
+            if self.activity:
+                await self.change_presence(activity=None)
+                self._last_activity = None
 
     @staticmethod
     async def on_slash_error(
