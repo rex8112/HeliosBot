@@ -31,7 +31,7 @@ from discord.utils import format_dt
 
 from .abc import HasFlags
 from .colour import Colour
-from .database import MemberModel, objects, TransactionModel
+from .database import MemberModel, objects, TransactionModel, DailyModel
 from .exceptions import IdMismatchError
 from .violation import Violation
 from .voice_template import VoiceTemplate
@@ -41,6 +41,10 @@ if TYPE_CHECKING:
     from .server import Server
     from .member_manager import MemberManager
     from discord import Guild, Member
+
+
+def round_down_hundred(x: int) -> int:
+    return int(x - x % 100)
 
 
 class HeliosMember(HasFlags):
@@ -267,18 +271,40 @@ class HeliosMember(HasFlags):
         }
         return data
 
-    def claim_daily(self) -> bool:
+    def point_to_activity_percentage(self) -> float:
+        if self.activity_points == 0:
+            return 0.0
+        return self.points / self.activity_points
+
+    def daily_points(self) -> int:
+        if self.points > self.activity_points:
+            return 0
+        diff = self.activity_points - self.points
+        perc = self.point_to_activity_percentage()
+        if perc < 0.2:
+            points = round_down_hundred(int(diff * 0.05))
+        elif perc < 0.4:
+            points = round_down_hundred(int(diff * 0.04))
+        elif perc < 0.6:
+            points = round_down_hundred(int(diff * 0.03))
+        elif perc < 0.8:
+            points = round_down_hundred(int(diff * 0.02))
+        else:
+            points = round_down_hundred(int(diff * 0.01))
+        points = max(points, 100)
+        return min(diff, points)
+
+    async def claim_daily(self) -> int:
         """
-        :dep
         :return: Whether the daily could be claimed.
         """
-        # stadium = self.server.stadium
-        # if self.settings['day_claimed'] != stadium.day:
-        #     self.points += stadium.daily_points
-        #     self.settings['day_claimed'] = stadium.day
-        #     return True
-        # else:
-        return False
+        days = get_day()
+        give = await DailyModel.claim(self._db_entry, days)
+        if give:
+            points = self.daily_points()
+            await self.add_points(points, 'Helios', 'Daily Pity Points')
+            return points
+        return 0
 
     async def check_voice(self, amt: int, partial: int = 4) -> bool:
         """
@@ -603,6 +629,9 @@ class HeliosMember(HasFlags):
         self._point_mutes_cache = (datetime.datetime.now().astimezone(), int(seconds))
         return int(seconds)
 
+    async def get_24hr_change(self):
+        return await TransactionModel.get_24hr_change(self)
+
 
 def get_floor_now() -> datetime.datetime:
     now = datetime.datetime.now().astimezone()
@@ -611,3 +640,11 @@ def get_floor_now() -> datetime.datetime:
         microseconds=now.microsecond
     )
     return now
+
+
+def get_day() -> int:
+    tz = datetime.datetime.now().astimezone().tzinfo
+    epoch = datetime.datetime(2024, 7, 1, tzinfo=tz)
+    now = datetime.datetime.now().astimezone()
+    now = now - epoch
+    return int(now.total_seconds() // 86_400)

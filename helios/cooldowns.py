@@ -21,11 +21,11 @@
 #  SOFTWARE.
 
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Hashable
 
 from discord.utils import utcnow
 
-cooldown = dict[Any, datetime]
+cooldown = dict[Hashable, datetime]
 
 
 class Cooldowns:
@@ -35,26 +35,26 @@ class Cooldowns:
     def get_all(self, key: str):
         return self.cooldowns.get(key)
 
-    def get(self, key: str, value: Any):
+    def get(self, key: str, value: Hashable):
         return self.cooldowns.get(key, {}).get(value)
 
-    def set(self, key: str, value: Any, time: datetime):
+    def set(self, key: str, value: Hashable, time: datetime):
         if key not in self.cooldowns:
             self.cooldowns[key] = {}
         self.cooldowns[key][value] = time
 
-    def set_duration(self, key: str, value: Any, duration: int):
+    def set_duration(self, key: str, value: Hashable, duration: int):
         self.set(key, value, utcnow() + timedelta(seconds=duration))
 
-    def on_cooldown(self, key: str, value: Any):
+    def on_cooldown(self, key: str, value: Hashable) -> bool:
         return self.get(key, value) and self.get(key, value) > utcnow()
 
-    def remaining_time(self, key: str, value: Any):
+    def remaining_time(self, key: str, value: Hashable):
         if self.on_cooldown(key, value):
             return self.get(key, value) - utcnow()
         return timedelta(seconds=0)
 
-    def clear(self, key: str, value: Any):
+    def clear(self, key: str, value: Hashable):
         if key in self.cooldowns:
             self.cooldowns[key].pop(value, None)
             if not self.cooldowns[key]:

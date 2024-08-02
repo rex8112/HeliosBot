@@ -62,10 +62,20 @@ def build_leaderboard(author: 'HeliosMember', members: list['HeliosMember'], key
     return leaderboard_string
 
 
+points_activities = [
+    'Don\'t forget /daily',
+    'Try some /blackjack',
+    '/points',
+    'Jam to /play',
+]
+
+
+
 class PointsCog(commands.Cog):
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
         self.pay_ap.start()
+        self.add_activities()
 
         self.who_is_context = app_commands.ContextMenu(
             name='Profile',
@@ -73,6 +83,21 @@ class PointsCog(commands.Cog):
         )
 
         self.bot.tree.add_command(self.who_is_context)
+
+    def cog_unload(self):
+        self.pay_ap.cancel()
+        self.remove_activities()
+
+    def add_activities(self):
+        for activity in points_activities:
+            self.bot.add_activity(activity)
+
+    def remove_activities(self):
+        for activity in points_activities:
+            try:
+                self.bot.remove_activity(activity)
+            except ValueError:
+                ...
 
     @app_commands.command(name='points', description='See your current points')
     @app_commands.guild_only()
@@ -82,6 +107,7 @@ class PointsCog(commands.Cog):
         await interaction.response.send_message(
             f'Current {server.points_name.capitalize()}: **{member.points:,}**\n'
             f'Activity {server.points_name.capitalize()}: **{member.activity_points:,}**\n'
+            f'Change in the last 24 hours: **{await member.get_24hr_change():,}**\n'
             f'Pending Payment: **{member.unpaid_ap}**',
             ephemeral=True
         )
@@ -147,6 +173,24 @@ class PointsCog(commands.Cog):
         )
         await interaction.response.send_message(embed=embed, file=file, ephemeral=True)
 
+    @app_commands.command(name='daily', description='Claim your daily points')
+    @app_commands.guild_only()
+    async def daily(self, interaction: discord.Interaction):
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        points = await member.claim_daily()
+        if points == 0:
+            if member.points >= member.activity_points:
+                await interaction.response.send_message(f'You have too many points to claim daily '
+                                                        f'{server.points_name}.',
+                                                        ephemeral=True)
+            else:
+                await interaction.response.send_message(f'You have already claimed your daily {server.points_name}',
+                                                        ephemeral=True)
+            return
+        await interaction.response.send_message(f'You have claimed **{points}** daily {server.points_name}',
+                                                ephemeral=True)
+
     @app_commands.command(name='basic_leaderboard', description='See a top 10 leaderboard')
     @app_commands.guild_only()
     async def leaderboard(self, interaction: discord.Interaction):
@@ -192,9 +236,8 @@ class PointsCog(commands.Cog):
     async def blackjack(self, interaction: discord.Interaction):
         server = self.bot.servers.get(interaction.guild_id)
         channel = interaction.channel
-        bj = Blackjack(server, channel)
         await interaction.response.send_message('Starting Blackjack', ephemeral=True)
-        await bj.start()
+        await server.gambling.run_blackjack(channel)
 
     # @app_commands.command(name='texasholdem')
     # @app_commands.describe(buy_in='The amount of points to buy in with')

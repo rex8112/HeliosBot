@@ -20,25 +20,24 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 import asyncio
-import logging
 import io
+import logging
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Optional, Callable, Awaitable
 
 import discord
 
-from ..member import HeliosMember
-from .cards import Hand, Deck, Card, Suits, Values
+from .cards import Hand, Deck
 from .image import get_member_icon, BlackjackHandImage, BlackjackImage, BlackjackHandSplitImage
+from ..colour import Colour
 from ..database import BlackjackModel
+from ..member import HeliosMember
 from ..tools.modals import AmountModal
 from ..views.generic_views import YesNoView
-from ..colour import Colour
 
 if TYPE_CHECKING:
     from PIL import Image
-    from ..server import Server
-
+    from .manager import GamblingManager
 
 logger = logging.getLogger('HeliosLogger: Blackjack')
 
@@ -46,13 +45,15 @@ logger = logging.getLogger('HeliosLogger: Blackjack')
 def turn_timer(seconds: int) -> Callable[[], Awaitable[None]]:
     async def inner():
         await asyncio.sleep(seconds)
+
     return inner
 
 
 # noinspection PyAsyncCall
 class Blackjack:
-    def __init__(self, server: 'Server', channel: discord.TextChannel):
-        self.server = server
+    def __init__(self, manager: 'GamblingManager', channel: discord.TextChannel):
+        self.manager = manager
+        self.server = self.manager.server
         self.channel = channel
 
         self.players: list[HeliosMember] = []
@@ -120,6 +121,7 @@ class Blackjack:
         await self.generate_dealer_image()
         self.generate_hand_images()
         self.view = BlackjackJoinView(self)
+        self.deck.shuffle()
         seconds = 30
         await self.update_message('Waiting For Players to Join', seconds)
         then = datetime.now() + timedelta(seconds=seconds)
@@ -127,6 +129,7 @@ class Blackjack:
             await asyncio.sleep(1)
             seconds -= 1
             if len(self.players) >= self.max_players:
+                self.view.stop()
                 break
             else:
                 await self.update_message('Waiting For Players to Join',
@@ -173,12 +176,7 @@ class Blackjack:
         await asyncio.sleep(1)
 
         # Draw Initial Cards
-        if len(self.players) < 5:
-            self.deck = Deck()
-        else:
-            self.deck = Deck.new_many(2)
-        self.deck.shuffle()
-        self.deck.draw_to_hand(self.dealer_hand)
+        self.deck.draw_to_hand(self.dealer_hand, hidden=True)
         await self.update_message('Drawing Cards')
         await self.db_entry.async_update(**self.to_dict())
         await asyncio.sleep(0.5)
@@ -189,7 +187,7 @@ class Blackjack:
             await self.db_entry.async_update(**self.to_dict())
             await asyncio.sleep(0.5)
 
-        self.deck.draw_to_hand(self.dealer_hand, hidden=True)
+        self.deck.draw_to_hand(self.dealer_hand)
         await self.update_message('Drawing Cards')
         await self.db_entry.async_update(**self.to_dict())
         await asyncio.sleep(0.5)
@@ -241,10 +239,10 @@ class Blackjack:
                 if j > 0:
                     desc = f'{self.id}: Split Winnings'
                 await player.add_points(winning, 'Helios: Blackjack', desc)
+            self.manager.add_loss(player, sum(self.bets[i]) - sum(self.winnings[i]))
         await self.update_message('Game Over')
         await self.db_entry.async_update(winnings=self.winnings)
-        new_blackjack = Blackjack(self.server, self.channel)
-        asyncio.create_task(new_blackjack.start())
+        asyncio.create_task(self.manager.run_blackjack(self.channel))
 
     async def hit(self):
         hand = self.hands[self.current_player][self.current_hand]
@@ -426,7 +424,8 @@ class BlackjackView(discord.ui.View):
             await interaction.response.send_message('You do not have enough points to split.', ephemeral=True)
             return
         if hand.cards[0].bj_value() != hand.cards[1].bj_value():
-            await interaction.response.send_message('You can only split if your first two cards are the same.', ephemeral=True)
+            await interaction.response.send_message('You can only split if your first two cards are the same.',
+                                                    ephemeral=True)
             return
         await interaction.response.defer()
         await player.add_points(-self.blackjack.bets[self.blackjack.current_player][0], 'Helios: Blackjack',
@@ -502,18 +501,29 @@ class BlackjackJoinView(discord.ui.View):
             return
         interaction = modal.last_interaction
         if modal.amount_selected <= 0:
-            await interaction.followup.send(content=f'You must bet at least 1 {member.server.points_name.capitalize()}.')
+            await interaction.followup.send(
+                content=f'You must bet at least 1 {member.server.points_name.capitalize()}.')
             return
         amount = modal.amount_selected
         if amount > member.points:
-            await interaction.followup.send(content=f'You do not have enough {member.server.points_name.capitalize()}s.')
+            await interaction.followup.send(
+                content=f'You do not have enough {member.server.points_name.capitalize()}s.')
             return
 
+        if self.blackjack.manager.needs_help(member):
+            dealer_cards = [self.blackjack.deck.cards[-1], self.blackjack.deck.cards[-len(self.blackjack.players) - 3]]
+            dealer_hand = Hand()
+            dealer_hand.add_cards(dealer_cards)
+            if dealer_hand.get_hand_bj_values() == 21:
+                await interaction.followup.send(f'Hey, you have a pretty rough loss streak. '
+                                                f'I strongly recommend not betting on this game.')
+                self.blackjack.manager.helped(member)
+                return
         if amount > member.points * 0.1:
             view = YesNoView(interaction.user, timeout=15, thinking=True, ephemeral=True)
             await interaction.followup.send(f'Are you sure you want to bet '
                                             f'**{amount:,}** {member.server.points_name}? This is '
-                                            f'**{amount/member.points:.2%}** of your points.', view=view)
+                                            f'**{amount / member.points:.2%}** of your points.', view=view)
             if await view.wait() or not view.value:
                 await interaction.edit_original_response(view=None)
                 if view.last_interaction:

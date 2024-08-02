@@ -24,6 +24,7 @@ import datetime
 import json
 from typing import TYPE_CHECKING, Optional, Any
 
+import discord.utils
 import peewee_async
 from playhouse.migrate import *
 
@@ -45,7 +46,7 @@ def initialize_db():
         db.connect()
         db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
                           EventModel, ViolationModel, DynamicVoiceModel, DynamicVoiceGroupModel, TopicModel,
-                          EffectModel, ThemeModel, BlackjackModel])
+                          EffectModel, ThemeModel, BlackjackModel, DailyModel])
 
 
 def get_aware_utc_now():
@@ -163,6 +164,14 @@ class TransactionModel(BaseModel):
         q = (TransactionModel.select().where(TransactionModel.member_id == member.db_id)
              .order_by(TransactionModel.id.desc()).paginate(page, limit))
         return await objects.prefetch(q)
+
+    @staticmethod
+    async def get_24hr_change(member: 'HeliosMember'):
+        ago = discord.utils.utcnow() - datetime.timedelta(days=1)
+        q = (TransactionModel.select(fn.SUM(TransactionModel.amount).alias('day_change'))
+             .where(TransactionModel.member == member.db_entry and TransactionModel.created_on > ago))
+        res = await objects.prefetch(q)
+        return res[0].day_change
 
 
 class EventModel(BaseModel):
@@ -410,6 +419,28 @@ class BlackjackModel(BaseModel):
     @classmethod
     async def create(cls, players: list) -> 'BlackjackModel':
         return await objects.create(cls, players=players)
+
+
+class DailyModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    member = ForeignKeyField(MemberModel, backref='dailies')
+    claimed = IntegerField(default=-1)
+
+    class Meta:
+        table_name = 'dailies'
+
+    @classmethod
+    async def claim(cls, member: MemberModel, day: int):
+        try:
+            daily = await objects.get(cls, member=member)
+            if daily.claimed != day:
+                daily.claimed = day
+                await daily.async_save()
+                return True
+            return False
+        except DoesNotExist:
+            await objects.create(cls, member=member, claimed=day)
+            return True
 
 
 class PugModel(BaseModel):

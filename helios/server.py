@@ -30,6 +30,7 @@ from .cooldowns import Cooldowns
 from .court import Court
 from .database import ServerModel, objects
 from .exceptions import IdMismatchError
+from .gambling.manager import GamblingManager
 from .member import HeliosMember
 from .member_manager import MemberManager
 from .music import MusicPlayer
@@ -116,6 +117,7 @@ class Server:
         self.voice_controllers = []
         self.settings = ServerSettings(self.bot)
         self.theme = ThemeManager(self)
+        self.gambling = GamblingManager(self)
         self.cooldowns = Cooldowns()
         self.flags = []
 
