@@ -23,7 +23,7 @@
 import logging
 import traceback
 from datetime import time, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 import discord
 from discord import app_commands, Interaction, ui
@@ -49,6 +49,31 @@ def get_change_str(changes: list[tuple['HeliosMember', discord.Role, discord.Rol
     return ch_str
 
 
+def get_leaderboard_string(num: int, member: 'HeliosMember', value: int, prefix: str = ''):
+    return f'{prefix:2}{num:3}. {member.member.display_name:>32}: {value:10,}\n'
+
+
+def build_leaderboard(author: 'HeliosMember', member_pos: list[tuple['HeliosMember', int]]) -> str:
+    leaderboard_string = ''
+    user_found = False
+    for mem, pos in member_pos[:10]:
+        modifier = ''
+        if mem == author:
+            modifier = '>'
+            user_found = True
+        leaderboard_string += get_leaderboard_string(pos+1, mem, mem.points, modifier)
+    mem_only = [x[0] for x in member_pos]
+    if not user_found and author in mem_only:
+        index = mem_only.index(author)
+        leaderboard_string += '...\n'
+        for mem, i in member_pos[index - 1:index + 2]:
+            modifier = ''
+            if mem == author:
+                modifier = '>'
+            leaderboard_string += get_leaderboard_string(i, mem, mem.points, modifier)
+    return leaderboard_string
+
+
 class ThemeCog(commands.Cog):
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
@@ -56,6 +81,43 @@ class ThemeCog(commands.Cog):
 
     async def cog_unload(self) -> None:
         ...
+
+    @app_commands.command(name='leaderboard', description='Leaderboard of current points.')
+    @app_commands.guild_only()
+    async def leaderboard(self, interaction: discord.Interaction):
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        theme = server.theme.current_theme
+        if theme is None:
+            members = [(x, i) for i,x in enumerate(list(server.members.members.values()))]
+            leaderboard_string = build_leaderboard(member, members)
+            p_embed = discord.Embed(
+                colour=member.colour(),
+                title=f'{member.guild.name} {server.points_name.capitalize()} Leaderboard',
+                description=f'```{leaderboard_string}```'
+            )
+            return await interaction.response.send_message(embeds=[p_embed])
+        members = list(sorted(filter(lambda x: not x.member.bot, server.members.members.values()), key=lambda x: -x.points))
+        index = 0
+        embeds = []
+        for role in theme.roles:
+            discord_role = server.theme.role_map[role]
+            role_members = []
+            for i in range(role.maximum if role.maximum > 0 else len(members) - index):
+                try:
+                    role_members.append((members[index], index))
+                    index += 1
+                except IndexError:
+                    break
+            lb_str = build_leaderboard(member, role_members)
+            embed = discord.Embed(
+                title=discord_role.name,
+                color=discord_role.color,
+                description=f'```{lb_str}```'
+            )
+            embeds.append(embed)
+
+        await interaction.response.send_message(embeds=embeds)
 
     @app_commands.command(name='build_theme', description='Build a new theme with current roles')
     @app_commands.guild_only()
