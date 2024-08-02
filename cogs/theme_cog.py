@@ -70,7 +70,7 @@ def build_leaderboard(author: 'HeliosMember', member_pos: list[tuple['HeliosMemb
             modifier = ''
             if mem == author:
                 modifier = '>'
-            leaderboard_string += get_leaderboard_string(i, mem, key(mem), modifier)
+            leaderboard_string += get_leaderboard_string(i, mem, mem.points, modifier)
     return leaderboard_string
 
 
@@ -97,15 +97,18 @@ class ThemeCog(commands.Cog):
                 description=f'```{leaderboard_string}```'
             )
             return await interaction.response.send_message(embeds=[p_embed])
-        members = list(sorted(server.members.members.values(), key=lambda x: -x.points))
+        members = list(sorted(filter(lambda x: not x.member.bot, server.members.members.values()), key=lambda x: -x.points))
         index = 0
         embeds = []
         for role in theme.roles:
             discord_role = server.theme.role_map[role]
             role_members = []
-            for i in range(role.maximum):
-                role_members.append((members[index], index))
-                index += 1
+            for i in range(role.maximum if role.maximum > 0 else len(members) - index):
+                try:
+                    role_members.append((members[index], index))
+                    index += 1
+                except IndexError:
+                    break
             lb_str = build_leaderboard(member, role_members)
             embed = discord.Embed(
                 title=discord_role.name,
