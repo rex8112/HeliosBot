@@ -193,9 +193,8 @@ class PointsCog(commands.Cog):
     async def blackjack(self, interaction: discord.Interaction):
         server = self.bot.servers.get(interaction.guild_id)
         channel = interaction.channel
-        bj = Blackjack(server, channel)
         await interaction.response.send_message('Starting Blackjack', ephemeral=True)
-        await bj.start()
+        await server.gambling.run_blackjack(channel)
 
     # @app_commands.command(name='texasholdem')
     # @app_commands.describe(buy_in='The amount of points to buy in with')

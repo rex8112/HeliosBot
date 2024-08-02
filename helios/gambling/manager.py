@@ -56,5 +56,5 @@ class GamblingManager:
     async def run_blackjack(self, channel: TextChannel):
         bj = Blackjack(self, channel)
         self.add_game(bj)
-        await bj.run()
+        await bj.start()
         self.rem_game(bj)
