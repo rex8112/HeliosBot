@@ -176,22 +176,27 @@ class Blackjack:
         await asyncio.sleep(1)
 
         # Draw Initial Cards
-        self.deck.draw_to_hand(self.dealer_hand)
-        await self.update_message('Drawing Cards')
-        await self.db_entry.async_update(**self.to_dict())
-        await asyncio.sleep(0.5)
-
         self.deck.draw_to_hand(self.dealer_hand, hidden=True)
         await self.update_message('Drawing Cards')
         await self.db_entry.async_update(**self.to_dict())
         await asyncio.sleep(0.5)
 
         for hand in self.hands:
-            for _ in range(2):
-                self.deck.draw_to_hand(hand[0])
-                await self.update_message('Drawing Cards')
-                await self.db_entry.async_update(**self.to_dict())
-                await asyncio.sleep(0.5)
+            self.deck.draw_to_hand(hand[0])
+            await self.update_message('Drawing Cards')
+            await self.db_entry.async_update(**self.to_dict())
+            await asyncio.sleep(0.5)
+
+        self.deck.draw_to_hand(self.dealer_hand)
+        await self.update_message('Drawing Cards')
+        await self.db_entry.async_update(**self.to_dict())
+        await asyncio.sleep(0.5)
+
+        for hand in self.hands:
+            self.deck.draw_to_hand(hand[0])
+            await self.update_message('Drawing Cards')
+            await self.db_entry.async_update(**self.to_dict())
+            await asyncio.sleep(0.5)
 
         if self.dealer_hand.get_hand_bj_values(False) in [11, 10]:
             await self.update_message('Dealer Checking for Blackjack')
@@ -506,7 +511,7 @@ class BlackjackJoinView(discord.ui.View):
             return
 
         if self.blackjack.manager.needs_help(member):
-            dealer_cards = self.blackjack.deck.cards[-2:]
+            dealer_cards = [self.blackjack.deck.cards[-1], self.blackjack.deck.cards[-len(self.blackjack.players) - 3]]
             dealer_hand = Hand()
             dealer_hand.add_cards(dealer_cards)
             if dealer_hand.get_hand_bj_values() == 21:
