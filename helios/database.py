@@ -169,7 +169,7 @@ class TransactionModel(BaseModel):
     async def get_24hr_change(member: 'HeliosMember'):
         ago = discord.utils.utcnow() - datetime.timedelta(days=1)
         q = (TransactionModel.select(fn.SUM(TransactionModel.amount).alias('day_change'))
-             .where(TransactionModel.member == member.db_entry and TransactionModel.created_on > ago))
+             .where(TransactionModel.member == member.db_entry, TransactionModel.created_on > ago))
         res = await objects.prefetch(q)
         return res[0].day_change
 
