@@ -58,7 +58,7 @@ class Blackjack:
 
         self.players: list[HeliosMember] = []
         self.icons: list['Image'] = []
-        self.deck: Deck = Deck.new_many(2)
+        self.deck: Deck = Deck()
         self.hands: list[list[Hand]] = []
         self.hand_images: list['BlackjackHandImage'] = []
         self.bets: list[list[int]] = []
@@ -246,6 +246,9 @@ class Blackjack:
 
     async def hit(self):
         hand = self.hands[self.current_player][self.current_hand]
+        if len(self.deck.cards) < 1:
+            self.deck = Deck()
+            self.deck.shuffle()
         self.deck.draw_to_hand(hand)
 
     async def stand(self):
@@ -271,6 +274,9 @@ class Blackjack:
         await asyncio.sleep(1)
 
         while self.is_soft_seventeen() or self.dealer_hand.get_hand_bj_values() < 17:
+            if len(self.deck.cards) < 1:
+                self.deck = Deck()
+                self.deck.shuffle()
             self.deck.draw_to_hand(self.dealer_hand)
             await self.update_message('Dealer Playing')
             await asyncio.sleep(1)
