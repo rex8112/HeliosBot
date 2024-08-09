@@ -630,7 +630,8 @@ class HeliosMember(HasFlags):
         return int(seconds)
 
     async def get_24hr_change(self):
-        return await TransactionModel.get_24hr_change(self)
+        res = await TransactionModel.get_24hr_change(self)
+        return res if res else 0
 
 
 def get_floor_now() -> datetime.datetime:
