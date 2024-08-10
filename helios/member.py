@@ -282,15 +282,15 @@ class HeliosMember(HasFlags):
         diff = min(self.activity_points, 100_000) - self.points
         perc = self.point_to_activity_percentage()
         if perc < 0.2:
-            points = round_down_hundred(int(diff * 0.05))
+            points = round_down_hundred(int(self.activity_points * 0.05))
         elif perc < 0.4:
-            points = round_down_hundred(int(diff * 0.04))
+            points = round_down_hundred(int(self.activity_points * 0.04))
         elif perc < 0.6:
-            points = round_down_hundred(int(diff * 0.03))
+            points = round_down_hundred(int(self.activity_points * 0.03))
         elif perc < 0.8:
-            points = round_down_hundred(int(diff * 0.02))
+            points = round_down_hundred(int(self.activity_points * 0.02))
         else:
-            points = round_down_hundred(int(diff * 0.01))
+            points = round_down_hundred(int(self.activity_points * 0.01))
         points = max(points, 100)
         return min(diff, points)
 
