@@ -441,6 +441,12 @@ class BlackjackView(discord.ui.View):
         new_hand.add_card(hand.cards.pop())
         self.blackjack.hands[self.blackjack.current_player].append(new_hand)
         self.blackjack.generate_hand_images()
+        await self.blackjack.update_message('Splitting')
+        await asyncio.sleep(0.5)
+        for hand in self.blackjack.hands[self.blackjack.current_player]:
+            self.blackjack.deck.draw_to_hand(hand)
+            await self.blackjack.update_message('Drawing Cards')
+            await asyncio.sleep(0.5)
         self.stop()
 
 
