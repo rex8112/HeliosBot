@@ -148,7 +148,7 @@ class DynamicVoiceView(ui.View):
                                   color=Color.blurple())
                     view = VoteView(set(self.voice.channel.members), time=30)
                     mentions = ' '.join([m.mention for m in self.voice.channel.members])
-                    await interaction.edit_original_response(content=mentions, embed=embed, view=view)
+                    await self.voice.channel.send(content=mentions, embed=embed, view=view)
                     view.start_timer()
                     message = await interaction.original_response()
                     await view.wait()
