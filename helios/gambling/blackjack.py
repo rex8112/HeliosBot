@@ -180,7 +180,7 @@ class Blackjack:
         await asyncio.sleep(1)
 
         # Draw Initial Cards
-        self.deck.draw_to_hand(self.dealer_hand, hidden=True)
+        self.deck.draw_to_hand(self.dealer_hand)
         await self.update_message('Drawing Cards')
         await self.db_entry.async_update(**self.to_dict())
         await asyncio.sleep(0.5)
@@ -191,7 +191,7 @@ class Blackjack:
             await self.db_entry.async_update(**self.to_dict())
             await asyncio.sleep(0.5)
 
-        self.deck.draw_to_hand(self.dealer_hand)
+        self.deck.draw_to_hand(self.dealer_hand, hidden=True)
         await self.update_message('Drawing Cards')
         await self.db_entry.async_update(**self.to_dict())
         await asyncio.sleep(0.5)
