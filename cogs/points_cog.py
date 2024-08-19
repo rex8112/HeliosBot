@@ -70,7 +70,6 @@ points_activities = [
 ]
 
 
-
 class PointsCog(commands.Cog):
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
