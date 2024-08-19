@@ -152,7 +152,9 @@ class PrivateVoiceCog(commands.Cog):
             await interaction.response.defer(ephemeral=True)
             if private_channel:
                 channel = private_channel
-                await channel.clear(member)
+                template = channel.template
+                template.clear(member)
+                await channel.apply_template(template)
                 await interaction.followup.send(f'{member.mention} Cleared '
                                                 f'from {channel.channel.mention}'
                                                 '.')
