@@ -443,6 +443,18 @@ class DailyModel(BaseModel):
             return True
 
 
+class Lottery(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    game_type = CharField(max_length=16)
+    pool = IntegerField()
+    frequency = IntegerField(default=1*24*60*60)
+    next_game = DatetimeTzField()
+    tickets = JSONField(default=[])
+
+    class Meta:
+        table_name = 'lotteries'
+
+
 class PugModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
     channel_id = BigIntegerField()
