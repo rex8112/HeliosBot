@@ -202,18 +202,18 @@ class ThemeCog(commands.Cog):
         for server in self.bot.servers.servers.values():
             tm = server.theme
             changes = await tm.sort_members()
-            if changes:
-                logger.info(f'Sorted {len(changes)} members on {server.name}.')
-                logger.info(f'Sorted {len(changes)} member(s) on {server.name}.')
-                changes_str = get_change_str(changes)
-                embed = discord.Embed(
-                    title='Role Changes',
-                    description=changes_str,
-                    colour=discord.Colour.blurple()
-                )
-                if server.announcement_channel:
-                    await server.announcement_channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
             if server.announcement_channel:
+                if changes:
+                    logger.info(f'Sorted {len(changes)} members on {server.name}.')
+                    logger.info(f'Sorted {len(changes)} member(s) on {server.name}.')
+                    changes_str = get_change_str(changes)
+                    embed = discord.Embed(
+                        title='Role Changes',
+                        description=changes_str,
+                        colour=discord.Colour.blurple()
+                    )
+                    if server.announcement_channel:
+                        await server.announcement_channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
                 embeds = get_leaderboard_embeds(server)
                 await server.announcement_channel.send(embeds=embeds, view=self.lb_view)
 
