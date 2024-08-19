@@ -239,7 +239,8 @@ class HeliosMember(HasFlags):
 
     def get_game_activity(self):
         for activity in self.member.activities:
-            if not isinstance(activity, discord.CustomActivity) and activity.name != 'Hang Status':
+            if (not isinstance(activity, discord.CustomActivity) and activity.name != 'Hang Status'
+                    and activity.type == discord.ActivityType.playing):
                 return activity.name
 
     # noinspection PyUnresolvedReferences
