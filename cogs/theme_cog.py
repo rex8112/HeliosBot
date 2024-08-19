@@ -197,7 +197,7 @@ class ThemeCog(commands.Cog):
         else:
             await interaction.followup.send('No changes were made.')
 
-    @tasks.loop(time=time(hour=14, minute=36, tzinfo=datetime.now().astimezone().tzinfo))
+    @tasks.loop(time=time(hour=0, minute=5, tzinfo=datetime.now().astimezone().tzinfo))
     async def sort_themes(self):
         for server in self.bot.servers.servers.values():
             tm = server.theme
