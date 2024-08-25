@@ -125,8 +125,7 @@ class HeliosMember(HasFlags):
         role = self.server.verified_role
         if role is None:
             return True
-        mem_role = self.member.get_role(role.id)
-        return mem_role is not None
+        return self.member in role.members
 
     @property
     def points(self) -> int:
