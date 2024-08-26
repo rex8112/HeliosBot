@@ -447,7 +447,9 @@ class Lottery(BaseModel):
     id = AutoField(primary_key=True, unique=True)
     game_type = CharField(max_length=16)
     pool = IntegerField()
-    frequency = IntegerField(default=1*24*60*60)
+    frequency = IntegerField()
+    numbers = IntegerField()
+    range = IntegerField()
     next_game = DatetimeTzField()
     tickets = JSONField(default=[])
 
