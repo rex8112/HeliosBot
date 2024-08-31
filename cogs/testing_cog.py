@@ -26,6 +26,7 @@ import discord
 from PIL import Image
 from discord import app_commands
 from discord.ext import commands
+from helios.views.generic_views import DateTimeView
 
 if TYPE_CHECKING:
     from helios import HeliosBot
@@ -59,6 +60,12 @@ class TestingCog(commands.Cog):
     async def ping_command(self, interaction: discord.Interaction):
         """ /ping """
         await interaction.response.send_message('Pong!')
+
+    @app_commands.command(name='test_dt')
+    async def test_dt(self, interaction: discord.Interaction):
+        """ /test_dt """
+        view = DateTimeView()
+        await interaction.response.send_message('Testing', embed=view.get_embed(), view=view)
 
     # @app_commands.command(name='riverimage')
     async def river_image(self, interaction: discord.Interaction):

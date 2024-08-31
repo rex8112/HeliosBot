@@ -20,11 +20,13 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 import asyncio
+from datetime import datetime, timedelta
 from typing import TypeVar, Hashable, Callable, Optional, Generic
 
 import discord
 
 from helios.tools.modals import PageModal
+from ..colour import Colour
 
 __all__ = ('PaginatorView', 'PaginatorSelectView', 'YesNoView', 'SelectMemberView', 'VoteView')
 
@@ -245,3 +247,101 @@ class VoteView(discord.ui.View):
             await interaction.response.send_message('You voted No', ephemeral=True)
         else:
             await interaction.response.send_message('You are not allowed to vote', ephemeral=True)
+
+
+class DateTimeView(discord.ui.View):
+    def __init__(self, timeout=15):
+        super().__init__(timeout=timeout)
+        self.dt = discord.utils.utcnow().replace(second=0, microsecond=0, minute=0)
+
+    def get_embed(self):
+        embed = discord.Embed(
+            title='Datetime Picker',
+            colour=Colour.helios(),
+            description=discord.utils.format_dt(self.dt)
+        )
+        return embed
+
+    def update_buttons(self):
+        ...
+
+    def add_time(self, td: timedelta):
+        self.dt += td
+        self.update_buttons()
+
+    @discord.ui.button(label='-5 Days', row=0)
+    async def neg_five_days(self, interaction: discord.Interaction, _: discord.Button):
+        td = timedelta(days=-5)
+        self.add_time(td)
+        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+    @discord.ui.button(label='-1 Day', row=0)
+    async def neg_one_day(self, interaction: discord.Interaction, _: discord.Button):
+        td = timedelta(days=-1)
+        self.add_time(td)
+        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+    @discord.ui.button(label='+1 Day', row=0)
+    async def pos_one_day(self, interaction: discord.Interaction, _: discord.Button):
+        td = timedelta(days=1)
+        self.add_time(td)
+        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+    @discord.ui.button(label='+5 Days', row=0)
+    async def pos_five_days(self, interaction: discord.Interaction, _: discord.Button):
+        td = timedelta(days=5)
+        self.add_time(td)
+        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+    @discord.ui.button(label='-5 Hours', row=1)
+    async def neg_five_hours(self, interaction: discord.Interaction, _: discord.Button):
+        td = timedelta(hours=-5)
+        self.add_time(td)
+        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+    @discord.ui.button(label='-1 Hour', row=1)
+    async def neg_one_hour(self, interaction: discord.Interaction, _: discord.Button):
+        td = timedelta(hours=-1)
+        self.add_time(td)
+        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+    @discord.ui.button(label='+1 Hour', row=1)
+    async def pos_one_hour(self, interaction: discord.Interaction, _: discord.Button):
+        td = timedelta(hours=1)
+        self.add_time(td)
+        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+    @discord.ui.button(label='+5 Hours', row=1)
+    async def pos_five_hours(self, interaction: discord.Interaction, _: discord.Button):
+        td = timedelta(hours=5)
+        self.add_time(td)
+        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+    @discord.ui.button(label='-30 Minutes', row=2)
+    async def neg_thirty_minutes(self, interaction: discord.Interaction, _: discord.Button):
+        td = timedelta(minutes=-30)
+        self.add_time(td)
+        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+    @discord.ui.button(label='-15 Minutes', row=2)
+    async def neg_fifteen_minutes(self, interaction: discord.Interaction, _: discord.Button):
+        td = timedelta(minutes=-15)
+        self.add_time(td)
+        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+    @discord.ui.button(label='+15 Minutes', row=2)
+    async def pos_fifteen_minutes(self, interaction: discord.Interaction, _: discord.Button):
+        td = timedelta(minutes=15)
+        self.add_time(td)
+        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+    @discord.ui.button(label='+30 Minutes', row=2)
+    async def pos_thirty_minutes(self, interaction: discord.Interaction, _: discord.Button):
+        td = timedelta(minutes=30)
+        self.add_time(td)
+        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+    @discord.ui.button(label='Confirm', row=3, style=discord.ButtonStyle.green)
+    async def confirm(self, interaction: discord.Interaction, _: discord.Button):
+        self.stop()
+        await interaction.response.edit_message(view=None)
