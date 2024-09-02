@@ -71,7 +71,7 @@ class VerificationCog(commands.Cog):
             )
             try:
                 await member.send(embed=embed)
-            except discord.Forbidden:
+            except (discord.Forbidden, discord.HTTPException):
                 pass
 
     @app_commands.command(name='verify', description='An alternative to verify a new member.')
