@@ -253,11 +253,11 @@ class MuteEffect(Effect):
         await self.target.voice_mute(reason=self.reason)
         try:
             await self.target.member.send(embed=self.get_mute_embed())
-        except discord.Forbidden:
+        except (discord.Forbidden, discord.HTTPException):
             try:
                 await self.target.member.voice.channel.send(content=f'{self.target.member.mention}',
                                                             embed=self.get_mute_embed())
-            except discord.Forbidden:
+            except (discord.Forbidden, discord.HTTPException):
                 ...
         return True
 
@@ -332,7 +332,14 @@ class DeafenEffect(Effect):
         await super().remove()
         await self.target.voice_undeafen()
         if not self.target.has_effect('DeflectorEffect'):
-            await self.target.member.send(embed=self.get_deafen_embed())
+            try:
+                await self.target.member.send(embed=self.get_deafen_embed())
+            except (discord.Forbidden, discord.HTTPException):
+                try:
+                    await self.target.member.voice.channel.send(content=f'{self.target.member.mention}',
+                                                                embed=self.get_deafen_embed())
+                except (discord.Forbidden, discord.HTTPException):
+                    ...
 
     async def enforce(self):
         voice = self.target.member.voice
