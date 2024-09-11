@@ -98,7 +98,10 @@ class Blackjack:
     async def update_message(self, state: str, timer: int = 0):
         img = self.get_image_file(state, timer)
         if self.message:
-            await self.message.edit(attachments=[img], view=self.view)
+            try:
+                await self.message.edit(attachments=[img], view=self.view)
+            except discord.NotFound:
+                self.message = await self.channel.send(content='Don\'t delete this', files=[img], view=self.view)
         else:
             self.message = await self.channel.send(files=[img], view=self.view)
 
