@@ -55,8 +55,9 @@ class VerificationCog(commands.Cog):
                             'you do not know this person then please ignore '
                             'this message.\n\nIf the button is not working you'
                             ' can also use the /verify command.',
-                colour=discord.Colour.orange()
+                colour=discord.Colour.orange(),
             )
+            embed.set_thumbnail(url=member.display_avatar.url)
             view = VerifyView(helios_member)
             await member.guild.system_channel.send(embed=embed, view=view)
 
@@ -70,7 +71,7 @@ class VerificationCog(commands.Cog):
             )
             try:
                 await member.send(embed=embed)
-            except discord.Forbidden:
+            except (discord.Forbidden, discord.HTTPException):
                 pass
 
     @app_commands.command(name='verify', description='An alternative to verify a new member.')

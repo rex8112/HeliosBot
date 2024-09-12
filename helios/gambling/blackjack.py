@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Optional, Callable, Awaitable
 import discord
 
 from .cards import Hand, Deck
+from .exceptions import StalemateException
 from .image import get_member_icon, BlackjackHandImage, BlackjackImage, BlackjackHandSplitImage
 from ..colour import Colour
 from ..database import BlackjackModel
@@ -62,6 +63,8 @@ class Blackjack:
         self.hands: list[list[Hand]] = []
         self.hand_images: list['BlackjackHandImage'] = []
         self.bets: list[list[int]] = []
+
+        self.board_lock = asyncio.Lock()
 
         self.current_player: int = -1
         self.current_hand: int = 0
@@ -122,6 +125,7 @@ class Blackjack:
         self.hand_images.pop(index)
 
     async def start(self):
+        await self.board_lock.acquire()
         await self.generate_dealer_image()
         self.generate_hand_images()
         self.view = BlackjackJoinView(self)
@@ -180,7 +184,7 @@ class Blackjack:
         await asyncio.sleep(1)
 
         # Draw Initial Cards
-        self.deck.draw_to_hand(self.dealer_hand, hidden=True)
+        self.deck.draw_to_hand(self.dealer_hand)
         await self.update_message('Drawing Cards')
         await self.db_entry.async_update(**self.to_dict())
         await asyncio.sleep(0.5)
@@ -191,7 +195,7 @@ class Blackjack:
             await self.db_entry.async_update(**self.to_dict())
             await asyncio.sleep(0.5)
 
-        self.deck.draw_to_hand(self.dealer_hand)
+        self.deck.draw_to_hand(self.dealer_hand, hidden=True)
         await self.update_message('Drawing Cards')
         await self.db_entry.async_update(**self.to_dict())
         await asyncio.sleep(0.5)
@@ -222,7 +226,9 @@ class Blackjack:
 
                 self.view = BlackjackView(self)
                 await self.update_message('Waiting For Player')
+                self.board_lock.release()
                 _, pending = await asyncio.wait([asyncio.create_task(self.view.wait())], timeout=30)
+                await self.board_lock.acquire()
                 if pending:
                     self.view.stop()
                     await self.stand()
@@ -463,15 +469,29 @@ class BlackjackView(discord.ui.View):
             await interaction.response.send_message('You can only split if your first two cards are the same.',
                                                     ephemeral=True)
             return
-        await interaction.response.defer()
-        await player.add_points(-self.blackjack.bets[self.blackjack.current_player][0], 'Helios: Blackjack',
-                                f'{self.blackjack.id}: Split Bet')
-        self.blackjack.bets[self.blackjack.current_player].append(self.blackjack.bets[self.blackjack.current_player][0])
-        new_hand = Hand()
-        new_hand.add_card(hand.cards.pop())
-        self.blackjack.hands[self.blackjack.current_player].append(new_hand)
-        self.blackjack.generate_hand_images()
-        self.stop()
+        if self.blackjack.board_lock.locked():
+            await interaction.response.send_message('It is not your turn.', ephemeral=True)
+            return
+        await self.blackjack.board_lock.acquire()
+        try:
+            await interaction.response.defer()
+            await player.add_points(-self.blackjack.bets[self.blackjack.current_player][0], 'Helios: Blackjack',
+                                    f'{self.blackjack.id}: Split Bet')
+            self.blackjack.bets[self.blackjack.current_player].append(self.blackjack.bets[self.blackjack.current_player][0])
+            new_hand = Hand()
+            new_hand.add_card(hand.cards.pop())
+            self.blackjack.hands[self.blackjack.current_player].append(new_hand)
+            self.blackjack.generate_hand_images()
+            self.blackjack.view = None
+            await self.blackjack.update_message('Splitting')
+            await asyncio.sleep(0.5)
+            for hand in self.blackjack.hands[self.blackjack.current_player]:
+                self.blackjack.deck.draw_to_hand(hand)
+                await self.blackjack.update_message('Drawing Cards')
+                await asyncio.sleep(0.5)
+            self.stop()
+        finally:
+            self.blackjack.board_lock.release()
 
 
 rules_embed = discord.Embed(

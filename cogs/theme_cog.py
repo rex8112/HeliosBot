@@ -23,16 +23,16 @@
 import logging
 import traceback
 from datetime import time, datetime
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Optional
 
 import discord
 from discord import app_commands, Interaction, ui
 from discord.ext import commands, tasks
 
-from helios import DynamicVoiceGroup, VoiceManager, PaginatorSelectView
+from helios import DynamicVoiceGroup, VoiceManager, PaginatorSelectView, Colour
 
 if TYPE_CHECKING:
-    from helios import HeliosBot, HeliosMember
+    from helios import HeliosBot, HeliosMember, Server
 
 
 logger = logging.getLogger('Helios.ThemeCog')
@@ -51,6 +51,45 @@ def get_change_str(changes: list[tuple['HeliosMember', discord.Role, discord.Rol
 
 def get_leaderboard_string(num: int, member: 'HeliosMember', value: int, prefix: str = ''):
     return f'{prefix:2}{num:3}. {member.member.display_name:>32}: {value:10,}\n'
+
+
+def get_leaderboard_embeds(server: 'Server', member: Optional['HeliosMember'] = None, only_member=False):
+    theme = server.theme.current_theme
+    if theme is None:
+        members = [(x, i) for i, x in enumerate(list(server.members.members.values()))]
+        leaderboard_string = build_leaderboard(member, members)
+        p_embed = discord.Embed(
+            colour=Colour.helios(),
+            title=f'{server.guild.name} {server.points_name.capitalize()} Leaderboard',
+            description=f'```{leaderboard_string}```'
+        )
+        return [p_embed]
+
+    members = list(sorted(filter(lambda x: not x.member.bot, server.members.members.values()), key=lambda x: -x.points))
+    index = 0
+    embeds = []
+    for role in theme.roles:
+        discord_role = server.theme.role_map[role]
+        role_members = []
+        member_in = False
+        for i in range(role.maximum if role.maximum > 0 else len(members) - index):
+            try:
+                if members[index] == member:
+                    member_in = True
+                role_members.append((members[index], index))
+                index += 1
+            except IndexError:
+                break
+        lb_str = build_leaderboard(member, role_members)
+        embed = discord.Embed(
+            title=discord_role.name,
+            color=discord_role.color,
+            description=f'```{lb_str}```'
+        )
+        if member_in and only_member:
+            return [embed]
+        embeds.append(embed)
+    return embeds
 
 
 def build_leaderboard(author: 'HeliosMember', member_pos: list[tuple['HeliosMember', int]]) -> str:
@@ -79,8 +118,11 @@ class ThemeCog(commands.Cog):
         self.bot = bot
         self.sort_themes.start()
 
+        self.lb_view = LeaderboardView(self.bot)
+        self.bot.add_view(self.lb_view)
+
     async def cog_unload(self) -> None:
-        ...
+        self.lb_view.stop()
 
     @app_commands.command(name='leaderboard', description='Leaderboard of current points.')
     @app_commands.guild_only()
@@ -117,7 +159,7 @@ class ThemeCog(commands.Cog):
             )
             embeds.append(embed)
 
-        await interaction.response.send_message(embeds=embeds)
+        await interaction.response.send_message(embeds=embeds, ephemeral=True)
 
     @app_commands.command(name='build_theme', description='Build a new theme with current roles')
     @app_commands.guild_only()
@@ -160,17 +202,20 @@ class ThemeCog(commands.Cog):
         for server in self.bot.servers.servers.values():
             tm = server.theme
             changes = await tm.sort_members()
-            if changes:
-                logger.info(f'Sorted {len(changes)} members on {server.name}.')
-                logger.info(f'Sorted {len(changes)} member(s) on {server.name}.')
-                changes_str = get_change_str(changes)
-                embed = discord.Embed(
-                    title='Role Changes',
-                    description=changes_str,
-                    colour=discord.Colour.blurple()
-                )
-                if server.announcement_channel:
-                    await server.announcement_channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
+            if server.announcement_channel:
+                if changes:
+                    logger.info(f'Sorted {len(changes)} members on {server.name}.')
+                    logger.info(f'Sorted {len(changes)} member(s) on {server.name}.')
+                    changes_str = get_change_str(changes)
+                    embed = discord.Embed(
+                        title='Role Changes',
+                        description=changes_str,
+                        colour=discord.Colour.blurple()
+                    )
+                    if server.announcement_channel:
+                        await server.announcement_channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
+                embeds = get_leaderboard_embeds(server)
+                await server.announcement_channel.send(embeds=embeds, view=self.lb_view)
 
 
 class SelectRoleView(ui.View):
@@ -187,6 +232,19 @@ class SelectRoleView(ui.View):
         await interaction.response.send_message(f'Selected roles: {", ".join([x.name for x in roles])}',
                                                 ephemeral=True)
         self.stop()
+
+
+class LeaderboardView(ui.View):
+    def __init__(self, bot: 'HeliosBot'):
+        super().__init__(timeout=None)
+        self.bot = bot
+
+    @ui.button(label='Show Me!', custom_id='leaderboard.showme', style=discord.ButtonStyle.green)
+    async def show_me(self, interaction: Interaction, _: ui.Button):
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        embeds = get_leaderboard_embeds(server, member, only_member=True)
+        await interaction.response.send_message(embeds=embeds, ephemeral=True)
 
 
 async def setup(bot: 'HeliosBot'):

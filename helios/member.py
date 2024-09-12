@@ -125,8 +125,7 @@ class HeliosMember(HasFlags):
         role = self.server.verified_role
         if role is None:
             return True
-        mem_role = self.member.get_role(role.id)
-        return mem_role is not None
+        return self.member in role.members
 
     @property
     def points(self) -> int:
@@ -239,7 +238,8 @@ class HeliosMember(HasFlags):
 
     def get_game_activity(self):
         for activity in self.member.activities:
-            if not isinstance(activity, discord.CustomActivity) and activity.name != 'Hang Status':
+            if (not isinstance(activity, discord.CustomActivity) and activity.name != 'Hang Status'
+                    and activity.type == discord.ActivityType.playing):
                 return activity.name
 
     # noinspection PyUnresolvedReferences

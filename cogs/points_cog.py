@@ -70,7 +70,6 @@ points_activities = [
 ]
 
 
-
 class PointsCog(commands.Cog):
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
@@ -209,7 +208,7 @@ class PointsCog(commands.Cog):
             title=f'{member.guild.name} {server.points_name.capitalize()} Leaderboard',
             description=f'```{leaderboard_string}```'
         )
-        await interaction.response.send_message(embeds=[a_embed, p_embed])
+        await interaction.response.send_message(embeds=[a_embed, p_embed], ephemeral=True)
 
     @app_commands.command(name='shop', description='View the shop to spend points')
     @app_commands.guild_only()
