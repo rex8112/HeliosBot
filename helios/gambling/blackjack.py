@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from PIL import Image
     from .manager import GamblingManager
 
-logger = logging.getLogger('HeliosLogger: Blackjack')
+logger = logging.getLogger('HeliosLogger.Blackjack')
 
 
 def turn_timer(seconds: int) -> Callable[[], Awaitable[None]]:
@@ -72,6 +72,7 @@ class Blackjack:
         self.dealer_icon: 'Image' = None
         self.dealer_hand: Hand = Hand()
         self.dealer_hand_image: Optional['BlackjackHandImage'] = None
+        self.force_bust = False
 
         self.message: Optional['discord.Message'] = None
         self.view: Optional['discord.ui.View'] = None
@@ -270,6 +271,18 @@ class Blackjack:
         return soft_seventeen
 
     async def dealer_play(self):
+        if self.force_bust:
+            if self.dealer_hand.get_hand_bj_values(show_hidden=True) >= 17:
+                logger.debug('Dealer has 17 or higher, changing cards to allow forcing a bust.')
+                first_card_value = self.dealer_hand.cards[0].bj_value()
+                if first_card_value == 1:
+                    first_card_value = 11
+                card = self.deck.draw_filter(lambda c: c.bj_value() + first_card_value < 17)
+                if card:
+                    self.dealer_hand.cards.pop()
+                    self.dealer_hand.add_card(card)
+                    logger.debug(f'Chose card {card} to allow forcing a bust.')
+
         for card in self.dealer_hand.cards:
             card.hidden = False
         self.generate_hand_images()
@@ -280,7 +293,21 @@ class Blackjack:
             if len(self.deck.cards) < 1:
                 self.deck = Deck()
                 self.deck.shuffle()
-            self.deck.draw_to_hand(self.dealer_hand)
+            if self.force_bust:
+                dealer_value = self.dealer_hand.get_hand_bj_values()
+                if dealer_value < 12:
+                    card = self.deck.draw_filter(lambda c: 1 < c.bj_value() and c.bj_value() + dealer_value < 17)
+                    logger.debug(f'Chose small card {card} to setup bust.')
+                else:
+                    card = self.deck.draw_filter(lambda c: c.bj_value() + dealer_value > 21)
+                    logger.debug(f'Chose large card {card} to bust.')
+                if card:
+                    self.dealer_hand.add_card(card)
+                else:
+                    logger.debug('No card found to force bust, gl.')
+                    self.deck.draw_to_hand(self.dealer_hand)
+            else:
+                self.deck.draw_to_hand(self.dealer_hand)
             await self.update_message('Dealer Playing')
             await asyncio.sleep(1)
         if self.dealer_hand.get_hand_bj_values() > 21:

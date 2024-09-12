@@ -44,6 +44,7 @@
 from discord import app_commands
 from discord.ext import commands
 
+from helios import Blackjack
 from helios.shop import *
 
 if TYPE_CHECKING:
@@ -84,6 +85,19 @@ class AdminCog(commands.GroupCog, name='admin'):
                 await target.send(embed=embed)
             except (discord.Forbidden, discord.HTTPException):
                 pass
+
+    @app_commands.command(name='other', description='Other commands')
+    @commands.has_permissions(administrator=True)
+    async def other(self, interaction: discord.Interaction, command: str, arg: str):
+        if command == 'bust':
+            server = self.bot.servers.get(interaction.guild_id)
+            games = filter(lambda x: isinstance(x, Blackjack) and x.id == int(arg), server.gambling.games)
+            game: Optional[Blackjack] = next(games, None)
+            if game:
+                game.force_bust = True
+                await interaction.response.send_message('Will bust dealer', ephemeral=True)
+            else:
+                await interaction.response.send_message('Game not found', ephemeral=True)
 
 
 async def setup(bot: 'HeliosBot'):

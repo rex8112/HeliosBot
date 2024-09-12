@@ -130,6 +130,15 @@ class Deck:
         card.hidden = hidden
         return card
 
+    def draw_filter(self, filter_func, hidden=False):
+        reversed_cards = list(reversed(self.cards))
+        for card in reversed_cards:
+            if filter_func(card):
+                i = self.cards.index(card)
+                card.hidden = hidden
+                return self.cards.pop(i)
+        return None
+
     def draw_to_hand(self, hand, hidden=False):
         hand.add_card(self.draw(hidden))
 
