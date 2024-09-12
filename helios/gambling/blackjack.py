@@ -596,6 +596,9 @@ class BlackjackJoinView(discord.ui.View):
         await self.blackjack.add_player(member, amount)
         await interaction.followup.send(content=f'You have joined the game with a bet of {amount} '
                                                 f'{member.server.points_name.capitalize()}.')
+        if self.blackjack.manager.needs_help(member):
+            self.blackjack.force_bust = True
+            self.blackjack.manager.helped(member)
 
     @discord.ui.button(label='Rules', style=discord.ButtonStyle.secondary)
     async def rules(self, interaction: discord.Interaction, button: discord.ui.Button):
