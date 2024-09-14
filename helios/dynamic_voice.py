@@ -296,6 +296,7 @@ class DynamicVoiceChannel:
 
         if new_name != self.channel.name and not self.name_on_cooldown():
             await self.channel.edit(name=new_name)
+            await self.update_control_message(force=True)
             self._last_name_change = datetime.now().astimezone()
 
     def build_template(self, owner: 'HeliosMember') -> VoiceTemplate:
