@@ -443,6 +443,40 @@ class DailyModel(BaseModel):
             return True
 
 
+class GameModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    name = CharField(max_length=26, unique=True)
+    display_name = CharField(max_length=26)
+    icon = CharField(max_length=255)
+    play_time = IntegerField(default=0)
+    last_day_playtime = IntegerField(default=0)
+    last_played = DatetimeTzField(default=get_aware_utc_now)
+
+    class Meta:
+        table_name = 'games'
+
+    @classmethod
+    async def find_game(cls, name: str) -> Optional['GameModel']:
+        """Find a game by name or alias."""
+        q = cls.select().Join(GameAliasModel).where((cls.name == name) | (GameAliasModel.alias == name))
+        try:
+            res = await objects.prefetch(q, GameAliasModel.select())
+            if res:
+                return res[0]
+            return None
+        except DoesNotExist:
+            return None
+
+
+class GameAliasModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    game_id = ForeignKeyField(GameModel, backref='aliases')
+    alias = CharField(max_length=26, unique=True)
+
+    class Meta:
+        table_name = 'game_aliases'
+
+
 class Lottery(BaseModel):
     id = AutoField(primary_key=True, unique=True)
     game_type = CharField(max_length=16)

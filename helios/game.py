@@ -19,26 +19,37 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+from datetime import datetime
+
 import discord
 
 
 class Game:
-    def __init__(self, name: str, *, display_name: str = None, icon: str = None, alias: list[str] = None):
+    def __init__(self, name: str, *, display_name: str = None, icon: str = None, alias: list[str] = None,
+                 play_time: int = 0, last_day_playtime: int = 0, last_played: datetime = None):
         self.name = name
         self.display_name = display_name or name
         self.alias = alias or []
         self.icon = icon
+        self.play_time = play_time
+        self.last_day_playtime = last_day_playtime
+        self.last_played = last_played or discord.utils.utcnow()
 
     @classmethod
     def from_dict(cls, data: dict):
-        return cls(data['name'], display_name=data.get('display_name'), icon=data.get('icon'), alias=data.get('alias', []))
+        return cls(data['name'], display_name=data.get('display_name'), icon=data.get('icon'),
+                   alias=data.get('alias', []), play_time=data.get('play_time', 0),
+                   last_day_playtime=data.get('last_day_playtime', 0), last_played=data.get('last_played'))
 
     def to_dict(self) -> dict:
         return {
             'name': self.name,
             'display_name': self.display_name,
             'icon': self.icon,
-            'alias': self.alias
+            'alias': self.alias,
+            'play_time': self.play_time,
+            'last_day_playtime': self.last_day_playtime,
+            'last_played': self.last_played
         }
 
     @classmethod
