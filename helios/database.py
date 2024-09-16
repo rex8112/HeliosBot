@@ -456,6 +456,10 @@ class GameModel(BaseModel):
         table_name = 'games'
 
     @classmethod
+    async def create_game(cls, name: str, display_name: str, icon: str) -> 'GameModel':
+        return await objects.create(cls, name=name, display_name=display_name, icon=icon)
+
+    @classmethod
     async def find_game(cls, name: str) -> Optional['GameModel']:
         """Find a game by name or alias."""
         q = cls.select().Join(GameAliasModel).where((cls.name == name) | (GameAliasModel.alias == name))
@@ -467,10 +471,25 @@ class GameModel(BaseModel):
         except DoesNotExist:
             return None
 
+    async def add_playtime(self, time: int):
+        """Add playtime to the game."""
+        self.play_time += time
+        self.last_played = get_aware_utc_now()
+        return await self.async_save(only=['play_time', 'last_played'])
+
+    async def add_alias(self, alias: str):
+        """Add an alias to the game."""
+        return await objects.create(GameAliasModel, game=self, alias=alias)
+
+    async def remove_alias(self, alias: str):
+        """Remove an alias from the game."""
+        q = GameAliasModel.delete().where(GameAliasModel.game == self, GameAliasModel.alias == alias)
+        return await objects.execute(q)
+
 
 class GameAliasModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
-    game_id = ForeignKeyField(GameModel, backref='aliases')
+    game = ForeignKeyField(GameModel, backref='aliases')
     alias = CharField(max_length=26, unique=True)
 
     class Meta:
