@@ -176,7 +176,9 @@ class SplitPrepView(ui.View):
         mems = []
         for member in self.voice.channel.members:
             h_member = self.voice.server.members.get(member.id)
-            if h_member and h_member.get_game_activity() == game:
+            activity = h_member.get_game_activity()
+            activity = activity.name if activity else None
+            if h_member and activity == game:
                 mems.append(member)
         return mems
 
@@ -194,6 +196,7 @@ class SplitPrepView(ui.View):
         if game is None:
             await interaction.response.send_message(content='You are not in a game.', ephemeral=True)
             return
+        game = game.name
         members = self.get_members_in_game(game)
         view = SplitView(self.voice, members)
         await interaction.response.send_message(content='Splitting Channel', view=view, ephemeral=True)

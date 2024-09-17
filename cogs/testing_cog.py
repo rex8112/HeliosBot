@@ -26,6 +26,8 @@ import discord
 from PIL import Image
 from discord import app_commands
 from discord.ext import commands
+from websockets import serve
+
 from helios.views.generic_views import DateTimeView
 
 if TYPE_CHECKING:
@@ -61,11 +63,21 @@ class TestingCog(commands.Cog):
         """ /ping """
         await interaction.response.send_message('Pong!')
 
-    @app_commands.command(name='test_dt')
-    async def test_dt(self, interaction: discord.Interaction):
-        """ /test_dt """
-        view = DateTimeView()
-        await interaction.response.send_message('Testing', embed=view.get_embed(), view=view)
+    @app_commands.command(name='manage_games')
+    async def manage_games(self, interaction: discord.Interaction):
+        """ Test the manage games loop """
+        await interaction.response.defer(ephemeral=True)
+        server = self.bot.servers.get(interaction.guild_id)
+        await server.games.manage_games()
+        await interaction.followup.send('Done')
+
+    @app_commands.command(name='set_day_playtime')
+    async def set_day_playtime(self, interaction: discord.Interaction):
+        """ Test the set day playtime loop """
+        await interaction.response.defer(ephemeral=True)
+        server = self.bot.servers.get(interaction.guild_id)
+        await server.games.set_day_playtime()
+        await interaction.followup.send('Done')
 
     # @app_commands.command(name='riverimage')
     async def river_image(self, interaction: discord.Interaction):

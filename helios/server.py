@@ -21,6 +21,7 @@
 #  SOFTWARE.
 
 import json
+import logging
 from typing import TYPE_CHECKING, Dict, Optional
 
 import discord
@@ -31,6 +32,7 @@ from .court import Court
 from .database import ServerModel, objects
 from .exceptions import IdMismatchError
 from .gambling.manager import GamblingManager
+from .game import GameManager
 from .member import HeliosMember
 from .member_manager import MemberManager
 from .music import MusicPlayer
@@ -40,6 +42,8 @@ from .tools.settings import Settings, SettingItem
 
 if TYPE_CHECKING:
     from .server_manager import ServerManager
+
+logger = logging.getLogger('HeliosLogger')
 
 
 class ServerSettings(Settings):
@@ -118,6 +122,7 @@ class Server:
         self.settings = ServerSettings(self.bot)
         self.theme = ThemeManager(self)
         self.gambling = GamblingManager(self)
+        self.games = GameManager(self)
         self.cooldowns = Cooldowns()
         self.flags = []
 
@@ -174,6 +179,14 @@ class Server:
         s._new = True
         s.loaded = True
         return s
+
+    def start(self):
+        logger.debug(f'Starting server {self.name}')
+        self.games.start()
+
+    def stop(self):
+        logger.debug(f'Stopping server {self.name}')
+        self.games.stop()
 
     # Methods
     def deserialize(self, data: ServerModel) -> None:

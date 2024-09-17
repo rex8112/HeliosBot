@@ -268,6 +268,7 @@ class DynamicVoiceChannel:
             if activity is None:
                 games[None] += 1
                 continue
+            activity = activity.name
             if activity not in games:
                 games[activity] = 0
             games[activity] += 1
