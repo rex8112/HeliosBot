@@ -249,7 +249,7 @@ class DynamicVoiceChannel:
             view = PrivateVoiceView(self)
         else:
             view = DynamicVoiceView(self)
-        message = await self.channel.send(embed=view.get_embed(), view=view)
+        message = await self.channel.send(embeds=await view.get_embeds(), view=view)
         self._control_message = message
         await self.save()
 
@@ -290,7 +290,8 @@ class DynamicVoiceChannel:
         else:
             game = self.get_majority_game()
             if game:
-                new_name = self.group.get_game_name(self.number, game)
+                game = await self.server.games.get_game(game)
+                new_name = self.group.get_game_name(self.number, game.display_name)
             else:
                 new_name = self.group.get_name(self.number)
         new_name = self.prefix + new_name
