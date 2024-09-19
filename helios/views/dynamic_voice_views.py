@@ -19,7 +19,7 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Optional
 
 import discord
@@ -63,9 +63,12 @@ class DynamicVoiceView(ui.View):
         game = self.voice.majority_game
         if game:
             game = await self.voice.server.games.get_game(game)
+            play_time = timedelta(minutes=game.play_time)
+            play_time_str = f'`{play_time.days:02}:{play_time.seconds // 3600:02}:{(play_time.seconds // 60) % 60:02}`'
             embed2 = Embed(
                 title=f'{game.name}',
-                color=Color.blurple()
+                color=Color.light_gray(),
+                description=f'Total Server Playtime: {play_time_str}'
             )
             embeds.insert(0, embed2)
 
