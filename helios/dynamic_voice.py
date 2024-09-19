@@ -270,7 +270,7 @@ class DynamicVoiceChannel:
                 games[None] += 1
                 continue
             activity = await self.server.games.get_game(activity.name)
-            if activity not in games:
+            if activity.name not in games:
                 games[activity.name] = 0
             games[activity.name] += 1
         game = max(games, key=games.get)
