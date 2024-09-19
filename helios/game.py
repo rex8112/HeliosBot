@@ -38,23 +38,21 @@ class GameManager:
         self.alias_to_game = {}
 
     def start(self):
-        #self.manage_games.start()
-        #self.set_day_playtime.start()
-        ...
+        self.manage_games.start()
+        self.set_day_playtime.start()
 
     def stop(self):
-        #self.manage_games.stop()
-        #self.set_day_playtime.stop()
-        ...
+        self.manage_games.stop()
+        self.set_day_playtime.stop()
 
-    #@tasks.loop(time=time(hour=1, minute=0))
+    @tasks.loop(time=time(hour=1, minute=0))
     async def set_day_playtime(self):
         await self.server.bot.wait_until_ready()
         self.games.clear()
         self.alias_to_game.clear()
         await GameModel.set_day_playtime()
 
-    #@tasks.loop(minutes=1)
+    @tasks.loop(minutes=1)
     async def manage_games(self):
         await self.server.bot.wait_until_ready()
         to_update = {}
