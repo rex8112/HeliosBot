@@ -46,7 +46,7 @@ def initialize_db():
         db.connect()
         db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
                           EventModel, ViolationModel, DynamicVoiceModel, DynamicVoiceGroupModel, TopicModel,
-                          EffectModel, ThemeModel, BlackjackModel, DailyModel])
+                          EffectModel, ThemeModel, BlackjackModel, DailyModel, GameModel, GameAliasModel])
 
 
 def get_aware_utc_now():
@@ -441,6 +441,71 @@ class DailyModel(BaseModel):
         except DoesNotExist:
             await objects.create(cls, member=member, claimed=day)
             return True
+
+
+class GameModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    name = CharField(max_length=52, unique=True)
+    display_name = CharField(max_length=52)
+    icon = CharField(max_length=255)
+    play_time = IntegerField(default=0)
+    last_day_playtime = IntegerField(default=0)
+    last_played = DatetimeTzField(default=get_aware_utc_now)
+
+    class Meta:
+        table_name = 'games'
+
+    @classmethod
+    async def create_game(cls, name: str, display_name: str, icon: str) -> 'GameModel':
+        return await objects.create(cls, name=name, display_name=display_name, icon=icon)
+
+    async def delete_game(self):
+        return await self.async_delete()
+
+    @classmethod
+    async def find_game(cls, name: str) -> Optional['GameModel']:
+        """Find a game by name or alias."""
+        q = cls.select().join(GameAliasModel, join_type=JOIN.LEFT_OUTER).where((cls.name == name) | (GameAliasModel.alias == name))
+        try:
+            res = await objects.prefetch(q, GameAliasModel.select())
+            if res:
+                return res[0]
+            return None
+        except DoesNotExist:
+            return None
+
+    @classmethod
+    async def set_day_playtime(cls):
+        """Set the last day playtime to the current playtime."""
+        q = cls.select().where(cls.play_time > cls.last_day_playtime)
+        games = await objects.execute(q)
+        async with objects.atomic():
+            for game in games:
+                await game.async_update(last_day_playtime=game.play_time)
+
+    async def add_playtime(self, time: int):
+        """Add playtime to the game."""
+        self.play_time += time
+        self.last_played = get_aware_utc_now()
+        return await self.async_save(only=('play_time', 'last_played'))
+
+    async def add_alias(self, alias: str):
+        """Add an alias to the game."""
+        return await objects.create(GameAliasModel, game=self, alias=alias)
+
+    async def remove_alias(self, alias: str):
+        """Remove an alias from the game."""
+        q = GameAliasModel.delete().where(GameAliasModel.game == self, GameAliasModel.alias == alias)
+        return await objects.execute(q)
+
+
+class GameAliasModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    game = ForeignKeyField(GameModel, backref='aliases', on_delete='CASCADE')
+    alias = CharField(max_length=52, unique=True)
+
+    class Meta:
+        table_name = 'game_aliases'
 
 
 class Lottery(BaseModel):

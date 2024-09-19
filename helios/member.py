@@ -240,7 +240,7 @@ class HeliosMember(HasFlags):
         for activity in self.member.activities:
             if (not isinstance(activity, discord.CustomActivity) and activity.name != 'Hang Status'
                     and activity.type == discord.ActivityType.playing):
-                return activity.name
+                return activity
 
     # noinspection PyUnresolvedReferences
     def _deserialize(self, data: MemberModel):

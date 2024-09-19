@@ -69,6 +69,7 @@ class DynamicVoiceChannel:
 
         self.custom_name = None
         self.prefix = ''
+        self.majority_game = None
 
         self.db_entry = None
         self._unsaved = False
@@ -249,7 +250,7 @@ class DynamicVoiceChannel:
             view = PrivateVoiceView(self)
         else:
             view = DynamicVoiceView(self)
-        message = await self.channel.send(embed=view.get_embed(), view=view)
+        message = await self.channel.send(embeds=await view.get_embeds(), view=view)
         self._control_message = message
         await self.save()
 
@@ -258,7 +259,7 @@ class DynamicVoiceChannel:
         if force or message is None or self.channel.last_message != message:
             await self.send_control_message()
 
-    def get_majority_game(self):
+    async def get_majority_game(self):
         games = {None: 0}
         for member in self.channel.members:
             h_member = self.server.members.get(member.id)
@@ -268,12 +269,15 @@ class DynamicVoiceChannel:
             if activity is None:
                 games[None] += 1
                 continue
+            activity = await self.server.games.get_game(activity.name)
             if activity not in games:
-                games[activity] = 0
-            games[activity] += 1
+                games[activity.name] = 0
+            games[activity.name] += 1
         game = max(games, key=games.get)
         if games[game] <= len(self.channel.members) / 2:
+            self.majority_game = None
             return None
+        self.majority_game = game
         return game
 
     def name_on_cooldown(self):
@@ -287,15 +291,17 @@ class DynamicVoiceChannel:
         elif self.custom_name:
             new_name = self.custom_name
         else:
-            game = self.get_majority_game()
+            game = await self.get_majority_game()
             if game:
-                new_name = self.group.get_game_name(self.number, game)
+                game = await self.server.games.get_game(game)
+                new_name = self.group.get_game_name(self.number, game.display_name)
             else:
                 new_name = self.group.get_name(self.number)
         new_name = self.prefix + new_name
 
         if new_name != self.channel.name and not self.name_on_cooldown():
             await self.channel.edit(name=new_name)
+            await self.update_control_message(force=True)
             self._last_name_change = datetime.now().astimezone()
 
     def build_template(self, owner: 'HeliosMember') -> VoiceTemplate:

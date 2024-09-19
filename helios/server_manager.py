@@ -54,6 +54,7 @@ class ServerManager:
         await asyncio.gather(*tasks)
         #  await server.stadium.setup()
         self.servers[guild.id] = server
+        server.start()
         return server
 
     async def manage_servers(self):
@@ -94,6 +95,7 @@ class ServerManager:
                 tasks.append(server.members.setup())
                 #  tasks.append(server.stadium.setup())
             self.servers[server.id] = server
+            server.start()
             self.bot.add_view(ShopView(server))
             await server.theme.load()
 
