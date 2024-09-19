@@ -45,7 +45,7 @@ class DynamicVoiceView(ui.View):
         super().__init__(timeout=None)
         self.voice = voice
         self.waiting = False
-        if self.voice.get_majority_game() is None:
+        if self.voice.majority_game is None:
             self.remove_item(self.change_game_name)
 
     async def get_embeds(self):
@@ -60,7 +60,7 @@ class DynamicVoiceView(ui.View):
         embed.add_field(name='Private', value='Make the channel private.')
         embeds.append(embed)
 
-        game = self.voice.get_majority_game()
+        game = self.voice.majority_game
         if game:
             game = await self.voice.server.games.get_game(game)
             embed2 = Embed(
@@ -190,7 +190,7 @@ class DynamicVoiceView(ui.View):
         if not self.voice.channel.permissions_for(member.member).manage_channels:
             await interaction.response.send_message(content='You do not have permission to change the name.', ephemeral=True)
             return
-        game = self.voice.get_majority_game()
+        game = self.voice.majority_game
         if not game:
             await interaction.response.send_message(content='No game detected.', ephemeral=True)
             return
