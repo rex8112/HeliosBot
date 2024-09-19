@@ -65,10 +65,10 @@ class GameManager:
                 to_update[game.name] += 1
             else:
                 to_update[game.name] = 1
-            if game.large_image_url is not None:
-                icons[game.name] = game.large_image_url
-            elif game.small_image_url is not None:
-                icons[game.name] = game.small_image_url
+            # if game.large_image_url is not None:
+            #     icons[game.name] = game.large_image_url
+            # elif game.small_image_url is not None:
+            #     icons[game.name] = game.small_image_url
         for game in to_update:
             game = await self.get_game(game)
             await game.add_time(to_update[game.name])
