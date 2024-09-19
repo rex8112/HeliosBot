@@ -81,18 +81,31 @@ class GameManager:
             if (now - game.last_played).seconds >= 30 * 60:
                 self.remove_game(game)
 
-    async def get_game(self, name: str) -> Optional['Game']:
+    async def get_game(self, name: str, *, create_new=True) -> Optional['Game']:
         if name in self.games:
             return self.games[name]
         if name in self.alias_to_game:
             return self.alias_to_game[name]
         game = await GameModel.find_game(name)
-        if game is None:
+        if game is None and create_new:
             await GameModel.create_game(name, display_name=name, icon='')
             game = await GameModel.find_game(name)
+        elif game is None:
+            return None
         game = Game.from_db(game)
         self.add_game(game)
         return game
+
+    def get_from_cache(self, name: str) -> Optional['Game']:
+        if name in self.games:
+            return self.games[name]
+        if name in self.alias_to_game:
+            return self.alias_to_game[name]
+        return None
+
+    async def add_game_alias_from_game(self, game: 'Game', alias: 'Game'):
+        await alias.convert_to_alias_of(game)
+        self.remove_game(alias)
 
     def add_game(self, game: 'Game'):
         self.games[game.name] = game
@@ -132,6 +145,10 @@ class Game:
     async def convert_to_alias_of(self, game: 'Game'):
         await self.db_entry.delete_game()
         await game.db_entry.add_alias(self.name)
+        game.play_time += self.play_time
+        game.last_day_playtime += self.last_day_playtime
+        game.last_played = max(game.last_played, self.last_played)
+        await game.save()
 
     async def add_time(self, time: int):
         self.play_time += time
