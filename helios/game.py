@@ -61,6 +61,7 @@ class GameManager:
             game = member.get_game_activity()
             if game is None:
                 continue
+            game = await self.get_game(game.name)
             if game.name in to_update:
                 to_update[game.name] += 1
             else:
