@@ -119,23 +119,45 @@ class PointsCog(commands.Cog):
         if target == interaction.guild.me:
             await interaction.response.send_message(content='You can not send me points', ephemeral=True)
             return
+        if target == interaction.user:
+            await interaction.response.send_message(content='You can not send points to yourself', ephemeral=True)
+            return
         if points < 1:
             await interaction.response.send_message(content='You must send at least 1 point', ephemeral=True)
             return
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
         target = server.members.get(target.id)
-        if points > member.points:
-            await interaction.response.send_message(content='You do not have enough points.'
-                                                            'Check your points with /points',
-                                                    ephemeral=True)
-            return
+        tax_rate = server.settings.transfer_tax.value
+        tax = int(points * tax_rate)
+        view = YesNoView(interaction.user, timeout=30)
+        if member.points < points + tax:
+            view.yes.disabled = True
+            view.yes.label = 'Insufficient Funds'
+        embed = discord.Embed(
+            title='Transfer Confirmation',
+            description=f'{server.points_name.capitalize()}: **{points:,}**\n'
+                        f'Tax: **{tax:,} ({tax_rate:.0%})**\n'
+                        f'Total: **{points + tax:,}**\n'
+                        f'Are you sure you want to proceed?',
+            colour=discord.Colour.red()
+        )
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        if await view.wait():
+            return await interaction.edit_original_response(content='Transfer Timed Out', embed=None, view=None)
+        if not view.value:
+            return await interaction.edit_original_response(content='Transfer Cancelled', embed=None, view=None)
+
         await member.transfer_points(target, points, description if description else 'Transferred Points')
-        await interaction.response.send_message(content=f'Sent {points} points to {target.member.display_name}',
-                                                ephemeral=True)
+        await member.add_points(-tax, 'Helios: Tax', f'Transfer Tax to {target.member.display_name}')
+
+        await interaction.edit_original_response(content=f'Sent **{points:,} {server.points_name}** to '
+                                                         f'{target.member.mention} `{target.member.name}`\n'
+                                                         f'Tax: **{tax:,}** {server.points_name}', embed=None,
+                                                 view=None)
         embed = discord.Embed(
             title=f'{server.points_name.capitalize()} Sent',
-            description=f'You have sent **{points}** to {target.member.name} in {server.name}.'
+            description=f'You have sent **{points:,}** to `{target.member.name}` in {server.name}.'
                         f'\n\n{description if description else ""}',
             colour=discord.Colour.red()
         )
@@ -146,7 +168,7 @@ class PointsCog(commands.Cog):
 
         embed2 = discord.Embed(
             title=f'{server.points_name.capitalize()} Received',
-            description=f'You have received **{points}** from {member.member.name} in {server.name}.'
+            description=f'You have received **{points:,}** from `{member.member.name}` in {server.name}.'
                         f'\n\n{description if description else ""}',
             colour=discord.Colour.green()
         )
