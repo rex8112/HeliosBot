@@ -445,5 +445,7 @@ class DailyModel(BaseModel):
 
 class PugModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
-    channel_id = BigIntegerField()
+    channel = ForeignKeyField(DynamicVoiceModel, backref='pugs')
+    invite = CharField(max_length=25)
+    role = BigIntegerField()
 
