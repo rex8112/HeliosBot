@@ -105,6 +105,10 @@ class ServerSettings(Settings):
                                     group='Misc', title='Gambling Category',
                                     description='The category to create gambling channels in.')
 
+    transfer_tax = SettingItem('transfer_tax', 0.10, float,
+                               group='Shop', title='Transfer Tax',
+                               description='The percentage of points taken when transferring points.')
+
 
 class Server:
     def __init__(self, manager: 'ServerManager', guild: discord.Guild):
