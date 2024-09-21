@@ -129,7 +129,7 @@ class PointsCog(commands.Cog):
         member = server.members.get(interaction.user.id)
         target = server.members.get(target.id)
         tax_rate = server.settings.transfer_tax.value
-        tax = int(points * tax_rate)
+        tax = max(int(points * tax_rate), 1)
         view = YesNoView(interaction.user, timeout=30)
         if member.points < points + tax:
             view.yes.disabled = True
