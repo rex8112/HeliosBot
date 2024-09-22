@@ -45,6 +45,7 @@ class DynamicVoiceState(Enum):
     ACTIVE = 0
     INACTIVE = 1
     PRIVATE = 2
+    CONTROLLED = 3
 
 
 class VoiceSettings(Settings):
@@ -72,8 +73,9 @@ class DynamicVoiceChannel:
 
         self.db_entry = None
         self._unsaved = False
-        self._last_name_change = datetime.now().astimezone() - self.NAME_COOLDOWN
+        self._last_name_change = discord.utils.utcnow() - self.NAME_COOLDOWN
         self._private_on = datetime.now().astimezone()
+        self._custom_view_type = None
         self._fetched_control_message = None
 
         self._template = None
@@ -247,6 +249,8 @@ class DynamicVoiceChannel:
                 ...
         if self.state == DynamicVoiceState.PRIVATE:
             view = PrivateVoiceView(self)
+        elif self.state == DynamicVoiceState.CONTROLLED:
+            view = self._custom_view_type(self)
         else:
             view = DynamicVoiceView(self)
         message = await self.channel.send(embed=view.get_embed(), view=view)
@@ -388,10 +392,25 @@ class DynamicVoiceChannel:
             self.group = None
             self.number = 0
 
+    async def make_controlled(self, custom_view_type: type):
+        """Make the channel controlled."""
+        if self.state != DynamicVoiceState.CONTROLLED:
+            self.unmake_active()
+            await self.unmake_private()
+            self.state = DynamicVoiceState.CONTROLLED
+            self._custom_view_type = custom_view_type
+            await self.save()
+
+    def unmake_controlled(self):
+        """Unmake the channel controlled."""
+        if self.state == DynamicVoiceState.CONTROLLED:
+            self._custom_view_type = None
+
     async def make_inactive(self):
         """Make the channel inactive."""
         if self.state != DynamicVoiceState.INACTIVE:
             self.unmake_active()
+            self.unmake_controlled()
             await self.unmake_private()
             self.state = DynamicVoiceState.INACTIVE
             await self.channel.edit(
