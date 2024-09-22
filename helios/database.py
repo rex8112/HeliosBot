@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Optional, Any
 
 import discord.utils
 import peewee_async
-from playhouse.migrate import *
+from peewee import *
 
 from .tools.config import Config
 
