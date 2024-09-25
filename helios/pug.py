@@ -19,25 +19,68 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+import asyncio
 from typing import TYPE_CHECKING
 
 import discord
 
+
 if TYPE_CHECKING:
     from .dynamic_voice import DynamicVoiceChannel
+    from .member import HeliosMember
 
 
 class PUGChannel:
     def __init__(self, voice: 'DynamicVoiceChannel'):
         self.voice = voice
 
+        self.server_members: list['HeliosMember'] = []
+        self.temporary_members: list['HeliosMember'] = []
         self.role: discord.Role = None
         self.invite: discord.Invite = None
 
-    def get_temporary_members(self):
-        members = []
-        for member in self.role.members:
-            h_member = self.voice.server.members.get(member.id)
-            if not h_member.verified:
-                members.append(h_member)
-        return members
+    def get_members(self):
+        return self.server_members + self.temporary_members
+
+    async def create_role(self):
+        if self.role:
+            return
+        self.role = await self.voice.channel.guild.create_role(name='PUG Role', mentionable=True)
+
+    async def create_invite(self):
+        if self.invite:
+            return
+        self.invite = await self.voice.channel.create_invite(max_age=24 * 60 * 60, max_uses=0, reason='PUG Invite')
+
+    async def add_member(self, member: 'HeliosMember'):
+        if member in self.server_members:
+            return
+        await member.member.add_roles(self.role)
+        self.server_members.append(member)
+
+    async def remove_member(self, member: 'HeliosMember'):
+        if member not in self.server_members:
+            return
+        await member.member.remove_roles(self.role)
+        self.server_members.remove(member)
+
+    async def add_temporary_member(self, member: 'HeliosMember'):
+        if member in self.temporary_members:
+            return
+        await member.member.add_roles(self.role)
+        self.temporary_members.append(member)
+
+    async def remove_temporary_member(self, member: 'HeliosMember'):
+        if member not in self.temporary_members:
+            return
+        await member.member.remove_roles(self.role)
+        self.temporary_members.remove(member)
+
+    async def ensure_members_have_role(self):
+        for member in self.server_members + self.temporary_members:
+            await member.member.add_roles(self.role)
+
+    async def end_pug(self):
+        await self.role.delete()
+        await self.invite.delete()
+        asyncio.create_task(self.voice.make_inactive())
