@@ -125,28 +125,28 @@ class DynamicVoiceView(ui.View):
     async def dynamic_private(self, interaction: Interaction, button: ui.Button):
         member = self.voice.server.members.get(interaction.user.id)
 
-        embed = Embed(
-            title='Would you like to create a temporary template?',
-            description='It will be a private channel with everyone in the channel on the allowlist.',
-            color=Color.blurple()
-        )
-        view = YesNoView(member.member, timeout=15)
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-        await view.wait()
-        template = None
-        if view.value is False:
-            temp_view = GetTemplateView(member)
-            embed = temp_view.get_embed()
-            await view.last_interaction.edit_original_response(embed=embed, view=temp_view)
-            if await temp_view.wait():
-                return
-            template = temp_view.selected
-            member.templates.remove(template)
-            member.templates.insert(0, template)
-            await member.save(True)
-
         # If member is in the channel, try to convert current channel to private.
         if member.member in self.voice.channel.members:
+            embed = Embed(
+                title='Would you like to create a temporary template?',
+                description='It will be a private channel with everyone in the channel on the allowlist.',
+                color=Color.blurple()
+            )
+            view = YesNoView(member.member, timeout=15)
+            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+            await view.wait()
+            template = None
+            if view.value is False:
+                temp_view = GetTemplateView(member)
+                embed = temp_view.get_embed()
+                await view.last_interaction.edit_original_response(embed=embed, view=temp_view)
+                if await temp_view.wait():
+                    return
+                template = temp_view.selected
+                member.templates.remove(template)
+                member.templates.insert(0, template)
+                await member.save(True)
+
             # If member has the ability to move members, make the channel private without a vote.
             if self.voice.channel.permissions_for(member.member).move_members or len(self.voice.channel.members) == 1:
                 await self.voice.make_private(member, template)
@@ -179,6 +179,16 @@ class DynamicVoiceView(ui.View):
                 finally:
                     self.waiting = False
         else:
+            temp_view = GetTemplateView(member)
+            embed = temp_view.get_embed()
+            await view.last_interaction.edit_original_response(embed=embed, view=temp_view)
+            if await temp_view.wait():
+                return
+            template = temp_view.selected
+            member.templates.remove(template)
+            member.templates.insert(0, template)
+            await member.save(True)
+
             channel = await self.voice.manager.get_inactive_channel()
             await channel.make_private(member, template)
             await interaction.edit_original_response(content=f'{channel.channel.mention} created and set to private.',
