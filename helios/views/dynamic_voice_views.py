@@ -126,8 +126,8 @@ class DynamicVoiceView(ui.View):
         member = self.voice.server.members.get(interaction.user.id)
 
         embed = Embed(
-            title='Would you like to use your last used template?',
-            description='If you do not have a template, the channel will be set to private by default.',
+            title='Would you like to create a temporary template?',
+            description='It will be a private channel with everyone in the channel on the allowlist.',
             color=Color.blurple()
         )
         view = YesNoView(member.member, timeout=15)

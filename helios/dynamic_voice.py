@@ -307,7 +307,8 @@ class DynamicVoiceChannel:
     def build_template(self, owner: 'HeliosMember') -> VoiceTemplate:
         template = VoiceTemplate(owner, self.channel.name)
         channel = self.channel
-        last_template = owner.templates[0] if owner.templates else None
+        # last_template = owner.templates[0] if owner.templates else None
+        last_template = None
         use = True
         if last_template:
             for member in channel.members:
