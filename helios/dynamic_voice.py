@@ -71,6 +71,8 @@ class DynamicVoiceChannel:
         self.custom_name = None
         self.prefix = ''
 
+        self.free = True
+
         self.db_entry = None
         self._unsaved = False
         self._last_name_change = discord.utils.utcnow() - self.NAME_COOLDOWN
@@ -79,6 +81,13 @@ class DynamicVoiceChannel:
         self._fetched_control_message = None
 
         self._template = None
+
+    def __enter__(self):
+        self.free = False
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.free = True
 
     # Properties
     @property
@@ -416,6 +425,7 @@ class DynamicVoiceChannel:
             await self.channel.edit(
                 overwrites=self.inactive_overwrites
             )
+            self.custom_name = None
             await self.save()
 
 
@@ -654,7 +664,7 @@ class VoiceManager:
 
     async def get_inactive_channel(self):
         inactive = self.get_inactive()
-        ready_inactive = list(filter(lambda x: x.name_on_cooldown() is False, inactive))
+        ready_inactive = list(filter(lambda x: x.name_on_cooldown() is False and x.free is True, inactive))
 
         if len(ready_inactive) > 0:
             return ready_inactive.pop()
