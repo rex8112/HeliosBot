@@ -387,6 +387,7 @@ class DynamicVoiceChannel:
         """Make the channel active."""
         if self.state != DynamicVoiceState.ACTIVE:
             await self.unmake_private()
+            self.unmake_controlled()
             self.state = DynamicVoiceState.ACTIVE
             self.number = self.manager.get_next_number(group)
             self.group = group
