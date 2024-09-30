@@ -44,14 +44,15 @@ class PUGChannel:
 
     @classmethod
     async def create(cls, server: 'Server', name: str, server_members: list['HeliosMember'],
-                     temporary_members: list['HeliosMember']):
-        voice = await server.channels.dynamic_voice.get_inactive_channel()
+                     temporary_members: list['HeliosMember'], voice: 'DynamicVoiceChannel' = None):
+        voice = await server.channels.dynamic_voice.get_inactive_channel() if not voice else voice
         with voice:
             role = await cls.create_role(voice)
             invite = await cls.create_invite(voice)
             self = cls(voice, server_members, temporary_members, role, invite)
             await voice.make_controlled(view_cls(self))
             voice.custom_name = name
+            return self
 
     @staticmethod
     async def create_role(voice: 'DynamicVoiceChannel'):
@@ -80,38 +81,79 @@ class PUGChannel:
     async def add_member(self, member: 'HeliosMember'):
         if member in self.server_members:
             return
-        await member.member.add_roles(self.role)
         self.server_members.append(member)
+        if self.role not in member.member.roles:
+            await member.member.add_roles(self.role)
 
     async def remove_member(self, member: 'HeliosMember'):
         if member not in self.server_members:
             return
-        await member.member.remove_roles(self.role)
         self.server_members.remove(member)
+        if self.role in member.member.roles:
+            await member.member.remove_roles(self.role)
 
     async def add_temporary_member(self, member: 'HeliosMember'):
         if member in self.temporary_members:
             return
-        await member.member.add_roles(self.role)
         self.temporary_members.append(member)
+        if self.role not in member.member.roles:
+            await member.member.add_roles(self.role)
 
-    async def remove_temporary_member(self, member: 'HeliosMember', *, kicked=False):
+    async def remove_temporary_member(self, member: 'HeliosMember', *, kick=False):
         if member not in self.temporary_members:
             return
-        if kicked:
-            ...
+        self.temporary_members.remove(member)
+        if kick:
+            await member.member.kick(reason='PUG Ended')
         else:
             await member.member.remove_roles(self.role)
-        self.temporary_members.remove(member)
 
     async def ensure_members_have_role(self):
         for member in self.server_members + self.temporary_members:
             await member.member.add_roles(self.role)
 
     async def end_pug(self):
+        for member in self.temporary_members:
+            if not member.verified:
+                await self.remove_temporary_member(member, kick=True)
         await self.role.delete()
         await self.invite.delete()
-        asyncio.create_task(self.voice.make_inactive())
+        if self.voice.channel.members:
+            asyncio.create_task(self.voice.make_active(list(self.voice.manager.groups.values())[0]))
+        else:
+            asyncio.create_task(self.voice.make_inactive())
+
+
+class PUGManager:
+    def __init__(self, server: 'Server'):
+        self.server = server
+        self.pugs: list[PUGChannel] = []
+        self.invites: dict[discord.Invite, int] = {}
+
+    async def create_pug(self, name: str, leader: 'HeliosMember', voice: 'DynamicVoiceChannel' = None):
+        pug = await PUGChannel.create(self.server, name, [leader], [], voice)
+        self.pugs.append(pug)
+        self.invites[pug.invite] = pug.invite.uses
+        return pug
+
+    async def on_member_join(self, member: discord.Member):
+        for invite in await self.server.guild.invites():
+            if invite not in self.invites:
+                continue
+            if invite.uses > self.invites.get(invite, 0):
+                self.invites[invite] = invite.uses
+                for pug in self.pugs:
+                    if invite == pug.invite:
+                        await pug.add_temporary_member(self.server.members.get(member))
+                        await pug.voice.update_control_message(force=True)
+                        break
+
+    async def manage_pugs(self):
+        for pug in self.pugs:
+            if len(pug.voice.channel.members) == 0:
+                await pug.end_pug()
+                self.pugs.remove(pug)
+                del self.invites[pug.invite]
 
 
 def view_cls(pug: PUGChannel):
@@ -159,6 +201,12 @@ def view_cls(pug: PUGChannel):
         async def end_pug(self, interaction: discord.Interaction, button: discord.ui.Button):
             if self.pug.get_leader().member != interaction.user:
                 await interaction.response.send_message('Only the leader can end the PUG group', ephemeral=True)
+            view = PUGKeepView(self.pug)
+            await interaction.response.send_message('Select members to keep in server', view=view)
+            await view.wait()
+            if view.selected:
+                for member in view.selected:
+                    await self.pug.add_member(member)
             await self.pug.end_pug()
             await interaction.response.send_message('PUG Ended', ephemeral=True)
 
@@ -171,13 +219,13 @@ class PUGKeepView(discord.ui.View):
     def __init__(self, pug: PUGChannel):
         super().__init__(timeout=300)
         self.pug = pug
-        self.selected = []
+        self.selected: list['HeliosMember'] = []
 
         self.keep_members.options = [discord.SelectOption(label=m.member.display_name, value=str(i))
                                      for i, m in enumerate(self.pug.temporary_members)]
         self.keep_members.max_values = len(self.pug.temporary_members)
 
-    @discord.ui.select(placeholder='Select Members to Keep  in Server', min_values=1)
+    @discord.ui.select(placeholder='Select Members to Keep in Server', min_values=1)
     async def keep_members(self, interaction: discord.Interaction, select: discord.ui.Select):
         self.selected = [self.pug.temporary_members[int(v)] for v in select.values]
         await interaction.response.send_message(f'{len(self.selected)} members selected', ephemeral=True)
