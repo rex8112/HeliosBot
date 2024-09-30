@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Optional
 import discord
 
 from .database import DynamicVoiceGroupModel, DynamicVoiceModel
+from .pug import PUGManager
 from .tools.settings import Settings, SettingItem, StringSettingItem
 from .views import DynamicVoiceView, PrivateVoiceView
 from .voice_template import VoiceTemplate
@@ -560,6 +561,7 @@ class VoiceManager:
         self.server = server
         self.channels: dict[int, DynamicVoiceChannel] = {}
         self.groups: dict[int, DynamicVoiceGroup] = {}
+        self.pug_manager: 'PUGManager' = PUGManager(self.server)
 
         self._setup = False
 
