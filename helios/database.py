@@ -445,7 +445,26 @@ class DailyModel(BaseModel):
 
 class PugModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
-    channel = ForeignKeyField(DynamicVoiceModel, backref='pugs')
+    server = ForeignKeyField(ServerModel, backref='pugs')
+    channel = ForeignKeyField(DynamicVoiceModel, backref='pugs', unique=True)
+    server_members = JSONField(default=[])
+    temporary_members = JSONField(default=[])
     invite = CharField(max_length=25)
     role = BigIntegerField()
+
+    class Meta:
+        table_name = 'pugs'
+
+    @classmethod
+    async def create(cls, server_id: int, channel_id: int, invite: str, role: int) -> 'PugModel':
+        return await objects.create(cls, server_id=server_id, channel_id=channel_id, invite=invite, role=role)
+
+    @classmethod
+    async def get(cls, channel_id: int) -> 'PugModel':
+        return await objects.get(cls, channel_id=channel_id)
+
+    @classmethod
+    async def get_all(cls, server: ServerModel) -> list['PugModel']:
+        q = cls.select().where(cls.server == server)
+        return await objects.prefetch(q)
 
