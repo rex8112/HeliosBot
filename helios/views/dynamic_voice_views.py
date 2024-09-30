@@ -166,6 +166,10 @@ class DynamicVoiceView(ui.View):
             await interaction.edit_original_response(content=f'{channel.channel.mention} created and set to private.',
                                                      embed=None, view=None)
 
+    @ui.button(label='PUG', style=ButtonStyle.red)
+    async def pug(self, interaction: discord.Interaction, button: discord.ui.Button):
+        ...
+
 
 class SplitPrepView(ui.View):
     def __init__(self, voice: 'DynamicVoiceChannel'):

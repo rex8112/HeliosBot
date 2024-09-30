@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING
 import discord
 
 from .colour import Colour
+from .database import PugModel
 
 if TYPE_CHECKING:
     from .dynamic_voice import DynamicVoiceChannel
@@ -42,25 +43,41 @@ class PUGChannel:
         self.role: discord.Role = role
         self.invite: discord.Invite = invite
 
+        self.db_entry = None
+
     @classmethod
     async def create(cls, server: 'Server', name: str, server_members: list['HeliosMember'],
                      temporary_members: list['HeliosMember'], voice: 'DynamicVoiceChannel' = None):
         voice = await server.channels.dynamic_voice.get_inactive_channel() if not voice else voice
         with voice:
-            role = await cls.create_role(voice)
+            role = await cls.create_role(voice, name)
             invite = await cls.create_invite(voice)
             self = cls(voice, server_members, temporary_members, role, invite)
             await voice.make_controlled(view_cls(self))
             voice.custom_name = name
+            self.db_entry = await PugModel.create(server_id=server.guild.id, channel_id=voice.channel.id,
+                                                  invite=invite.id, role=role.id)
+            await self.save()
             return self
 
     @staticmethod
-    async def create_role(voice: 'DynamicVoiceChannel'):
-        return await voice.channel.guild.create_role(name=f'PUG {voice.custom_name}', mentionable=True)
+    async def create_role(voice: 'DynamicVoiceChannel', name: str):
+        return await voice.channel.guild.create_role(name=f'PUG {name}', mentionable=True)
 
     @staticmethod
     async def create_invite(voice: 'DynamicVoiceChannel'):
         return await voice.channel.create_invite(max_age=24 * 60 * 60, max_uses=0, reason='PUG Invite')
+
+    async def save(self):
+        await self.db_entry.async_update(**self.to_dict())
+
+    def to_dict(self):
+        return {
+            'server_members': [m.member.id for m in self.server_members],
+            'temporary_members': [m.member.id for m in self.temporary_members],
+            'role': self.role.id,
+            'invite': self.invite.id
+        }
 
     def get_members(self):
         return self.server_members + self.temporary_members
@@ -84,6 +101,7 @@ class PUGChannel:
         self.server_members.append(member)
         if self.role not in member.member.roles:
             await member.member.add_roles(self.role)
+        await self.save()
 
     async def remove_member(self, member: 'HeliosMember'):
         if member not in self.server_members:
@@ -91,6 +109,7 @@ class PUGChannel:
         self.server_members.remove(member)
         if self.role in member.member.roles:
             await member.member.remove_roles(self.role)
+        await self.save()
 
     async def add_temporary_member(self, member: 'HeliosMember'):
         if member in self.temporary_members:
@@ -98,6 +117,7 @@ class PUGChannel:
         self.temporary_members.append(member)
         if self.role not in member.member.roles:
             await member.member.add_roles(self.role)
+        await self.save()
 
     async def remove_temporary_member(self, member: 'HeliosMember', *, kick=False):
         if member not in self.temporary_members:
@@ -107,10 +127,21 @@ class PUGChannel:
             await member.member.kick(reason='PUG Ended')
         else:
             await member.member.remove_roles(self.role)
+        await self.save()
 
     async def ensure_members_have_role(self):
         for member in self.server_members + self.temporary_members:
             await member.member.add_roles(self.role)
+
+    async def ensure_role_members_in_pug(self):
+        for member in self.role.members:
+            member = self.voice.server.members.get(member.id)
+            if member not in self.server_members + self.temporary_members:
+                if member.verified:
+                    await self.add_member(member)
+                else:
+                    await self.add_temporary_member(member)
+                await self.voice.update_control_message(force=True)
 
     async def end_pug(self):
         for member in self.temporary_members:
@@ -136,6 +167,30 @@ class PUGManager:
         self.invites[pug.invite] = pug.invite.uses
         return pug
 
+    async def load_pugs(self):
+        pugs_data = await PugModel.get_all(self.server.db_entry)
+        for pug_data in pugs_data:
+            save = False
+            voice = self.server.channels.dynamic_voice.get(pug_data.channel_id)
+            if not voice:
+                continue
+            server_members = [self.server.members.get(m) for m in pug_data.server_members]
+            temporary_members = [self.server.members.get(m) for m in pug_data.temporary_members]
+            role = self.server.guild.get_role(pug_data.role)
+            if not role:
+                role = await PUGChannel.create_role(voice, voice.custom_name)
+                save = True
+            invite = discord.utils.find(lambda x: x.id == pug_data.invite, await self.server.guild.invites())
+            if not invite:
+                invite = await PUGChannel.create_invite(voice)
+                save = True
+            pug = PUGChannel(voice, server_members, temporary_members, role, invite)
+            self.pugs.append(pug)
+            self.invites[invite] = invite.uses
+            await pug.ensure_members_have_role()
+            if save:
+                await pug.save()
+
     async def on_member_join(self, member: discord.Member):
         for invite in await self.server.guild.invites():
             if invite not in self.invites:
@@ -154,6 +209,9 @@ class PUGManager:
                 await pug.end_pug()
                 self.pugs.remove(pug)
                 del self.invites[pug.invite]
+            else:
+                await pug.ensure_members_have_role()
+                await pug.ensure_role_members_in_pug()
 
 
 def view_cls(pug: PUGChannel):
