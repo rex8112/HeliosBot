@@ -23,7 +23,7 @@ import json
 import logging
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union
 
 import discord
 
@@ -50,13 +50,14 @@ class DynamicVoiceState(Enum):
 
 
 class VoiceSettings(Settings):
-    number = SettingItem('number', 1, int)
+    number = SettingItem('number', 0, int)
     group = SettingItem('group', None, int)
     state = SettingItem('state', 1, int)
     owner = SettingItem('owner', None, discord.Member)
     template = StringSettingItem('template', None)
     control_message = SettingItem('control_message', None, discord.PartialMessage)
     inactive = SettingItem('inactive', False, bool)
+    custom_name = SettingItem('custom_name', None, str)
 
 
 class DynamicVoiceChannel:
@@ -69,7 +70,6 @@ class DynamicVoiceChannel:
         self.channel = channel
         self.settings = VoiceSettings(self.bot)
 
-        self.custom_name = None
         self.prefix = ''
 
         self.free = True
@@ -184,6 +184,15 @@ class DynamicVoiceChannel:
     @inactive.setter
     def inactive(self, value: bool):
         self.settings.inactive.value = value
+        self._unsaved = True
+
+    @property
+    def custom_name(self) -> Optional[str]:
+        return self.settings.custom_name.value
+
+    @custom_name.setter
+    def custom_name(self, value: Optional[str]):
+        self.settings.custom_name.value = value
         self._unsaved = True
 
     @property
@@ -377,10 +386,13 @@ class DynamicVoiceChannel:
             await self.update_control_message(force=True)
             await self.save()
 
+    async def purge_channel(self):
+        await self.channel.purge(limit=None, bulk=True)
+
     async def unmake_private(self):
         """Unmake the channel private."""
         if self.state == DynamicVoiceState.PRIVATE:
-            await self.channel.purge(limit=None, bulk=True)
+            await self.purge_channel()
             self.template = None
             self.owner = None
 
@@ -691,6 +703,15 @@ class VoiceManager:
         await channel.save()
         self.channels[channel.channel.id] = channel
         return channel
+
+    async def reset_channel(self, channel: Union[discord.VoiceChannel, DynamicVoiceChannel]):
+        if isinstance(channel, discord.VoiceChannel):
+            channel = self.channels[channel.id]
+
+        await channel.purge_channel()
+        channel.settings = VoiceSettings(self.server.bot)
+        await channel.make_inactive(force=True)
+
 
     async def create_group(self, minimum: int, minimum_empty: int, template: str, game_template: str, maximum: int = 0):
         group = await DynamicVoiceGroup.create(self.server, minimum, minimum_empty, template, game_template, maximum)
