@@ -57,11 +57,6 @@ class DynamicVoiceCog(commands.Cog):
         view = DynamicVoiceView(interaction.user, vm)
         await interaction.response.send_message('Select an option.', view=view, ephemeral=True)
 
-    @commands.Cog.listener()
-    async def on_member_join(self, member: discord.Member):
-        server = self.bot.servers.get(member.guild.id)
-        server.channels.dynamic_voice.pug_manager.on_member_join(member)
-
 
 # noinspection PyUnresolvedReferences
 class DynamicVoiceView(discord.ui.View):

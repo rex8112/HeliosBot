@@ -47,6 +47,10 @@ class VerificationCog(commands.Cog):
 
         if helios_member is None:
             return
+
+        is_pug = await server.channels.dynamic_voice.pug_manager.check_if_pug_invite(member)
+        if is_pug:
+            return
         if member.guild.system_channel and not helios_member.verified:
             embed = discord.Embed(
                 title=f'Verification Required for {member.name}',
