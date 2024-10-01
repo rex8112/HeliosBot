@@ -26,6 +26,7 @@ import discord
 
 from .colour import Colour
 from .database import PugModel
+from .tools.modals import get_simple_modal
 
 if TYPE_CHECKING:
     from .dynamic_voice import DynamicVoiceChannel
@@ -43,6 +44,8 @@ class PUGChannel:
         self.role: discord.Role = role
         self.invite: discord.Invite = invite
 
+        self.old_names = {}
+
         self.db_entry = None
 
     @classmethod
@@ -58,6 +61,11 @@ class PUGChannel:
             await voice.channel.edit(overwrites=self.get_overwrites())
             self.db_entry = await PugModel.create(server_id=server.guild.id, channel_id=voice.channel.id,
                                                   invite=invite.id, role=role.id)
+            for member in voice.channel.members:
+                h_member = server.members.get(member.id)
+                if h_member not in self.get_members():
+                    await self.add_member(h_member)
+
             await self.save()
             await voice.update_control_message(force=True)
             return self
@@ -97,7 +105,6 @@ class PUGChannel:
         }
         return overwrites
 
-
     async def add_member(self, member: 'HeliosMember'):
         if member in self.server_members:
             return
@@ -112,6 +119,8 @@ class PUGChannel:
         self.server_members.remove(member)
         if self.role in member.member.roles:
             await member.member.remove_roles(self.role)
+        if member.member in self.old_names:
+            await member.member.edit(nick=self.old_names[member.member])
         await self.save()
 
     async def add_temporary_member(self, member: 'HeliosMember'):
@@ -150,6 +159,9 @@ class PUGChannel:
         for member in self.temporary_members:
             if not member.verified:
                 await self.remove_temporary_member(member, kick=True)
+        for member in self.server_members:
+            if member.member in self.old_names:
+                await member.member.edit(nick=self.old_names[member.member])
         await self.role.delete()
         await self.invite.delete()
         await self.db_entry.async_delete()
@@ -251,13 +263,19 @@ def view_cls(pug: PUGChannel):
 
         @discord.ui.select(placeholder='Add Member', cls=discord.ui.UserSelect)
         async def add_member(self, interaction: discord.Interaction, select: discord.ui.UserSelect):
+            if self.pug.get_leader().member != interaction.user:
+                await interaction.response.send_message('Only the leader can add members to the group', ephemeral=True)
+
             member = self.voice.server.members.get(select.values[0].id)
             await self.pug.add_member(member)
-            await interaction.response.send_message(f'{member.mention} added to PUG group', ephemeral=True)
+            await interaction.response.send_message(f'{member.member.mention} added to PUG group', ephemeral=True)
             await self.voice.update_control_message(force=True)
 
         @discord.ui.select(placeholder='Remove Member')
         async def remove_member(self, interaction: discord.Interaction, select: discord.ui.Select):
+            if self.pug.get_leader().member != interaction.user:
+                await interaction.response.send_message('Only the leader can remove members from the group', ephemeral=True)
+
             member = self.voice.server.members.get(int(select.values[0]))
             if member in self.pug.server_members:
                 await self.pug.remove_member(member)
@@ -270,10 +288,29 @@ def view_cls(pug: PUGChannel):
             await interaction.response.send_message(f'{member.member.mention} removed from PUG group', ephemeral=True)
             await self.voice.update_control_message(force=True)
 
+        @discord.ui.button(label='Change In-Game Name', style=discord.ButtonStyle.gray)
+        async def change_name(self, interaction: discord.Interaction, button: discord.ui.Button):
+            member = self.pug.voice.server.members.get(interaction.user.id)
+            if member not in self.pug.get_members():
+                await interaction.response.send_message('You must be in the PUG group to change your in-game name', ephemeral=True)
+                return
+            modal = get_simple_modal('Change In-Game Name', 'In-Game Name')(timeout=60)
+            await interaction.response.send_modal(modal)
+            if await modal.wait():
+                return
+            name = modal.value
+            self.pug.old_names[interaction.user] = interaction.user.nick
+            try:
+                await interaction.user.edit(nick=name)
+            except discord.Forbidden:
+                del self.pug.old_names[interaction.user]
+
+
         @discord.ui.button(label='End PUG', style=discord.ButtonStyle.red)
         async def end_pug(self, interaction: discord.Interaction, button: discord.ui.Button):
             if self.pug.get_leader().member != interaction.user:
                 await interaction.response.send_message('Only the leader can end the PUG group', ephemeral=True)
+
             if len(self.pug.temporary_members) > 0:
                 view = PUGKeepView(self.pug)
                 await interaction.response.send_message('Select members to keep in server', view=view, ephemeral=True)
@@ -294,7 +331,7 @@ def view_cls(pug: PUGChannel):
 class PUGKeepView(discord.ui.View):
     """Displays at the end of a PUG group to allow the leader to keep temporary members in the server"""
     def __init__(self, pug: PUGChannel):
-        super().__init__(timeout=300)
+        super().__init__(timeout=120)
         self.pug = pug
         self.selected: list['HeliosMember'] = []
 
