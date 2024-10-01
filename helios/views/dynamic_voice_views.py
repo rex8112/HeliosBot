@@ -28,6 +28,7 @@ from discord import ui, ButtonStyle, Interaction, Color, Embed
 from .generic_views import VoteView, YesNoView
 from ..colour import Colour
 from ..modals import VoiceNameChange
+from ..tools.modals import get_simple_modal
 from .shop_view import ShopView
 from .voice_view import VoiceControllerView
 
@@ -163,12 +164,19 @@ class DynamicVoiceView(ui.View):
         else:
             channel = await self.voice.manager.get_inactive_channel()
             await channel.make_private(member, template)
-            await interaction.edit_original_response(content=f'{channel.channel.mention} created and set to private.',
-                                                     embed=None, view=None)
+            await interaction.edit_original_response(content=f'{channel.channel.mention} created and set to private.', embed=None, view=None)
 
     @ui.button(label='PUG', style=ButtonStyle.red)
     async def pug(self, interaction: discord.Interaction, button: discord.ui.Button):
-        ...
+        if interaction.user not in self.voice.channel.members:
+            await interaction.response.send_message(content='You are not in the channel.', ephemeral=True)
+            return
+        member = self.voice.server.members.get(interaction.user.id)
+        modal = get_simple_modal('PUG Name', 'Name')(timeout=60)
+        await interaction.response.send_modal(modal)
+        if await modal.wait():
+            return
+        await self.voice.manager.pug_manager.create_pug(modal.value, member, self.voice)
 
 
 class SplitPrepView(ui.View):
@@ -342,6 +350,8 @@ class PrivateVoiceView(DynamicVoiceView):
     def __init__(self, voice: 'DynamicVoiceChannel'):
         super().__init__(voice)
         self.remove_item(self.dynamic_private)
+        self.remove_item(self.pug)
+
         if self.voice.template.private:
             self.whitelist.disabled = True
         else:
