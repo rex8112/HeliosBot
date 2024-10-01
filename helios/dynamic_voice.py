@@ -411,15 +411,18 @@ class DynamicVoiceChannel:
             self.state = DynamicVoiceState.CONTROLLED
             self._custom_view_type = custom_view_type
             await self.save()
+        else:
+            self._custom_view_type = custom_view_type
 
     def unmake_controlled(self):
         """Unmake the channel controlled."""
         if self.state == DynamicVoiceState.CONTROLLED:
             self._custom_view_type = None
+            self.custom_name = None
 
-    async def make_inactive(self):
+    async def make_inactive(self, force=False):
         """Make the channel inactive."""
-        if self.state != DynamicVoiceState.INACTIVE:
+        if self.state != DynamicVoiceState.INACTIVE or force:
             self.unmake_active()
             self.unmake_controlled()
             await self.unmake_private()
@@ -577,6 +580,7 @@ class VoiceManager:
         channels = await DynamicVoiceChannel.get_all(self)
         for channel in channels:
             self.channels[channel.channel.id] = channel
+        await self.pug_manager.load_pugs()
         self._setup = True
 
     async def sort_channels(self):
@@ -662,6 +666,9 @@ class VoiceManager:
             await self.update_names()
             logger.debug(f'{self.server.name}: Voice Manager: Sorting Channels')
             await self.sort_channels()
+            logger.debug(f'{self.server.name}: Voice Manager: Managing PUGs')
+            await self.pug_manager.manage_pugs()
+            logger.debug(f'{self.server.name}: Voice Manager: Done')
         except Exception as e:
             logger.error(e, exc_info=True)
 
