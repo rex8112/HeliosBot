@@ -330,22 +330,22 @@ class DynamicVoiceChannel:
     def build_template(self, owner: 'HeliosMember') -> VoiceTemplate:
         template = VoiceTemplate(owner, self.channel.name)
         channel = self.channel
-        last_template = owner.templates[0] if owner.templates else None
-        use = True
-        if last_template:
-            for member in channel.members:
-                if member.id not in last_template.denied:
-                    use = False
-                    break
-                elif last_template.private and member.id not in last_template.allowed:
-                    use = False
-                    break
-        else:
-            last_template = owner.create_template()
-            for member in channel.members:
-                last_template.allow(member)
-        if use:
-            return last_template
+        # last_template = owner.templates[0] if owner.templates else None
+        # use = True
+        # if last_template:
+        #     for member in channel.members:
+        #         if member.id not in last_template.denied:
+        #             use = False
+        #             break
+        #         elif last_template.private and member.id not in last_template.allowed:
+        #             use = False
+        #             break
+        # else:
+        #     last_template = owner.create_template()
+        #     for member in channel.members:
+        #         last_template.allow(member)
+        # if use:
+        #     return last_template
         for member in channel.members:
             template.allow(member)
         template.private = True
