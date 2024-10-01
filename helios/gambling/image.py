@@ -21,7 +21,9 @@
 #  SOFTWARE.
 import io
 import math
+from datetime import timedelta
 
+import discord
 import requests
 from typing import Union, TYPE_CHECKING, Optional, Literal
 
@@ -488,6 +490,61 @@ class BlackjackImage:
         if timer:
             self.draw_timer(timer)
         return self._current_image.resize((self._current_image.width * 2, self._current_image.height * 2))
+
+
+class LotteryImage:
+    def __init__(self, numbers: list[int], total: int):
+        self.numbers = numbers
+        self.total = total
+
+        self.ball_width = 201
+        self.ball_height = 201
+        self.padding = 10
+
+    def generate_ball_image(self, number):
+        background = Image.new(mode='RGBA', size=(self.ball_width, self.ball_height), color=(255, 0, 0, 0))
+        draw = ImageDraw.Draw(background)
+        x = self.ball_width // 2
+        y = self.ball_height // 2
+        r = min(x, y)
+        draw.circle((x, y), r, (255, 255, 255))
+        f_size = r
+        font = ImageFont.load_default(f_size)
+        draw.text((x, y), str(number), (0, 0, 0), font, anchor='mm')
+        del draw
+        return background
+
+    def generate_image(self):
+        balls = [self.generate_ball_image(x) for x in self.numbers]
+        width = (self.ball_width + self.padding) * self.total + self.padding
+        height = self.padding + self.ball_height + self.padding
+        background = Image.new(mode='RGBA', size=(width, height), color=(255, 0, 0, 0))
+        for i, ball in enumerate(balls):
+            x = self.padding + (self.ball_width + self.padding) * i
+            background.paste(ball, (x, self.padding), mask=ball)
+        return background
+
+    def get_countdown_file(self, remaining: str):
+        width = (self.ball_width + self.padding) * self.total + self.padding
+        height = self.padding + self.ball_height + self.padding
+        background = Image.new(mode='RGBA', size=(width, height), color=(255, 0, 0, 0))
+        draw = ImageDraw.Draw(background)
+        draw.text((width//2, height//2), remaining, fill=(255, 255, 255), font_size=height//2, anchor='mm')
+        del draw
+        with io.BytesIO() as img_bytes:
+            background.save(img_bytes)
+            img_bytes.seek(0)
+            file = discord.File(img_bytes, 'countdown.png')
+        return file
+
+    def get_image_file(self):
+        img = self.generate_image()
+        with io.BytesIO() as img_bytes:
+            img.save(img_bytes)
+            img_bytes.seek(0)
+            file = discord.File(img_bytes, 'lottery.png')
+        return file
+
 
 
 def testing_icon():
