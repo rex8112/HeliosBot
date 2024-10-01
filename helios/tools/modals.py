@@ -86,3 +86,21 @@ class SearchModal(ui.Modal, title='Search'):
         await interaction.response.defer()
         self.stop()
 
+
+def get_simple_modal(title: str, label: str):
+    class SimpleModal(ui.Modal, title=title):
+        search = ui.TextInput(label=label)
+
+        def __init__(self, *, default=None, timeout=30):
+            super().__init__(timeout=timeout)
+            if default:
+                self.search.default = default
+            self.value = None
+
+        async def on_submit(self, interaction: Interaction) -> None:
+            self.value = self.search.value
+            await interaction.response.defer()
+            self.stop()
+
+    return SimpleModal
+
