@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Optional, Any
 
 import discord.utils
 import peewee_async
-from playhouse.migrate import *
+from peewee import *
 
 from .tools.config import Config
 
@@ -46,7 +46,7 @@ def initialize_db():
         db.connect()
         db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
                           EventModel, ViolationModel, DynamicVoiceModel, DynamicVoiceGroupModel, TopicModel,
-                          EffectModel, ThemeModel, BlackjackModel, DailyModel, GameModel, GameAliasModel])
+                          EffectModel, ThemeModel, BlackjackModel, DailyModel, GameModel, GameAliasModel, PugModel])
 
 
 def get_aware_utc_now():
@@ -524,5 +524,26 @@ class Lottery(BaseModel):
 
 class PugModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
-    channel_id = BigIntegerField()
+    server = ForeignKeyField(ServerModel, backref='pugs')
+    channel = ForeignKeyField(DynamicVoiceModel, backref='pugs', unique=True)
+    server_members = JSONField(default=[])
+    temporary_members = JSONField(default=[])
+    invite = CharField(max_length=25)
+    role = BigIntegerField()
+
+    class Meta:
+        table_name = 'pugs'
+
+    @classmethod
+    async def create(cls, server_id: int, channel_id: int, invite: str, role: int) -> 'PugModel':
+        return await objects.create(cls, server_id=server_id, channel_id=channel_id, invite=invite, role=role)
+
+    @classmethod
+    async def get(cls, channel_id: int) -> 'PugModel':
+        return await objects.get(cls, channel_id=channel_id)
+
+    @classmethod
+    async def get_all(cls, server: ServerModel) -> list['PugModel']:
+        q = cls.select().where(cls.server == server)
+        return await objects.prefetch(q)
 

@@ -23,11 +23,12 @@ import json
 import logging
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union
 
 import discord
 
 from .database import DynamicVoiceGroupModel, DynamicVoiceModel
+from .pug import PUGManager
 from .tools.settings import Settings, SettingItem, StringSettingItem
 from .views import DynamicVoiceView, PrivateVoiceView
 from .voice_template import VoiceTemplate
@@ -45,16 +46,18 @@ class DynamicVoiceState(Enum):
     ACTIVE = 0
     INACTIVE = 1
     PRIVATE = 2
+    CONTROLLED = 3
 
 
 class VoiceSettings(Settings):
-    number = SettingItem('number', 1, int)
+    number = SettingItem('number', 0, int)
     group = SettingItem('group', None, int)
     state = SettingItem('state', 1, int)
     owner = SettingItem('owner', None, discord.Member)
     template = StringSettingItem('template', None)
     control_message = SettingItem('control_message', None, discord.PartialMessage)
     inactive = SettingItem('inactive', False, bool)
+    custom_name = SettingItem('custom_name', None, str)
 
 
 class DynamicVoiceChannel:
@@ -67,17 +70,26 @@ class DynamicVoiceChannel:
         self.channel = channel
         self.settings = VoiceSettings(self.bot)
 
-        self.custom_name = None
         self.prefix = ''
         self.majority_game = None
 
+        self.free = True
+
         self.db_entry = None
         self._unsaved = False
-        self._last_name_change = datetime.now().astimezone() - self.NAME_COOLDOWN
+        self._last_name_change = discord.utils.utcnow() - self.NAME_COOLDOWN
         self._private_on = datetime.now().astimezone()
+        self._custom_view_type = None
         self._fetched_control_message = None
 
         self._template = None
+
+    def __enter__(self):
+        self.free = False
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.free = True
 
     # Properties
     @property
@@ -176,6 +188,15 @@ class DynamicVoiceChannel:
         self._unsaved = True
 
     @property
+    def custom_name(self) -> Optional[str]:
+        return self.settings.custom_name.value
+
+    @custom_name.setter
+    def custom_name(self, value: Optional[str]):
+        self.settings.custom_name.value = value
+        self._unsaved = True
+
+    @property
     def inactive_overwrites(self):
         return {self.server.guild.default_role: discord.PermissionOverwrite(view_channel=False)}
 
@@ -248,6 +269,8 @@ class DynamicVoiceChannel:
                 ...
         if self.state == DynamicVoiceState.PRIVATE:
             view = PrivateVoiceView(self)
+        elif self.state == DynamicVoiceState.CONTROLLED:
+            view = self._custom_view_type(self)
         else:
             view = DynamicVoiceView(self)
         message = await self.channel.send(embeds=await view.get_embeds(), view=view)
@@ -369,10 +392,13 @@ class DynamicVoiceChannel:
             await self.update_control_message(force=True)
             await self.save()
 
+    async def purge_channel(self):
+        await self.channel.purge(limit=None, bulk=True)
+
     async def unmake_private(self):
         """Unmake the channel private."""
         if self.state == DynamicVoiceState.PRIVATE:
-            await self.channel.purge(limit=None, bulk=True)
+            await self.purge_channel()
             self.template = None
             self.owner = None
 
@@ -380,6 +406,7 @@ class DynamicVoiceChannel:
         """Make the channel active."""
         if self.state != DynamicVoiceState.ACTIVE:
             await self.unmake_private()
+            self.unmake_controlled()
             self.state = DynamicVoiceState.ACTIVE
             self.number = self.manager.get_next_number(group)
             self.group = group
@@ -394,15 +421,34 @@ class DynamicVoiceChannel:
             self.group = None
             self.number = 0
 
-    async def make_inactive(self):
-        """Make the channel inactive."""
-        if self.state != DynamicVoiceState.INACTIVE:
+    async def make_controlled(self, custom_view_type: type):
+        """Make the channel controlled."""
+        if self.state != DynamicVoiceState.CONTROLLED:
             self.unmake_active()
+            await self.unmake_private()
+            self.state = DynamicVoiceState.CONTROLLED
+            self._custom_view_type = custom_view_type
+            await self.save()
+        else:
+            self._custom_view_type = custom_view_type
+
+    def unmake_controlled(self):
+        """Unmake the channel controlled."""
+        if self.state == DynamicVoiceState.CONTROLLED:
+            self._custom_view_type = None
+            self.custom_name = None
+
+    async def make_inactive(self, force=False):
+        """Make the channel inactive."""
+        if self.state != DynamicVoiceState.INACTIVE or force:
+            self.unmake_active()
+            self.unmake_controlled()
             await self.unmake_private()
             self.state = DynamicVoiceState.INACTIVE
             await self.channel.edit(
                 overwrites=self.inactive_overwrites
             )
+            self.custom_name = None
             await self.save()
 
 
@@ -536,6 +582,7 @@ class VoiceManager:
         self.server = server
         self.channels: dict[int, DynamicVoiceChannel] = {}
         self.groups: dict[int, DynamicVoiceGroup] = {}
+        self.pug_manager: 'PUGManager' = PUGManager(self.server)
 
         self._setup = False
 
@@ -551,6 +598,7 @@ class VoiceManager:
         channels = await DynamicVoiceChannel.get_all(self)
         for channel in channels:
             self.channels[channel.channel.id] = channel
+        await self.pug_manager.load_pugs()
         self._setup = True
 
     async def sort_channels(self):
@@ -636,12 +684,15 @@ class VoiceManager:
             await self.update_names()
             logger.debug(f'{self.server.name}: Voice Manager: Sorting Channels')
             await self.sort_channels()
+            logger.debug(f'{self.server.name}: Voice Manager: Managing PUGs')
+            await self.pug_manager.manage_pugs()
+            logger.debug(f'{self.server.name}: Voice Manager: Done')
         except Exception as e:
             logger.error(e, exc_info=True)
 
     async def get_inactive_channel(self):
         inactive = self.get_inactive()
-        ready_inactive = list(filter(lambda x: x.name_on_cooldown() is False, inactive))
+        ready_inactive = list(filter(lambda x: x.name_on_cooldown() is False and x.free is True, inactive))
 
         if len(ready_inactive) > 0:
             return ready_inactive.pop()
@@ -658,6 +709,15 @@ class VoiceManager:
         await channel.save()
         self.channels[channel.channel.id] = channel
         return channel
+
+    async def reset_channel(self, channel: Union[discord.VoiceChannel, DynamicVoiceChannel]):
+        if isinstance(channel, discord.VoiceChannel):
+            channel = self.channels[channel.id]
+
+        await channel.purge_channel()
+        channel.settings = VoiceSettings(self.server.bot)
+        await channel.make_inactive(force=True)
+
 
     async def create_group(self, minimum: int, minimum_empty: int, template: str, game_template: str, maximum: int = 0):
         group = await DynamicVoiceGroup.create(self.server, minimum, minimum_empty, template, game_template, maximum)

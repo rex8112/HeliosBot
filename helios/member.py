@@ -361,7 +361,7 @@ class HeliosMember(HasFlags):
             self._db_entry = MemberModel.get(server=self.server.id, member_id=self.member.id)
         self._deserialize(self._db_entry)
 
-    async def verify(self):
+    async def verify(self, announce=True):
         role = self.server.verified_role
         if self.member.get_role(role.id):
             return
@@ -373,7 +373,8 @@ class HeliosMember(HasFlags):
             colour=discord.Colour.green()
         )
         await self.member.add_roles(role)
-        await self.member.send(embed=embed)
+        if announce:
+            await self.member.send(embed=embed)
 
     async def add_points(self, price: int, payee: str, description: str):
         if price == 0:
