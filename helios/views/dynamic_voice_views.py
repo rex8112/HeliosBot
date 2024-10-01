@@ -55,6 +55,7 @@ class DynamicVoiceView(ui.View):
         embed.add_field(name='Game Controller', value='Open a Game Controller to control mutes for in game voice chat.')
         embed.add_field(name='Split', value='Split the channel into two separate channels.')
         embed.add_field(name='Private', value='Make the channel private.')
+        embed.add_field(name='PUG', value='Create a PUG Group to invite temporary members.')
         return embed
 
     @ui.button(label='Shop', style=ButtonStyle.blurple)
