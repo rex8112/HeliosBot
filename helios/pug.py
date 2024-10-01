@@ -55,9 +55,11 @@ class PUGChannel:
             self = cls(voice, server_members, temporary_members, role, invite)
             await voice.make_controlled(view_cls(self))
             voice.custom_name = name
+            await voice.channel.edit(overwrites=self.get_overwrites())
             self.db_entry = await PugModel.create(server_id=server.guild.id, channel_id=voice.channel.id,
                                                   invite=invite.id, role=role.id)
             await self.save()
+            await voice.update_control_message(force=True)
             return self
 
     @staticmethod
@@ -66,7 +68,8 @@ class PUGChannel:
 
     @staticmethod
     async def create_invite(voice: 'DynamicVoiceChannel'):
-        return await voice.channel.create_invite(max_age=24 * 60 * 60, max_uses=0, reason='PUG Invite')
+        channel = voice.server.guild.text_channels[0]
+        return await channel.create_invite(max_age=24 * 60 * 60, max_uses=0, reason='PUG Invite')
 
     async def save(self):
         await self.db_entry.async_update(**self.to_dict())
@@ -88,7 +91,7 @@ class PUGChannel:
     def get_overwrites(self) -> dict[discord.abc.Snowflake, discord.PermissionOverwrite]:
         overwrites = {
             self.role: discord.PermissionOverwrite(view_channel=True, connect=True, speak=True, stream=True, use_voice_activation=True),
-            self.voice.server.bot: discord.PermissionOverwrite(view_channel=True, connect=True, speak=True, use_voice_activation=True),
+            self.voice.server.me: discord.PermissionOverwrite(view_channel=True, connect=True, speak=True, use_voice_activation=True),
             self.voice.server.guild.default_role: discord.PermissionOverwrite(speak=False, stream=False, use_soundboard=False),
             self.get_leader().member: discord.PermissionOverwrite(priority_speaker=True)
         }
@@ -149,6 +152,7 @@ class PUGChannel:
                 await self.remove_temporary_member(member, kick=True)
         await self.role.delete()
         await self.invite.delete()
+        await self.db_entry.async_delete()
         if self.voice.channel.members:
             asyncio.create_task(self.voice.make_active(list(self.voice.manager.groups.values())[0]))
         else:
@@ -171,7 +175,7 @@ class PUGManager:
         pugs_data = await PugModel.get_all(self.server.db_entry)
         for pug_data in pugs_data:
             save = False
-            voice = self.server.channels.dynamic_voice.get(pug_data.channel_id)
+            voice = self.server.channels.dynamic_voice.channels.get(pug_data.channel_id)
             if not voice:
                 continue
             server_members = [self.server.members.get(m) for m in pug_data.server_members]
@@ -185,13 +189,15 @@ class PUGManager:
                 invite = await PUGChannel.create_invite(voice)
                 save = True
             pug = PUGChannel(voice, server_members, temporary_members, role, invite)
+            pug.db_entry = pug_data
+            await voice.make_controlled(view_cls(pug))
             self.pugs.append(pug)
             self.invites[invite] = invite.uses
             await pug.ensure_members_have_role()
             if save:
                 await pug.save()
 
-    async def on_member_join(self, member: discord.Member):
+    async def check_if_pug_invite(self, member: discord.Member) -> bool:
         for invite in await self.server.guild.invites():
             if invite not in self.invites:
                 continue
@@ -201,14 +207,18 @@ class PUGManager:
                     if invite == pug.invite:
                         await pug.add_temporary_member(self.server.members.get(member))
                         await pug.voice.update_control_message(force=True)
-                        break
+                        return True
+        return False
+
+    async def end_pug(self, pug: PUGChannel):
+        await pug.end_pug()
+        self.pugs.remove(pug)
+        del self.invites[pug.invite]
 
     async def manage_pugs(self):
         for pug in self.pugs:
             if len(pug.voice.channel.members) == 0:
-                await pug.end_pug()
-                self.pugs.remove(pug)
-                del self.invites[pug.invite]
+                await self.end_pug(pug)
             else:
                 await pug.ensure_members_have_role()
                 await pug.ensure_role_members_in_pug()
@@ -221,8 +231,13 @@ def view_cls(pug: PUGChannel):
             self.voice = voice
             self.pug = pug
 
-            self.remove_member.options = [discord.SelectOption(label=m.member.display_name, value=str(m.member.id))
-                                          for m in self.pug.get_members() if m != self.pug.get_leader()]
+            options = [discord.SelectOption(label=m.member.display_name, value=str(m.member.id))
+                       for m in self.pug.get_members() if m != self.pug.get_leader()]
+            if options:
+                self.remove_member.options = options
+            else:
+                self.remove_member.options = [discord.SelectOption(label='No Members', value='0')]
+                self.remove_member.disabled = True
 
         def get_embed(self):
             embed = discord.Embed(
@@ -243,30 +258,34 @@ def view_cls(pug: PUGChannel):
 
         @discord.ui.select(placeholder='Remove Member')
         async def remove_member(self, interaction: discord.Interaction, select: discord.ui.Select):
-            member = self.voice.server.members.get(select.values[0])
+            member = self.voice.server.members.get(int(select.values[0]))
             if member in self.pug.server_members:
                 await self.pug.remove_member(member)
             elif member in self.pug.temporary_members:
-                await self.pug.remove_temporary_member(member)
+                await self.pug.remove_temporary_member(member, kick=True)
             else:
-                await interaction.response.send_message(f'{member.mention} not in PUG group', ephemeral=True)
+                await interaction.response.send_message(f'{member.member.mention} not in PUG group', ephemeral=True)
                 await self.voice.update_control_message(force=True)
                 return
-            await interaction.response.send_message(f'{member.mention} removed from PUG group', ephemeral=True)
+            await interaction.response.send_message(f'{member.member.mention} removed from PUG group', ephemeral=True)
             await self.voice.update_control_message(force=True)
 
         @discord.ui.button(label='End PUG', style=discord.ButtonStyle.red)
         async def end_pug(self, interaction: discord.Interaction, button: discord.ui.Button):
             if self.pug.get_leader().member != interaction.user:
                 await interaction.response.send_message('Only the leader can end the PUG group', ephemeral=True)
-            view = PUGKeepView(self.pug)
-            await interaction.response.send_message('Select members to keep in server', view=view)
-            await view.wait()
-            if view.selected:
-                for member in view.selected:
-                    await self.pug.add_member(member)
-            await self.pug.end_pug()
-            await interaction.response.send_message('PUG Ended', ephemeral=True)
+            if len(self.pug.temporary_members) > 0:
+                view = PUGKeepView(self.pug)
+                await interaction.response.send_message('Select members to keep in server', view=view, ephemeral=True)
+                await view.wait()
+                if view.selected:
+                    for member in view.selected:
+                        await member.verify(announce=False)
+            await self.pug.voice.manager.pug_manager.end_pug(self.pug)
+            if interaction.response.is_done():
+                await interaction.edit_original_response(content='PUG Ended', view=None)
+            else:
+                await interaction.response.send_message('PUG Ended', ephemeral=True)
 
 
     return PUGView
