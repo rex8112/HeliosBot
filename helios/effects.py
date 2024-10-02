@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Union, Optional
 
 import discord
 from discord.utils import utcnow
+# noinspection PyUnresolvedReferences
 from playhouse.shortcuts import model_to_dict
 
 from .database import EffectModel
@@ -101,6 +102,13 @@ class EffectsManager:
 
     def get_effects(self, target: EffectTarget):
         return self.effects.get(target, [])
+
+    def get_effect(self, id: int):
+        for effects in self.effects.values():
+            for effect in effects:
+                if effect.db_entry.id == id:
+                    return effect
+        return None
 
     async def clear_effects(self, target: EffectTarget):
         effects = self.effects.pop(target, [])
@@ -416,24 +424,28 @@ class DeflectorEffect(Effect):
 
 class ChannelShieldEffect(Effect):
     def __init__(self, target: 'DynamicVoiceChannel', duration: int, *, cost: int = None,
-                 shielder: 'HeliosMember' = None):
+                 shielder: 'HeliosMember' = None, hidden: bool = False):
         super().__init__(target, duration)
         self.cost = cost
         self.shielder = shielder
+        self.hidden = hidden
 
     def to_dict_extras(self):
         return {
             'cost': self.cost,
-            'shielder': self.shielder.id if self.shielder else None
+            'shielder': self.shielder.id if self.shielder else None,
+            'hidden': self.hidden
         }
 
     def load_extras(self, data: dict):
         self.cost = data.get('cost', self.cost)
         self.shielder = self.target.server.members.get(data.get('shielder')) if data.get('shielder') else None
+        self.hidden = data.get('hidden', self.hidden)
 
     async def apply(self):
         await super().apply()
-        self.target.prefix = '🫧'
+        if not self.hidden:
+            self.target.prefix = '🫧'
         return True
 
     async def remove(self):
@@ -441,5 +453,6 @@ class ChannelShieldEffect(Effect):
         self.target.prefix = ''
 
     async def enforce(self):
-        self.target.prefix = '🫧'
+        if not self.hidden:
+            self.target.prefix = '🫧'
 
