@@ -445,6 +445,10 @@ class DynamicVoiceChannel:
             self.unmake_controlled()
             await self.unmake_private()
             self.state = DynamicVoiceState.INACTIVE
+
+            for effect in self.bot.effects.get_effects(self):
+                await self.bot.effects.remove_effect(effect)
+
             await self.channel.edit(
                 overwrites=self.inactive_overwrites
             )

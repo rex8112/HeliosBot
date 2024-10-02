@@ -20,12 +20,13 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 import asyncio
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import discord
 
 from .colour import Colour
 from .database import PugModel
+from .effects import ChannelShieldEffect
 from .tools.modals import get_simple_modal
 
 if TYPE_CHECKING:
@@ -36,13 +37,14 @@ if TYPE_CHECKING:
 
 class PUGChannel:
     def __init__(self, voice: 'DynamicVoiceChannel', server_members: list['HeliosMember'], temporary_members: list['HeliosMember'],
-                 role: discord.Role, invite: discord.Invite):
+                 role: discord.Role, invite: discord.Invite, effect: ChannelShieldEffect):
         self.voice = voice
 
         self.server_members: list['HeliosMember'] = server_members
         self.temporary_members: list['HeliosMember'] = temporary_members
         self.role: discord.Role = role
         self.invite: discord.Invite = invite
+        self.effect: Optional[ChannelShieldEffect] = effect
 
         self.old_names = {}
 
@@ -55,7 +57,9 @@ class PUGChannel:
         with voice:
             role = await cls.create_role(voice, name)
             invite = await cls.create_invite(voice)
-            self = cls(voice, server_members, temporary_members, role, invite)
+            effect = ChannelShieldEffect(voice, 24*60*60, hidden=True)
+            await server.bot.effects.add_effect(effect)
+            self = cls(voice, server_members, temporary_members, role, invite, effect)
             await voice.make_controlled(view_cls(self))
             voice.custom_name = name
             await voice.channel.edit(overwrites=self.get_overwrites())
@@ -87,7 +91,8 @@ class PUGChannel:
             'server_members': [m.member.id for m in self.server_members],
             'temporary_members': [m.member.id for m in self.temporary_members],
             'role': self.role.id,
-            'invite': self.invite.id
+            'invite': self.invite.id,
+            'effect_id': self.effect.db_entry.id
         }
 
     def get_members(self):
@@ -164,6 +169,7 @@ class PUGChannel:
                 await member.member.edit(nick=self.old_names[member.member])
         await self.role.delete()
         await self.invite.delete()
+        await self.voice.bot.effects.remove_effect(self.effect)
         await self.db_entry.async_delete()
         if self.voice.channel.members:
             asyncio.create_task(self.voice.make_active(list(self.voice.manager.groups.values())[0]))
@@ -200,7 +206,8 @@ class PUGManager:
             if not invite:
                 invite = await PUGChannel.create_invite(voice)
                 save = True
-            pug = PUGChannel(voice, server_members, temporary_members, role, invite)
+            effect = self.server.bot.effects.get_effect(pug_data.effect_id)
+            pug = PUGChannel(voice, server_members, temporary_members, role, invite, effect)
             pug.db_entry = pug_data
             await voice.make_controlled(view_cls(pug))
             self.pugs.append(pug)
@@ -251,7 +258,7 @@ def view_cls(pug: PUGChannel):
                 self.remove_member.options = [discord.SelectOption(label='No Members', value='0')]
                 self.remove_member.disabled = True
 
-        def get_embed(self):
+        async def get_embeds(self):
             embed = discord.Embed(
                 title=self.voice.custom_name,
                 description=self.pug.invite.url,
@@ -259,7 +266,7 @@ def view_cls(pug: PUGChannel):
             )
             embed.add_field(name='Leader', value=self.pug.get_leader().member.mention if self.pug.get_leader() else 'None')
             embed.add_field(name='Members', value='\n'.join([m.member.mention for m in self.pug.get_members()]))
-            return embed
+            return [embed]
 
         @discord.ui.select(placeholder='Add Member', cls=discord.ui.UserSelect)
         async def add_member(self, interaction: discord.Interaction, select: discord.ui.UserSelect):
