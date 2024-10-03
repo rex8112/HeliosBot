@@ -183,7 +183,7 @@ class DynamicVoiceView(ui.View):
         else:
             temp_view = GetTemplateView(member)
             embed = temp_view.get_embed()
-            await view.last_interaction.edit_original_response(embed=embed, view=temp_view)
+            await interaction.response.send_message(embed=embed, view=temp_view, ephemeral=True)
             if await temp_view.wait():
                 return
             template = temp_view.selected
