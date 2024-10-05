@@ -317,6 +317,7 @@ def view_cls(pug: PUGChannel):
         async def end_pug(self, interaction: discord.Interaction, button: discord.ui.Button):
             if self.pug.get_leader().member != interaction.user:
                 await interaction.response.send_message('Only the leader can end the PUG group', ephemeral=True)
+                return
 
             if len(self.pug.temporary_members) > 0:
                 view = PUGKeepView(self.pug)
