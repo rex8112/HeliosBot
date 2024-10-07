@@ -352,7 +352,7 @@ class DynamicVoiceChannel:
         return template
 
     async def apply_template(self, template: VoiceTemplate):
-        await self.channel.edit(overwrites=template.overwrites)
+        await self.channel.edit(overwrites=template.overwrites, nsfw=template.nsfw)
         self.template = template
 
     def occupied(self):
@@ -399,6 +399,8 @@ class DynamicVoiceChannel:
         """Unmake the channel private."""
         if self.state == DynamicVoiceState.PRIVATE:
             await self.purge_channel()
+            if self.channel.nsfw:
+                await self.channel.edit(nsfw=False)
             self.template = None
             self.owner = None
 

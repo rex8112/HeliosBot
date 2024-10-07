@@ -409,10 +409,20 @@ class PrivateVoiceView(DynamicVoiceView):
         self.remove_item(self.dynamic_private)
         self.remove_item(self.pug)
 
+        self.update_buttons()
+
+    def update_buttons(self):
         if self.voice.template.private:
             self.whitelist.disabled = True
         else:
             self.blacklist.disabled = True
+
+        if self.voice.template.nsfw:
+            self.nsfw.label = 'NSFW'
+            self.nsfw.style = ButtonStyle.red
+        else:
+            self.nsfw.label = 'SFW'
+            self.nsfw.style = ButtonStyle.green
 
     async def get_embeds(self) -> list[discord.Embed]:
         owner = self.voice.h_owner
@@ -448,7 +458,7 @@ class PrivateVoiceView(DynamicVoiceView):
         )
         return [embed]
 
-    @ui.button(label='Revert', style=ButtonStyle.red)
+    @ui.button(label='Revert', style=ButtonStyle.red, row=0)
     async def dynamic_public(self, interaction: Interaction, _: ui.Button):
         member = self.voice.server.members.get(interaction.user.id)
         if member.member not in self.voice.channel.members:
@@ -543,6 +553,22 @@ class PrivateVoiceView(DynamicVoiceView):
             return
         view = TemplateView(self.voice)
         await interaction.response.send_message(content='Templates', view=view, ephemeral=True)
+
+    @ui.button(label='NSFW', style=discord.ButtonStyle.red, row=2)
+    async def nsfw(self, interaction: discord.Interaction, button: ui.Button):
+        voice: 'DynamicVoiceChannel' = self.voice
+        if voice.owner != interaction.user:
+            await interaction.response.send_message(
+                'You are not allowed to edit this channel.',
+                ephemeral=True
+            )
+            return
+        template = voice.template
+        template.nsfw = not template.nsfw
+        await interaction.response.defer()
+        await voice.apply_template(template)
+        await voice.update_control_message(force=True)
+        await template.save()
 
     @ui.select(cls=ui.UserSelect, placeholder='Add to Allowed')
     async def allow_user(self, interaction: discord.Interaction, select: ui.UserSelect):
@@ -726,7 +752,7 @@ class GetTemplateView(discord.ui.View):
             return embed
         embed = discord.Embed(
             title='Currently Selected Template',
-            description=f'Template: {template.name}\nPrivate: {template.private}',
+            description=f'Template: {template.name}\nPrivate: {template.private}\nNSFW: {template.nsfw}',
             colour=discord.Colour.orange()
         )
         allowed_string = '\n'.join(x.mention
