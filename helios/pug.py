@@ -272,6 +272,7 @@ def view_cls(pug: PUGChannel):
         async def add_member(self, interaction: discord.Interaction, select: discord.ui.UserSelect):
             if self.pug.get_leader().member != interaction.user:
                 await interaction.response.send_message('Only the leader can add members to the group', ephemeral=True)
+                return
 
             member = self.voice.server.members.get(select.values[0].id)
             await self.pug.add_member(member)
@@ -282,6 +283,7 @@ def view_cls(pug: PUGChannel):
         async def remove_member(self, interaction: discord.Interaction, select: discord.ui.Select):
             if self.pug.get_leader().member != interaction.user:
                 await interaction.response.send_message('Only the leader can remove members from the group', ephemeral=True)
+                return
 
             member = self.voice.server.members.get(int(select.values[0]))
             if member in self.pug.server_members:
