@@ -37,18 +37,26 @@ if TYPE_CHECKING:
 
 class PUGChannel:
     def __init__(self, voice: 'DynamicVoiceChannel', server_members: list['HeliosMember'], temporary_members: list['HeliosMember'],
-                 role: discord.Role, invite: discord.Invite, effect: ChannelShieldEffect):
+                 role: discord.Role, invite: discord.Invite, effect: int):
         self.voice = voice
 
         self.server_members: list['HeliosMember'] = server_members
         self.temporary_members: list['HeliosMember'] = temporary_members
         self.role: discord.Role = role
         self.invite: discord.Invite = invite
-        self.effect: Optional[ChannelShieldEffect] = effect
+        self._effect: Optional[int] = effect
 
         self.old_names = {}
 
         self.db_entry = None
+
+    @property
+    def effect(self):
+        return self.voice.bot.effects.get_effect(self._effect)
+
+    @effect.setter
+    def effect(self, value: ChannelShieldEffect):
+        self._effect = value.db_entry.id
 
     @classmethod
     async def create(cls, server: 'Server', name: str, server_members: list['HeliosMember'],
@@ -59,7 +67,7 @@ class PUGChannel:
             invite = await cls.create_invite(voice)
             effect = ChannelShieldEffect(voice, 24*60*60, hidden=True)
             await server.bot.effects.add_effect(effect)
-            self = cls(voice, server_members, temporary_members, role, invite, effect)
+            self = cls(voice, server_members, temporary_members, role, invite, effect.db_entry.id)
             await voice.make_controlled(view_cls(self))
             voice.custom_name = name
             await voice.channel.edit(overwrites=self.get_overwrites())
@@ -92,7 +100,7 @@ class PUGChannel:
             'temporary_members': [m.member.id for m in self.temporary_members],
             'role': self.role.id,
             'invite': self.invite.id,
-            'effect_id': self.effect.db_entry.id
+            'effect_id': self._effect
         }
 
     def get_members(self):
@@ -169,7 +177,8 @@ class PUGChannel:
                 await member.member.edit(nick=self.old_names[member.member])
         await self.role.delete()
         await self.invite.delete()
-        await self.voice.bot.effects.remove_effect(self.effect)
+        if self.effect:
+            await self.voice.bot.effects.remove_effect(self.effect)
         await self.db_entry.async_delete()
         if self.voice.channel.members:
             asyncio.create_task(self.voice.make_active(list(self.voice.manager.groups.values())[0]))
@@ -206,7 +215,7 @@ class PUGManager:
             if not invite:
                 invite = await PUGChannel.create_invite(voice)
                 save = True
-            effect = self.server.bot.effects.get_effect(pug_data.effect_id)
+            effect = pug_data.effect_id
             pug = PUGChannel(voice, server_members, temporary_members, role, invite, effect)
             pug.db_entry = pug_data
             await voice.make_controlled(view_cls(pug))
