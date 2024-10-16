@@ -62,6 +62,7 @@ class VoiceSettings(Settings):
 
 class DynamicVoiceChannel:
     NAME_COOLDOWN = timedelta(minutes=5)
+    MESSAGE_UPDATE_COOLDOWN = timedelta(seconds=1)
 
     def __init__(self, manager: 'VoiceManager', channel: discord.VoiceChannel):
         """A dynamic voice channel."""
@@ -78,9 +79,11 @@ class DynamicVoiceChannel:
         self.db_entry = None
         self._unsaved = False
         self._last_name_change = discord.utils.utcnow() - self.NAME_COOLDOWN
+        self._last_message_update = discord.utils.utcnow() - self.MESSAGE_UPDATE_COOLDOWN
         self._private_on = datetime.now().astimezone()
         self._custom_view_type = None
         self._fetched_control_message = None
+        self._should_update = False
 
         self._template = None
 
@@ -275,11 +278,26 @@ class DynamicVoiceChannel:
             view = DynamicVoiceView(self)
         message = await self.channel.send(embeds=await view.get_embeds(), view=view)
         self._control_message = message
+        self._last_message_update = datetime.now().astimezone()
         await self.save()
+
+    @staticmethod
+    async def is_visible(message: discord.Message):
+        last_few = [x async for x in message.channel.history(limit=5)]
+        for i, m in enumerate(last_few):
+            if m.id == message.id:
+                return True
+            elif m.embeds:
+                return False # If there are any embeds in the last few messages, the message is probably not visible
+        return False
 
     async def update_control_message(self, force=False):
         message = await self.get_control_message()
-        if force or message is None or self.channel.last_message != message:
+        if force or message is None or self._should_update or not await self.is_visible(message):
+            if self.message_on_cooldown():
+                self._should_update = True
+                return
+            self._should_update = False
             await self.send_control_message()
 
     async def get_majority_game(self):
@@ -305,6 +323,9 @@ class DynamicVoiceChannel:
 
     def name_on_cooldown(self):
         return datetime.now().astimezone() - self._last_name_change < self.NAME_COOLDOWN
+
+    def message_on_cooldown(self):
+        return datetime.now().astimezone() - self._last_message_update < self.MESSAGE_UPDATE_COOLDOWN
 
     async def update_name(self):
         if self.state == DynamicVoiceState.INACTIVE:
@@ -609,8 +630,11 @@ class VoiceManager:
 
     async def sort_channels(self):
         all_channels = []
+        grouped = []
         for group in self.groups.values():
-            all_channels += sorted(self.get_active(group), key=lambda x: x.number)
+            channels = sorted(self.get_active(group), key=lambda x: x.number)
+            grouped.append(channels)
+            all_channels += channels
 
         for channel in all_channels:  # Make sure all channels are in the correct category
             category = self.server.settings.dynamic_voice_category.value
@@ -622,6 +646,12 @@ class VoiceManager:
         if need_sorting(all_channels):
             for i, channel in enumerate(all_channels):
                 await channel.channel.edit(position=i)
+
+        for channels in grouped:
+            for i, channel in enumerate(channels):
+                if channel.number != i + 1 and not channel.channel.members:
+                    channel.number = i + 1
+                    await channel.save()
 
     async def update_names(self):
         for channel in self.channels.values():
@@ -686,10 +716,10 @@ class VoiceManager:
         try:
             logger.debug(f'{self.server.name}: Voice Manager: Updating Control Messages')
             await self.update_control_messages()
-            logger.debug(f'{self.server.name}: Voice Manager: Updating Names')
-            await self.update_names()
             logger.debug(f'{self.server.name}: Voice Manager: Sorting Channels')
             await self.sort_channels()
+            logger.debug(f'{self.server.name}: Voice Manager: Updating Names')
+            await self.update_names()
             logger.debug(f'{self.server.name}: Voice Manager: Managing PUGs')
             await self.pug_manager.manage_pugs()
             logger.debug(f'{self.server.name}: Voice Manager: Done')
