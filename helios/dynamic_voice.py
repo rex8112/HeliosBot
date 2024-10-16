@@ -288,7 +288,7 @@ class DynamicVoiceChannel:
             if m.id == message.id:
                 return True
             elif m.embeds:
-                return False # If there are any embeds in the last few messages, the message is not probably not visible
+                return False # If there are any embeds in the last few messages, the message is probably not visible
         return False
 
     async def update_control_message(self, force=False):
