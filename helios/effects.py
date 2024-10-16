@@ -47,6 +47,8 @@ class EffectsManager:
         self.bot = bot
         self.effects: dict[EffectTarget, list['Effect']] = {}
 
+        self._id_effects: dict[int, 'Effect'] = {}
+
         self._managing = False
 
     async def manage_effects(self):
@@ -79,12 +81,14 @@ class EffectsManager:
         if target not in self.effects:
             self.effects[target] = []
         self.effects[target].append(effect)
+        if effect.db_entry is not None:
+            self._id_effects[effect.db_entry.id] = effect
 
     async def add_effect(self, effect: 'Effect'):
         try:
             if await effect.apply():
-                self._add_effect(effect)
                 effect.db_entry = await EffectModel.new(**effect.to_dict())
+                self._add_effect(effect)
         except Exception as e:
             await self.remove_effect(effect)
             await self.bot.report_error(e, f'Error applying the effect {type(effect).__name__} on'
@@ -96,6 +100,7 @@ class EffectsManager:
             await effect.remove()
             self.effects[target].remove(effect)
             if effect.db_entry is not None:
+                self._id_effects.pop(effect.db_entry.id, None)
                 await effect.db_entry.async_delete()
         except (ValueError, KeyError):
             pass
@@ -104,11 +109,7 @@ class EffectsManager:
         return self.effects.get(target, [])
 
     def get_effect(self, id: int):
-        for effects in self.effects.values():
-            for effect in effects:
-                if effect.db_entry.id == id:
-                    return effect
-        return None
+        return self._id_effects.get(id)
 
     async def clear_effects(self, target: EffectTarget):
         effects = self.effects.pop(target, [])
