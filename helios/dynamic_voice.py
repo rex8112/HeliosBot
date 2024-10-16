@@ -630,8 +630,11 @@ class VoiceManager:
 
     async def sort_channels(self):
         all_channels = []
+        grouped = []
         for group in self.groups.values():
-            all_channels += sorted(self.get_active(group), key=lambda x: x.number)
+            channels = sorted(self.get_active(group), key=lambda x: x.number)
+            grouped.append(channels)
+            all_channels += channels
 
         for channel in all_channels:  # Make sure all channels are in the correct category
             category = self.server.settings.dynamic_voice_category.value
@@ -643,6 +646,12 @@ class VoiceManager:
         if need_sorting(all_channels):
             for i, channel in enumerate(all_channels):
                 await channel.channel.edit(position=i)
+
+        for channels in grouped:
+            for i, channel in enumerate(channels):
+                if channel.number != i + 1 and not channel.channel.members:
+                    channel.number = i + 1
+                    await channel.save()
 
     async def update_names(self):
         for channel in self.channels.values():
@@ -707,10 +716,10 @@ class VoiceManager:
         try:
             logger.debug(f'{self.server.name}: Voice Manager: Updating Control Messages')
             await self.update_control_messages()
-            logger.debug(f'{self.server.name}: Voice Manager: Updating Names')
-            await self.update_names()
             logger.debug(f'{self.server.name}: Voice Manager: Sorting Channels')
             await self.sort_channels()
+            logger.debug(f'{self.server.name}: Voice Manager: Updating Names')
+            await self.update_names()
             logger.debug(f'{self.server.name}: Voice Manager: Managing PUGs')
             await self.pug_manager.manage_pugs()
             logger.debug(f'{self.server.name}: Voice Manager: Done')
