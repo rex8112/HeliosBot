@@ -90,7 +90,7 @@ class TopicCog(commands.GroupCog, name='topic'):
                     if channel.last_solo_message is None:
                         m = await message.reply('Hey, I see you are the only one to post in this topic in the last week. '
                                                 'I will not be cancelling this archive. '
-                                                'I will restore it post-archive if anyone messages again.')
+                                                'I will restore it post-archive if anyone messages afterwards.')
                         channel.last_solo_message = m.created_at
                     return
                 channel.authors.append(message.author.id)
