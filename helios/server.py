@@ -56,6 +56,9 @@ class ServerSettings(Settings):
     topic_category = SettingItem('topic_category', None, discord.CategoryChannel,
                                  group='Topic Settings', title='Topic Category',
                                  description='The category to create topics in.')
+    topic_soft_cap = SettingItem('topic_soft_cap', 10, int,
+                                 group='Topic Settings', title='Topic Soft Cap',
+                                 description='The number of topics a server can have before it tries to archive.')
     voice_controller = SettingItem('voice_controller', None, discord.Role,
                                    group='Misc', title='In Game Voice Controller Role',
                                    description='The role that signifies a user is in a voice controlled state.')

@@ -42,10 +42,13 @@ class TopicChannel:
         self.channel = channel
 
         self.points: int = 0
+        self.authors: list[int] = []
         self.state: TopicChannelStates = TopicChannelStates.Active
         self.creator: Optional['HeliosMember'] = None
         self.archive_message: Optional[discord.Message] = None
         self.archive_date: Optional[datetime] = None
+
+        self.last_solo_message: Optional[datetime] = None
 
         self.db_entry = None
 
@@ -97,6 +100,17 @@ class TopicChannel:
     @property
     def pinned(self):
         return self.state == TopicChannelStates.Pinned
+
+    @property
+    def solo_author_id(self) -> Optional[int]:
+        tmp = self.authors.copy()
+        try:
+            tmp.remove(self.bot.user.id)
+        except ValueError:
+            ...
+        if len(tmp) == 1:
+            return tmp[0]
+        return None
 
     def serialize(self):
         return {
@@ -157,12 +171,13 @@ class TopicChannel:
         async for msg in self.channel.history(after=week_ago):
             author = msg.author
             if not author.bot:
-                authors[author.id] = 0.05 + authors.get(author.id, 0.95)
+                authors[author.id] = 0.05 + authors.get(author.id, 1.95)
         return authors
 
     async def get_points(self) -> int:
         authors = await self.get_last_week_authors_value()
         self.points = sum(authors.values())
+        self.authors = list(authors.keys())
         return self.points
 
     async def mark(self, post=True) -> None:
@@ -197,13 +212,14 @@ class TopicChannel:
         self.archive_message = new_message
 
     async def restore(self, saver: 'HeliosMember') -> None:
+        self.last_solo_message = None
         embed = self._get_saved_embed()
         self.state = TopicChannelStates.Active
         self.archive_date = None
         await self.channel.edit(name=self.channel.name.replace('🛑', ''),
                                 category=self.topic_category,
                                 sync_permissions=True)
-        embed.set_author(name=saver.member.display_name, icon_url=saver.member.avatar.url)
+        embed.set_author(name=saver.member.display_name, icon_url=saver.member.display_avatar.url)
         if self.archive_message is not None:
             await self.archive_message.edit(embed=embed, view=None, delete_after=15)
             self.archive_message = None

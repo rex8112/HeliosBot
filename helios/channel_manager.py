@@ -131,7 +131,7 @@ class ChannelManager:
         topic_channels.sort(key=lambda x: x.points if not x.pending else 0, reverse=True)
 
         for i, c in enumerate(topic_channels):
-            if i > 9 or c.pending:
+            if i > self.server.settings['topic_soft_cap'] - 1 or c.pending:
                 e_state.append(c.evaluate_state())
                 e_save.append(c.save())
         if e_state:
