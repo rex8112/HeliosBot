@@ -283,12 +283,15 @@ class DynamicVoiceChannel:
 
     @staticmethod
     async def is_visible(message: discord.Message):
-        last_few = [x async for x in message.channel.history(limit=5)]
-        for i, m in enumerate(last_few):
-            if m.id == message.id:
-                return True
-            elif m.embeds:
-                return False # If there are any embeds in the last few messages, the message is probably not visible
+        try:
+            last_few = [x async for x in message.channel.history(limit=5)]
+            for i, m in enumerate(last_few):
+                if m.id == message.id:
+                    return True
+                elif m.embeds:
+                    return False # If there are any embeds in the last few messages, the message is probably not visible
+        except TimeoutError:
+            ...
         return False
 
     async def update_control_message(self, force=False):
