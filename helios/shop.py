@@ -105,6 +105,14 @@ class Shop:
             )
             await interaction.followup.send(embed=embed)
             return 0
+        elif member.has_effect('DeflectorEffect'):
+            embed = discord.Embed(
+                title='Deflector Active',
+                description='You already have a deflector active.',
+                colour=discord.Colour.red()
+            )
+            await interaction.followup.send(embed=embed)
+            return 0
         server = self.shop.bot.servers.get(interaction.guild_id)  # type: Server
         cost = server.settings.deflector_points_per_hour.value
         view = YesNoView(member.member, timeout=30)
