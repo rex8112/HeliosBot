@@ -21,7 +21,7 @@
 #  SOFTWARE.
 import asyncio
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 from .processor import *
 
@@ -88,8 +88,8 @@ class Song:
         return cls(info['title'], info['uploader'], url, info['duration'], thumbnail,
                    requester=requester, playlist=playlist)
 
-    async def audio_source(self):
-        return await get_audio_source(self.url)
+    async def audio_source(self, *, start: Union[int, float] = 0):
+        return await get_audio_source(self.url, start=start)
 
     async def wait(self):
         await self.finished.wait()
