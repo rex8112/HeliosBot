@@ -306,6 +306,10 @@ class HeliosMember(HasFlags):
             return points
         return 0
 
+    async def is_daily_claimed(self, *, offset: int = 0) -> bool:
+        days = get_day() + offset
+        return await DailyModel.is_claimed(self._db_entry, days)
+
     async def check_voice(self, amt: int, partial: int = 4) -> bool:
         """
         Check if user is in a non-afk voice channel and apply amt per minute since last check.
@@ -632,6 +636,10 @@ class HeliosMember(HasFlags):
 
     async def get_24hr_change(self):
         res = await TransactionModel.get_24hr_change(self)
+        return res if res else 0
+
+    async def get_24hr_transfer(self):
+        res = await TransactionModel.get_24hr_transfers_out(self)
         return res if res else 0
 
 

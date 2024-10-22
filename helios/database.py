@@ -173,6 +173,17 @@ class TransactionModel(BaseModel):
         res = await objects.prefetch(q)
         return res[0].day_change
 
+    @staticmethod
+    async def get_24hr_transfers_out(member: 'HeliosMember'):
+        ago = discord.utils.utcnow() - datetime.timedelta(days=1)
+        q = (TransactionModel.select(fn.SUM(TransactionModel.amount).alias('day_transfer'))
+             .where(TransactionModel.member == member.db_entry,
+                    TransactionModel.created_on > ago,
+                    TransactionModel.amount < 0,
+                    TransactionModel.description == 'Transferred Points'))
+        res = await objects.prefetch(q)
+        return int(res[0].day_transfer) if res[0].day_transfer else 0
+
 
 class EventModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
@@ -441,6 +452,14 @@ class DailyModel(BaseModel):
         except DoesNotExist:
             await objects.create(cls, member=member, claimed=day)
             return True
+
+    @classmethod
+    async def is_claimed(cls, member: MemberModel, day: int):
+        try:
+            daily = await objects.get(cls, member=member)
+            return daily.claimed == day
+        except DoesNotExist:
+            return False
 
 
 class GameModel(BaseModel):

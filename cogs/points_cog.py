@@ -127,6 +127,12 @@ class PointsCog(commands.Cog):
             return
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
+
+        if await member.is_daily_claimed() or await member.is_daily_claimed(offset=-1):
+            await interaction.response.send_message(content='You can not transfer points if you claimed daily in the '
+                                                            'last two days.', ephemeral=True)
+            return
+
         target = server.members.get(target.id)
         tax_rate = server.settings.transfer_tax.value
         tax = max(int(points * tax_rate), 1)
@@ -199,6 +205,13 @@ class PointsCog(commands.Cog):
     async def daily(self, interaction: discord.Interaction):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
+        transferred = abs(await member.get_24hr_transfer())
+        daily_points = member.daily_points()
+        if transferred >= daily_points:
+            await interaction.response.send_message(f'You can not claim daily {server.points_name} if you have '
+                                                    f'transferred more than {daily_points:,} in the last 24 hours.',
+                                                    ephemeral=True)
+            return
         points = await member.claim_daily()
         if points == 0:
             if member.points >= member.activity_points:
