@@ -260,7 +260,7 @@ def view_cls(pug: PUGChannel):
             self.pug = pug
 
             options = [discord.SelectOption(label=m.member.display_name, value=str(m.member.id))
-                       for m in self.pug.get_members() if m != self.pug.get_leader()]
+                       for m in set(self.pug.get_members()) if m != self.pug.get_leader()]
             if options:
                 self.remove_member.options = options
             else:
