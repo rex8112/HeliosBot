@@ -148,10 +148,13 @@ class PUGChannel:
         if member not in self.temporary_members:
             return
         self.temporary_members.remove(member)
-        if kick:
-            await member.member.kick(reason='PUG Ended')
-        else:
-            await member.member.remove_roles(self.role)
+        try:
+            if kick:
+                await member.member.kick(reason='PUG Ended')
+            else:
+                await member.member.remove_roles(self.role)
+        except (discord.Forbidden, discord.HTTPException, AttributeError):
+            ...
         await self.save()
 
     async def ensure_members_have_role(self):
@@ -284,6 +287,9 @@ def view_cls(pug: PUGChannel):
                 return
 
             member = self.voice.server.members.get(select.values[0].id)
+            if member in self.pug.get_members():
+                await interaction.response.send_message(f'{member.member.mention} already in PUG group', ephemeral=True)
+                return
             await self.pug.add_member(member)
             await interaction.response.send_message(f'{member.member.mention} added to PUG group', ephemeral=True)
             await self.voice.update_control_message(force=True)
