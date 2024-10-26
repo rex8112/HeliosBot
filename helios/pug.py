@@ -210,6 +210,12 @@ class PUGManager:
                 continue
             server_members = [self.server.members.get(m) for m in pug_data.server_members]
             temporary_members = [self.server.members.get(m) for m in pug_data.temporary_members]
+            while None in server_members:
+                server_members.remove(None)
+                save = True
+            while None in temporary_members:
+                temporary_members.remove(None)
+                save = True
             role = self.server.guild.get_role(pug_data.role)
             if not role:
                 role = await PUGChannel.create_role(voice, voice.custom_name)
