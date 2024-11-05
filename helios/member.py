@@ -279,29 +279,19 @@ class HeliosMember(HasFlags):
     def daily_points(self) -> int:
         if self.points > self.activity_points or self.points >= 100_000:
             return 0
-        diff = min(self.activity_points, 100_000) - self.points
-        perc = self.point_to_activity_percentage()
-        if perc < 0.2:
-            points = round_down_hundred(int(self.activity_points * 0.05))
-        elif perc < 0.4:
-            points = round_down_hundred(int(self.activity_points * 0.04))
-        elif perc < 0.6:
-            points = round_down_hundred(int(self.activity_points * 0.03))
-        elif perc < 0.8:
-            points = round_down_hundred(int(self.activity_points * 0.02))
-        else:
-            points = round_down_hundred(int(self.activity_points * 0.01))
-        points = max(points, 100)
-        return min(diff, points)
+        points = 2_000
+        return points
 
     async def claim_daily(self) -> int:
         """
         :return: Whether the daily could be claimed.
         """
         days = get_day()
+        points = self.daily_points()
+        if points == 0:
+            return 0
         give = await DailyModel.claim(self._db_entry, days)
         if give:
-            points = self.daily_points()
             await self.add_points(points, 'Helios', 'Daily Pity Points')
             return points
         return 0
