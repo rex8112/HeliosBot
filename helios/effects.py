@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Union, Optional
 
 import discord
 from discord.utils import utcnow
+# noinspection PyUnresolvedReferences
 from playhouse.shortcuts import model_to_dict
 
 from .database import EffectModel
@@ -45,6 +46,8 @@ class EffectsManager:
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
         self.effects: dict[EffectTarget, list['Effect']] = {}
+
+        self._id_effects: dict[int, 'Effect'] = {}
 
         self._managing = False
 
@@ -78,12 +81,14 @@ class EffectsManager:
         if target not in self.effects:
             self.effects[target] = []
         self.effects[target].append(effect)
+        if effect.db_entry is not None:
+            self._id_effects[effect.db_entry.id] = effect
 
     async def add_effect(self, effect: 'Effect'):
         try:
             if await effect.apply():
-                self._add_effect(effect)
                 effect.db_entry = await EffectModel.new(**effect.to_dict())
+                self._add_effect(effect)
         except Exception as e:
             await self.remove_effect(effect)
             await self.bot.report_error(e, f'Error applying the effect {type(effect).__name__} on'
@@ -95,12 +100,16 @@ class EffectsManager:
             await effect.remove()
             self.effects[target].remove(effect)
             if effect.db_entry is not None:
+                self._id_effects.pop(effect.db_entry.id, None)
                 await effect.db_entry.async_delete()
         except (ValueError, KeyError):
             pass
 
     def get_effects(self, target: EffectTarget):
         return self.effects.get(target, [])
+
+    def get_effect(self, id: int):
+        return self._id_effects.get(id)
 
     async def clear_effects(self, target: EffectTarget):
         effects = self.effects.pop(target, [])
@@ -416,24 +425,28 @@ class DeflectorEffect(Effect):
 
 class ChannelShieldEffect(Effect):
     def __init__(self, target: 'DynamicVoiceChannel', duration: int, *, cost: int = None,
-                 shielder: 'HeliosMember' = None):
+                 shielder: 'HeliosMember' = None, hidden: bool = False):
         super().__init__(target, duration)
         self.cost = cost
         self.shielder = shielder
+        self.hidden = hidden
 
     def to_dict_extras(self):
         return {
             'cost': self.cost,
-            'shielder': self.shielder.id if self.shielder else None
+            'shielder': self.shielder.id if self.shielder else None,
+            'hidden': self.hidden
         }
 
     def load_extras(self, data: dict):
         self.cost = data.get('cost', self.cost)
         self.shielder = self.target.server.members.get(data.get('shielder')) if data.get('shielder') else None
+        self.hidden = data.get('hidden', self.hidden)
 
     async def apply(self):
         await super().apply()
-        self.target.prefix = '🫧'
+        if not self.hidden:
+            self.target.prefix = '🫧'
         return True
 
     async def remove(self):
@@ -441,5 +454,6 @@ class ChannelShieldEffect(Effect):
         self.target.prefix = ''
 
     async def enforce(self):
-        self.target.prefix = '🫧'
+        if not self.hidden:
+            self.target.prefix = '🫧'
 

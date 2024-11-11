@@ -86,6 +86,14 @@ class TopicCog(commands.GroupCog, name='topic'):
         channel = server.channels.get(message.channel.id)
         if isinstance(channel, TopicChannel):
             if not channel.active:
+                if message.author.id == channel.solo_author_id and not channel.channel.permissions_for(message.author).manage_channels:
+                    if channel.last_solo_message is None:
+                        m = await message.reply('Hey, I see you are the only one to post in this topic in the last week. '
+                                                'I will not be cancelling this archive. '
+                                                'I will restore it post-archive if anyone messages afterwards.')
+                        channel.last_solo_message = m.created_at
+                    return
+                channel.authors.append(message.author.id)
                 await channel.restore(server.members.get(message.author.id))
                 await channel.save()
 

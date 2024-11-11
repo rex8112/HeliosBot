@@ -19,7 +19,7 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Optional
 
 import discord
@@ -28,6 +28,8 @@ from discord import ui, ButtonStyle, Interaction, Color, Embed
 from .generic_views import VoteView, YesNoView
 from ..colour import Colour
 from ..modals import VoiceNameChange
+from ..tools.modals import get_simple_modal
+from ..tools.settings import PrimalModal
 from .shop_view import ShopView
 from .voice_view import VoiceControllerView
 
@@ -44,8 +46,11 @@ class DynamicVoiceView(ui.View):
         super().__init__(timeout=None)
         self.voice = voice
         self.waiting = False
+        if self.voice.majority_game is None:
+            self.remove_item(self.change_game_name)
 
-    def get_embed(self):
+    async def get_embeds(self):
+        embeds = []
         embed = Embed(
             title=f'{self.voice.channel.name}',
             color=Color.blurple()
@@ -54,7 +59,22 @@ class DynamicVoiceView(ui.View):
         embed.add_field(name='Game Controller', value='Open a Game Controller to control mutes for in game voice chat.')
         embed.add_field(name='Split', value='Split the channel into two separate channels.')
         embed.add_field(name='Private', value='Make the channel private.')
-        return embed
+        embed.add_field(name='PUG', value='Create a PUG Group to invite temporary members.')
+        embeds.append(embed)
+
+        game = self.voice.majority_game
+        if game:
+            game = await self.voice.server.games.get_game(game)
+            play_time = timedelta(minutes=game.play_time)
+            play_time_str = f'`{play_time.days:02}:{play_time.seconds // 3600:02}:{(play_time.seconds // 60) % 60:02}`'
+            embed2 = Embed(
+                title=f'{game.name}',
+                color=Color.light_gray(),
+                description=f'Total Server Playtime: {play_time_str}'
+            )
+            embeds.insert(0, embed2)
+
+        return embeds
 
     @ui.button(label='Shop', style=ButtonStyle.blurple)
     async def dynamic_shop(self, interaction: Interaction, button: ui.Button):
@@ -107,28 +127,28 @@ class DynamicVoiceView(ui.View):
     async def dynamic_private(self, interaction: Interaction, button: ui.Button):
         member = self.voice.server.members.get(interaction.user.id)
 
-        embed = Embed(
-            title='Would you like to use your last used template?',
-            description='If you do not have a template, the channel will be set to private by default.',
-            color=Color.blurple()
-        )
-        view = YesNoView(member.member, timeout=15)
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-        await view.wait()
-        template = None
-        if view.value is False:
-            temp_view = GetTemplateView(member)
-            embed = temp_view.get_embed()
-            await view.last_interaction.edit_original_response(embed=embed, view=temp_view)
-            if await temp_view.wait():
-                return
-            template = temp_view.selected
-            member.templates.remove(template)
-            member.templates.insert(0, template)
-            await member.save(True)
-
         # If member is in the channel, try to convert current channel to private.
         if member.member in self.voice.channel.members:
+            embed = Embed(
+                title='Would you like to create a temporary template?',
+                description='It will be a private channel with everyone in the channel on the allowlist.',
+                color=Color.blurple()
+            )
+            view = YesNoView(member.member, timeout=15)
+            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+            await view.wait()
+            template = None
+            if view.value is False:
+                temp_view = GetTemplateView(member)
+                embed = temp_view.get_embed()
+                await view.last_interaction.edit_original_response(embed=embed, view=temp_view)
+                if await temp_view.wait():
+                    return
+                template = temp_view.selected
+                member.templates.remove(template)
+                member.templates.insert(0, template)
+                await member.save(True)
+
             # If member has the ability to move members, make the channel private without a vote.
             if self.voice.channel.permissions_for(member.member).move_members or len(self.voice.channel.members) == 1:
                 await self.voice.make_private(member, template)
@@ -161,10 +181,56 @@ class DynamicVoiceView(ui.View):
                 finally:
                     self.waiting = False
         else:
+            temp_view = GetTemplateView(member)
+            embed = temp_view.get_embed()
+            await interaction.response.send_message(embed=embed, view=temp_view, ephemeral=True)
+            if await temp_view.wait():
+                return
+            template = temp_view.selected
+            member.templates.remove(template)
+            member.templates.insert(0, template)
+            await member.save(True)
+
             channel = await self.voice.manager.get_inactive_channel()
             await channel.make_private(member, template)
-            await interaction.edit_original_response(content=f'{channel.channel.mention} created and set to private.',
-                                                     embed=None, view=None)
+            await interaction.edit_original_response(content=f'{channel.channel.mention} created and set to private.', embed=None, view=None)
+
+    @ui.button(label='PUG', style=ButtonStyle.red)
+    async def pug(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user not in self.voice.channel.members:
+            await interaction.response.send_message(content='You are not in the channel.', ephemeral=True)
+            return
+        member = self.voice.server.members.get(interaction.user.id)
+        modal = get_simple_modal('PUG Name', 'Name')(timeout=60)
+        await interaction.response.send_modal(modal)
+        if await modal.wait():
+            return
+        await self.voice.manager.pug_manager.create_pug(modal.value, member, self.voice)
+
+    @ui.button(label='Change Game Name', style=ButtonStyle.gray)
+    async def change_game_name(self, interaction: Interaction, button: ui.Button):
+        member = self.voice.server.members.get(interaction.user.id)
+        if member.member not in self.voice.channel.members:
+            await interaction.response.send_message(content='You are not in the channel.', ephemeral=True)
+            return
+        if not self.voice.channel.permissions_for(member.member).manage_channels:
+            await interaction.response.send_message(content='You do not have permission to change the name.', ephemeral=True)
+            return
+        game = self.voice.majority_game
+        if not game:
+            await interaction.response.send_message(content='No game detected.', ephemeral=True)
+            return
+
+        modal = PrimalModal('Change Game Name', str, max_length=52)
+        await interaction.response.send_modal(modal)
+        if await modal.wait():
+            return
+
+        name = modal.value
+        game = await self.voice.server.games.get_game(game)
+        game.display_name = name
+        await game.save()
+        await self.voice.update_control_message(force=True)
 
 
 class SplitPrepView(ui.View):
@@ -176,7 +242,9 @@ class SplitPrepView(ui.View):
         mems = []
         for member in self.voice.channel.members:
             h_member = self.voice.server.members.get(member.id)
-            if h_member and h_member.get_game_activity() == game:
+            activity = h_member.get_game_activity()
+            activity = activity.name if activity else None
+            if h_member and activity == game:
                 mems.append(member)
         return mems
 
@@ -194,6 +262,7 @@ class SplitPrepView(ui.View):
         if game is None:
             await interaction.response.send_message(content='You are not in a game.', ephemeral=True)
             return
+        game = game.name
         members = self.get_members_in_game(game)
         view = SplitView(self.voice, members)
         await interaction.response.send_message(content='Splitting Channel', view=view, ephemeral=True)
@@ -338,12 +407,24 @@ class PrivateVoiceView(DynamicVoiceView):
     def __init__(self, voice: 'DynamicVoiceChannel'):
         super().__init__(voice)
         self.remove_item(self.dynamic_private)
+        self.remove_item(self.pug)
+
+        self.update_buttons()
+
+    def update_buttons(self):
         if self.voice.template.private:
             self.whitelist.disabled = True
         else:
             self.blacklist.disabled = True
 
-    def get_embed(self) -> discord.Embed:
+        if self.voice.template.nsfw:
+            self.nsfw.label = 'NSFW'
+            self.nsfw.style = ButtonStyle.red
+        else:
+            self.nsfw.label = 'SFW'
+            self.nsfw.style = ButtonStyle.green
+
+    async def get_embeds(self) -> list[discord.Embed]:
         owner = self.voice.h_owner
         template = self.voice.template
         owner_string = ''
@@ -375,9 +456,9 @@ class PrivateVoiceView(DynamicVoiceView):
             name='Denied',
             value=denied_string if denied_string else 'None'
         )
-        return embed
+        return [embed]
 
-    @ui.button(label='Revert', style=ButtonStyle.red)
+    @ui.button(label='Revert', style=ButtonStyle.red, row=0)
     async def dynamic_public(self, interaction: Interaction, _: ui.Button):
         member = self.voice.server.members.get(interaction.user.id)
         if member.member not in self.voice.channel.members:
@@ -472,6 +553,22 @@ class PrivateVoiceView(DynamicVoiceView):
             return
         view = TemplateView(self.voice)
         await interaction.response.send_message(content='Templates', view=view, ephemeral=True)
+
+    @ui.button(label='NSFW', style=discord.ButtonStyle.red, row=2)
+    async def nsfw(self, interaction: discord.Interaction, button: ui.Button):
+        voice: 'DynamicVoiceChannel' = self.voice
+        if voice.owner != interaction.user:
+            await interaction.response.send_message(
+                'You are not allowed to edit this channel.',
+                ephemeral=True
+            )
+            return
+        template = voice.template
+        template.nsfw = not template.nsfw
+        await interaction.response.defer()
+        await voice.apply_template(template)
+        await voice.update_control_message(force=True)
+        await template.save()
 
     @ui.select(cls=ui.UserSelect, placeholder='Add to Allowed')
     async def allow_user(self, interaction: discord.Interaction, select: ui.UserSelect):
@@ -655,7 +752,7 @@ class GetTemplateView(discord.ui.View):
             return embed
         embed = discord.Embed(
             title='Currently Selected Template',
-            description=f'Template: {template.name}\nPrivate: {template.private}',
+            description=f'Template: {template.name}\nPrivate: {template.private}\nNSFW: {template.nsfw}',
             colour=discord.Colour.orange()
         )
         allowed_string = '\n'.join(x.mention

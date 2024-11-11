@@ -74,8 +74,8 @@ class VoiceTemplate:
             permissions.append((self.guild.default_role,
                                 self._deny_permissions))
         else:
-            permissions.append((self.guild.default_role,
-                                self._allow_permissions))
+            role = self.owner.server.verified_role if self.owner.server.verified_role else self.guild.default_role
+            permissions.append((role, self._allow_permissions))
 
         for member in self.allowed.values():
             permissions.append((member, self._allow_permissions))

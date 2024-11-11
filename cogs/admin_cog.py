@@ -40,10 +40,11 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
-
+import discord
 from discord import app_commands
 from discord.ext import commands
 
+from helios import Blackjack
 from helios.shop import *
 
 if TYPE_CHECKING:
@@ -84,6 +85,38 @@ class AdminCog(commands.GroupCog, name='admin'):
                 await target.send(embed=embed)
             except (discord.Forbidden, discord.HTTPException):
                 pass
+
+    @app_commands.command(name='reset_dynamic_voice', description='Reset a dynamic voice channel')
+    @commands.has_permissions(manage_channels=True)
+    async def reset_dynamic_voice(self, interaction: discord.Interaction, channel: discord.VoiceChannel):
+        server = self.bot.servers.get(interaction.guild_id)
+        if channel.id not in server.channels.dynamic_voice.channels:
+            await interaction.response.send_message('This channel is not a dynamic voice channel.', ephemeral=True)
+            return
+        if channel.members:
+            new_channel: Optional[discord.VoiceChannel] = discord.utils.find(lambda x: len(x.channel.members) == 0,
+                                                                             await server.channels.dynamic_voice.get_active())
+            for member in channel.members:
+                if new_channel:
+                    await member.edit(voice_channel=new_channel)
+                else:
+                    await member.edit(voice_channel=None)
+        await interaction.response.defer(ephemeral=True)
+        await server.channels.dynamic_voice.reset_channel(channel)
+        await interaction.followup.send(content='Channel reset.')
+
+    @app_commands.command(name='other', description='Other commands')
+    @commands.has_permissions(administrator=True)
+    async def other(self, interaction: discord.Interaction, command: str, arg: str):
+        if command == 'bust':
+            server = self.bot.servers.get(interaction.guild_id)
+            games = filter(lambda x: isinstance(x, Blackjack) and x.id == int(arg), server.gambling.games)
+            game: Optional[Blackjack] = next(games, None)
+            if game:
+                game.force_bust = True
+                await interaction.response.send_message('Will bust dealer', ephemeral=True)
+            else:
+                await interaction.response.send_message('Game not found', ephemeral=True)
 
 
 async def setup(bot: 'HeliosBot'):

@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Optional, Any
 
 import discord.utils
 import peewee_async
-from playhouse.migrate import *
+from peewee import *
 
 from .tools.config import Config
 
@@ -46,7 +46,7 @@ def initialize_db():
         db.connect()
         db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
                           EventModel, ViolationModel, DynamicVoiceModel, DynamicVoiceGroupModel, TopicModel,
-                          EffectModel, ThemeModel, BlackjackModel, DailyModel])
+                          EffectModel, ThemeModel, BlackjackModel, DailyModel, GameModel, GameAliasModel, PugModel])
 
 
 def get_aware_utc_now():
@@ -172,6 +172,17 @@ class TransactionModel(BaseModel):
              .where(TransactionModel.member == member.db_entry, TransactionModel.created_on > ago))
         res = await objects.prefetch(q)
         return res[0].day_change
+
+    @staticmethod
+    async def get_24hr_transfers_out(member: 'HeliosMember'):
+        ago = discord.utils.utcnow() - datetime.timedelta(days=1)
+        q = (TransactionModel.select(fn.SUM(TransactionModel.amount).alias('day_transfer'))
+             .where(TransactionModel.member == member.db_entry,
+                    TransactionModel.created_on > ago,
+                    TransactionModel.amount < 0,
+                    TransactionModel.description == 'Transferred Points'))
+        res = await objects.prefetch(q)
+        return int(res[0].day_transfer) if res[0].day_transfer else 0
 
 
 class EventModel(BaseModel):
@@ -442,8 +453,117 @@ class DailyModel(BaseModel):
             await objects.create(cls, member=member, claimed=day)
             return True
 
+    @classmethod
+    async def is_claimed(cls, member: MemberModel, day: int):
+        try:
+            daily = await objects.get(cls, member=member)
+            return daily.claimed == day
+        except DoesNotExist:
+            return False
+
+
+class GameModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    name = CharField(max_length=52, unique=True)
+    display_name = CharField(max_length=52)
+    icon = CharField(max_length=255)
+    play_time = IntegerField(default=0)
+    last_day_playtime = IntegerField(default=0)
+    last_played = DatetimeTzField(default=get_aware_utc_now)
+
+    class Meta:
+        table_name = 'games'
+
+    @classmethod
+    async def create_game(cls, name: str, display_name: str, icon: str) -> 'GameModel':
+        return await objects.create(cls, name=name, display_name=display_name, icon=icon)
+
+    async def delete_game(self):
+        return await self.async_delete()
+
+    @classmethod
+    async def find_game(cls, name: str) -> Optional['GameModel']:
+        """Find a game by name or alias."""
+        q = cls.select().join(GameAliasModel, join_type=JOIN.LEFT_OUTER).where((cls.name == name) | (GameAliasModel.alias == name))
+        try:
+            res = await objects.prefetch(q, GameAliasModel.select())
+            if res:
+                return res[0]
+            return None
+        except DoesNotExist:
+            return None
+
+    @classmethod
+    async def set_day_playtime(cls):
+        """Set the last day playtime to the current playtime."""
+        q = cls.select().where(cls.play_time > cls.last_day_playtime)
+        games = await objects.execute(q)
+        async with objects.atomic():
+            for game in games:
+                await game.async_update(last_day_playtime=game.play_time)
+
+    async def add_playtime(self, time: int):
+        """Add playtime to the game."""
+        self.play_time += time
+        self.last_played = get_aware_utc_now()
+        return await self.async_save(only=('play_time', 'last_played'))
+
+    async def add_alias(self, alias: str):
+        """Add an alias to the game."""
+        return await objects.create(GameAliasModel, game=self, alias=alias)
+
+    async def remove_alias(self, alias: str):
+        """Remove an alias from the game."""
+        q = GameAliasModel.delete().where(GameAliasModel.game == self, GameAliasModel.alias == alias)
+        return await objects.execute(q)
+
+
+class GameAliasModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    game = ForeignKeyField(GameModel, backref='aliases', on_delete='CASCADE')
+    alias = CharField(max_length=52, unique=True)
+
+    class Meta:
+        table_name = 'game_aliases'
+
+
+class Lottery(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    game_type = CharField(max_length=16)
+    pool = IntegerField()
+    frequency = IntegerField()
+    numbers = IntegerField()
+    range = IntegerField()
+    next_game = DatetimeTzField()
+    tickets = JSONField(default=[])
+
+    class Meta:
+        table_name = 'lotteries'
+
 
 class PugModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
-    channel_id = BigIntegerField()
+    server = ForeignKeyField(ServerModel, backref='pugs')
+    channel = ForeignKeyField(DynamicVoiceModel, backref='pugs', unique=True)
+    server_members = JSONField(default=[])
+    temporary_members = JSONField(default=[])
+    invite = CharField(max_length=25)
+    role = BigIntegerField()
+    effect = ForeignKeyField(EffectModel, backref='pugs', null=True)
+
+    class Meta:
+        table_name = 'pugs'
+
+    @classmethod
+    async def create(cls, server_id: int, channel_id: int, invite: str, role: int) -> 'PugModel':
+        return await objects.create(cls, server_id=server_id, channel_id=channel_id, invite=invite, role=role)
+
+    @classmethod
+    async def get(cls, channel_id: int) -> 'PugModel':
+        return await objects.get(cls, channel_id=channel_id)
+
+    @classmethod
+    async def get_all(cls, server: ServerModel) -> list['PugModel']:
+        q = cls.select().where(cls.server == server)
+        return await objects.prefetch(q)
 

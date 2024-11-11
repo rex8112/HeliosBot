@@ -21,6 +21,7 @@
 #  SOFTWARE.
 
 import json
+import logging
 from typing import TYPE_CHECKING, Dict, Optional
 
 import discord
@@ -31,6 +32,7 @@ from .court import Court
 from .database import ServerModel, objects
 from .exceptions import IdMismatchError
 from .gambling.manager import GamblingManager
+from .game import GameManager
 from .member import HeliosMember
 from .member_manager import MemberManager
 from .music import MusicPlayer
@@ -40,6 +42,8 @@ from .tools.settings import Settings, SettingItem
 
 if TYPE_CHECKING:
     from .server_manager import ServerManager
+
+logger = logging.getLogger('HeliosLogger')
 
 
 class ServerSettings(Settings):
@@ -52,6 +56,9 @@ class ServerSettings(Settings):
     topic_category = SettingItem('topic_category', None, discord.CategoryChannel,
                                  group='Topic Settings', title='Topic Category',
                                  description='The category to create topics in.')
+    topic_soft_cap = SettingItem('topic_soft_cap', 10, int,
+                                 group='Topic Settings', title='Topic Soft Cap',
+                                 description='The number of topics a server can have before it tries to archive.')
     voice_controller = SettingItem('voice_controller', None, discord.Role,
                                    group='Misc', title='In Game Voice Controller Role',
                                    description='The role that signifies a user is in a voice controlled state.')
@@ -101,6 +108,10 @@ class ServerSettings(Settings):
                                     group='Misc', title='Gambling Category',
                                     description='The category to create gambling channels in.')
 
+    transfer_tax = SettingItem('transfer_tax', 0.10, float,
+                               group='Shop', title='Transfer Tax',
+                               description='The percentage of points taken when transferring points.')
+
 
 class Server:
     def __init__(self, manager: 'ServerManager', guild: discord.Guild):
@@ -118,6 +129,7 @@ class Server:
         self.settings = ServerSettings(self.bot)
         self.theme = ThemeManager(self)
         self.gambling = GamblingManager(self)
+        self.games = GameManager(self)
         self.cooldowns = Cooldowns()
         self.flags = []
 
@@ -174,6 +186,14 @@ class Server:
         s._new = True
         s.loaded = True
         return s
+
+    def start(self):
+        logger.debug(f'Starting server {self.name}')
+        self.games.start()
+
+    def stop(self):
+        logger.debug(f'Stopping server {self.name}')
+        self.games.stop()
 
     # Methods
     def deserialize(self, data: ServerModel) -> None:

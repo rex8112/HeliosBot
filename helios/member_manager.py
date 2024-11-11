@@ -21,7 +21,7 @@
 #  SOFTWARE.
 
 import asyncio
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union, Optional
 
 import discord
 import peewee
@@ -46,7 +46,9 @@ class MemberManager:
     def guild(self):
         return self.server.guild
 
-    def get(self, member_id: int):
+    def get(self, member_id: Union[int, discord.Member]) -> Optional[HeliosMember]:
+        if isinstance(member_id, discord.Member):
+            member_id = member_id.id
         return self.members.get(member_id)
 
     async def fetch(self, member_id: int, *, force=False):

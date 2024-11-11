@@ -196,10 +196,10 @@ class MusicPlayer:
             await self._control_message.delete()
         except (discord.Forbidden, discord.NotFound, AttributeError) as e:
             logger.warning(f'{self.server.name}: Music Player: Failed to delete control message: {e}')
-        self._control_message = None
 
         if self._control_message is not None:
             self._control_view.stop()
+        self._control_message = None
         self._control_view = None
         self._leaving = False
         self._ended = None
@@ -216,18 +216,18 @@ class MusicPlayer:
         duration_played = self.seconds_running()
         cost_per_minute = self.server.settings.music_points_per_minute.value
         cost = int((duration_played * cost_per_minute) / 60)
-        await self.currently_playing.requester.add_points(-cost, 'Helios', f'Music Charged for {cost/2}'
-                                                                           f' minutes')
-        if self.currently_playing.tips > 0:
-            embed = discord.Embed(
-                title=f'Tipped for {self.currently_playing.title}',
-                colour=Colour.success(),
-                description=f'You have been tipped **{self.currently_playing.tips}** times.'
-            )
-            try:
+        try:
+            await self.currently_playing.requester.add_points(-cost, 'Helios', f'Music Charged for {cost/cost_per_minute}'
+                                                                               f' minutes')
+            if self.currently_playing.tips > 0:
+                embed = discord.Embed(
+                    title=f'Tipped for {self.currently_playing.title}',
+                    colour=Colour.success(),
+                    description=f'You have been tipped **{self.currently_playing.tips}** times.'
+                )
                 await self.currently_playing.requester.member.send(embed=embed)
-            except (discord.Forbidden, discord.HTTPException, AttributeError):
-                ...
+        except (discord.Forbidden, discord.HTTPException, AttributeError):
+            ...
 
         self.stop_song()
 

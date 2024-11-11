@@ -240,7 +240,7 @@ class HeliosMember(HasFlags):
         for activity in self.member.activities:
             if (not isinstance(activity, discord.CustomActivity) and activity.name != 'Hang Status'
                     and activity.type == discord.ActivityType.playing):
-                return activity.name
+                return activity
 
     # noinspection PyUnresolvedReferences
     def _deserialize(self, data: MemberModel):
@@ -279,32 +279,26 @@ class HeliosMember(HasFlags):
     def daily_points(self) -> int:
         if self.points > self.activity_points or self.points >= 100_000:
             return 0
-        diff = min(self.activity_points, 100_000) - self.points
-        perc = self.point_to_activity_percentage()
-        if perc < 0.2:
-            points = round_down_hundred(int(self.activity_points * 0.05))
-        elif perc < 0.4:
-            points = round_down_hundred(int(self.activity_points * 0.04))
-        elif perc < 0.6:
-            points = round_down_hundred(int(self.activity_points * 0.03))
-        elif perc < 0.8:
-            points = round_down_hundred(int(self.activity_points * 0.02))
-        else:
-            points = round_down_hundred(int(self.activity_points * 0.01))
-        points = max(points, 100)
-        return min(diff, points)
+        points = 2_000
+        return points
 
     async def claim_daily(self) -> int:
         """
         :return: Whether the daily could be claimed.
         """
         days = get_day()
+        points = self.daily_points()
+        if points == 0:
+            return 0
         give = await DailyModel.claim(self._db_entry, days)
         if give:
-            points = self.daily_points()
             await self.add_points(points, 'Helios', 'Daily Pity Points')
             return points
         return 0
+
+    async def is_daily_claimed(self, *, offset: int = 0) -> bool:
+        days = get_day() + offset
+        return await DailyModel.is_claimed(self._db_entry, days)
 
     async def check_voice(self, amt: int, partial: int = 4) -> bool:
         """
@@ -361,7 +355,7 @@ class HeliosMember(HasFlags):
             self._db_entry = MemberModel.get(server=self.server.id, member_id=self.member.id)
         self._deserialize(self._db_entry)
 
-    async def verify(self):
+    async def verify(self, announce=True):
         role = self.server.verified_role
         if self.member.get_role(role.id):
             return
@@ -373,7 +367,8 @@ class HeliosMember(HasFlags):
             colour=discord.Colour.green()
         )
         await self.member.add_roles(role)
-        await self.member.send(embed=embed)
+        if announce:
+            await self.member.send(embed=embed)
 
     async def add_points(self, price: int, payee: str, description: str):
         if price == 0:
@@ -631,6 +626,10 @@ class HeliosMember(HasFlags):
 
     async def get_24hr_change(self):
         res = await TransactionModel.get_24hr_change(self)
+        return res if res else 0
+
+    async def get_24hr_transfer(self):
+        res = await TransactionModel.get_24hr_transfers_out(self)
         return res if res else 0
 
 

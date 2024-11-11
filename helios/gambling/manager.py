@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Union
 from discord import TextChannel
 
 from .blackjack import Blackjack
+from .lottery import *
 
 if TYPE_CHECKING:
     from ..server import Server
@@ -19,13 +20,14 @@ class GamblingManager:
         self.server = server
 
         self.games: list[Games] = []
+        self.lotteries: list[Lottery] = []
         self.loss_streak: dict['HeliosMember', int] = {}
 
     def add_loss(self, member: 'HeliosMember', loss: int):
-        if member not in self.loss_streak:
-            self.loss_streak[member] = loss
-        elif loss < 0:
+        if loss < 0:
             self.loss_streak[member] = 0
+        elif member not in self.loss_streak:
+            self.loss_streak[member] = loss
         else:
             self.loss_streak[member] += loss
 
