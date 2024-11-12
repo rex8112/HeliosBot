@@ -19,6 +19,83 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+from enum import member
+from typing import TYPE_CHECKING, Union
+
+from .database import InventoryModel
+
+if TYPE_CHECKING:
+    from .member import HeliosMember
+
+
+class Item:
+    def __init__(self, name: str, quantity: int):
+        self.name = name
+        self.quantity = quantity
+
+    def to_dict(self):
+        return f'{self.name}:{self.quantity}'
+
+    @classmethod
+    def from_dict(cls, data: str):
+        name, quantity = data.split(':')
+        return cls(name, int(quantity))
 
 class Inventory:
-    ...
+    def __init__(self, member: 'HeliosMember'):
+        self.member = member
+        self.items = []
+
+        self._model = None
+        self._unsaved = True
+
+    def add_item(self, name: str, quantity: int):
+        for item in self.items:
+            if item.name == name:
+                item.quantity += quantity
+                break
+        else:
+            self.items.append(Item(name, quantity))
+
+    def remove_item(self, name: str, quantity: int = 1):
+        for item in self.items:
+            if item.name == name:
+                item.quantity -= quantity
+                if item.quantity <= 0:
+                    self.items.remove(item)
+                break
+
+    def to_dict(self):
+        return {
+            'member_id': self.member.id,
+            'items': [item.to_dict() for item in self.items]
+        }
+
+    @classmethod
+    def from_dict(cls, member: 'HeliosMember', data: Union[dict, InventoryModel]):
+        if member.id != data['member_id']:
+            raise ValueError('Member ID does not match')
+        items = [Item.from_dict(item) for item in data['items']]
+        c = cls(member)
+        c.items = items
+        if isinstance(data, InventoryModel):
+            c._model = data
+            c._unsaved = False
+        return c
+
+    async def save(self):
+        if self._unsaved:
+            if self._model:
+                self._model.async_update(**self.to_dict())
+                self._unsaved = False
+            else:
+                self._model = await InventoryModel.create(**self.to_dict())
+                self._unsaved = False
+
+
+    @classmethod
+    async def load(cls, member: 'HeliosMember'):
+        model = await InventoryModel.get(member.id)
+        if model is None:
+            return cls(member)
+        return cls.from_dict(member, model)

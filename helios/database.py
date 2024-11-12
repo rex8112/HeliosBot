@@ -567,3 +567,27 @@ class PugModel(BaseModel):
         q = cls.select().where(cls.server == server)
         return await objects.prefetch(q)
 
+
+class InventoryModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    member = ForeignKeyField(MemberModel, backref='inventory')
+    items = JSONField(default=[])
+
+    class Meta:
+        table_name = 'inventory'
+
+    @classmethod
+    async def create(cls, member: MemberModel, items=None) -> 'InventoryModel':
+        if items is None:
+            items = []
+        return await objects.create(cls, member=member, items=items)
+
+    @classmethod
+    async def get(cls, member: MemberModel) -> 'InventoryModel':
+        return await objects.get(cls, member=member)
+
+    @classmethod
+    async def get_all(cls) -> list['InventoryModel']:
+        q = cls.select()
+        return await objects.prefetch(q)
+
