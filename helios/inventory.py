@@ -22,24 +22,11 @@
 from enum import member
 from typing import TYPE_CHECKING, Union
 
+from .items import Item
 from .database import InventoryModel
 
 if TYPE_CHECKING:
     from .member import HeliosMember
-
-
-class Item:
-    def __init__(self, name: str, quantity: int):
-        self.name = name
-        self.quantity = quantity
-
-    def to_dict(self):
-        return f'{self.name}:{self.quantity}'
-
-    @classmethod
-    def from_dict(cls, data: str):
-        name, quantity = data.split(':')
-        return cls(name, int(quantity))
 
 class Inventory:
     def __init__(self, member: 'HeliosMember'):
@@ -49,21 +36,27 @@ class Inventory:
         self._model = None
         self._unsaved = True
 
-    def add_item(self, name: str, quantity: int):
-        for item in self.items:
-            if item.name == name:
-                item.quantity += quantity
-                break
-        else:
-            self.items.append(Item(name, quantity))
+    def add_item(self, item: Item, quantity: int = 1):
+        try:
+            cur = self.items.index(item)
+            self.items[cur].quantity += quantity
+        except ValueError:
+            item = item.copy(quantity)
+            self.items.append(item)
 
-    def remove_item(self, name: str, quantity: int = 1):
-        for item in self.items:
-            if item.name == name:
-                item.quantity -= quantity
-                if item.quantity <= 0:
-                    self.items.remove(item)
-                break
+    def remove_item(self, name: Union[str, Item], quantity: int = 1):
+        if isinstance(name, Item):
+            cur = self.items.index(name)
+            self.items[cur].quantity -= quantity
+            if self.items[cur].quantity <= 0:
+                self.items.remove(self.items[cur])
+        else:
+            for item in self.items:
+                if item.name == name:
+                    item.quantity -= quantity
+                    if item.quantity <= 0:
+                        self.items.remove(item)
+                    break
 
     def to_dict(self):
         return {
