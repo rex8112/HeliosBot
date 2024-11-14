@@ -33,6 +33,7 @@ from .abc import HasFlags
 from .colour import Colour
 from .database import MemberModel, objects, TransactionModel, DailyModel
 from .exceptions import IdMismatchError
+from .inventory import Inventory
 from .violation import Violation
 from .voice_template import VoiceTemplate
 
@@ -57,6 +58,7 @@ class HeliosMember(HasFlags):
         self.manager = manager
         self.member = member
         self.templates: list['VoiceTemplate'] = []
+        self.inventory = None
         self.flags = []
 
         self._allow_on_voice = 0
@@ -282,6 +284,9 @@ class HeliosMember(HasFlags):
         points = 2_000
         return points
 
+    async def load_inventory(self):
+        self.inventory = await Inventory.load(self)
+
     async def claim_daily(self) -> int:
         """
         :return: Whether the daily could be claimed.
@@ -347,6 +352,7 @@ class HeliosMember(HasFlags):
             self._db_entry.update_model_instance(self._db_entry, data)
             await self._db_entry.async_save()
             self._changed = False
+        await self.inventory.save()
 
     async def load(self):
         if self._id != 0:

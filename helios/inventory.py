@@ -36,15 +36,16 @@ class Inventory:
         self._model = None
         self._unsaved = True
 
-    def add_item(self, item: Item, quantity: int = 1):
+    async def add_item(self, item: Item, quantity: int = 1):
         try:
             cur = self.items.index(item)
             self.items[cur].quantity += quantity
         except ValueError:
             item = item.copy(quantity)
             self.items.append(item)
+        await self.save()
 
-    def remove_item(self, name: Union[str, Item], quantity: int = 1):
+    async def remove_item(self, name: Union[str, Item], quantity: int = 1):
         if isinstance(name, Item):
             cur = self.items.index(name)
             self.items[cur].quantity -= quantity
@@ -57,6 +58,7 @@ class Inventory:
                     if item.quantity <= 0:
                         self.items.remove(item)
                     break
+        await self.save()
 
     def to_dict(self):
         return {

@@ -107,6 +107,7 @@ class MemberManager:
             else:
                 m = HeliosMember(self, member)
                 tasks.append(m.save())
+            tasks.append(m.load_inventory())
             self.members[m.member.id] = m
         if len(tasks) > 0:
             await asyncio.gather(*tasks)

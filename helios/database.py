@@ -46,7 +46,8 @@ def initialize_db():
         db.connect()
         db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
                           EventModel, ViolationModel, DynamicVoiceModel, DynamicVoiceGroupModel, TopicModel,
-                          EffectModel, ThemeModel, BlackjackModel, DailyModel, GameModel, GameAliasModel, PugModel])
+                          EffectModel, ThemeModel, BlackjackModel, DailyModel, GameModel, GameAliasModel, PugModel,
+                          InventoryModel])
 
 
 def get_aware_utc_now():
@@ -583,8 +584,11 @@ class InventoryModel(BaseModel):
         return await objects.create(cls, member=member, items=items)
 
     @classmethod
-    async def get(cls, member: MemberModel) -> 'InventoryModel':
-        return await objects.get(cls, member=member)
+    async def get(cls, member: MemberModel) -> Optional['InventoryModel']:
+        try:
+            return await objects.get(cls, member=member)
+        except DoesNotExist:
+            return None
 
     @classmethod
     async def get_all(cls) -> list['InventoryModel']:
