@@ -102,23 +102,3 @@ class Inventory:
         if model is None:
             return cls(member)
         return cls.from_dict(member, model)
-
-class ItemSelectorView(ui.View):
-    def __init__(self, items: list[Item]):
-        super().__init__()
-        self.items = items
-        self.selected = None
-        self.last_interaction = None
-
-        if items:
-            self.item_select.options = [SelectOption(label=str(item), value=str(i)) for i, item in enumerate(items)]
-        else:
-            self.item_select.disabled = True
-            self.item_select.placeholder = 'No items available'
-            self.item_select.options = [SelectOption(label='No items available', value='0')]
-
-    @ui.select(placeholder='Select an item')
-    async def item_select(self, interaction: Interaction, select: ui.Select):
-        self.selected = self.items[int(select.values[0])]
-        await interaction.response.defer()
-        self.stop()
