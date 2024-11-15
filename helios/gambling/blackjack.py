@@ -34,9 +34,11 @@ from ..colour import Colour
 from ..database import BlackjackModel
 from ..member import HeliosMember
 from ..tools.modals import AmountModal
+from ..views import ItemSelectorView
 from ..views.generic_views import YesNoView
 
 if TYPE_CHECKING:
+    from ..items import Item
     from PIL import Image
     from .manager import GamblingManager
 
@@ -63,6 +65,7 @@ class Blackjack:
         self.hands: list[list[Hand]] = []
         self.hand_images: list['BlackjackHandImage'] = []
         self.bets: list[list[int]] = []
+        self.credits: list[Optional['Item']] = []
 
         self.board_lock = asyncio.Lock()
 
@@ -88,10 +91,19 @@ class Blackjack:
         self.deck = Deck()
         self.hands = [Hand()]
         self.bets = []
+        self.credits = []
         self.hand_images = []
         self.dealer_hand = Hand()
 
     def to_dict(self):
+        bets = []
+        for i in range(len(self.bets)):
+            credit = self.credits[i]
+            if credit:
+                bets.append([str(credit.data['credit']) + 'C'])
+            else:
+                bets.append(self.bets[i])
+
         dealer_hand = self.dealer_hand.to_dict()
         if self.force_bust:
             dealer_hand += self.og_dealer_hand.to_dict()
@@ -114,10 +126,11 @@ class Blackjack:
         else:
             self.message = await self.channel.send(files=[img], view=self.view)
 
-    async def add_player(self, player: HeliosMember, bet: int = 0):
+    async def add_player(self, player: HeliosMember, bet: int = 0, credit: 'Item' = None):
         self.players.append(player)
         self.hands.append([Hand()])
         self.bets.append([bet])
+        self.credits.append(credit)
         self.icons.append(await get_member_icon(player.bot.get_session(), player.member.display_avatar.url))
         self.generate_hand_images()
 
@@ -128,6 +141,7 @@ class Blackjack:
         self.bets.pop(index)
         self.icons.pop(index)
         self.hand_images.pop(index)
+        self.credits.pop(index)
 
     async def start(self):
         await self.board_lock.acquire()
@@ -166,7 +180,8 @@ class Blackjack:
         # Check if players still have enough points
         for player in self.players[:]:
             bet = self.bets[self.players.index(player)][0]
-            if bet > player.points:
+            credit = self.credits[self.players.index(player)]
+            if bet > player.points and not credit:
                 await self.remove_player(player)
         if len(self.players) < 1:
             await self.update_message('Not Enough Players')
@@ -180,7 +195,11 @@ class Blackjack:
         # Take Bets
         for player in self.players[:]:
             bet = self.bets[self.players.index(player)][0]
-            await player.add_points(-bet, 'Helios: Blackjack', f'{self.id}: Bet')
+            credit = self.credits[self.players.index(player)]
+            if credit:
+                await player.inventory.remove_item(credit)
+            else:
+                await player.add_points(-bet, 'Helios: Blackjack', f'{self.id}: Bet')
 
         # Make Board
         self.generate_hand_images()
@@ -335,7 +354,11 @@ class Blackjack:
             amount_won = []
             for j, hand in enumerate(self.hands[i]):
                 player_value = hand.get_hand_bj_values()
-                bet = self.bets[i][j]
+                credit = self.credits[i].data['credit'] if self.credits[i] else None
+                if credit:
+                    bet = credit
+                else:
+                    bet = self.bets[i][j]
                 won = 0
                 if len(self.dealer_hand.cards) == 2 and dealer_value == 21:
                     if len(hand.cards) == 2 and player_value == 21:
@@ -608,6 +631,36 @@ class BlackjackJoinView(discord.ui.View):
         if self.blackjack.manager.needs_help(member):
             self.blackjack.force_bust = True
             self.blackjack.manager.helped(member)
+
+    @discord.ui.button(label='Join w/ Credit', style=discord.ButtonStyle.primary)
+    async def join_credit(self, interaction: discord.Interaction, button: discord.ui.Button):
+        member = self.blackjack.server.members.get(interaction.user.id)
+        if member in self.blackjack.players:
+            await interaction.response.send_message('You are already in the game.', ephemeral=True)
+            return
+        if len(self.blackjack.players) >= self.blackjack.max_players:
+            await interaction.response.send_message('The game is full.', ephemeral=True)
+            return
+        items = member.inventory.get_items('gamble_credit')
+        if not items:
+            await interaction.response.send_message('You do not have any gambling credits.', ephemeral=True)
+            return
+        view = ItemSelectorView(items)
+        await interaction.response.send_message('Select a gamble credit to use.', view=view, ephemeral=True)
+        if await view.wait():
+            return
+        item = view.selected
+        if item is None:
+            await interaction.edit_original_response(content='You have not selected an item.', view=None)
+            return
+        if self.blackjack.id is not None:
+            await interaction.edit_original_response(content='The game has already started.', view=None)
+            return
+        await self.blackjack.add_player(member, credit=item)
+        await interaction.edit_original_response(content=f'You have joined the game with a bet of {item.data["credit"]} '
+                                                        f'Credits.', view=None)
+
+
 
     @discord.ui.button(label='Rules', style=discord.ButtonStyle.secondary)
     async def rules(self, interaction: discord.Interaction, button: discord.ui.Button):
