@@ -76,6 +76,7 @@ class Blackjack:
         self.dealer_hand: Hand = Hand()
         self.dealer_hand_image: Optional['BlackjackHandImage'] = None
         self.force_bust = False
+        self.og_dealer_hand: Optional[Hand] = None
 
         self.message: Optional['discord.Message'] = None
         self.view: Optional['discord.ui.View'] = None
@@ -91,11 +92,15 @@ class Blackjack:
         self.dealer_hand = Hand()
 
     def to_dict(self):
+        dealer_hand = self.dealer_hand.to_dict()
+        if self.force_bust:
+            dealer_hand += self.og_dealer_hand.to_dict()
+
         return {
             'players': [player.id for player in self.players],
             'hands': [hand[0].to_dict() for hand in self.hands],
-            'bets': self.bets,
-            'dealer_hand': self.dealer_hand.to_dict(),
+            'bets': bets,
+            'dealer_hand': dealer_hand,
             'winnings': self.winnings,
         }
 
@@ -278,6 +283,7 @@ class Blackjack:
 
     async def dealer_play(self):
         if self.force_bust:
+            self.og_dealer_hand = self.dealer_hand.copy()
             if self.dealer_hand.get_hand_bj_values(show_hidden=True) >= 17:
                 logger.debug('Dealer has 17 or higher, changing cards to allow forcing a bust.')
                 first_card_value = self.dealer_hand.cards[0].bj_value()
