@@ -106,7 +106,7 @@ class Blackjack:
 
         dealer_hand = self.dealer_hand.to_dict()
         if self.force_bust:
-            dealer_hand += self.og_dealer_hand.to_dict()
+            dealer_hand += ['|'] + self.og_dealer_hand.to_dict()
 
         return {
             'players': [player.id for player in self.players],
