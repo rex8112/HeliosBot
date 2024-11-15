@@ -58,7 +58,7 @@ class HeliosMember(HasFlags):
         self.manager = manager
         self.member = member
         self.templates: list['VoiceTemplate'] = []
-        self.inventory = None
+        self.inventory: Optional['Inventory'] = None
         self.flags = []
 
         self._allow_on_voice = 0

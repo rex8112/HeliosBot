@@ -32,6 +32,12 @@ class Item:
             return NotImplemented
         return self.name == o.name and self.data == o.data
 
+    def __str__(self):
+        return f'{self.display_name} x{self.quantity}'
+
+    def __repr__(self):
+        return f'Item<{self.name}, {self.quantity}, {self.display_name}, {bool(self.data)}>'
+
     def copy(self, quantity: int = None):
         return Item(self.name, self.quantity if self.quantity is None else quantity, self.display_name, self.data.copy())
 
