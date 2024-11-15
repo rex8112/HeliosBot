@@ -388,7 +388,9 @@ class Blackjack:
             if len(hands) > 1:
                 self.hand_images.append(BlackjackHandSplitImage(hands, icon, player.member.display_name[:10], bets))
             else:
-                self.hand_images.append(BlackjackHandImage(hands[0], icon, player.member.display_name[:10], bets[0]))
+                credit = self.credits[self.players.index(player)]
+                bet = credit.data['credit'] if credit else bets[0]
+                self.hand_images.append(BlackjackHandImage(hands[0], icon, player.member.display_name[:10], bet))
         self.dealer_hand_image = BlackjackHandImage(self.dealer_hand, self.dealer_icon, 'Dealer', 0)
 
     async def generate_dealer_image(self):
@@ -421,12 +423,13 @@ class BlackjackView(discord.ui.View):
 
     def check_buttons(self):
         player = self.blackjack.players[self.blackjack.current_player]
+        credit = self.blackjack.credits[self.blackjack.current_player]
         hands = self.blackjack.hands[self.blackjack.current_player]
         hand = hands[self.blackjack.current_hand]
         if len(hand.cards) > 2 or (len(hands) > 1 and len(hand.cards) > 1):
             self.remove_item(self.double_down)
             self.remove_item(self.split)
-        elif player.points < self.blackjack.bets[self.blackjack.current_player][self.blackjack.current_hand]:
+        elif player.points < self.blackjack.bets[self.blackjack.current_player][self.blackjack.current_hand] or credit:
             self.double_down.disabled = True
             self.split.disabled = True
         elif len(hands) > 1 or hand.cards[0].bj_value() != hand.cards[1].bj_value():

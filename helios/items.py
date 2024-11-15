@@ -69,4 +69,4 @@ class Items:
                                                 'restrictions': restrictions})
     @staticmethod
     def gamble_credit(credit: int):
-        return Item('gamble_credit', credit, 'Gambling Credit', {'credit': credit})
+        return Item('gamble_credit', credit, f'{credit:,} Gambling Credit', {'credit': credit})

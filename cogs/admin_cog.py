@@ -44,7 +44,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from helios import Blackjack
+from helios import Blackjack, Items
 from helios.shop import *
 
 if TYPE_CHECKING:
@@ -104,6 +104,15 @@ class AdminCog(commands.GroupCog, name='admin'):
         await interaction.response.defer(ephemeral=True)
         await server.channels.dynamic_voice.reset_channel(channel)
         await interaction.followup.send(content='Channel reset.')
+
+    @app_commands.command(name='add_gamble_credit', description='Add credit to a user')
+    @commands.has_permissions(administrator=True)
+    async def add_gamble_credit(self, interaction: discord.Interaction, target: discord.Member, amount: int, quantity: int = 1):
+        server = self.bot.servers.get(interaction.guild_id)
+        target_member = server.members.get(target.id)
+        item = Items.gamble_credit(amount)
+        await target_member.inventory.add_item(item, quantity)
+        await interaction.response.send_message(f'Added {amount} gamble credit to {target.display_name}', ephemeral=True)
 
     @app_commands.command(name='other', description='Other commands')
     @commands.has_permissions(administrator=True)

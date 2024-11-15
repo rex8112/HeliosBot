@@ -45,6 +45,7 @@ class Inventory:
         except ValueError:
             item = item.copy(quantity)
             self.items.append(item)
+        self._unsaved = True
         await self.save()
 
     async def remove_item(self, name: Union[str, Item], quantity: int = 1):
@@ -60,6 +61,7 @@ class Inventory:
                     if item.quantity <= 0:
                         self.items.remove(item)
                     break
+        self._unsaved = True
         await self.save()
 
     def get_items(self, name: str):
@@ -70,26 +72,38 @@ class Inventory:
 
     def to_dict(self):
         return {
-            'member_id': self.member.id,
+            'member': self.member.db_entry,
             'items': [item.to_dict() for item in self.items]
         }
 
     @classmethod
     def from_dict(cls, member: 'HeliosMember', data: Union[dict, InventoryModel]):
+        if isinstance(data, InventoryModel):
+            return cls.from_db(member, data)
         if member.id != data['member_id']:
             raise ValueError('Member ID does not match')
         items = [Item.from_dict(item) for item in data['items']]
         c = cls(member)
         c.items = items
-        if isinstance(data, InventoryModel):
-            c._model = data
-            c._unsaved = False
+        return c
+
+    @classmethod
+    def from_db(cls, member: 'HeliosMember', data: InventoryModel):
+        if member.db_id != data.member_id:
+            raise ValueError('Member ID does not match')
+        items = [Item.from_dict(item) for item in data.items]
+        c = cls(member)
+        c.items = items
+        c._model = data
+        c._unsaved = False
         return c
 
     async def save(self):
         if self._unsaved:
             if self._model:
-                self._model.async_update(**self.to_dict())
+                d = self.to_dict()
+                del d['member']
+                await self._model.async_update(**d)
                 self._unsaved = False
             else:
                 self._model = await InventoryModel.create(**self.to_dict())
@@ -98,7 +112,7 @@ class Inventory:
 
     @classmethod
     async def load(cls, member: 'HeliosMember'):
-        model = await InventoryModel.get(member.id)
+        model = await InventoryModel.get(member.db_entry)
         if model is None:
             return cls(member)
         return cls.from_dict(member, model)
