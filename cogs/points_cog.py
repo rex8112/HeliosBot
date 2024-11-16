@@ -29,7 +29,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 import helios
-from helios import ShopView, TexasHoldEm, Blackjack
+from helios import ActionView, TexasHoldEm, Blackjack
 from helios.database import TransactionModel
 from helios.shop import *
 
@@ -245,18 +245,12 @@ class PointsCog(commands.Cog):
         )
         await interaction.response.send_message(embeds=[a_embed, p_embed], ephemeral=True)
 
-    @app_commands.command(name='shop', description='View the shop to spend points')
+    @app_commands.command(name='actions', description='View the action shop to spend points')
     @app_commands.guild_only()
-    async def shop(self, interaction: discord.Interaction):
+    async def action_shop(self, interaction: discord.Interaction):
         server = self.bot.servers.get(interaction.guild_id)
-        embed = discord.Embed(
-            title=f'{interaction.guild.name} Shop',
-            colour=helios.Colour.helios(),
-            description='Available Items'
-        )
-        [embed.add_field(name=x.name, value=x.desc, inline=False) for x in server.shop.items]
-        view = ShopView(server)
-        await interaction.response.send_message(embed=embed, view=view)
+        view = ActionView(server)
+        await interaction.response.send_message(embed=view.get_embed(), view=view)
 
     @app_commands.command(name='play', description='Play or queue music.')
     @app_commands.describe(song='Must be a full youtube URL, including the https://')

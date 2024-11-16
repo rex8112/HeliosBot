@@ -59,3 +59,7 @@ class Colour:
     @staticmethod
     def poker_playing():
         return discord.Colour.from_str('#08adc7')
+
+    @staticmethod
+    def actions():
+        return discord.Colour.from_str('#e6485d')

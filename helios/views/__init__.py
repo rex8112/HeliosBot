@@ -1,3 +1,4 @@
+from .action_views import *
 from .dynamic_voice_views import *
 from .generic_views import *
 from .inventory_view import *

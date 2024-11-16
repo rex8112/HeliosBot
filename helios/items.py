@@ -22,6 +22,9 @@
 
 __all__ = ('Item', 'Items')
 
+from typing import Literal
+
+
 class Item:
     def __init__(self, name: str, quantity: int, display_name: str, data: dict):
         self.name = name
@@ -56,6 +59,9 @@ class Item:
         return cls(data['name'], data['quantity'], data['display_name'], data['data'])
 
 
+Actions = Literal['mute', 'deafen', 'shield', 'bubble', 'deflector']
+
+
 class Items:
     @staticmethod
     def discount(discount: int, restrictions: list[str] = None):
@@ -69,4 +75,8 @@ class Items:
                                                 'restrictions': restrictions})
     @staticmethod
     def gamble_credit(credit: int):
-        return Item('gamble_credit', credit, f'{credit:,} Gambling Credit', {'credit': credit})
+        return Item('gamble_credit', 1, f'{credit:,} Gambling Credit', {'credit': credit})
+
+    @staticmethod
+    def action_token(action: Actions):
+        return Item('action_token', 1, f'{action.capitalize()} Token', {'action': action})
