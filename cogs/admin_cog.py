@@ -43,6 +43,7 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
+from typing_extensions import Literal
 
 from helios import Blackjack, Items
 from helios.shop import *
@@ -113,6 +114,15 @@ class AdminCog(commands.GroupCog, name='admin'):
         item = Items.gamble_credit(amount)
         await target_member.inventory.add_item(item, quantity)
         await interaction.response.send_message(f'Added {amount} gamble credit to {target.display_name}', ephemeral=True)
+
+    @app_commands.command(name='add_action_token', description='Add an action token to a user')
+    @commands.has_permissions(administrator=True)
+    async def add_action_token(self, interaction: discord.Interaction, target: discord.Member, token: Literal['mute', 'deafen'], quantity: int = 1):
+        server = self.bot.servers.get(interaction.guild_id)
+        target_member = server.members.get(target.id)
+        item = Items.action_token(token)
+        await target_member.inventory.add_item(item, quantity)
+        await interaction.response.send_message(f'Added {quantity} action token to {target.display_name}', ephemeral=True)
 
     @app_commands.command(name='other', description='Other commands')
     @commands.has_permissions(administrator=True)

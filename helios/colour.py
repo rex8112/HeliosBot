@@ -63,3 +63,11 @@ class Colour:
     @staticmethod
     def actions():
         return discord.Colour.from_str('#e6485d')
+
+    @staticmethod
+    def error():
+        return discord.Colour.red()
+
+    @staticmethod
+    def choice():
+        return discord.Colour.blurple()
