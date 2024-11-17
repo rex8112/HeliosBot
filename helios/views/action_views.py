@@ -145,7 +145,7 @@ class TempMuteActionView(discord.ui.View):
     def get_embed(self) -> discord.Embed:
         embed = discord.Embed(
             title='Temp Mute',
-            colour=discord.Colour.blurple(),
+            colour=Colour.error() if self.error_message else Colour.choice(),
             description=self.error_message
         )
         embed.add_field(name='Target',
@@ -160,6 +160,7 @@ class TempMuteActionView(discord.ui.View):
     async def reload_message(self, interaction: discord.Interaction):
         await interaction.response.defer()
         self.value = self.get_value()
+        await self.verify_member()
         embed = self.get_embed()
         self.reload_buttons()
         await interaction.edit_original_response(embed=embed, view=self)
@@ -221,7 +222,6 @@ class TempMuteActionView(discord.ui.View):
         member: discord.Member = select.values[0]
         member: 'HeliosMember' = self.author.server.members.get(member.id)
         self.selected_member = member
-        await self.verify_member()
         await self.reload_message(interaction)
 
     @discord.ui.button(label='15s', style=discord.ButtonStyle.grey, row=1)
@@ -256,7 +256,7 @@ class TempMuteActionView(discord.ui.View):
         self.selected_seconds = 60
         await self.reload_message(interaction)
 
-    @discord.ui.button(label='Purchase', style=discord.ButtonStyle.green, row=2)
+    @discord.ui.button(label='Purchase', style=discord.ButtonStyle.green, disabled=True, row=2)
     async def confirm_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user != self.author.member:
             await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
