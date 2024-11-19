@@ -20,12 +20,13 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 import math
+from types import MethodType
 from typing import TYPE_CHECKING, Optional
 
 import discord
 
 from ..colour import Colour
-from ..effects import MuteEffect, DeafenEffect
+from ..effects import MuteEffect, DeafenEffect, ShieldEffect, ChannelShieldEffect
 
 if TYPE_CHECKING:
     from ..member import HeliosMember
@@ -124,6 +125,83 @@ class ActionView(discord.ui.View):
         items = member.inventory.get_items('deafen_token')
         if items:
             await member.inventory.remove_item(items[0], view.get_value())
+
+    @discord.ui.button(label='Shield', style=discord.ButtonStyle.grey, custom_id='helios:action:shop:shield')
+    async def shield_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        member = self.server.members.get(interaction.user.id)
+        await interaction.response.defer(ephemeral=True, thinking=True)
+
+        view = DurationView(member, options=[('1h', 1), ('2h', 2), ('3h', 3), ('4h', 4), ('5h', 5)],
+                            price_per_time=1, time_label='Hours', item_name='shield', item_display_name='Shields')
+        embed = view.get_embed()
+        message: discord.WebhookMessage = await interaction.followup.send(embed=embed, view=view)
+        if await view.wait():
+            embed = discord.Embed(
+                title='Timed out',
+                colour=discord.Colour.red()
+            )
+            await message.edit(embed=embed, view=None)
+            return 0
+
+        embed = discord.Embed(
+            title='Purchased!',
+            colour=discord.Colour.green()
+        )
+        effect = ShieldEffect(member, view.selected_time * 3600, cost=view.get_cost())
+        await self.bot.effects.add_effect(effect)
+        await message.edit(embed=embed, view=None)
+        items = member.inventory.get_items('shield')
+        if items:
+            await member.inventory.remove_item(items[0], view.get_cost())
+
+    @discord.ui.button(label='Channel Shield', style=discord.ButtonStyle.grey, custom_id='helios:action:shop:bubble')
+    async def bubble_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        member = self.server.members.get(interaction.user.id)
+        await interaction.response.defer(ephemeral=True, thinking=True)
+
+        channel = member.member.voice.channel if member.member.voice else None
+        if channel is None:
+            embed = discord.Embed(
+                title='Not in Voice',
+                description='You must be in a voice channel to purchase this item.',
+                colour=discord.Colour.red()
+            )
+            await interaction.followup.send(embed=embed)
+            return
+        channel = member.server.channels.dynamic_voice.channels.get(channel.id)
+        if channel is None:
+            embed = discord.Embed(
+                title='Not in Dynamic Voice',
+                description='You must be in a dynamic voice channel to purchase this item.',
+                colour=discord.Colour.red()
+            )
+            await interaction.followup.send(embed=embed)
+            return
+
+        view = DurationView(member, options=[('1h', 1), ('2h', 2), ('3h', 3), ('4h', 4), ('5h', 5)],
+                            price_per_time=1, time_label='Hours', item_name='bubble', item_display_name='Channel Shields')
+        embed = view.get_embed()
+        message: discord.WebhookMessage = await interaction.followup.send(embed=embed, view=view)
+        if await view.wait():
+            embed = discord.Embed(
+                title='Timed out',
+                colour=discord.Colour.red()
+            )
+            await message.edit(embed=embed, view=None)
+            return 0
+
+        embed = discord.Embed(
+            title='Purchased!',
+            colour=discord.Colour.green()
+        )
+
+        effect = ChannelShieldEffect(channel, view.selected_time * 3600, cost=view.get_cost())
+        await self.bot.effects.add_effect(effect)
+        await message.edit(embed=embed, view=None)
+        items = member.inventory.get_items('bubble')
+        if items:
+            await member.inventory.remove_item(items[0], view.get_cost())
+
 
 class TempMuteActionView(discord.ui.View):
     def __init__(self, author: 'HeliosMember'):
@@ -324,3 +402,76 @@ class TempDeafenActionView(TempMuteActionView):
         if items:
             return items[0].quantity
         return 0
+
+class DurationView(discord.ui.View):
+    def __init__(self, author: 'HeliosMember', options: list[tuple[str, int]] = None, *, price_per_time: int = 1,
+                 time_label: str = 'Seconds', item_name: str, item_display_name: str):
+        super().__init__(timeout=180)
+        self.author = author
+        self.selected_time: int = 1
+        self.confirmed = False
+        self.error_message: str = ''
+        self.options = options or [('5s', 5), ('15s', 15), ('30s', 30), ('45s', 45), ('60s', 60)]
+        self.time_label = time_label
+        self.item_name = item_name
+        self.item_display_name = item_display_name
+        self.price_per_second = price_per_time
+        self.build_buttons()
+
+    def get_cost(self):
+        return self.selected_time * self.price_per_second
+
+    def get_item_count(self):
+        items = self.author.inventory.get_items(self.item_name)
+        if items:
+            return items[0].quantity
+        return 0
+
+    def get_embed(self) -> discord.Embed:
+        embed = discord.Embed(
+            title='Duration',
+            colour=discord.Colour.blurple(),
+            description=self.error_message
+        )
+        embed.add_field(name='Duration', value=f'{self.selected_time:,} {self.time_label}')
+        embed.add_field(name='Price', value=f'{self.get_cost()} {self.item_display_name}')
+        embed.set_footer(text=f'Your {self.item_display_name}: {self.get_item_count()}')
+        return embed
+
+    async def reload_message(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        embed = self.get_embed()
+        await interaction.edit_original_response(embed=embed, view=self)
+
+    def make_callback(self, seconds: int):
+        async def callback(_: discord.ui.Button, interaction: discord.Interaction):
+            self.selected_time = seconds
+            await self.reload_message(interaction)
+        return callback
+
+    def build_buttons(self):
+        for label, seconds in self.options:
+            button = discord.ui.Button(
+                style=discord.ButtonStyle.grey,
+                label=label
+            )
+            button.callback = MethodType(self.make_callback(seconds), button)
+            self.add_item(button)
+
+    @discord.ui.button(label='Purchase', style=discord.ButtonStyle.green, row=2)
+    async def confirm_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
+        await interaction.response.defer()
+        self.confirmed = True
+        self.stop()
+
+    @discord.ui.button(label='Cancel', style=discord.ButtonStyle.red, row=2)
+    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
+        await interaction.response.defer()
+        self.stop()
+
