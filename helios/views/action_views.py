@@ -83,11 +83,9 @@ class ActionView(discord.ui.View):
                             reason=f'{member.member.name} temp muted for {view.selected_seconds} seconds.')
         await self.bot.effects.add_effect(effect)
         await message.edit(embed=embed, view=None)
-        items = member.inventory.get_items('action_token')
-        for i in items:
-            if i.data['action'] == 'mute':
-                await member.inventory.remove_item(i, 1)
-                break
+        items = member.inventory.get_items('mute_token')
+        if items:
+            await member.inventory.remove_item(items[0], view.get_value())
 
     @discord.ui.button(label='Deafen', style=discord.ButtonStyle.grey, custom_id='helios:action:shop:deafen')
     async def deafen_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -123,11 +121,9 @@ class ActionView(discord.ui.View):
                               reason=f'{member.member.name} temp deafened for {view.selected_seconds} seconds.')
         await self.bot.effects.add_effect(effect)
         await message.edit(embed=embed, view=None)
-        items = member.inventory.get_items('action_token')
-        for i in items:
-            if i.data['action'] == 'deafen':
-                await member.inventory.remove_item(i, 1)
-                break
+        items = member.inventory.get_items('deafen_token')
+        if items:
+            await member.inventory.remove_item(items[0], view.get_value())
 
 class TempMuteActionView(discord.ui.View):
     def __init__(self, author: 'HeliosMember'):
@@ -166,10 +162,9 @@ class TempMuteActionView(discord.ui.View):
         await interaction.edit_original_response(embed=embed, view=self)
 
     def author_tokens(self):
-        items = self.author.inventory.get_items('action_token')
-        for item in items:
-            if item.data.get('action') == 'mute':
-                return item.quantity
+        items = self.author.inventory.get_items('mute_token')
+        if items:
+            return items[0].quantity
         return 0
 
     def reload_buttons(self):
@@ -325,8 +320,7 @@ class TempDeafenActionView(TempMuteActionView):
         return True
 
     def author_tokens(self):
-        items = self.author.inventory.get_items('action_token')
-        for item in items:
-            if item.data.get('action') == 'deafen':
-                return item.quantity
+        items = self.author.inventory.get_items('deafen_token')
+        if items:
+            return items[0].quantity
         return 0

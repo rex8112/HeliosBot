@@ -26,7 +26,10 @@ from typing import Literal
 
 
 class Item:
-    def __init__(self, name: str, quantity: int, display_name: str, data: dict):
+    def __init__(self, name: str, quantity: int, display_name: str, data: dict = None):
+        if data is None:
+            data = {}
+
         self.name = name
         self.display_name = display_name
         self.quantity = quantity
@@ -42,6 +45,9 @@ class Item:
 
     def __repr__(self):
         return f'Item<{self.name}, {self.quantity}, {self.display_name}, {bool(self.data)}>'
+
+    def get_description(self):
+        return ItemDescriptions.get_description(self)
 
     def copy(self, quantity: int = None):
         return Item(self.name, self.quantity if self.quantity is None else quantity, self.display_name, self.data.copy())
@@ -78,5 +84,61 @@ class Items:
         return Item('gamble_credit', 1, f'{credit:,} Gambling Credit', {'credit': credit})
 
     @staticmethod
-    def action_token(action: Actions):
-        return Item('action_token', 1, f'{action.capitalize()} Token', {'action': action})
+    def mute_token():
+        return Item('mute_token', 1, 'Mute Token')
+
+    @staticmethod
+    def deafen_token():
+        return Item('deafen_token', 1, 'Deafen Token')
+
+    @staticmethod
+    def shield():
+        return Item('shield', 1, 'Shield')
+
+    @staticmethod
+    def bubble():
+        return Item('bubble', 1, 'Bubble')
+
+    @staticmethod
+    def deflector():
+        return Item('deflector', 1, 'Deflector')
+
+
+class ItemDescriptions:
+    @staticmethod
+    def get_description(item: Item):
+        func = getattr(ItemDescriptions, item.name, None)
+        if func:
+            return func(item)
+        return 'No description available'
+
+    @staticmethod
+    def discount(item: Item):
+        if item.data['restrictions']:
+            return f'{item.data["discount"]}% off for {", ".join(item.data["restrictions"])}'
+        else:
+            return f'{item.data["discount"]}% off the shop.'
+
+    @staticmethod
+    def gamble_credit(item: Item):
+        return f'{item.data["credit"]:,} Gambling Credit for the casino.'
+
+    @staticmethod
+    def mute_token(item: Item):
+        return 'Allows muting a user for a limited time'
+
+    @staticmethod
+    def deafen_token(item: Item):
+        return 'Allows deafening a user for a limited time'
+
+    @staticmethod
+    def shield(item: Item):
+        return 'Protects the user from harmful effects for a limited time'
+
+    @staticmethod
+    def bubble(item: Item):
+        return 'Protects an entire channel from harmful effects for a limited time'
+
+    @staticmethod
+    def deflector(item: Item):
+        return 'Deflects one harmful effect for a limited time'
