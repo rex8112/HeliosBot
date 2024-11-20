@@ -20,7 +20,7 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 
-__all__ = ('Item', 'Items')
+__all__ = ('Item', 'Items', 'StoreItem', 'ItemDescriptions')
 
 from typing import Literal
 
@@ -65,7 +65,53 @@ class Item:
         return cls(data['name'], data['quantity'], data['display_name'], data['data'])
 
 
-Actions = Literal['mute', 'deafen', 'shield', 'bubble', 'deflector']
+class StoreItem(Item):
+    """An item that can be bought from the store"""
+    def __init__(self, name: str, quantity: int, display_name: str, price: int, max_price: int, min_price: int,
+                 stock: int, max_stock: int, min_stock: int, data: dict = None):
+        super().__init__(name, quantity, display_name, data)
+        self.price = price
+        self.stock = stock
+        self.max_price = max_price
+        self.min_price = min_price
+        self.max_stock = max_stock
+        self.min_stock = min_stock
+
+    def to_dict(self):
+        return {
+            'name': self.name,
+            'quantity': self.quantity,
+            'display_name': self.display_name,
+            'price': self.price,
+            'max_price': self.max_price,
+            'min_price': self.min_price,
+            'stock': self.stock,
+            'max_stock': self.max_stock,
+            'min_stock': self.min_stock,
+            'data': self.data if self.data else {}
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        return cls(
+            name=data['name'],
+            quantity=data['quantity'],
+            display_name=data['display_name'],
+            price=data['price'],
+            max_price=data['max_price'],
+            min_price=data['min_price'],
+            stock=data['stock'],
+            max_stock=data['max_stock'],
+            min_stock=data['min_stock'],
+            data=data.get('data', {})
+        )
+
+    def to_item(self):
+        """Convert the store item to a regular item"""
+        return Item(self.name, self.quantity, self.display_name, self.data.copy())
+
+    def __repr__(self):
+        return f'StoreItem<{self.name}, {self.quantity}, {self.display_name}, {self.price:,}, {bool(self.data)}>'
 
 
 class Items:
