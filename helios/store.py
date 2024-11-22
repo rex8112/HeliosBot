@@ -159,8 +159,10 @@ class StoreSelectView(discord.ui.View):
 
     @discord.ui.select(placeholder='Select an item to buy', options=[])
     async def select_item(self, interaction: discord.Interaction, select: discord.ui.Select):
+        member = self.store.server.members.get(interaction.user.id)
         item = self.store.items[int(select.values[0])]
-        ... # TODO: Display purchase view
+        view = PurchaseView(item, member)
+        await interaction.response.send_message(view=view, embed=view.get_embed())
 
 
 class PurchaseView(discord.ui.View):
