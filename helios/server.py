@@ -112,6 +112,10 @@ class ServerSettings(Settings):
                                group='Shop', title='Transfer Tax',
                                description='The percentage of points taken when transferring points.')
 
+    daily_store_refreshes = SettingItem('daily_store_refreshes', 1, int,
+                                        group='Shop', title='Daily Store Refreshes',
+                                        description='The number of times the store refreshes daily.')
+
 
 class Server:
     def __init__(self, manager: 'ServerManager', guild: discord.Guild):

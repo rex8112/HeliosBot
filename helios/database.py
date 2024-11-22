@@ -595,3 +595,27 @@ class InventoryModel(BaseModel):
         q = cls.select()
         return await objects.prefetch(q)
 
+
+class StoreModel(BaseModel):
+    server = ForeignKeyField(ServerModel, primary_key=True, backref='store')
+    items = JSONField(default=[])
+    next_refresh = DatetimeTzField(default=get_aware_utc_now)
+
+    class Meta:
+        table_name = 'stores'
+
+    @classmethod
+    async def create(cls, server: ServerModel, items: list = None, next_refresh: datetime = None) -> 'StoreModel':
+        if items is None:
+            items = []
+        if next_refresh is None:
+            next_refresh = get_aware_utc_now()
+        return await objects.create(cls, server=server, items=items, next_refresh=next_refresh)
+
+    @classmethod
+    async def get(cls, server: ServerModel) -> Optional['StoreModel']:
+        try:
+            return await objects.get(cls, server=server)
+        except DoesNotExist:
+            return None
+
