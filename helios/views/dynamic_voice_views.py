@@ -79,8 +79,8 @@ class DynamicVoiceView(ui.View):
     @ui.button(label='Actions', style=ButtonStyle.blurple)
     async def dynamic_actions(self, interaction: Interaction, button: ui.Button):
         server = self.voice.bot.servers.get(interaction.guild_id)
-        view = ActionView(server)
-        await interaction.response.send_message(embed=view.get_embed(), view=view)
+        view = ActionView(self.voice.bot)
+        await interaction.response.send_message(embed=view.get_embed(server), view=view)
 
     @ui.button(label='Game Controller', style=ButtonStyle.blurple)
     async def dynamic_game_controller(self, interaction: Interaction, button: ui.Button):

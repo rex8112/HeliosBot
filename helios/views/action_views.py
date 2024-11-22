@@ -29,6 +29,7 @@ from ..colour import Colour
 from ..effects import MuteEffect, DeafenEffect, ShieldEffect, ChannelShieldEffect
 
 if TYPE_CHECKING:
+    from ..helios_bot import HeliosBot
     from ..member import HeliosMember
     from ..server import Server
 
@@ -37,14 +38,14 @@ __all__ = ('ActionView', 'TempMuteActionView')
 
 
 class ActionView(discord.ui.View):
-    def __init__(self, server: 'Server'):
+    """A view for the action shop."""
+    def __init__(self, bot: 'HeliosBot'):
         super().__init__(timeout=None)
-        self.bot = server.bot
-        self.server = server
+        self.bot = bot
 
-    def get_embed(self) -> discord.Embed:
+    def get_embed(self, server: 'Server') -> discord.Embed:
         embed = discord.Embed(
-            title=f'{self.server.name} Action Shop',
+            title=f'{server.name} Action Shop',
             colour=Colour.actions(),
             description='Use action tokens to perform actions.')
         embed.add_field(name='Mute', value='Mute a user for a set amount of time.')
@@ -52,7 +53,8 @@ class ActionView(discord.ui.View):
 
     @discord.ui.button(label='Mute', style=discord.ButtonStyle.grey, custom_id='helios:action:shop:mute')
     async def mute_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        member = self.server.members.get(interaction.user.id)
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(interaction.user.id)
         await interaction.response.defer(ephemeral=True, thinking=True)
 
         view = TempMuteActionView(member)
@@ -79,7 +81,7 @@ class ActionView(discord.ui.View):
             title='Purchased!',
             colour=discord.Colour.green()
         )
-        selected_member = self.server.members.get(view.selected_member.id)
+        selected_member = server.members.get(view.selected_member.id)
         effect = MuteEffect(selected_member, view.selected_seconds, cost=view.value, muter=member,
                             reason=f'{member.member.name} temp muted for {view.selected_seconds} seconds.')
         await self.bot.effects.add_effect(effect)
@@ -90,7 +92,8 @@ class ActionView(discord.ui.View):
 
     @discord.ui.button(label='Deafen', style=discord.ButtonStyle.grey, custom_id='helios:action:shop:deafen')
     async def deafen_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        member = self.server.members.get(interaction.user.id)
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(interaction.user.id)
         await interaction.response.defer(ephemeral=True, thinking=True)
 
         view = TempDeafenActionView(member)
@@ -117,7 +120,7 @@ class ActionView(discord.ui.View):
             title='Purchased!',
             colour=discord.Colour.green()
         )
-        selected_member = self.server.members.get(view.selected_member.id)
+        selected_member = server.members.get(view.selected_member.id)
         effect = DeafenEffect(selected_member, view.selected_seconds, cost=view.value, deafener=member,
                               reason=f'{member.member.name} temp deafened for {view.selected_seconds} seconds.')
         await self.bot.effects.add_effect(effect)
@@ -128,7 +131,8 @@ class ActionView(discord.ui.View):
 
     @discord.ui.button(label='Shield', style=discord.ButtonStyle.grey, custom_id='helios:action:shop:shield')
     async def shield_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        member = self.server.members.get(interaction.user.id)
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(interaction.user.id)
         await interaction.response.defer(ephemeral=True, thinking=True)
 
         view = DurationView(member, options=[('1h', 1), ('2h', 2), ('3h', 3), ('4h', 4), ('5h', 5)],
@@ -156,7 +160,8 @@ class ActionView(discord.ui.View):
 
     @discord.ui.button(label='Channel Shield', style=discord.ButtonStyle.grey, custom_id='helios:action:shop:bubble')
     async def bubble_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        member = self.server.members.get(interaction.user.id)
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(interaction.user.id)
         await interaction.response.defer(ephemeral=True, thinking=True)
 
         channel = member.member.voice.channel if member.member.voice else None
