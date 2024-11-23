@@ -277,7 +277,7 @@ class HeliosMember(HasFlags):
         return self.points / self.activity_points
 
     def daily_points(self) -> int:
-        if self.points > self.activity_points or self.points >= 100_000:
+        if self.points >= 100_000:
             return 0
         points = 2_000
         return points
