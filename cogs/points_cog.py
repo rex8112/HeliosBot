@@ -207,14 +207,14 @@ class PointsCog(commands.Cog):
         member = server.members.get(interaction.user.id)
         transferred = abs(await member.get_24hr_transfer())
         daily_points = member.daily_points()
-        if transferred >= daily_points:
+        if transferred >= daily_points > 0:
             await interaction.response.send_message(f'You can not claim daily {server.points_name} if you have '
                                                     f'transferred more than {daily_points:,} in the last 24 hours.',
                                                     ephemeral=True)
             return
         points = await member.claim_daily()
         if points == 0:
-            if member.points >= member.activity_points:
+            if member.points > 100_000:
                 await interaction.response.send_message(f'You have too many points to claim daily '
                                                         f'{server.points_name}.',
                                                         ephemeral=True)
