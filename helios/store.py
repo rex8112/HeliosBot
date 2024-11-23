@@ -23,7 +23,10 @@ import datetime
 from typing import TYPE_CHECKING
 
 import discord
+from discord.ext import tasks
 
+from .items import Items
+from .colour import Colour
 from .database import StoreModel
 from .items import StoreItem
 
@@ -66,7 +69,13 @@ class Store:
     @classmethod
     async def from_server(cls, server: 'Server'):
         entry = await StoreModel.get(server=server.db_entry)
-        store = cls.from_db(server, entry)
+        if entry is None:
+            store = cls(server)
+            store.items = cls.get_reset_items()
+            store.set_next_refresh()
+            await store.save()
+        else:
+            store = cls.from_db(server, entry)
         return store
 
     async def save(self):
@@ -79,6 +88,17 @@ class Store:
         else:
             await self.db_entry.async_update(**self.to_dict())
 
+    def start(self):
+        self.refresh_loop.start()
+
+    def stop(self):
+        self.refresh_loop.stop()
+
+    @tasks.loop(minutes=1)
+    async def refresh_loop(self):
+        if self.next_refresh < datetime.datetime.now(datetime.timezone.utc):
+            await self.refresh()
+
     async def refresh(self):
         for item in self.items:
             stock_increment = (item.max_stock - item.min_stock) // 5
@@ -88,14 +108,14 @@ class Store:
             perc = diff / half # 1.0 = 50% stock remaining, 1.5 = 25% stock remaining, 2.0 = 0% stock remaining, 0.5 = 75% stock remaining, etc.
             if perc < 1.0:
                 inverted = 1.0 - perc
-                s_inc = int(stock_increment * inverted)
-                p_inc = int(price_increment * inverted)
+                s_inc = max(int(stock_increment * inverted), 1)
+                p_inc = max(int(price_increment * inverted), 1)
                 item.stock -= s_inc
                 item.price -= p_inc
             elif perc > 1.0:
                 inverted = perc - 1.0
-                s_inc = int(stock_increment * inverted)
-                p_inc = int(price_increment * inverted)
+                s_inc = max(int(stock_increment * inverted), 1)
+                p_inc = max(int(price_increment * inverted), 1)
                 item.stock += s_inc
                 item.price += p_inc
             item.quantity = item.stock
@@ -114,6 +134,24 @@ class Store:
                 return
         self.next_refresh = all_refreshes[0] + datetime.timedelta(days=1)
 
+    @staticmethod
+    def get_reset_items():
+        return [
+            StoreItem.from_item(Items.mute_token(), 100, 1000, 50, 5, 15,  3),
+            StoreItem.from_item(Items.deafen_token(), 100, 1000, 50, 5, 15,  3),
+            StoreItem.from_item(Items.shield(), 100, 500, 10, 10, 30,  5),
+            StoreItem.from_item(Items.bubble(), 1000, 10_000, 1000, 5, 10,  1),
+            StoreItem.from_item(Items.deflector(), 500, 10_000, 500, 5, 10,  1),
+        ]
+
+    async def reset(self):
+        self.items = self.get_reset_items()
+        for item in self.items:
+            item.set_to_max()
+            item.refresh()
+        self.set_next_refresh()
+        await self.save()
+
     def add_item(self, item: 'StoreItem'):
         self.items.append(item)
 
@@ -124,7 +162,19 @@ class Store:
         return StoreView(self.server.bot)
 
     def get_embed(self):
-        ...
+        embed = discord.Embed(
+            title=f'{self.server.name} Store',
+            description='Here are the items available in the store:\n'
+                        f'Next Refresh {discord.utils.format_dt(self.next_refresh, "R")}',
+            colour=Colour.store()
+        )
+        for item in self.items:
+            embed.add_field(
+                name=item.display_name,
+                value=f'Price: {item.price}\nStock: {item.quantity}',
+                inline=True
+            )
+        return embed
 
     def get_edit_view(self):
         ...

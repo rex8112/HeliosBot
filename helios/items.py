@@ -106,9 +106,20 @@ class StoreItem(Item):
             data=data.get('data', {})
         )
 
+    @classmethod
+    def from_item(cls, item: Item, price: int, max_price: int, min_price: int, stock: int, max_stock: int, min_stock: int):
+        return cls(item.name, item.quantity, item.display_name, price, max_price, min_price, stock, max_stock, min_stock, item.data)
+
     def to_item(self):
         """Convert the store item to a regular item"""
         return Item(self.name, self.quantity, self.display_name, self.data.copy())
+
+    def set_to_max(self):
+        self.stock = self.max_stock
+        self.price = self.max_price
+
+    def refresh(self):
+        self.quantity = self.stock
 
     def __repr__(self):
         return f'StoreItem<{self.name}, {self.quantity}, {self.display_name}, {self.price:,}, {bool(self.data)}>'

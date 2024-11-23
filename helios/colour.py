@@ -65,6 +65,10 @@ class Colour:
         return discord.Colour.from_str('#e6485d')
 
     @staticmethod
+    def store():
+        return Colour.helios()
+
+    @staticmethod
     def error():
         return discord.Colour.red()
 
