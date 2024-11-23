@@ -121,7 +121,7 @@ class Store:
         self.items.remove(item)
 
     def get_view(self):
-        ...
+        return StoreView(self.server.bot)
 
     def get_embed(self):
         ...
