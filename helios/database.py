@@ -47,7 +47,7 @@ def initialize_db():
         db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
                           EventModel, ViolationModel, DynamicVoiceModel, DynamicVoiceGroupModel, TopicModel,
                           EffectModel, ThemeModel, BlackjackModel, DailyModel, GameModel, GameAliasModel, PugModel,
-                          InventoryModel])
+                          InventoryModel, StoreModel])
 
 
 def get_aware_utc_now():
