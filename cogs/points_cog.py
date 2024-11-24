@@ -29,7 +29,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 import helios
-from helios import ShopView, TexasHoldEm, Blackjack
+from helios import ActionView, TexasHoldEm, Blackjack
 from helios.database import TransactionModel
 from helios.shop import *
 
@@ -205,24 +205,12 @@ class PointsCog(commands.Cog):
     async def daily(self, interaction: discord.Interaction):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
-        transferred = abs(await member.get_24hr_transfer())
-        daily_points = member.daily_points()
-        if transferred >= daily_points > 0:
-            await interaction.response.send_message(f'You can not claim daily {server.points_name} if you have '
-                                                    f'transferred more than {daily_points:,} in the last 24 hours.',
-                                                    ephemeral=True)
-            return
         points = await member.claim_daily()
         if points == 0:
-            if member.points > 100_000:
-                await interaction.response.send_message(f'You have too many points to claim daily '
-                                                        f'{server.points_name}.',
-                                                        ephemeral=True)
-            else:
-                await interaction.response.send_message(f'You have already claimed your daily {server.points_name}',
+            await interaction.response.send_message(f'You have already claimed your daily {server.points_name}',
                                                         ephemeral=True)
             return
-        await interaction.response.send_message(f'You have claimed **{points}** daily {server.points_name}',
+        await interaction.response.send_message(f'You have claimed **{points:,}** daily gambling credits',
                                                 ephemeral=True)
 
     @app_commands.command(name='basic_leaderboard', description='See a top 10 leaderboard')
@@ -245,17 +233,20 @@ class PointsCog(commands.Cog):
         )
         await interaction.response.send_message(embeds=[a_embed, p_embed], ephemeral=True)
 
-    @app_commands.command(name='shop', description='View the shop to spend points')
+    @app_commands.command(name='actions', description='View the action shop to spend points')
     @app_commands.guild_only()
-    async def shop(self, interaction: discord.Interaction):
+    async def action_shop(self, interaction: discord.Interaction):
         server = self.bot.servers.get(interaction.guild_id)
-        embed = discord.Embed(
-            title=f'{interaction.guild.name} Shop',
-            colour=helios.Colour.helios(),
-            description='Available Items'
-        )
-        [embed.add_field(name=x.name, value=x.desc, inline=False) for x in server.shop.items]
-        view = ShopView(server)
+        view = ActionView(self.bot)
+        await interaction.response.send_message(embed=view.get_embed(server), view=view)
+
+    @app_commands.command(name='store', description='View the store to spend points')
+    @app_commands.guild_only()
+    async def store(self, interaction: discord.Interaction):
+        server = self.bot.servers.get(interaction.guild_id)
+        store = server.store
+        view = store.get_view()
+        embed = store.get_embed()
         await interaction.response.send_message(embed=embed, view=view)
 
     @app_commands.command(name='play', description='Play or queue music.')

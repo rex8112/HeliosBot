@@ -33,6 +33,8 @@ from .abc import HasFlags
 from .colour import Colour
 from .database import MemberModel, objects, TransactionModel, DailyModel
 from .exceptions import IdMismatchError
+from .inventory import Inventory
+from .items import Items
 from .violation import Violation
 from .voice_template import VoiceTemplate
 
@@ -57,6 +59,7 @@ class HeliosMember(HasFlags):
         self.manager = manager
         self.member = member
         self.templates: list['VoiceTemplate'] = []
+        self.inventory: Optional['Inventory'] = None
         self.flags = []
 
         self._allow_on_voice = 0
@@ -277,10 +280,10 @@ class HeliosMember(HasFlags):
         return self.points / self.activity_points
 
     def daily_points(self) -> int:
-        if self.points >= 100_000:
-            return 0
-        points = 2_000
-        return points
+        return 10_000
+
+    async def load_inventory(self):
+        self.inventory = await Inventory.load(self)
 
     async def claim_daily(self) -> int:
         """
@@ -292,7 +295,8 @@ class HeliosMember(HasFlags):
             return 0
         give = await DailyModel.claim(self._db_entry, days)
         if give:
-            await self.add_points(points, 'Helios', 'Daily Pity Points')
+            item = Items.gamble_credit(int(points / 5))
+            await self.inventory.add_item(item, 5)
             return points
         return 0
 
@@ -347,6 +351,7 @@ class HeliosMember(HasFlags):
             self._db_entry.update_model_instance(self._db_entry, data)
             await self._db_entry.async_save()
             self._changed = False
+        await self.inventory.save()
 
     async def load(self):
         if self._id != 0:

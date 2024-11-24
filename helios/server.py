@@ -37,6 +37,7 @@ from .member import HeliosMember
 from .member_manager import MemberManager
 from .music import MusicPlayer
 from .shop import Shop
+from .store import Store
 from .theme import ThemeManager
 from .tools.settings import Settings, SettingItem
 
@@ -112,6 +113,10 @@ class ServerSettings(Settings):
                                group='Shop', title='Transfer Tax',
                                description='The percentage of points taken when transferring points.')
 
+    daily_store_refreshes = SettingItem('daily_store_refreshes', 1, int,
+                                        group='Shop', title='Daily Store Refreshes',
+                                        description='The number of times the store refreshes daily.')
+
 
 class Server:
     def __init__(self, manager: 'ServerManager', guild: discord.Guild):
@@ -122,6 +127,7 @@ class Server:
         self.channels = ChannelManager(self)
         self.members = MemberManager(self)
         self.shop = Shop(self.bot)
+        self.store: Optional['Store'] = None
         self.court = Court(self)
         self.music_player = MusicPlayer(self)
         self.topics = {}
@@ -187,13 +193,36 @@ class Server:
         s.loaded = True
         return s
 
+    async def setup(self, data: Optional['ServerModel']):
+        if self._new or data is None:
+            logger.debug(f'Setting up new server {self.name}')
+            await self.members.setup()
+            await self.channels.setup()
+            await self.save()
+        else:
+            logger.debug(f'Setting up server {self.name}')
+            self.deserialize(data)
+            await self.members.setup(data.members)
+            await self.channels.setup(data.channels)
+        await self.theme.load()
+        self.store = await Store.from_server(self)
+
+        self.start()
+        logger.debug(f'Server {self.name} setup complete')
+
+    async def shutdown(self):
+        self.stop()
+        await self.save()
+
     def start(self):
         logger.debug(f'Starting server {self.name}')
         self.games.start()
+        self.store.start()
 
     def stop(self):
         logger.debug(f'Stopping server {self.name}')
         self.games.stop()
+        self.store.stop()
 
     # Methods
     def deserialize(self, data: ServerModel) -> None:

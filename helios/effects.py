@@ -361,6 +361,7 @@ class ShieldEffect(Effect):
     def __init__(self, target: 'HeliosMember', duration: int, *, cost: int = None):
         super().__init__(target, duration)
         self.cost = cost
+        self.disable_enforce = False
 
     def to_dict_extras(self):
         return {
@@ -374,6 +375,8 @@ class ShieldEffect(Effect):
         await super().apply()
         try:
             await self.target.member.edit(nick=f'🚫{self.target.member.display_name}')
+        except discord.Forbidden:
+            self.disable_enforce = True
         except Exception as e:
             logger.error(f'Error applying shield effect: {e}', exc_info=True)
         return True
@@ -381,15 +384,20 @@ class ShieldEffect(Effect):
     async def remove(self):
         await super().remove()
         try:
-            await self.target.member.edit(nick=self.target.member.display_name.replace('🚫', ''))
+            if '🚫' in self.target.member.display_name:
+                await self.target.member.edit(nick=self.target.member.display_name.replace('🚫', ''))
+        except discord.Forbidden:
+            ...
         except Exception as e:
             logger.error(f'Error removing shield effect: {e}', exc_info=True)
 
     async def enforce(self):
         name = self.target.member.display_name
-        if '🚫' not in name:
+        if '🚫' not in name and self.disable_enforce is False:
             try:
                 await self.target.member.edit(nick='🚫' + name)
+            except discord.Forbidden:
+                self.disable_enforce = True
             except Exception as e:
                 logger.error(f'Error enforcing shield effect: {e}', exc_info=True)
 

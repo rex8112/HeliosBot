@@ -30,7 +30,7 @@ from ..colour import Colour
 from ..modals import VoiceNameChange
 from ..tools.modals import get_simple_modal
 from ..tools.settings import PrimalModal
-from .shop_view import ShopView
+from .action_views import ActionView
 from .voice_view import VoiceControllerView
 
 if TYPE_CHECKING:
@@ -55,7 +55,8 @@ class DynamicVoiceView(ui.View):
             title=f'{self.voice.channel.name}',
             color=Color.blurple()
         )
-        embed.add_field(name='Shop', value='Open a Shop')
+        embed.add_field(name='Actions', value='Opens the Action Shop')
+        embed.add_field(name='Store', value='Opens the Store')
         embed.add_field(name='Game Controller', value='Open a Game Controller to control mutes for in game voice chat.')
         embed.add_field(name='Split', value='Split the channel into two separate channels.')
         embed.add_field(name='Private', value='Make the channel private.')
@@ -76,16 +77,18 @@ class DynamicVoiceView(ui.View):
 
         return embeds
 
-    @ui.button(label='Shop', style=ButtonStyle.blurple)
-    async def dynamic_shop(self, interaction: Interaction, button: ui.Button):
-        server = self.voice.bot.servers.get(interaction.guild_id)
-        embed = discord.Embed(
-            title=f'{interaction.guild.name} Shop',
-            colour=Colour.helios(),
-            description='Available Items'
-        )
-        [embed.add_field(name=x.name, value=x.desc, inline=False) for x in server.shop.items]
-        view = ShopView(server)
+    @ui.button(label='Actions', style=ButtonStyle.blurple)
+    async def dynamic_actions(self, interaction: Interaction, button: ui.Button):
+        server = self.voice.server
+        view = ActionView(self.voice.bot)
+        await interaction.response.send_message(embed=view.get_embed(server), view=view)
+
+    @ui.button(label='Store', style=ButtonStyle.blurple)
+    async def dynamic_store(self, interaction: Interaction, button: ui.Button):
+        server = self.voice.server
+        store = server.store
+        view = store.get_view()
+        embed = store.get_embed()
         await interaction.response.send_message(embed=embed, view=view)
 
     @ui.button(label='Game Controller', style=ButtonStyle.blurple)

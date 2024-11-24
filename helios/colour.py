@@ -59,3 +59,23 @@ class Colour:
     @staticmethod
     def poker_playing():
         return discord.Colour.from_str('#08adc7')
+
+    @staticmethod
+    def actions():
+        return discord.Colour.from_str('#e6485d')
+
+    @staticmethod
+    def store():
+        return Colour.helios()
+
+    @staticmethod
+    def error():
+        return discord.Colour.red()
+
+    @staticmethod
+    def choice():
+        return discord.Colour.blurple()
+
+    @staticmethod
+    def inventory():
+        return Colour.helios()
