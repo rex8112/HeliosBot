@@ -210,7 +210,7 @@ class PointsCog(commands.Cog):
             await interaction.response.send_message(f'You have already claimed your daily {server.points_name}',
                                                         ephemeral=True)
             return
-        await interaction.response.send_message(f'You have claimed **{points}** daily gambling credits',
+        await interaction.response.send_message(f'You have claimed **{points:,}** daily gambling credits',
                                                 ephemeral=True)
 
     @app_commands.command(name='basic_leaderboard', description='See a top 10 leaderboard')
