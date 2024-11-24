@@ -205,24 +205,12 @@ class PointsCog(commands.Cog):
     async def daily(self, interaction: discord.Interaction):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
-        transferred = abs(await member.get_24hr_transfer())
-        daily_points = member.daily_points()
-        if transferred >= daily_points > 0:
-            await interaction.response.send_message(f'You can not claim daily {server.points_name} if you have '
-                                                    f'transferred more than {daily_points:,} in the last 24 hours.',
-                                                    ephemeral=True)
-            return
         points = await member.claim_daily()
         if points == 0:
-            if member.points > 100_000:
-                await interaction.response.send_message(f'You have too many points to claim daily '
-                                                        f'{server.points_name}.',
-                                                        ephemeral=True)
-            else:
-                await interaction.response.send_message(f'You have already claimed your daily {server.points_name}',
+            await interaction.response.send_message(f'You have already claimed your daily {server.points_name}',
                                                         ephemeral=True)
             return
-        await interaction.response.send_message(f'You have claimed **{points}** daily {server.points_name}',
+        await interaction.response.send_message(f'You have claimed **{points}** daily gambling credits',
                                                 ephemeral=True)
 
     @app_commands.command(name='basic_leaderboard', description='See a top 10 leaderboard')
