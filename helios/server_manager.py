@@ -29,6 +29,7 @@ import discord
 
 from .database import ServerModel, MemberModel, ChannelModel, objects
 from .server import Server
+from .store import StoreView
 from .views import ActionView
 
 if TYPE_CHECKING:
@@ -89,6 +90,7 @@ class ServerManager:
             self.servers[server.id] = server
 
         self.bot.add_view(ActionView(self.bot))
+        self.bot.add_view(StoreView(self.bot))
 
         logger.info(f'{len(self.bot.guilds)} Servers loaded in {time.time() - start_time} seconds')
         start_time = time.time()

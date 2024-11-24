@@ -127,7 +127,7 @@ class Server:
         self.channels = ChannelManager(self)
         self.members = MemberManager(self)
         self.shop = Shop(self.bot)
-        self.store =  Store(self)
+        self.store: Optional['Store'] = None
         self.court = Court(self)
         self.music_player = MusicPlayer(self)
         self.topics = {}
@@ -205,6 +205,8 @@ class Server:
             await self.members.setup(data.members)
             await self.channels.setup(data.channels)
         await self.theme.load()
+        self.store = await Store.from_server(self)
+
         self.start()
         logger.debug(f'Server {self.name} setup complete')
 

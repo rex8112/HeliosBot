@@ -71,9 +71,7 @@ class Store:
         entry = await StoreModel.get(server=server.db_entry)
         if entry is None:
             store = cls(server)
-            store.items = cls.get_reset_items()
-            store.set_next_refresh()
-            await store.save()
+            await store.reset()
         else:
             store = cls.from_db(server, entry)
         return store
@@ -152,6 +150,19 @@ class Store:
         self.set_next_refresh()
         await self.save()
 
+    async def purchase(self, item: StoreItem, member: 'HeliosMember', quantity: int):
+        quantity = min(quantity, item.quantity)
+        if quantity <= 0:
+            return 0
+        total_price = item.price * quantity
+        if member.points < total_price:
+            return 0
+        item.quantity -= quantity
+        await member.add_points(-total_price, 'Helios: Store', f'Purchased {quantity} of {item.name}')
+        await member.inventory.add_item(item.to_item(), quantity)
+        await self.save()
+        return quantity
+
     def add_item(self, item: 'StoreItem'):
         self.items.append(item)
 
@@ -171,7 +182,7 @@ class Store:
         for item in self.items:
             embed.add_field(
                 name=item.display_name,
-                value=f'Price: {item.price}\nStock: {item.quantity}',
+                value=f'Price: **{item.price:,}**\nStock: **{item.quantity:,}**',
                 inline=True
             )
         return embed
@@ -191,6 +202,12 @@ class StoreView(discord.ui.View):
         server = self.bot.servers.get(interaction.guild.id)
         view = StoreSelectView(server.store)
         await interaction.response.send_message(view=view, ephemeral=True)
+
+    @discord.ui.button(label='🔃', custom_id='helios:store:refresh')
+    async def refresh(self, interaction: discord.Interaction, button: discord.ui.Button):
+        server = self.bot.servers.get(interaction.guild.id)
+        store = server.store
+        await interaction.response.edit_message(embed=store.get_embed(), view=self)
 
 
 class StoreSelectView(discord.ui.View):
@@ -212,13 +229,14 @@ class StoreSelectView(discord.ui.View):
         member = self.store.server.members.get(interaction.user.id)
         item = self.store.items[int(select.values[0])]
         view = PurchaseView(item, member)
-        await interaction.response.send_message(view=view, embed=view.get_embed())
+        await interaction.response.edit_message(view=view, embed=view.get_embed())
 
 
 class PurchaseView(discord.ui.View):
     def __init__(self, item: StoreItem, author: 'HeliosMember'):
         super().__init__(timeout=180)
         self.author = author
+        self.store = author.server.store
         self.item = item
         self.selected_quantity = 1
         self.update_buttons()
@@ -231,7 +249,7 @@ class PurchaseView(discord.ui.View):
     def get_embed(self):
         embed = discord.Embed(title=f"Item: {self.item.display_name}",
                               description="Here are the details of the selected item:")
-        embed.add_field(name="Price", value=str(self.item.price), inline=False)
+        embed.add_field(name="Price", value=f'{self.item.price * self.selected_quantity:,}', inline=False)
         embed.add_field(name="Remaining Stock", value=str(self.item.quantity), inline=False)
         return embed
 
@@ -239,19 +257,19 @@ class PurchaseView(discord.ui.View):
     async def purchase(self, interaction: discord.Interaction, button: discord.ui.Button):
         if 0 < self.selected_quantity <= self.item.quantity:
             self.stop()
-            # Code to handle the purchase logic
-            await interaction.response.send_message(
-                f'You bought {self.selected_quantity} of {self.item.display_name}.', ephemeral=True)
+            bought = await self.store.purchase(self.item, self.author, self.selected_quantity)
+            await interaction.response.edit_message(
+                content=f'You bought {bought} {self.item.display_name}.', view=None, embed=None)
         else:
             self.update_buttons()
             await interaction.response.edit_message(embed=self.get_embed(), view=self)
 
     @discord.ui.button(label='Cancel', style=discord.ButtonStyle.danger, row=1)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message('Purchase canceled.', ephemeral=True)
+        await interaction.response.edit_message(content='Purchase canceled.', view=None, embed=None)
         self.stop()
 
-    @discord.ui.button(label='-', style=discord.ButtonStyle.secondary, row=0)
+    @discord.ui.button(label='-', style=discord.ButtonStyle.grey, row=0)
     async def decrease(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.selected_quantity > 1:
             self.selected_quantity -= 1
@@ -262,7 +280,7 @@ class PurchaseView(discord.ui.View):
     async def quantity_label(self, interaction: discord.Interaction, button: discord.ui.Button):
         ...  # This button is just to display the selected quantity and won't have any interaction.
 
-    @discord.ui.button(label='+', style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label='+', style=discord.ButtonStyle.grey, row=0)
     async def increase(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.selected_quantity < self.item.quantity:
             self.selected_quantity += 1

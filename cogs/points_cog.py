@@ -252,6 +252,15 @@ class PointsCog(commands.Cog):
         view = ActionView(self.bot)
         await interaction.response.send_message(embed=view.get_embed(server), view=view)
 
+    @app_commands.command(name='store', description='View the store to spend points')
+    @app_commands.guild_only()
+    async def store(self, interaction: discord.Interaction):
+        server = self.bot.servers.get(interaction.guild_id)
+        store = server.store
+        view = store.get_view()
+        embed = store.get_embed()
+        await interaction.response.send_message(embed=embed, view=view)
+
     @app_commands.command(name='play', description='Play or queue music.')
     @app_commands.describe(song='Must be a full youtube URL, including the https://')
     @app_commands.guild_only()
