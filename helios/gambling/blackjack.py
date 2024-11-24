@@ -390,7 +390,7 @@ class Blackjack:
             else:
                 credit = self.credits[self.players.index(player)]
                 bet = credit.data['credit'] if credit else bets[0]
-                self.hand_images.append(BlackjackHandImage(hands[0], icon, player.member.display_name[:10], bet))
+                self.hand_images.append(BlackjackHandImage(hands[0], icon, player.member.display_name[:10], bet, bool(credit)))
         self.dealer_hand_image = BlackjackHandImage(self.dealer_hand, self.dealer_icon, 'Dealer', 0)
 
     async def generate_dealer_image(self):
