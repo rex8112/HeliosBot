@@ -162,6 +162,9 @@ class Hand:
         hand.add_cards([Card(Suits[card[1]], Values[card[0]]) for card in data])
         return hand
 
+    def copy(self):
+        return Hand.from_dict(self.to_dict())
+
     def add_card(self, card: Card):
         self.cards.append(card)
 

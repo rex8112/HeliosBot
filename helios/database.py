@@ -46,7 +46,8 @@ def initialize_db():
         db.connect()
         db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
                           EventModel, ViolationModel, DynamicVoiceModel, DynamicVoiceGroupModel, TopicModel,
-                          EffectModel, ThemeModel, BlackjackModel, DailyModel, GameModel, GameAliasModel, PugModel])
+                          EffectModel, ThemeModel, BlackjackModel, DailyModel, GameModel, GameAliasModel, PugModel,
+                          InventoryModel, StoreModel])
 
 
 def get_aware_utc_now():
@@ -172,6 +173,17 @@ class TransactionModel(BaseModel):
              .where(TransactionModel.member == member.db_entry, TransactionModel.created_on > ago))
         res = await objects.prefetch(q)
         return res[0].day_change
+
+    @staticmethod
+    async def get_24hr_transfers_out(member: 'HeliosMember'):
+        ago = discord.utils.utcnow() - datetime.timedelta(days=1)
+        q = (TransactionModel.select(fn.SUM(TransactionModel.amount).alias('day_transfer'))
+             .where(TransactionModel.member == member.db_entry,
+                    TransactionModel.created_on > ago,
+                    TransactionModel.amount < 0,
+                    TransactionModel.description == 'Transferred Points'))
+        res = await objects.prefetch(q)
+        return int(res[0].day_transfer) if res[0].day_transfer else 0
 
 
 class EventModel(BaseModel):
@@ -442,6 +454,14 @@ class DailyModel(BaseModel):
             await objects.create(cls, member=member, claimed=day)
             return True
 
+    @classmethod
+    async def is_claimed(cls, member: MemberModel, day: int):
+        try:
+            daily = await objects.get(cls, member=member)
+            return daily.claimed == day
+        except DoesNotExist:
+            return False
+
 
 class GameModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
@@ -547,4 +567,55 @@ class PugModel(BaseModel):
     async def get_all(cls, server: ServerModel) -> list['PugModel']:
         q = cls.select().where(cls.server == server)
         return await objects.prefetch(q)
+
+
+class InventoryModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    member = ForeignKeyField(MemberModel, backref='inventory')
+    items = JSONField(default=[])
+
+    class Meta:
+        table_name = 'inventory'
+
+    @classmethod
+    async def create(cls, member: MemberModel, items=None) -> 'InventoryModel':
+        if items is None:
+            items = []
+        return await objects.create(cls, member=member, items=items)
+
+    @classmethod
+    async def get(cls, member: MemberModel) -> Optional['InventoryModel']:
+        try:
+            return await objects.get(cls, member=member)
+        except DoesNotExist:
+            return None
+
+    @classmethod
+    async def get_all(cls) -> list['InventoryModel']:
+        q = cls.select()
+        return await objects.prefetch(q)
+
+
+class StoreModel(BaseModel):
+    server = ForeignKeyField(ServerModel, primary_key=True, backref='store')
+    items = JSONField(default=[])
+    next_refresh = DatetimeTzField(default=get_aware_utc_now)
+
+    class Meta:
+        table_name = 'stores'
+
+    @classmethod
+    async def create(cls, server: ServerModel, items: list = None, next_refresh: datetime = None) -> 'StoreModel':
+        if items is None:
+            items = []
+        if next_refresh is None:
+            next_refresh = get_aware_utc_now()
+        return await objects.create(cls, server=server, items=items, next_refresh=next_refresh)
+
+    @classmethod
+    async def get(cls, server: ServerModel) -> Optional['StoreModel']:
+        try:
+            return await objects.get(cls, server=server)
+        except DoesNotExist:
+            return None
 

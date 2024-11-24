@@ -629,6 +629,7 @@ class VoiceManager:
         for channel in channels:
             self.channels[channel.channel.id] = channel
         await self.pug_manager.load_pugs()
+        await self.update_control_messages(True)
         self._setup = True
 
     async def sort_channels(self):
@@ -663,10 +664,10 @@ class VoiceManager:
             except AttributeError:
                 ...
 
-    async def update_control_messages(self):
+    async def update_control_messages(self, force=False):
         for channel in self.channels.values():
             if channel.state != DynamicVoiceState.INACTIVE:
-                await channel.update_control_message()
+                await channel.update_control_message(force=force)
 
     async def check_channels(self):
         if not self._setup:

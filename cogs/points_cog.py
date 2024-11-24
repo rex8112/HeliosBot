@@ -29,7 +29,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 import helios
-from helios import ShopView, TexasHoldEm, Blackjack
+from helios import ActionView, TexasHoldEm, Blackjack
 from helios.database import TransactionModel
 from helios.shop import *
 
@@ -127,6 +127,12 @@ class PointsCog(commands.Cog):
             return
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
+
+        if await member.is_daily_claimed() or await member.is_daily_claimed(offset=-1):
+            await interaction.response.send_message(content='You can not transfer points if you claimed daily in the '
+                                                            'last two days.', ephemeral=True)
+            return
+
         target = server.members.get(target.id)
         tax_rate = server.settings.transfer_tax.value
         tax = max(int(points * tax_rate), 1)
@@ -201,15 +207,10 @@ class PointsCog(commands.Cog):
         member = server.members.get(interaction.user.id)
         points = await member.claim_daily()
         if points == 0:
-            if member.points >= member.activity_points:
-                await interaction.response.send_message(f'You have too many points to claim daily '
-                                                        f'{server.points_name}.',
-                                                        ephemeral=True)
-            else:
-                await interaction.response.send_message(f'You have already claimed your daily {server.points_name}',
+            await interaction.response.send_message(f'You have already claimed your daily {server.points_name}',
                                                         ephemeral=True)
             return
-        await interaction.response.send_message(f'You have claimed **{points}** daily {server.points_name}',
+        await interaction.response.send_message(f'You have claimed **{points:,}** daily gambling credits',
                                                 ephemeral=True)
 
     @app_commands.command(name='basic_leaderboard', description='See a top 10 leaderboard')
@@ -232,17 +233,20 @@ class PointsCog(commands.Cog):
         )
         await interaction.response.send_message(embeds=[a_embed, p_embed], ephemeral=True)
 
-    @app_commands.command(name='shop', description='View the shop to spend points')
+    @app_commands.command(name='actions', description='View the action shop to spend points')
     @app_commands.guild_only()
-    async def shop(self, interaction: discord.Interaction):
+    async def action_shop(self, interaction: discord.Interaction):
         server = self.bot.servers.get(interaction.guild_id)
-        embed = discord.Embed(
-            title=f'{interaction.guild.name} Shop',
-            colour=helios.Colour.helios(),
-            description='Available Items'
-        )
-        [embed.add_field(name=x.name, value=x.desc, inline=False) for x in server.shop.items]
-        view = ShopView(server)
+        view = ActionView(self.bot)
+        await interaction.response.send_message(embed=view.get_embed(server), view=view)
+
+    @app_commands.command(name='store', description='View the store to spend points')
+    @app_commands.guild_only()
+    async def store(self, interaction: discord.Interaction):
+        server = self.bot.servers.get(interaction.guild_id)
+        store = server.store
+        view = store.get_view()
+        embed = store.get_embed()
         await interaction.response.send_message(embed=embed, view=view)
 
     @app_commands.command(name='play', description='Play or queue music.')
@@ -260,9 +264,9 @@ class PointsCog(commands.Cog):
         await interaction.response.send_message('Starting Blackjack', ephemeral=True)
         await server.gambling.run_blackjack(channel)
 
-    # @app_commands.command(name='texasholdem')
-    # @app_commands.describe(buy_in='The amount of points to buy in with')
-    # @app_commands.guild_only()
+    @app_commands.command(name='texasholdem')
+    @app_commands.describe(buy_in='The amount of points to buy in with')
+    @app_commands.guild_only()
     async def texas_holdem(self, interaction: discord.Interaction, buy_in: int = 1000):
         """ Create a Texas Holdem game. """
         server = self.bot.servers.get(interaction.guild_id)

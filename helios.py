@@ -92,7 +92,7 @@ async def main():
     async with bot:
         setup_logging(root=False)
         await load_extensions()
-        await bot.start(bot.settings.token)
+        await bot.start(bot.settings.token, reconnect=False)
         await asyncio.sleep(0.1)
     await asyncio.sleep(0.1)
     db.close()

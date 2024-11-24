@@ -29,7 +29,8 @@ import discord
 
 from .database import ServerModel, MemberModel, ChannelModel, objects
 from .server import Server
-from .views import ShopView
+from .store import StoreView
+from .views import ActionView
 
 if TYPE_CHECKING:
     from .helios_bot import HeliosBot
@@ -82,22 +83,14 @@ class ServerManager:
             data = server_dict.get(guild.id)
             if data:
                 server = Server(self, guild)
-                server.deserialize(data)
-                channel_data = data.channels
-                member_data = data.members
-                tasks.append(server.channels.setup(channel_data))
-                tasks.append(server.members.setup(member_data))
-                #  tasks.append(server.stadium.setup())
+                tasks.append(server.setup(data))
             else:
                 server = Server.new(self, guild)
-                await server.save()
-                tasks.append(server.channels.setup())
-                tasks.append(server.members.setup())
-                #  tasks.append(server.stadium.setup())
+                tasks.append(server.setup())
             self.servers[server.id] = server
-            server.start()
-            self.bot.add_view(ShopView(server))
-            await server.theme.load()
+
+        self.bot.add_view(ActionView(self.bot))
+        self.bot.add_view(StoreView(self.bot))
 
         logger.info(f'{len(self.bot.guilds)} Servers loaded in {time.time() - start_time} seconds')
         start_time = time.time()

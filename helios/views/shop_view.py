@@ -123,7 +123,6 @@ class DurationView(discord.ui.View):
 
 
 class TempMuteView(discord.ui.View):
-
     def __init__(self, author: 'HeliosMember'):
         super().__init__(timeout=180)
         self.author = author
@@ -274,7 +273,6 @@ class TempMuteView(discord.ui.View):
 
 
 class TempDeafenView(TempMuteView):
-
     async def get_value(self):
         if not self.selected_member:
             return 0

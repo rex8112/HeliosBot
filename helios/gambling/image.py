@@ -73,11 +73,12 @@ def get_result_color(result: str) -> str:
 
 
 class BlackjackHandImage:
-    def __init__(self, hand: 'Hand', icon: 'Image', name: str, bet: int):
+    def __init__(self, hand: 'Hand', icon: 'Image', name: str, bet: int, is_credit: bool = False):
         self.hand = hand
         self.icon: Image = icon.copy().resize((64, 64)).convert('RGBA')
         self.name = name
         self.bet = bet
+        self.is_credit = is_credit
 
         self.padding = 20
         self.card_spots = 5
@@ -106,7 +107,8 @@ class BlackjackHandImage:
             start_x = self.padding + self.icon.width + 10
             draw.text((start_x, self.padding), self.name, fill='white', font_size=32)
             if self.bet:
-                draw.text((start_x, self.padding + 30), f'Bet: {self.bet:,}', fill='white', font_size=24)
+                name = 'Credit' if self.is_credit else 'Bet'
+                draw.text((start_x, self.padding + 30), f'{name}: {self.bet:,}', fill='white', font_size=24)
 
             self._background = background
             del draw

@@ -148,10 +148,13 @@ class PUGChannel:
         if member not in self.temporary_members:
             return
         self.temporary_members.remove(member)
-        if kick:
-            await member.member.kick(reason='PUG Ended')
-        else:
-            await member.member.remove_roles(self.role)
+        try:
+            if kick:
+                await member.member.kick(reason='PUG Ended')
+            else:
+                await member.member.remove_roles(self.role)
+        except (discord.Forbidden, discord.HTTPException, AttributeError):
+            ...
         await self.save()
 
     async def ensure_members_have_role(self):
@@ -207,6 +210,12 @@ class PUGManager:
                 continue
             server_members = [self.server.members.get(m) for m in pug_data.server_members]
             temporary_members = [self.server.members.get(m) for m in pug_data.temporary_members]
+            while None in server_members:
+                server_members.remove(None)
+                save = True
+            while None in temporary_members:
+                temporary_members.remove(None)
+                save = True
             role = self.server.guild.get_role(pug_data.role)
             if not role:
                 role = await PUGChannel.create_role(voice, voice.custom_name)
@@ -260,7 +269,7 @@ def view_cls(pug: PUGChannel):
             self.pug = pug
 
             options = [discord.SelectOption(label=m.member.display_name, value=str(m.member.id))
-                       for m in self.pug.get_members() if m != self.pug.get_leader()]
+                       for m in set(self.pug.get_members()) if m != self.pug.get_leader()]
             if options:
                 self.remove_member.options = options
             else:
@@ -284,6 +293,9 @@ def view_cls(pug: PUGChannel):
                 return
 
             member = self.voice.server.members.get(select.values[0].id)
+            if member in self.pug.get_members():
+                await interaction.response.send_message(f'{member.member.mention} already in PUG group', ephemeral=True)
+                return
             await self.pug.add_member(member)
             await interaction.response.send_message(f'{member.member.mention} added to PUG group', ephemeral=True)
             await self.voice.update_control_message(force=True)
