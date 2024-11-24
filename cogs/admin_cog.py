@@ -128,6 +128,13 @@ class AdminCog(commands.GroupCog, name='admin'):
         await interaction.response.send_message(f'Added {quantity} {item.display_name} to {target.display_name}',
                                                 ephemeral=True)
 
+    @app_commands.command(name='edit_store', description='Edit the store')
+    @commands.has_permissions(administrator=True)
+    async def edit_store(self, interaction: discord.Interaction):
+        server = self.bot.servers.get(interaction.guild_id)
+        view = server.store.get_edit_view()
+        await interaction.response.send_message(embed=view.get_embed(), view=view, ephemeral=True)
+
     @app_commands.command(name='other', description='Other commands')
     @commands.has_permissions(administrator=True)
     async def other(self, interaction: discord.Interaction, command: str, arg: str):
