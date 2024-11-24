@@ -354,6 +354,8 @@ class StoreEditView(discord.ui.View):
         if await modal.wait():
             return
         self.selected_item.price = int(modal.amount.value)
+        self.selected_item.price = max(self.selected_item.min_price, self.selected_item.price)
+        self.selected_item.price = min(self.selected_item.max_price, self.selected_item.price)
         await self.store.save()
         await self.refresh_message(interaction)
 
@@ -364,6 +366,8 @@ class StoreEditView(discord.ui.View):
         if await modal.wait():
             return
         self.selected_item.min_price = int(modal.amount.value)
+        self.selected_item.min_price = min(self.selected_item.max_price, self.selected_item.min_price)
+        self.selected_item.price = max(self.selected_item.price, self.selected_item.min_price)
         await self.store.save()
         await self.refresh_message(interaction)
 
@@ -374,6 +378,8 @@ class StoreEditView(discord.ui.View):
         if await modal.wait():
             return
         self.selected_item.max_price = int(modal.amount.value)
+        self.selected_item.max_price = max(self.selected_item.min_price, self.selected_item.max_price)
+        self.selected_item.price = min(self.selected_item.price, self.selected_item.max_price)
         await self.store.save()
         await self.refresh_message(interaction)
 
@@ -384,6 +390,8 @@ class StoreEditView(discord.ui.View):
         if await modal.wait():
             return
         self.selected_item.stock = int(modal.amount.value)
+        self.selected_item.stock = max(self.selected_item.min_stock, self.selected_item.stock)
+        self.selected_item.stock = min(self.selected_item.max_stock, self.selected_item.stock)
         self.selected_item.quantity = min(self.selected_item.stock, self.selected_item.quantity)
         await self.store.save()
         await self.refresh_message(interaction)
@@ -395,6 +403,8 @@ class StoreEditView(discord.ui.View):
         if await modal.wait():
             return
         self.selected_item.min_stock = int(modal.amount.value)
+        self.selected_item.min_stock = min(self.selected_item.max_stock, self.selected_item.min_stock)
+        self.selected_item.stock = max(self.selected_item.stock, self.selected_item.min_stock)
         await self.store.save()
         await self.refresh_message(interaction)
 
@@ -405,6 +415,8 @@ class StoreEditView(discord.ui.View):
         if await modal.wait():
             return
         self.selected_item.max_stock = int(modal.amount.value)
+        self.selected_item.max_stock = max(self.selected_item.min_stock, self.selected_item.max_stock)
+        self.selected_item.stock = min(self.selected_item.stock, self.selected_item.max_stock)
         await self.store.save()
         await self.refresh_message(interaction)
 
