@@ -115,14 +115,18 @@ class AdminCog(commands.GroupCog, name='admin'):
         await target_member.inventory.add_item(item, quantity)
         await interaction.response.send_message(f'Added {amount} gamble credit to {target.display_name}', ephemeral=True)
 
-    @app_commands.command(name='add_action_token', description='Add an action token to a user')
+    @app_commands.command(name='add_token', description='Add an action token to a user')
     @commands.has_permissions(administrator=True)
-    async def add_action_token(self, interaction: discord.Interaction, target: discord.Member, token: Literal['mute', 'deafen'], quantity: int = 1):
+    async def add_token(self, interaction: discord.Interaction, target: discord.Member, token: Literal['mute', 'deafen'], quantity: int = 1):
         server = self.bot.servers.get(interaction.guild_id)
         target_member = server.members.get(target.id)
-        item = Items.action_token(token)
+        if token == 'mute':
+            item = Items.mute_token()
+        elif token == 'deafen':
+            item = Items.deafen_token()
         await target_member.inventory.add_item(item, quantity)
-        await interaction.response.send_message(f'Added {quantity} action token to {target.display_name}', ephemeral=True)
+        await interaction.response.send_message(f'Added {quantity} {item.display_name} to {target.display_name}',
+                                                ephemeral=True)
 
     @app_commands.command(name='other', description='Other commands')
     @commands.has_permissions(administrator=True)

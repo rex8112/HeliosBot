@@ -22,8 +22,10 @@
 from enum import member
 from typing import TYPE_CHECKING, Union
 
+import discord
 from discord import ui, Interaction, SelectOption
 
+from .colour import Colour
 from .items import Item
 from .database import InventoryModel
 
@@ -116,3 +118,16 @@ class Inventory:
         if model is None:
             return cls(member)
         return cls.from_dict(member, model)
+
+    def get_embed(self):
+        embed = discord.Embed(
+            title=f'{self.member.member.display_name}\'s Inventory',
+            color=Colour.inventory()
+        )
+        for item in self.items:
+            embed.add_field(
+                name=item.display_name,
+                value=f'Quantity: **{item.quantity}\n{item.get_description()}**',
+                inline=False
+            )
+        return embed

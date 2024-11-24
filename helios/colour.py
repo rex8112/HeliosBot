@@ -75,3 +75,7 @@ class Colour:
     @staticmethod
     def choice():
         return discord.Colour.blurple()
+
+    @staticmethod
+    def inventory():
+        return Colour.helios()

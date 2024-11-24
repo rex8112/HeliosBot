@@ -20,7 +20,7 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import discord
 from discord.ext import tasks
@@ -29,6 +29,7 @@ from .items import Items
 from .colour import Colour
 from .database import StoreModel
 from .items import StoreItem
+from .tools.modals import AmountModal
 
 if TYPE_CHECKING:
     from .member import HeliosMember
@@ -188,7 +189,7 @@ class Store:
         return embed
 
     def get_edit_view(self):
-        ...
+        return StoreEditView(self)
 
 
 class StoreView(discord.ui.View):
@@ -286,3 +287,98 @@ class PurchaseView(discord.ui.View):
             self.selected_quantity += 1
             self.update_buttons()
             await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+
+class StoreEditView(discord.ui.View):
+    def __init__(self, store: Store):
+        super().__init__(timeout=180)
+        self.store = store
+        self.selected_item: Optional['StoreItem'] = None
+        self.update_buttons()
+
+    def update_buttons(self):
+        options = []
+        for item in self.store.items:
+            options.append(discord.SelectOption(label=item.display_name, value=str(item.name),
+                                                description=f'Price: {item.price} Stock: {item.stock}',
+                                                default=item == self.selected_item))
+        self.select_item.options = options
+
+    def get_embed(self):
+        if self.selected_item is None:
+            return discord.Embed(
+                title="Select an item to edit",
+                colour=Colour.error(),
+                description="Select an item from the dropdown to edit its details."
+            )
+        embed = discord.Embed(
+            title=f"Editing {self.selected_item.display_name}",
+            colour=Colour.choice(),
+            description="Here are the details of the selected item:"
+        )
+        embed.add_field(name="Price", value=f'Current: {self.selected_item.price:,}\n'
+                                            f'Min: {self.selected_item.min_price}\n'
+                                            f'Max: {self.selected_item.max_price}', inline=False)
+        embed.add_field(name="Stock", value=f'Current: {self.selected_item.stock:,}\n'
+                                            f'Min: {self.selected_item.min_stock}\n'
+                                            f'Max: {self.selected_item.max_stock}', inline=False)
+        return embed
+
+    @discord.ui.select(placeholder='Select an item to edit', options=[])
+    async def select_item(self, interaction: discord.Interaction, select: discord.ui.Select):
+        self.selected_item = self.store.items[int(select.values[0])]
+        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+    @discord.ui.button(label='Edit Cur Price', style=discord.ButtonStyle.primary, row=1)
+    async def edit_price(self, interaction: discord.Interaction, button: discord.ui.Button):
+        modal = AmountModal(default=self.selected_item.price)
+        await interaction.response.send_modal(modal)
+        if await modal.wait():
+            return
+        self.selected_item.price = modal.amount.value
+        await self.store.save()
+
+    @discord.ui.button(label='Edit Min Price', style=discord.ButtonStyle.primary, row=1)
+    async def edit_min_price(self, interaction: discord.Interaction, button: discord.ui.Button):
+        modal = AmountModal(default=self.selected_item.min_price)
+        await interaction.response.send_modal(modal)
+        if await modal.wait():
+            return
+        self.selected_item.min_price = modal.amount.value
+        await self.store.save()
+
+    @discord.ui.button(label='Edit Max Price', style=discord.ButtonStyle.primary, row=1)
+    async def edit_max_price(self, interaction: discord.Interaction, button: discord.ui.Button):
+        modal = AmountModal(default=self.selected_item.max_price)
+        await interaction.response.send_modal(modal)
+        if await modal.wait():
+            return
+        self.selected_item.max_price = modal.amount.value
+        await self.store.save()
+
+    @discord.ui.button(label='Edit Cur Stock', style=discord.ButtonStyle.primary, row=2)
+    async def edit_stock(self, interaction: discord.Interaction, button: discord.ui.Button):
+        modal = AmountModal(default=self.selected_item.stock)
+        await interaction.response.send_modal(modal)
+        if await modal.wait():
+            return
+        self.selected_item.stock = modal.amount.value
+        await self.store.save()
+
+    @discord.ui.button(label='Edit Min Stock', style=discord.ButtonStyle.primary, row=2)
+    async def edit_min_stock(self, interaction: discord.Interaction, button: discord.ui.Button):
+        modal = AmountModal(default=self.selected_item.min_stock)
+        await interaction.response.send_modal(modal)
+        if await modal.wait():
+            return
+        self.selected_item.min_stock = modal.amount.value
+        await self.store.save()
+
+    @discord.ui.button(label='Edit Max Stock', style=discord.ButtonStyle.primary, row=2)
+    async def edit_max_stock(self, interaction: discord.Interaction, button: discord.ui.Button):
+        modal = AmountModal(default=self.selected_item.max_stock)
+        await interaction.response.send_modal(modal)
+        if await modal.wait():
+            return
+        self.selected_item.max_stock = modal.amount.value
+        await self.store.save()
