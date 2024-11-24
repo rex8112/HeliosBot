@@ -133,6 +133,14 @@ class ActionView(discord.ui.View):
     async def shield_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
+        if member.is_shielded():
+            embed = discord.Embed(
+                title='Already Shielded',
+                description='You are already shielded.',
+                colour=discord.Colour.red()
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
         await interaction.response.defer(ephemeral=True, thinking=True)
 
         view = DurationView(member, options=[('1h', 1), ('2h', 2), ('3h', 3), ('4h', 4), ('5h', 5)],
@@ -142,6 +150,14 @@ class ActionView(discord.ui.View):
         if await view.wait():
             embed = discord.Embed(
                 title='Timed out',
+                colour=discord.Colour.red()
+            )
+            await message.edit(embed=embed, view=None)
+            return 0
+
+        if not view.confirmed:
+            embed = discord.Embed(
+                title='Cancelled',
                 colour=discord.Colour.red()
             )
             await message.edit(embed=embed, view=None)
@@ -182,6 +198,14 @@ class ActionView(discord.ui.View):
             )
             await interaction.followup.send(embed=embed)
             return
+        if channel.has_effect('bubble'):
+            embed = discord.Embed(
+                title='Already Shielded',
+                description='This channel is already shielded.',
+                colour=discord.Colour.red()
+            )
+            await interaction.followup.send(embed=embed)
+            return
 
         view = DurationView(member, options=[('1h', 1), ('2h', 2), ('3h', 3), ('4h', 4), ('5h', 5)],
                             price_per_time=1, time_label='Hours', item_name='bubble', item_display_name='Channel Shields')
@@ -190,6 +214,14 @@ class ActionView(discord.ui.View):
         if await view.wait():
             embed = discord.Embed(
                 title='Timed out',
+                colour=discord.Colour.red()
+            )
+            await message.edit(embed=embed, view=None)
+            return 0
+
+        if not view.confirmed:
+            embed = discord.Embed(
+                title='Cancelled',
                 colour=discord.Colour.red()
             )
             await message.edit(embed=embed, view=None)
@@ -209,14 +241,19 @@ class ActionView(discord.ui.View):
 
 
 class TempMuteActionView(discord.ui.View):
+    item_name = 'mute_token'
+
     def __init__(self, author: 'HeliosMember'):
         super().__init__(timeout=180)
         self.author = author
+        self.store = author.server.store
         self.selected_member: Optional['HeliosMember'] = None
         self.selected_seconds: int = 15
         self.value = 0
         self.confirmed = False
         self.error_message: str = ''
+
+        self.item = self.store.get_item(self.item_name)
 
     def get_value(self):
         return math.ceil(self.selected_seconds / 15)
@@ -237,7 +274,8 @@ class TempMuteActionView(discord.ui.View):
         return embed
 
     async def reload_message(self, interaction: discord.Interaction):
-        await interaction.response.defer()
+        if not interaction.response.is_done():
+            await interaction.response.defer()
         self.value = self.get_value()
         await self.verify_member()
         embed = self.get_embed()
@@ -245,7 +283,7 @@ class TempMuteActionView(discord.ui.View):
         await interaction.edit_original_response(embed=embed, view=self)
 
     def author_tokens(self):
-        items = self.author.inventory.get_items('mute_token')
+        items = self.author.inventory.get_items(self.item_name)
         if items:
             return items[0].quantity
         return 0
@@ -255,6 +293,10 @@ class TempMuteActionView(discord.ui.View):
             self.confirm_button.disabled = True
         else:
             self.confirm_button.disabled = False
+        if self.value > self.author_tokens() or self.item.quantity < self.value - self.author_tokens():
+            self.buy_remaining_button.disabled = False
+        else:
+            self.buy_remaining_button.disabled = True
 
     async def verify_member(self):
         member: 'HeliosMember' = self.selected_member
@@ -364,7 +406,29 @@ class TempMuteActionView(discord.ui.View):
             return
         await self.reload_message(interaction)
 
+    @discord.ui.button(label='Buy Remaining', style=discord.ButtonStyle.red, row=2)
+    async def buy_remaining_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
+        if self.value <= 0:
+            await interaction.response.send_message(content='You have nothing to buy.', ephemeral=True)
+            return
+        needed = self.value - self.author_tokens()
+        if self.item.quantity < needed:
+            await interaction.response.send_message(content='Not enough tokens in shop.', ephemeral=True)
+            return
+        item_value = self.item.price * needed
+        if item_value > self.author.points:
+            await interaction.response.send_message(content=f'You do not have enough {self.author.server.points_name}.', ephemeral=True)
+            return
+        await interaction.response.defer()
+        await self.store.purchase(self.item, self.author, needed)
+        await self.reload_message(interaction)
+
 class TempDeafenActionView(TempMuteActionView):
+    item_name = 'deafen_token'
+
     def get_embed(self) -> discord.Embed:
         embed = super().get_embed()
         embed.title = 'Temp Deafen'
@@ -402,17 +466,12 @@ class TempDeafenActionView(TempMuteActionView):
         self.error_message = ''
         return True
 
-    def author_tokens(self):
-        items = self.author.inventory.get_items('deafen_token')
-        if items:
-            return items[0].quantity
-        return 0
-
 class DurationView(discord.ui.View):
     def __init__(self, author: 'HeliosMember', options: list[tuple[str, int]] = None, *, price_per_time: int = 1,
                  time_label: str = 'Seconds', item_name: str, item_display_name: str):
         super().__init__(timeout=180)
         self.author = author
+        self.store = author.server.store
         self.selected_time: int = 1
         self.confirmed = False
         self.error_message: str = ''
@@ -420,6 +479,7 @@ class DurationView(discord.ui.View):
         self.time_label = time_label
         self.item_name = item_name
         self.item_display_name = item_display_name
+        self.item = self.store.get_item(item_name)
         self.price_per_second = price_per_time
         self.build_buttons()
 
@@ -479,4 +539,24 @@ class DurationView(discord.ui.View):
             return
         await interaction.response.defer()
         self.stop()
+
+    @discord.ui.button(label='Buy Remaining', style=discord.ButtonStyle.red, row=2)
+    async def buy_remaining_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author.member:
+            await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
+            return
+        if self.get_cost() <= 0:
+            await interaction.response.send_message(content='You have nothing to buy.', ephemeral=True)
+            return
+        needed = self.get_cost() - self.get_item_count()
+        if self.item.quantity < needed:
+            await interaction.response.send_message(content='Not enough tokens in shop.', ephemeral=True)
+            return
+        item_value = self.item.price * needed
+        if item_value > self.author.points:
+            await interaction.response.send_message(content=f'You do not have enough {self.author.server.points_name}.', ephemeral=True)
+            return
+        await interaction.response.defer()
+        await self.store.purchase(self.item, self.author, needed)
+        await self.reload_message(interaction)
 
