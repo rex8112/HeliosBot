@@ -128,11 +128,6 @@ class PointsCog(commands.Cog):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
 
-        if await member.is_daily_claimed() or await member.is_daily_claimed(offset=-1):
-            await interaction.response.send_message(content='You can not transfer points if you claimed daily in the '
-                                                            'last two days.', ephemeral=True)
-            return
-
         target = server.members.get(target.id)
         tax_rate = server.settings.transfer_tax.value
         tax = max(int(points * tax_rate), 1)
