@@ -105,7 +105,7 @@ class Blackjack:
                 bets.append(self.bets[i])
 
         dealer_hand = self.dealer_hand.to_dict()
-        if self.force_bust:
+        if self.force_bust and self.og_dealer_hand:
             dealer_hand += ['|'] + self.og_dealer_hand.to_dict()
 
         return {

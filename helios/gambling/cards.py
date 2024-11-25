@@ -159,7 +159,7 @@ class Hand:
     @classmethod
     def from_dict(cls, data):
         hand = cls()
-        hand.add_cards([Card(Suits[card[1]], Values[card[0]]) for card in data])
+        hand.add_cards([Card(Suits(card[1]), Values(card[0])) for card in data])
         return hand
 
     def copy(self):
