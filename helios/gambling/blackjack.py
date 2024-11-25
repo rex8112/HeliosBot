@@ -175,6 +175,9 @@ class Blackjack:
                 for player in self.players:
                     await player.add_points(sum(self.bets[self.players.index(player)]), 'Helios: Blackjack',
                                             f'{self.id}: Refund')
+                    credit = self.credits[self.players.index(player)]
+                    if credit:
+                        await player.inventory.add_item(credit)
 
     async def run(self):
         # Check if players still have enough points
