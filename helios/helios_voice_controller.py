@@ -27,6 +27,8 @@ from typing import TYPE_CHECKING, Optional, Awaitable
 import discord
 from discord.utils import utcnow
 
+from .tools.async_event import AsyncEvent
+
 if TYPE_CHECKING:
     from .server import Server
     from .helios_bot import HeliosBot
@@ -40,6 +42,12 @@ class HeliosVoiceController:
         self.voice_client: Optional[discord.VoiceClient] = None
         self.last_start: Optional[datetime] = None
         self.last_end: Optional[datetime] = None
+        self.in_use = False
+
+        self.connect_event = AsyncEvent()
+        self.disconnect_event = AsyncEvent()
+        self.on_connect = self.connect_event.on
+        self.on_disconnect = self.disconnect_event.on
 
         self._current_audio = None
         self._task = None
@@ -56,6 +64,7 @@ class HeliosVoiceController:
             except asyncio.TimeoutError:
                 attempts += 1
             else:
+                await self.connect_event(channel)
                 return self.voice_client
         self.voice_client = None
         raise ConnectionError('Failed to connect to voice channel.')
@@ -65,8 +74,21 @@ class HeliosVoiceController:
         if self.voice_client:
             await self.voice_client.disconnect()
             self.voice_client = None
+            await self.disconnect_event()
             return True
         return False
+
+    def claim(self):
+        """Claim the voice controller for use."""
+        if self.in_use:
+            raise ValueError('Voice controller already in use.')
+        self.in_use = True
+
+    def release(self):
+        """Release the voice controller for use."""
+        if not self.in_use:
+            raise ValueError('Voice controller not in use.')
+        self.in_use = False
 
     def play(self, source: discord.FFmpegPCMAudio) -> Awaitable[None]:
         """Play an audio source."""
