@@ -69,6 +69,9 @@ class Inventory:
     def get_items(self, name: str):
         return [item for item in self.items if item.name == name]
 
+    def get_matching_items(self, item: Item):
+        return [i for i in self.items if i == item]
+
     def has_item(self, item: Item):
         return item in self.items
 
