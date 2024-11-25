@@ -29,7 +29,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 import helios
-from helios import ActionView, TexasHoldEm, Blackjack
+from helios import ActionView, TexasHoldEm, Blackjack, Items
 from helios.database import TransactionModel
 from helios.shop import *
 
@@ -128,11 +128,6 @@ class PointsCog(commands.Cog):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
 
-        if await member.is_daily_claimed() or await member.is_daily_claimed(offset=-1):
-            await interaction.response.send_message(content='You can not transfer points if you claimed daily in the '
-                                                            'last two days.', ephemeral=True)
-            return
-
         target = server.members.get(target.id)
         tax_rate = server.settings.transfer_tax.value
         tax = max(int(points * tax_rate), 1)
@@ -205,10 +200,21 @@ class PointsCog(commands.Cog):
     async def daily(self, interaction: discord.Interaction):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
+        points = member.daily_points()
+        item_credits = points / 5
+        item = Items.gamble_credit(item_credits)
+        items = member.inventory.get_matching_items(item)
+        if items:
+            i = items[0]
+            if i.quantity > 5:
+                await interaction.response.send_message(f'You currently have {i.quantity} {i.display_name}s. Use them before claiming more.',
+                                                        ephemeral=True)
+                return
+
         points = await member.claim_daily()
         if points == 0:
             await interaction.response.send_message(f'You have already claimed your daily {server.points_name}',
-                                                        ephemeral=True)
+                                                    ephemeral=True)
             return
         await interaction.response.send_message(f'You have claimed **{points:,}** daily gambling credits',
                                                 ephemeral=True)
