@@ -28,14 +28,12 @@ from typing import TYPE_CHECKING, Optional, Callable, Awaitable
 import discord
 
 from .cards import Hand, Deck
-from .exceptions import StalemateException
 from .image import get_member_icon, BlackjackHandImage, BlackjackImage, BlackjackHandSplitImage
 from ..colour import Colour
 from ..database import BlackjackModel
 from ..member import HeliosMember
 from ..tools.modals import AmountModal
-from ..views import ItemSelectorView
-from ..views.generic_views import YesNoView
+from ..views import ItemSelectorView, YesNoView, StartBlackjackView
 
 if TYPE_CHECKING:
     from ..items import Item
@@ -164,7 +162,9 @@ class Blackjack:
         if len(self.players) < 1:
             self.view.stop()
             await self.update_message('Not Enough Players')
-            await self.message.delete(delay=5)
+            await asyncio.sleep(5)
+            await self.update_message('Click to Start')
+            await self.message.edit(view=StartBlackjackView(self.manager.server.bot))
             return
         try:
             await self.run()

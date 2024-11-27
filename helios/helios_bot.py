@@ -27,8 +27,8 @@ import traceback
 from typing import Optional
 
 import discord
-from discord.ext import commands, tasks
 from aiohttp import ClientSession
+from discord.ext import commands, tasks
 
 from .database import EventModel, objects
 from .effects import EffectsManager
@@ -36,8 +36,9 @@ from .event_manager import EventManager
 from .http import HTTPClient
 from .server import Server
 from .server_manager import ServerManager
+from .store import StoreView
 from .tools import Config
-from .views import ViolationPayButton
+from .views import ActionView, ViolationPayButton, StartBlackjackView
 
 logger = logging.getLogger('HeliosLogger')
 
@@ -112,6 +113,7 @@ class HeliosBot(commands.Bot):
         logger.info(f'Logged in as {self.user} (ID: {self.user.id})')
         if self.ready_once:
             logger.debug('Beginning server load')
+            self.register_views()
             logger.debug('Running startup actions')
             await self.run_startup_actions()
             logger.debug('Running server setup')
@@ -120,8 +122,14 @@ class HeliosBot(commands.Bot):
             _ = self.loop.create_task(self.effects.manage_effects())
             await self.effects.fetch_all()
             self.check_activity.start()
-            logger.debug('Finished setup')
+            logger.info('Finished setup')
             self.ready_once = False
+
+    def register_views(self):
+        logger.debug('Registering views')
+        self.add_view(ActionView(self))
+        self.add_view(StoreView(self))
+        self.add_view(StartBlackjackView(self))
 
     async def on_disconnect(self):
         if self._session:
