@@ -49,6 +49,9 @@ class ActionView(discord.ui.View):
             colour=Colour.actions(),
             description='Use action tokens to perform actions.')
         embed.add_field(name='Mute', value='Mute a user for a set amount of time.')
+        embed.add_field(name='Deafen', value='Deafen a user for a set amount of time.')
+        embed.add_field(name='Shield', value='Protect yourself from harmful actions.')
+        embed.add_field(name='Channel Shield', value='Protect a voice channel from harmful actions.')
         return embed
 
     @discord.ui.button(label='Mute', style=discord.ButtonStyle.grey, custom_id='helios:action:shop:mute')

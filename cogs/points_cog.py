@@ -267,6 +267,9 @@ class PointsCog(commands.Cog):
     async def blackjack(self, interaction: discord.Interaction):
         server = self.bot.servers.get(interaction.guild_id)
         channel = interaction.channel
+        if not server.gambling.can_run_blackjack(channel):
+            await interaction.response.send_message('Blackjack is already running in this channel', ephemeral=True)
+            return
         await interaction.response.send_message('Starting Blackjack', ephemeral=True)
         await server.gambling.run_blackjack(channel)
 
