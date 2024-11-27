@@ -186,6 +186,8 @@ class Blackjack:
             credit = self.credits[self.players.index(player)]
             if bet > player.points and not credit:
                 await self.remove_player(player)
+            elif credit and not player.inventory.has_item(credit):
+                await self.remove_player(player)
         if len(self.players) < 1:
             await self.update_message('Not Enough Players')
             await self.message.delete(delay=5)
