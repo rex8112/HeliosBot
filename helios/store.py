@@ -101,8 +101,8 @@ class Store:
         for item in self.items:
             stock_increment = (item.max_stock - item.min_stock) // 5
             price_increment = (item.max_price - item.min_price) // 5
-            diff = item.stock -  item.quantity
-            half = item.stock // 2
+            diff = max(item.stock -  item.quantity, 1)
+            half = max(item.stock // 2, 1)
             perc = diff / half # 1.0 = 50% stock remaining, 1.5 = 25% stock remaining, 2.0 = 0% stock remaining, 0.5 = 75% stock remaining, etc.
             if perc < 1.0:
                 inverted = 1.0 - perc
@@ -116,6 +116,10 @@ class Store:
                 p_inc = max(int(price_increment * inverted), 1)
                 item.stock += s_inc
                 item.price += p_inc
+            item.price = max(item.min_price, item.price)
+            item.price = min(item.max_price, item.price)
+            item.stock = max(item.min_stock, item.stock)
+            item.stock = min(item.max_stock, item.stock)
             item.quantity = item.stock
         self.set_next_refresh()
         await self.save()
