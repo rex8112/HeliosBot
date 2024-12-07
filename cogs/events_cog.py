@@ -85,7 +85,6 @@ class EventsCog(commands.Cog):
                                     ):
         server = self.bot.servers.get(member.guild.id)
         helios_member = server.members.get(member.id)
-        role = server.voice_controller_role
         if after.channel is None:
             return
         if before.channel is not None:
