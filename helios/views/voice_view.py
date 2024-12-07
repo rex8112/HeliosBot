@@ -232,11 +232,8 @@ class VoiceControllerView(discord.ui.View):
     @discord.ui.button(label='Add', style=discord.ButtonStyle.red, row=1)
     async def add_button(self, interaction: discord.Interaction,
                           button: discord.Button):
-        if not interaction.user.guild_permissions.mute_members or not interaction.user.guild_permissions.deafen_members:
-            await interaction.response.send_message('You do not have the required permissions.', ephemeral=True)
-            return
-
         if interaction.user == self.host:
+            perms = interaction.user.guild_permissions.mute_members and interaction.user.guild_permissions.deafen_members
             add_view = AddSelector(self.server, author=interaction.user, max_value=self.max - len(self.members))
             await interaction.response.send_message('Choose who to add', view=add_view, ephemeral=True)
             await add_view.wait()
@@ -244,7 +241,9 @@ class VoiceControllerView(discord.ui.View):
                 to_add = filter(lambda x: x not in self.members, add_view.values)
                 for mem in to_add:
                     if len(self.members) < self.max:
-                        await self.join(mem)
+                        if perms or not self.server.cooldowns.on_cooldown('voice_controller_add', mem):
+                            await self.join(mem)
+                            self.server.cooldowns.set_duration('voice_controller_add', mem, 1_60_60)
 
                 await self.message.edit(embed=self.embed)
 
