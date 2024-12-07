@@ -76,23 +76,21 @@ class VoiceControllerView(discord.ui.View):
 
     async def join(self, mem: discord.Member):
         if mem not in self.members:
-            if mem.voice:
-                self.members.append(mem)
-                await mem.add_roles(self.voice_role,
-                                    reason='Joined Voice Controller')
-                if self.running:
-                    await self.activate(mem)
-                return True
+            self.members.append(mem)
+            await mem.add_roles(self.voice_role,
+                                reason='Joined Voice Controller')
+            if self.running:
+                await self.activate(mem)
+            return True
         return False
 
     async def leave(self, mem: discord.Member):
         if mem in self.members:
             self.members.remove(mem)
-            if mem.voice:
-                await mem.remove_roles(self.voice_role,
-                                       reason='Left Voice Controller')
-                if self.running:
-                    await self.deactivate(mem)
+            await mem.remove_roles(self.voice_role,
+                                   reason='Left Voice Controller')
+            if self.running:
+                await self.deactivate(mem)
             return True
         return False
 
@@ -179,10 +177,7 @@ class VoiceControllerView(discord.ui.View):
                            button: discord.Button):
         if interaction.user == self.host:
             for mem in self.members:
-                if self.is_activated(mem):
-                    await self.deactivate(mem)
-                if mem.voice.channel is not None:
-                    await mem.remove_roles(self.voice_role)
+                await self.leave(mem)
             self.running = False
             self.server.voice_controllers.remove(self)
             self.stop()
@@ -216,7 +211,10 @@ class VoiceControllerView(discord.ui.View):
     @discord.ui.button(label='Kick', style=discord.ButtonStyle.red, row=1)
     async def kick_button(self, interaction: discord.Interaction,
                           button: discord.Button):
-        if interaction.user == self.host and len(self.members) > 1:
+        if interaction.user == self.host:
+            if len(self.members) < 2:
+                await interaction.response.send_message('You are the last member.', ephemeral=True)
+                return
             kick_view = Selector(self.members, max_value=len(self.members) - 1)
             await interaction.response.send_message('Choose who to kick',
                                                     view=kick_view,
@@ -228,6 +226,8 @@ class VoiceControllerView(discord.ui.View):
                         await self.leave(mem)
 
                 await self.message.edit(embed=self.embed)
+        else:
+            await interaction.response.send_message('Only the host can use this.', ephemeral=True)
 
     @discord.ui.button(label='Add', style=discord.ButtonStyle.red, row=1)
     async def add_button(self, interaction: discord.Interaction,
@@ -334,8 +334,8 @@ class AddSelector(discord.ui.View):
             if self.author != interaction.user:
                 await interaction.response.send_message('You are not allowed to use this.', ephemeral=True)
                 return
-        await interaction.response.defer()
         self.values = select.values
+        await interaction.response.edit_message(content=f'Selected: {", ".join(str(x) for x in self.values)}', view=None)
         self.stop()
 
     @discord.ui.button(label='Game', style=discord.ButtonStyle.green)
@@ -344,9 +344,9 @@ class AddSelector(discord.ui.View):
             if self.author != interaction.user:
                 await interaction.response.send_message('You are not allowed to use this.', ephemeral=True)
                 return
-        await interaction.response.defer()
         member = self.server.members.get(interaction.user.id)
         activity = member.get_game_activity()
         members = self.get_members_in_game(activity.name)
         self.values = members
+        await interaction.response.edit_message(content=f'Selected: {", ".join(str(x) for x in self.values)}', view=None)
         self.stop()
