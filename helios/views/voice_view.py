@@ -229,6 +229,25 @@ class VoiceControllerView(discord.ui.View):
 
                 await self.message.edit(embed=self.embed)
 
+    @discord.ui.button(label='Add', style=discord.ButtonStyle.red, row=1)
+    async def add_button(self, interaction: discord.Interaction,
+                          button: discord.Button):
+        if not interaction.user.guild_permissions.mute_members or not interaction.user.guild_permissions.deafen_members:
+            await interaction.response.send_message('You do not have the required permissions.', ephemeral=True)
+            return
+
+        if interaction.user == self.host:
+            add_view = AddSelector(self.server, author=interaction.user, max_value=self.max - len(self.members))
+            await interaction.response.send_message('Choose who to add', view=add_view, ephemeral=True)
+            await add_view.wait()
+            if add_view.values:
+                to_add = filter(lambda x: x not in self.members, add_view.values)
+                for mem in to_add:
+                    if len(self.members) < self.max:
+                        await self.join(mem)
+
+                await self.message.edit(embed=self.embed)
+
     @discord.ui.button(label='Change Settings:', style=discord.ButtonStyle.grey, row=2, disabled=True)
     async def settings_button(self, interaction: discord.Interaction,
                               button: discord.Button):
@@ -286,3 +305,49 @@ class Selector(discord.ui.View):
             for v in select.values:
                 self.values.append(self.options[v])
             self.stop()
+
+class AddSelector(discord.ui.View):
+    def __init__(self, server: 'Server', *, min_value=1, max_value=1, author: 'discord.Member'=None, timeout=30):
+        super().__init__(timeout=timeout)
+        self.min_value = min_value
+        self.max_value = max_value
+        self.author = author
+        self.channel = author.voice.channel if author.voice else None
+        self.server = server
+        self.values = None
+
+        self.user_select.max_values = max_value
+        self.user_select.min_values = min_value
+
+    def get_members_in_game(self, game: str) -> list[discord.Member]:
+        mems = []
+        for member in self.channel.members:
+            h_member = self.server.members.get(member.id)
+            activity = h_member.get_game_activity()
+            activity = activity.name if activity else None
+            if h_member and activity == game:
+                mems.append(member)
+        return mems
+
+    @discord.ui.select(cls=discord.ui.UserSelect, placeholder='Select a user')
+    async def user_select(self, interaction: discord.Interaction, select: discord.ui.UserSelect):
+        if self.author:
+            if self.author != interaction.user:
+                await interaction.response.send_message('You are not allowed to use this.', ephemeral=True)
+                return
+        await interaction.response.defer()
+        self.values = select.values
+        self.stop()
+
+    @discord.ui.button(label='Game', style=discord.ButtonStyle.green)
+    async def game_button(self, interaction: discord.Interaction, button: discord.Button):
+        if self.author:
+            if self.author != interaction.user:
+                await interaction.response.send_message('You are not allowed to use this.', ephemeral=True)
+                return
+        await interaction.response.defer()
+        member = self.server.members.get(interaction.user.id)
+        activity = member.get_game_activity()
+        members = self.get_members_in_game(activity.name)
+        self.values = members
+        self.stop()
