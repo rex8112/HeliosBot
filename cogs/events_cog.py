@@ -99,17 +99,6 @@ class EventsCog(commands.Cog):
                 await member.edit(voice_channel=None)
                 return
 
-        if role is None:
-            return
-        if role in member.roles:
-            fix = True
-            for controller in server.voice_controllers:
-                if member in controller.members:
-                    fix = False
-            if fix:
-                await member.edit(mute=False, deafen=False)
-                await member.remove_roles(role)
-
 
 async def setup(bot: 'HeliosBot'):
     await bot.add_cog(EventsCog(bot))

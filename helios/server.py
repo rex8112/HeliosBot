@@ -207,6 +207,14 @@ class Server:
         await self.theme.load()
         self.store = await Store.from_server(self)
 
+        role = self.voice_controller_role
+        if role is None:
+            return
+        for member in role.members:
+            h_member = self.members.get(member.id)
+            await h_member.voice_unmute_undeafen(reason='VoiceControlled Cleanup')
+            await member.remove_roles(role)
+
         self.start()
         logger.debug(f'Server {self.name} setup complete')
 
