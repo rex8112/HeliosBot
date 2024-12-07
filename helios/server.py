@@ -287,6 +287,9 @@ class Server:
             elif action.action == 'deafen':
                 edits['deafen'] = True
         if len(edits) > 0:
-            await member.edit(**edits)
-            await self.bot.event_manager.clear_actions('on_voice', helios_member)
-            await self.save()
+            try:
+                await member.edit(**edits)
+                await self.bot.event_manager.clear_actions('on_voice', helios_member)
+                await self.save()
+            except (discord.Forbidden, discord.HTTPException):
+                ...

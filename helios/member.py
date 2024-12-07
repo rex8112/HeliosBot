@@ -398,43 +398,90 @@ class HeliosMember(HasFlags):
         self._ap_paid = self._activity_points
         return points
 
-    async def voice_mute(self, *, reason=None):
-        actions = await self.bot.event_manager.get_specific_actions('on_voice', self, 'unmute')
+    async def clear_on_voice(self,  action: str):
+        actions = await self.bot.event_manager.get_specific_actions('on_voice', self, action)
         [await self.bot.event_manager.delete_action(x) for x in actions]
+
+    async def voice_mute(self, *, reason=None):
+        await self.clear_on_voice('unmute')
         voice = self.member.voice
         if voice is None or voice.channel is None:
             await self.bot.event_manager.add_action('on_voice', self, 'mute')
             return True
         elif self.member.voice.mute is False:
-            await self.member.edit(mute=True, reason=reason)
+            try:
+                await self.member.edit(mute=True, reason=reason)
+                return True
+            except (discord.Forbidden, discord.HTTPException):
+                return False
 
     async def voice_unmute(self, *, reason=None):
-        actions = await self.bot.event_manager.get_specific_actions('on_voice', self, 'mute')
-        [await self.bot.event_manager.delete_action(x) for x in actions]
+        await self.clear_on_voice('mute')
         voice = self.member.voice
         if voice is None or voice.channel is None:
             await self.bot.event_manager.add_action('on_voice', self, 'unmute')
+            return True
         elif self.member.voice.mute is True:
-            await self.member.edit(mute=False, reason=reason)
+            try:
+                await self.member.edit(mute=False, reason=reason)
+                return True
+            except (discord.Forbidden, discord.HTTPException):
+                return False
 
     async def voice_deafen(self, *, reason=None):
-        actions = await self.bot.event_manager.get_specific_actions('on_voice', self, 'undeafen')
-        [await self.bot.event_manager.delete_action(x) for x in actions]
+        await self.clear_on_voice('undeafen')
         voice = self.member.voice
         if voice is None or voice.channel is None:
             await self.bot.event_manager.add_action('on_voice', self, 'deafen')
             return True
         elif self.member.voice.deaf is False:
-            await self.member.edit(deafen=True, reason=reason)
+            try:
+                await self.member.edit(deafen=True, reason=reason)
+                return True
+            except (discord.Forbidden, discord.HTTPException):
+                return False
 
     async def voice_undeafen(self, *, reason=None):
-        actions = await self.bot.event_manager.get_specific_actions('on_voice', self, 'deafen')
-        [await self.bot.event_manager.delete_action(x) for x in actions]
+        await self.clear_on_voice('deafen')
         voice = self.member.voice
         if voice is None or voice.channel is None:
             await self.bot.event_manager.add_action('on_voice', self, 'undeafen')
+            return True
         elif self.member.voice.deaf is True:
-            await self.member.edit(deafen=False, reason=reason)
+            try:
+                await self.member.edit(deafen=False, reason=reason)
+                return True
+            except (discord.Forbidden, discord.HTTPException):
+                return False
+
+    async def voice_mute_deafen(self, *, reason=None):
+        await self.clear_on_voice('undeafen')
+        await self.clear_on_voice('unmute')
+        voice = self.member.voice
+        if voice is None or voice.channel is None:
+            await self.bot.event_manager.add_action('on_voice', self, 'mute')
+            await self.bot.event_manager.add_action('on_voice', self, 'deafen')
+            return True
+        elif self.member.voice.mute is False or self.member.voice.deaf is False:
+            try:
+                await self.member.edit(mute=True, deafen=True, reason=reason)
+                return True
+            except (discord.Forbidden, discord.HTTPException):
+                return False
+
+    async def voice_unmute_undeafen(self, *, reason=None):
+        await self.clear_on_voice('deafen')
+        await self.clear_on_voice('mute')
+        voice = self.member.voice
+        if voice is None or voice.channel is None:
+            await self.bot.event_manager.add_action('on_voice', self, 'unmute')
+            await self.bot.event_manager.add_action('on_voice', self, 'undeafen')
+        elif self.member.voice.mute is True or self.member.voice.deaf is True:
+            try:
+                await self.member.edit(mute=False, deafen=False, reason=reason)
+                return True
+            except (discord.Forbidden, discord.HTTPException):
+                return False
 
     async def temp_mute(self, duration: int, muter: 'HeliosMember', price: int):
         async def unmute(m):

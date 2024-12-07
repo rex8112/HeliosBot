@@ -105,24 +105,21 @@ class VoiceControllerView(discord.ui.View):
             return member.voice.deaf
 
     async def activate(self, member: discord.Member):
-        apply = {}
-        if self.mute:
-            apply['mute'] = True
-        if self.deafen:
-            apply['deafen'] = True
         try:
-            await member.edit(**apply)
+            member = self.server.members.get(member.id)
+            if self.mute and self.deafen:
+                await member.voice_mute_deafen(reason='Voice Controller')
+            if self.mute:
+                await member.voice_mute(reason='Voice Controller')
+            if self.deafen:
+                await member.voice_deafen(reason='Voice Controller')
         except (discord.Forbidden, discord.HTTPException):
             ...
 
     async def deactivate(self, member: discord.Member):
-        apply = {}
-        if self.mute:
-            apply['mute'] = False
-        if self.deafen:
-            apply['deafen'] = False
         try:
-            await member.edit(**apply)
+            member = self.server.members.get(member.id)
+            await member.voice_unmute_undeafen(reason='Voice Controller')
         except (discord.Forbidden, discord.HTTPException):
             ...
 

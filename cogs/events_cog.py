@@ -109,8 +109,6 @@ class EventsCog(commands.Cog):
             if fix:
                 await member.edit(mute=False, deafen=False)
                 await member.remove_roles(role)
-                await member.send('Noticed you might have still been muted/deafened from last time you used the ingame '
-                                  'voice controller. I went ahead and fixed it, make sure you press Leave next time.')
 
 
 async def setup(bot: 'HeliosBot'):
