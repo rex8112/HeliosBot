@@ -85,7 +85,6 @@ class EventsCog(commands.Cog):
                                     ):
         server = self.bot.servers.get(member.guild.id)
         helios_member = server.members.get(member.id)
-        role = server.voice_controller_role
         if after.channel is None:
             return
         if before.channel is not None:
@@ -98,19 +97,6 @@ class EventsCog(commands.Cog):
             if after.channel.id == channel.channel.id:
                 await member.edit(voice_channel=None)
                 return
-
-        if role is None:
-            return
-        if role in member.roles:
-            fix = True
-            for controller in server.voice_controllers:
-                if member in controller.members:
-                    fix = False
-            if fix:
-                await member.edit(mute=False, deafen=False)
-                await member.remove_roles(role)
-                await member.send('Noticed you might have still been muted/deafened from last time you used the ingame '
-                                  'voice controller. I went ahead and fixed it, make sure you press Leave next time.')
 
 
 async def setup(bot: 'HeliosBot'):

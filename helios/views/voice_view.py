@@ -76,23 +76,21 @@ class VoiceControllerView(discord.ui.View):
 
     async def join(self, mem: discord.Member):
         if mem not in self.members:
-            if mem.voice:
-                self.members.append(mem)
-                await mem.add_roles(self.voice_role,
-                                    reason='Joined Voice Controller')
-                if self.running:
-                    await self.activate(mem)
-                return True
+            self.members.append(mem)
+            await mem.add_roles(self.voice_role,
+                                reason='Joined Voice Controller')
+            if self.running:
+                await self.activate(mem)
+            return True
         return False
 
     async def leave(self, mem: discord.Member):
         if mem in self.members:
             self.members.remove(mem)
-            if mem.voice:
-                await mem.remove_roles(self.voice_role,
-                                       reason='Left Voice Controller')
-                if self.running:
-                    await self.deactivate(mem)
+            await mem.remove_roles(self.voice_role,
+                                   reason='Left Voice Controller')
+            if self.running:
+                await self.deactivate(mem)
             return True
         return False
 
@@ -105,24 +103,21 @@ class VoiceControllerView(discord.ui.View):
             return member.voice.deaf
 
     async def activate(self, member: discord.Member):
-        apply = {}
-        if self.mute:
-            apply['mute'] = True
-        if self.deafen:
-            apply['deafen'] = True
         try:
-            await member.edit(**apply)
+            member = self.server.members.get(member.id)
+            if self.mute and self.deafen:
+                await member.voice_mute_deafen(reason='Voice Controller')
+            if self.mute:
+                await member.voice_mute(reason='Voice Controller')
+            if self.deafen:
+                await member.voice_deafen(reason='Voice Controller')
         except (discord.Forbidden, discord.HTTPException):
             ...
 
     async def deactivate(self, member: discord.Member):
-        apply = {}
-        if self.mute:
-            apply['mute'] = False
-        if self.deafen:
-            apply['deafen'] = False
         try:
-            await member.edit(**apply)
+            member = self.server.members.get(member.id)
+            await member.voice_unmute_undeafen(reason='Voice Controller')
         except (discord.Forbidden, discord.HTTPException):
             ...
 
@@ -182,10 +177,7 @@ class VoiceControllerView(discord.ui.View):
                            button: discord.Button):
         if interaction.user == self.host:
             for mem in self.members:
-                if self.is_activated(mem):
-                    await self.deactivate(mem)
-                if mem.voice.channel is not None:
-                    await mem.remove_roles(self.voice_role)
+                await self.leave(mem)
             self.running = False
             self.server.voice_controllers.remove(self)
             self.stop()
@@ -219,7 +211,10 @@ class VoiceControllerView(discord.ui.View):
     @discord.ui.button(label='Kick', style=discord.ButtonStyle.red, row=1)
     async def kick_button(self, interaction: discord.Interaction,
                           button: discord.Button):
-        if interaction.user == self.host and len(self.members) > 1:
+        if interaction.user == self.host:
+            if len(self.members) < 2:
+                await interaction.response.send_message('You are the last member.', ephemeral=True)
+                return
             kick_view = Selector(self.members, max_value=len(self.members) - 1)
             await interaction.response.send_message('Choose who to kick',
                                                     view=kick_view,
@@ -229,6 +224,26 @@ class VoiceControllerView(discord.ui.View):
                 for mem in kick_view.values:
                     if len(self.members) > 1:
                         await self.leave(mem)
+
+                await self.message.edit(embed=self.embed)
+        else:
+            await interaction.response.send_message('Only the host can use this.', ephemeral=True)
+
+    @discord.ui.button(label='Add', style=discord.ButtonStyle.red, row=1)
+    async def add_button(self, interaction: discord.Interaction,
+                          button: discord.Button):
+        if interaction.user == self.host:
+            perms = interaction.user.guild_permissions.mute_members and interaction.user.guild_permissions.deafen_members
+            add_view = AddSelector(self.server, author=interaction.user, max_value=self.max - len(self.members))
+            await interaction.response.send_message('Choose who to add', view=add_view, ephemeral=True)
+            await add_view.wait()
+            if add_view.values:
+                to_add = filter(lambda x: x not in self.members, add_view.values)
+                for mem in to_add:
+                    if len(self.members) < self.max:
+                        if perms or not self.server.cooldowns.on_cooldown('voice_controller_add', mem):
+                            await self.join(mem)
+                            self.server.cooldowns.set_duration('voice_controller_add', mem, 1_60_60)
 
                 await self.message.edit(embed=self.embed)
 
@@ -289,3 +304,49 @@ class Selector(discord.ui.View):
             for v in select.values:
                 self.values.append(self.options[v])
             self.stop()
+
+class AddSelector(discord.ui.View):
+    def __init__(self, server: 'Server', *, min_value=1, max_value=1, author: 'discord.Member'=None, timeout=30):
+        super().__init__(timeout=timeout)
+        self.min_value = min_value
+        self.max_value = max_value
+        self.author = author
+        self.channel = author.voice.channel if author.voice else None
+        self.server = server
+        self.values = None
+
+        self.user_select.max_values = max_value
+        self.user_select.min_values = min_value
+
+    def get_members_in_game(self, game: str) -> list[discord.Member]:
+        mems = []
+        for member in self.channel.members:
+            h_member = self.server.members.get(member.id)
+            activity = h_member.get_game_activity()
+            activity = activity.name if activity else None
+            if h_member and activity == game:
+                mems.append(member)
+        return mems
+
+    @discord.ui.select(cls=discord.ui.UserSelect, placeholder='Select a user')
+    async def user_select(self, interaction: discord.Interaction, select: discord.ui.UserSelect):
+        if self.author:
+            if self.author != interaction.user:
+                await interaction.response.send_message('You are not allowed to use this.', ephemeral=True)
+                return
+        self.values = select.values
+        await interaction.response.edit_message(content=f'Selected: {", ".join(str(x) for x in self.values)}', view=None)
+        self.stop()
+
+    @discord.ui.button(label='Game', style=discord.ButtonStyle.green)
+    async def game_button(self, interaction: discord.Interaction, button: discord.Button):
+        if self.author:
+            if self.author != interaction.user:
+                await interaction.response.send_message('You are not allowed to use this.', ephemeral=True)
+                return
+        member = self.server.members.get(interaction.user.id)
+        activity = member.get_game_activity()
+        members = self.get_members_in_game(activity.name)
+        self.values = members
+        await interaction.response.edit_message(content=f'Selected: {", ".join(str(x) for x in self.values)}', view=None)
+        self.stop()
