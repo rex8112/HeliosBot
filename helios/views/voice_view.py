@@ -74,6 +74,14 @@ class VoiceControllerView(discord.ui.View):
         embed.set_footer(text=f'{len(self.members)}/{self.max}')
         return embed
 
+    def stop(self) -> None:
+        try:
+            self.server.voice_controllers.remove(self)
+        except ValueError:
+            ...
+        finally:
+            super().stop()
+
     async def join(self, mem: discord.Member):
         if mem not in self.members:
             self.members.append(mem)
