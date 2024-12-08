@@ -40,6 +40,7 @@ from .shop import Shop
 from .store import Store
 from .theme import ThemeManager
 from .tools.settings import Settings, SettingItem
+from .views import VoiceControllerView
 
 if TYPE_CHECKING:
     from .server_manager import ServerManager
@@ -131,7 +132,7 @@ class Server:
         self.court = Court(self)
         self.music_player = MusicPlayer(self)
         self.topics = {}
-        self.voice_controllers = []
+        self.voice_controllers: list['VoiceControllerView'] = []
         self.settings = ServerSettings(self.bot)
         self.theme = ThemeManager(self)
         self.gambling = GamblingManager(self)

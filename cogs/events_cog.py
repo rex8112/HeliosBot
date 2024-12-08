@@ -98,6 +98,11 @@ class EventsCog(commands.Cog):
                 await member.edit(voice_channel=None)
                 return
 
+        if server.voice_controllers:
+            for vc in server.voice_controllers:
+                if vc.channel.id != after.channel.id and member in vc.members:
+                    await vc.leave(member)
+
 
 async def setup(bot: 'HeliosBot'):
     await bot.add_cog(EventsCog(bot))
