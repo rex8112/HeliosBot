@@ -243,17 +243,24 @@ class VoiceControllerView(discord.ui.View):
         if interaction.user == self.host:
             perms = interaction.user.guild_permissions.mute_members and interaction.user.guild_permissions.deafen_members
             add_view = AddSelector(self.server, author=interaction.user, max_value=self.max - len(self.members))
-            await interaction.response.send_message('Choose who to add', view=add_view, ephemeral=True)
+            await interaction.response.send_message('Choose who to add. You can not add someone in a different channel '
+                                                    'or the same person within the same hour. You can add someone who '
+                                                    'is not in a channel at all, though.',
+                                                    view=add_view, ephemeral=True)
             await add_view.wait()
             if add_view.values:
                 to_add = filter(lambda x: x not in self.members, add_view.values)
                 for mem in to_add:
                     if len(self.members) < self.max:
                         if perms or not self.server.cooldowns.on_cooldown('voice_controller_add', mem):
+                            if mem.voice and mem.voice.channel and mem.voice.channel != self.channel:
+                                continue
                             await self.join(mem)
                             self.server.cooldowns.set_duration('voice_controller_add', mem, 1_60_60)
 
                 await self.message.edit(embed=self.embed)
+        else:
+            await interaction.response.send_message('Only the host can use this.', ephemeral=True)
 
     @discord.ui.button(label='Change Settings:', style=discord.ButtonStyle.grey, row=2, disabled=True)
     async def settings_button(self, interaction: discord.Interaction,
