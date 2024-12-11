@@ -290,6 +290,8 @@ class DynamicVoiceChannel:
                     return True
                 elif m.embeds:
                     return False # If there are any embeds in the last few messages, the message is probably not visible
+                elif m.attachments:
+                    return False
         except TimeoutError:
             ...
         return False
@@ -652,9 +654,10 @@ class VoiceManager:
                 await channel.channel.edit(position=i)
 
         for channels in grouped:
-            for i, channel in enumerate(channels):
-                if channel.number != i + 1 and not channel.channel.members:
-                    channel.number = i + 1
+            nums = [x.number for x in channels]
+            for i, channel in enumerate(channels, start=1):
+                if channel.number != i and not channel.channel.members and i not in nums:
+                    channel.number = i
                     await channel.save()
 
     async def update_names(self):

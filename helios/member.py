@@ -280,7 +280,7 @@ class HeliosMember(HasFlags):
         return self.points / self.activity_points
 
     def daily_points(self) -> int:
-        return 10_000
+        return 7_500
 
     async def load_inventory(self):
         self.inventory = await Inventory.load(self)
