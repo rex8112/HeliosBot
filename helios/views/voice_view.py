@@ -189,8 +189,7 @@ class VoiceControllerView(discord.ui.View):
             self.running = False
             self.server.voice_controllers.remove(self)
             self.stop()
-            await interaction.response.edit_message(content='Closed', embed=None,
-                                                    view=None)
+            await interaction.response.edit_message(view=None)
 
     @discord.ui.button(label='Join', style=discord.ButtonStyle.blurple, row=1)
     async def join_button(self, interaction: discord.Interaction,
