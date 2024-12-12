@@ -184,12 +184,12 @@ class VoiceControllerView(discord.ui.View):
     async def close_button(self, interaction: discord.Interaction,
                            button: discord.Button):
         if interaction.user == self.host:
-            for mem in self.members:
+            for mem in self.members[:]:
                 await self.leave(mem)
             self.running = False
             self.server.voice_controllers.remove(self)
             self.stop()
-            await interaction.response.edit_message(embed=self.embed,
+            await interaction.response.edit_message(content='Closed', embed=None,
                                                     view=None)
 
     @discord.ui.button(label='Join', style=discord.ButtonStyle.blurple, row=1)
