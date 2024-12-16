@@ -37,6 +37,7 @@ class TopicCog(commands.GroupCog, name='topic'):
         self.bot = bot
 
     @app_commands.command(name='new', description='Create a new topic')
+    @app_commands.describe(name='The name of the topic. Auto fill shows existing topics.')
     async def topic_create(
             self,
             interaction: discord.Interaction,
@@ -45,7 +46,28 @@ class TopicCog(commands.GroupCog, name='topic'):
         server = self.bot.servers.get(guild_id=interaction.guild_id)
         member = server.members.get(interaction.user.id)
         result, result_message = await server.channels.create_topic(name, member)
-        await interaction.response.send_message(result_message, ephemeral=True)
+        if result:
+            await interaction.response.send_message(result_message, ephemeral=True)
+            return
+
+        topic = server.channels.get_topic_by_name(name)
+        if topic is None:
+            await interaction.response.send_message(result_message, ephemeral=True)
+            return
+        if not topic.active:
+            await topic.restore(member, False)
+            await topic.save()
+            await interaction.response.send_message(f'Channel Restored: {topic.channel.mention}', ephemeral=True)
+        else:
+            await interaction.response.send_message(f'Channel Exists: {topic.channel.mention}', ephemeral=True)
+
+    @topic_create.autocomplete(name='name')
+    async def _topic_create_autocomplete(self, interaction: discord.Interaction, current: str):
+        server = self.bot.servers.get(guild_id=interaction.guild_id)
+        topics = server.channels.topic_channels.values()
+        names = [topic.channel.name.replace('🛑', '') for topic in topics]
+        names = [name for name in names if name.startswith(current)]
+        return [app_commands.Choice(name=name, value=name) for name in names]
 
     @app_commands.command(name='add', description='Add an existing channel as a topic')
     @commands.has_permissions(manage_channels=True)

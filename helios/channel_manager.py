@@ -56,6 +56,12 @@ class ChannelManager:
             channel = self.topic_channels.get(channel_id)
         return channel
 
+    def get_topic_by_name(self, name: str) -> Optional[TopicChannel]:
+        for channel in self.topic_channels.values():
+            if channel.channel.name == name:
+                return channel
+        return
+
     def get_type(self, t: str) -> list['HeliosChannel']:
         return list(filter(lambda x: x.channel_type == t, self.channels.values()))
 
