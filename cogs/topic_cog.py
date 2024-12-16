@@ -66,7 +66,7 @@ class TopicCog(commands.GroupCog, name='topic'):
         server = self.bot.servers.get(guild_id=interaction.guild_id)
         topics = server.channels.topic_channels.values()
         names = [topic.channel.name.replace('🛑', '') for topic in topics]
-        names = [name for name in names[:25] if name.startswith(current)]
+        names = [name for name in names if name.startswith(current)][:25]
         return [app_commands.Choice(name=name, value=name) for name in names]
 
     @app_commands.command(name='add', description='Add an existing channel as a topic')
