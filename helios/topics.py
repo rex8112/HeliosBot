@@ -211,7 +211,7 @@ class TopicChannel:
                                               view=view)
         self.archive_message = new_message
 
-    async def restore(self, saver: 'HeliosMember') -> None:
+    async def restore(self, saver: 'HeliosMember', delete=True) -> None:
         self.last_solo_message = None
         embed = self._get_saved_embed()
         self.state = TopicChannelStates.Active
@@ -221,7 +221,7 @@ class TopicChannel:
                                 sync_permissions=True)
         embed.set_author(name=saver.member.display_name, icon_url=saver.member.display_avatar.url)
         if self.archive_message is not None:
-            await self.archive_message.edit(embed=embed, view=None, delete_after=15)
+            await self.archive_message.edit(embed=embed, view=None, delete_after=15 if delete else None)
             self.archive_message = None
 
     async def pin(self, pinner: 'HeliosMember') -> None:
