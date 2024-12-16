@@ -65,7 +65,7 @@ class TopicCog(commands.GroupCog, name='topic'):
     async def _topic_create_autocomplete(self, interaction: discord.Interaction, current: str):
         server = self.bot.servers.get(guild_id=interaction.guild_id)
         topics = server.channels.topic_channels.values()
-        names = [topic.channel.name.replace('🛑', '') for topic in topics]
+        names = [topic.channel.name.replace('🛑', '') for topic in topics[:25]]
         names = [name for name in names if name.startswith(current)]
         return [app_commands.Choice(name=name, value=name) for name in names]
 
