@@ -313,7 +313,7 @@ class Blackjack:
                 first_card_value = self.dealer_hand.cards[0].bj_value()
                 if first_card_value == 1:
                     first_card_value = 11
-                card = self.deck.draw_filter(lambda c: c.bj_value() + first_card_value < 17)
+                card = self.deck.draw_filter(lambda c: (c.bj_value() if c.bj_value() != 1 else 11) + first_card_value < 17)
                 if card:
                     self.dealer_hand.cards.pop()
                     self.dealer_hand.add_card(card)
