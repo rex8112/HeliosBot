@@ -3,6 +3,7 @@ from .channel_manager import ChannelManager
 from .colour import Colour
 from .database import db, initialize_db
 from .dynamic_voice import VoiceManager, DynamicVoiceGroup
+from .enums import *
 from .exceptions import *
 from .gambling import TexasHoldEm, Blackjack
 from .helios_bot import HeliosBot
