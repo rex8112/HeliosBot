@@ -207,6 +207,7 @@ class ChannelManager:
             self._add_channel(channel)
             await channel.save()
             await channel.create_role()
+            await channel.channel.edit(topic=channel.get_description())
             return True, f'{channel.channel.mention} created successfully!'
         else:
             return False, 'This server does not have `Topic Channel Creation` enabled.'
