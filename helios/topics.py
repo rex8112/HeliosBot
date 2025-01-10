@@ -112,6 +112,12 @@ class TopicChannel:
             return tmp[0]
         return None
 
+    @property
+    def role_name(self):
+        if self.channel is None:
+            return '_sub'
+        return f'{self.channel.name}_sub'
+
     def serialize(self):
         return {
             'channel_id': self.channel.id,
@@ -160,6 +166,9 @@ class TopicChannel:
         try:
             if del_channel:
                 await self.channel.delete()
+            role = self.get_role()
+            if role:
+                await role.delete()
         except (discord.Forbidden, discord.HTTPException, discord.NotFound):
             pass
         finally:
@@ -264,7 +273,9 @@ class TopicChannel:
         return time < self.oldest_allowed
 
     async def subscribe(self, member: 'HeliosMember'):
-        await TopicSubscriptionModel.create(member.db_entry, self.db_entry)
+        existing = await TopicSubscriptionModel.get(member.db_entry, self.db_entry)
+        if not existing:
+            await TopicSubscriptionModel.create(member.db_entry, self.db_entry)
         role = self.get_role()
         if role:
             await member.member.add_roles(role, reason='Subscribed to topic')
@@ -282,13 +293,13 @@ class TopicChannel:
         return [await self.server.members.fetch(entry.member.member_id) for entry in entries]
 
     async def create_role(self):
-        role = await self.channel.guild.create_role(name=self.channel.name, mentionable=True)
+        role = await self.channel.guild.create_role(name=self.role_name, mentionable=True)
         for member in await self.get_subscribers():
             await member.member.add_roles(role, reason='Role created for topic')
         return role
 
     def get_role(self):
-        return discord.utils.get(self.channel.guild.roles, name=self.channel.name)
+        return discord.utils.get(self.server.guild.roles, name=self.role_name)
 
     async def delete_role(self):
         role = self.get_role()

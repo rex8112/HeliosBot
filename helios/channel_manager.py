@@ -121,6 +121,10 @@ class ChannelManager:
                     del self.topic_channels[k]
                 except KeyError:
                     ...
+        roles: list[discord.Role] = list(filter(lambda x: x.name.endswith('_sub'), self.server.guild.roles))
+        for role in roles:
+            if not self.get_topic_by_name(role.name[:-4]):
+                await role.delete()
 
     async def manage_topics(self):
         """Get channel points, sort by them and evaluate_state on the lower channels after the tenth channel."""
@@ -200,6 +204,7 @@ class ChannelManager:
             channel.creator = owner
             self._add_channel(channel)
             await channel.save()
+            await channel.create_role()
             return True, f'{channel.channel.mention} created successfully!'
         else:
             return False, 'This server does not have `Topic Channel Creation` enabled.'
@@ -244,6 +249,10 @@ class ChannelManager:
         for t in topic_channels:
             if t and t.alive:
                 self.topic_channels[t.id] = t
+                if t.active or t.pending:
+                    role = t.get_role()
+                    if not role:
+                        await t.create_role()
             else:
                 deletes.append(t.delete(del_channel=False))
 
