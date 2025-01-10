@@ -168,6 +168,14 @@ class HeliosMember(HasFlags):
     def effects(self):
         return self.bot.effects.get_effects(self)
 
+    @property
+    def forbidden(self):
+        return self.get_flag('FORBIDDEN')
+
+    @forbidden.setter
+    def forbidden(self, value: bool):
+        self.set_flag('FORBIDDEN', value)
+
     def has_effect(self, effect: str):
         effects = self.effects
         for e in effects:
