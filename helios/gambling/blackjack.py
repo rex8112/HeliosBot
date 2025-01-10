@@ -594,7 +594,6 @@ class BlackjackJoinView(discord.ui.View):
             return
         interaction = modal.last_interaction
         if modal.amount_selected is None:
-            await interaction.followup.send(content='You have not selected an amount.')
             return
         if modal.amount_selected <= 0:
             await interaction.followup.send(
