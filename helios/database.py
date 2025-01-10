@@ -621,8 +621,8 @@ class StoreModel(BaseModel):
 
 class TopicSubscriptionModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
-    member = ForeignKeyField(MemberModel, backref='topic_subscriptions')
-    topic = ForeignKeyField(TopicModel, backref='subscriptions')
+    member = ForeignKeyField(MemberModel, backref='topic_subscriptions', on_delete='CASCADE')
+    topic = ForeignKeyField(TopicModel, backref='subscriptions', on_delete='CASCADE')
     created = DatetimeTzField(default=get_aware_utc_now)
 
     class Meta:
