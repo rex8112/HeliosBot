@@ -116,7 +116,8 @@ class TopicChannel:
     def role_name(self):
         if self.channel is None:
             return '_sub'
-        return f'{self.channel.name}_sub'
+        name = self.channel.name.replace('🛑', '')
+        return f'{name}_sub'
 
     def serialize(self):
         return {
@@ -247,6 +248,7 @@ class TopicChannel:
             await self.create_role()
             await message.delete()
         if ping_role:
+            role = self.get_role()
             await self.channel.send(f'{role.mention}', reference=ping_message)
 
     async def pin(self, pinner: 'HeliosMember') -> None:
