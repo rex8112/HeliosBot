@@ -60,6 +60,8 @@ class ChannelManager:
         for channel in self.topic_channels.values():
             if channel.channel.name == name:
                 return channel
+            if channel.channel.name.replace('🛑', '') == name:
+                return channel
         return
 
     def get_type(self, t: str) -> list['HeliosChannel']:
