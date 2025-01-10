@@ -102,8 +102,8 @@ class TopicCog(commands.GroupCog, name='topic'):
         old_name = channel.channel.name
         if isinstance(channel, TopicChannel):
             await interaction.response.defer()
-            await channel.channel.edit(name=name, topic=channel.get_description(name))
             role = channel.get_role()
+            await channel.channel.edit(name=name, topic=channel.get_description(name))
             if role:
                 await role.edit(name=name)
             await interaction.followup.send(content=f'Changed topic name from {old_name} to {name}')
