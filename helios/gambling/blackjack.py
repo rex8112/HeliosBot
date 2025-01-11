@@ -307,8 +307,11 @@ class Blackjack:
         if powerup == 'force_bust':
             self.force_bust = True
         elif powerup == 'surrender':
+            bets_total = sum(self.bets[self.current_player])
             self.bets[self.current_player][self.current_hand] = 0
             await self.stand()
+            await self.players[self.current_player].add_points(bets_total, 'Helios: Blackjack',
+                                                               f'{self.id}: Surrender')
             return True
         elif powerup == 'show_dealer':
             for card in self.dealer_hand.cards:
