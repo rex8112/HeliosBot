@@ -160,6 +160,18 @@ class Items:
     def deflector():
         return Item('deflector', 1, 'Deflector')
 
+    @staticmethod
+    def bj_powerup(action: Literal['surrender','show_dealer','show_next','perfect_card']):
+        if action == 'surrender':
+            return Item('bj_powerup', 1, 'Blackjack Powerup: Surrender', {'action': 'surrender'})
+        elif action == 'show_dealer':
+            return Item('bj_powerup', 1, 'Blackjack Powerup: Show Dealer Card', {'action': 'show_dealer'})
+        elif action == 'show_next':
+            return Item('bj_powerup', 1, 'Blackjack Powerup: Show Next Card', {'action': 'show_next'})
+        elif action == 'perfect_card':
+            return Item('bj_powerup', 1, 'Blackjack Powerup: Perfect Card', {'action': 'perfect_card'})
+        else:
+            raise ValueError('Invalid action')
 
 class ItemDescriptions:
     @staticmethod
