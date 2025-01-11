@@ -31,12 +31,12 @@ from .cards import Hand, Deck
 from .image import get_member_icon, BlackjackHandImage, BlackjackImage, BlackjackHandSplitImage
 from ..colour import Colour
 from ..database import BlackjackModel
+from ..items import Item, Items
 from ..member import HeliosMember
 from ..tools.modals import AmountModal
 from ..views import ItemSelectorView, YesNoView, StartBlackjackView
 
 if TYPE_CHECKING:
-    from ..items import Item
     from PIL import Image
     from .manager import GamblingManager
 
@@ -737,12 +737,24 @@ class BlackjackJoinView(discord.ui.View):
         if await view.wait():
             return
         item = view.selected
+        combined = None
+        if item.quantity > 1:
+            view = YesNoView(interaction.user, timeout=15)
+            await interaction.edit_original_response(content=f'Would you like to use all your {item.display_name}?', view=view)
+            if await view.wait():
+                return
+            if view.value:
+                combined = Items.gamble_credit(item.data['credit'] * item.quantity)
         if item is None:
             await interaction.edit_original_response(content='You have not selected an item.', view=None)
             return
         if self.blackjack.id is not None:
             await interaction.edit_original_response(content='The game has already started.', view=None)
             return
+        if combined:
+            await member.inventory.remove_item(item, item.quantity)
+            await member.inventory.add_item(combined)
+            item = combined
         await self.blackjack.add_player(member, credit=item)
         await interaction.edit_original_response(content=f'You have joined the game with a bet of {item.data["credit"]} '
                                                         f'Credits.', view=None)
