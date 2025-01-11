@@ -56,5 +56,6 @@ class ItemSelectorView(ui.View):
     @ui.select(placeholder='Select an item')
     async def item_select(self, interaction: Interaction, select: ui.Select):
         self.selected = self.items[int(select.values[0])]
+        self.last_interaction = interaction
         await interaction.response.defer()
         self.stop()
