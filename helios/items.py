@@ -211,3 +211,16 @@ class ItemDescriptions:
     @staticmethod
     def deflector(item: Item):
         return 'Deflects one harmful effect for a limited time'
+
+    @staticmethod
+    def bj_powerup(item: Item):
+        if item.data['action'] == 'surrender':
+            return 'Allows surrendering a blackjack hand'
+        elif item.data['action'] == 'show_dealer':
+            return 'Allows showing the dealer\'s hidden card'
+        elif item.data['action'] == 'show_next':
+            return 'Allows showing the next card in the deck'
+        elif item.data['action'] == 'perfect_card':
+            return 'Allows drawing the perfect card for the situation. Will draw 11 if your hand is < 10'
+        else:
+            return 'No description available'
