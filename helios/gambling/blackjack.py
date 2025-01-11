@@ -326,7 +326,8 @@ class Blackjack:
             hand = self.hands[self.current_player][self.current_hand]
             value = hand.get_hand_bj_values()
             if value < 21:
-                card = self.draw_specific(21 - value)
+                remaining = 21 - value
+                card = self.draw_specific(remaining if remaining < 11 else 1)
                 if card:
                     hand.add_card(card)
                     await self.update_message('Drawing Perfect Card')
