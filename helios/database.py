@@ -421,6 +421,7 @@ class BlackjackModel(BaseModel):
     players = JSONField(default=[])
     hands = JSONField(default=[])
     bets = JSONField(default=[])
+    powerups = JSONField(default=[])
     winnings = JSONField(default=[])
     dealer_hand = JSONField(default=[])
     created = DatetimeTzField(default=get_aware_utc_now)
