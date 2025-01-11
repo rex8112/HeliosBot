@@ -63,6 +63,7 @@ class Blackjack:
         self.hands: list[list[Hand]] = []
         self.hand_images: list['BlackjackHandImage'] = []
         self.bets: list[list[int]] = []
+        self.powerups: list[Optional[str]] = []
         self.credits: list[Optional['Item']] = []
 
         self.board_lock = asyncio.Lock()
@@ -89,6 +90,7 @@ class Blackjack:
         self.deck = Deck()
         self.hands = [Hand()]
         self.bets = []
+        self.powerups = []
         self.credits = []
         self.hand_images = []
         self.dealer_hand = Hand()
@@ -112,6 +114,7 @@ class Blackjack:
             'bets': bets,
             'dealer_hand': dealer_hand,
             'winnings': self.winnings,
+            'powerups': self.powerups,
         }
 
     async def update_message(self, state: str, timer: int = 0):
@@ -128,6 +131,7 @@ class Blackjack:
         self.players.append(player)
         self.hands.append([Hand()])
         self.bets.append([bet])
+        self.powerups.append(None)
         self.credits.append(credit)
         self.icons.append(await get_member_icon(player.bot.get_session(), player.member.display_avatar.url))
         self.generate_hand_images()
@@ -137,6 +141,7 @@ class Blackjack:
         self.players.pop(index)
         self.hands.pop(index)
         self.bets.pop(index)
+        self.powerups.pop(index)
         self.icons.pop(index)
         self.hand_images.pop(index)
         self.credits.pop(index)
@@ -297,6 +302,39 @@ class Blackjack:
             self.current_player += 1
             self.current_hand = 0
 
+    async def use_powerup(self, powerup: str):
+        self.powerups[self.current_player] = powerup
+        if powerup == 'force_bust':
+            self.force_bust = True
+        elif powerup == 'surrender':
+            self.bets[self.current_player][self.current_hand] = 0
+            await self.stand()
+            return True
+        elif powerup == 'show_dealer':
+            for card in self.dealer_hand.cards:
+                card.hidden = False
+            self.generate_hand_images()
+            await self.update_message('Showing Dealer Card')
+        elif powerup == 'show_next':
+            card = self.deck.cards[-1]
+            card.hidden = False
+            await self.update_message('Showing Next Card')
+            await self.channel.send('The next card is...',
+                                    file=discord.File(f'./helios/resources/cards/{card.short()}.png'),
+                                    delete_after=30)
+        elif powerup == 'perfect_card':
+            hand = self.hands[self.current_player][self.current_hand]
+            value = hand.get_hand_bj_values()
+            if value < 21:
+                card = self.draw_specific(21 - value)
+                if card:
+                    hand.add_card(card)
+                    await self.update_message('Drawing Perfect Card')
+                else:
+                    await self.update_message('No Perfect Card Found')
+                    self.powerups[self.current_player] = None
+        return self.powerups[self.current_player] is not None
+
     def is_soft_seventeen(self):
         if (self.dealer_hand.get_hand_bj_values() == 17
                 and self.dealer_hand.get_hand_bj_values(suppress_eleven=True) < 17):
@@ -351,6 +389,14 @@ class Blackjack:
         else:
             await self.update_message('Dealer Stands')
         await asyncio.sleep(1)
+
+    def draw_specific(self, value: int):
+        card = self.deck.draw_filter(lambda c: c.bj_value() == value)
+        return card
+
+    def draw_range(self, low: int, high: int):
+        card = self.deck.draw_filter(lambda c: low <= c.bj_value() <= high)
+        return card
 
     def calculate_winnings(self):
         winnings = []
@@ -429,6 +475,7 @@ class BlackjackView(discord.ui.View):
     def check_buttons(self):
         player = self.blackjack.players[self.blackjack.current_player]
         credit = self.blackjack.credits[self.blackjack.current_player]
+        powerup = self.blackjack.powerups[self.blackjack.current_player]
         hands = self.blackjack.hands[self.blackjack.current_player]
         hand = hands[self.blackjack.current_hand]
         if len(hand.cards) > 2 or (len(hands) > 1 and len(hand.cards) > 1):
@@ -439,6 +486,8 @@ class BlackjackView(discord.ui.View):
             self.split.disabled = True
         elif len(hands) > 1 or hand.cards[0].bj_value() != hand.cards[1].bj_value():
             self.remove_item(self.split)
+        if not player.inventory.get_items('bj_powerup') or powerup is not None:
+            self.remove_item(self.powerup)
 
     @discord.ui.button(label='Hit', style=discord.ButtonStyle.green)
     async def hit(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -529,6 +578,37 @@ class BlackjackView(discord.ui.View):
             self.stop()
         finally:
             self.blackjack.board_lock.release()
+
+    @discord.ui.button(label='Use Powerup', style=discord.ButtonStyle.blurple)
+    async def powerup(self, interaction: discord.Interaction, button: discord.ui.Button):
+        player = self.blackjack.players[self.blackjack.current_player]
+        if player.member != interaction.user:
+            await interaction.response.send_message('It is not your turn.', ephemeral=True)
+            return
+        if self.blackjack.powerups[self.blackjack.current_player]:
+            await interaction.response.send_message('You have already used a powerup.', ephemeral=True)
+            return
+        items = player.inventory.get_items('bj_powerup')
+        view = ItemSelectorView(items, show_quantity=False, show_descriptions=True)
+        await interaction.response.send_message('Select a powerup to use.', view=view, ephemeral=True)
+        if await view.wait():
+            return
+        # Recheck if it is the players turn
+        if player.member != interaction.user:
+            await interaction.response.send_message('It is not your turn.', ephemeral=True)
+            return
+        if self.blackjack.powerups[self.blackjack.current_player]:
+            await interaction.response.send_message('You have already used a powerup.', ephemeral=True)
+            return
+
+        powerup = view.selected
+        result = await self.blackjack.use_powerup(powerup.data['action'])
+        if result:
+            await player.inventory.remove_item(powerup, 1)
+            await view.last_interaction.edit_original_response(content=f'You used {powerup.display_name}.', view=None)
+        else:
+            await view.last_interaction.edit_original_response(content='Powerup failed.', view=None)
+        self.stop()
 
 
 rules_embed = discord.Embed(
