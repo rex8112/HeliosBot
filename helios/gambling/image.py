@@ -109,6 +109,8 @@ class BlackjackHandImage:
             if self.bet:
                 name = 'Credit' if self.is_credit else 'Bet'
                 draw.text((start_x, self.padding + 30), f'{name}: {self.bet:,}', fill='white', font_size=24)
+            elif self.name != 'Dealer':
+                draw.text((start_x, self.padding + 30), 'Surrendered', fill='white', font_size=24)
 
             self._background = background
             del draw
