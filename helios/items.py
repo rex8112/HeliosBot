@@ -173,6 +173,10 @@ class Items:
         else:
             raise ValueError('Invalid action')
 
+    @staticmethod
+    def loot_crate(_type: Literal['common']):
+        return Item('loot_crate', 1, 'Loot Crate', {'type': _type})
+
 class ItemDescriptions:
     @staticmethod
     def get_description(item: Item):

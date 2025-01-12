@@ -20,7 +20,7 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 import random
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Type
 
 from discord import Colour
 from enum import Enum
@@ -175,5 +175,11 @@ ITEM_POOL = [
     LootItem(Items.bj_powerup('perfect_card'), LootRarities.LEGENDARY),
 ]
 
+
 class CommonLootPool(LootPool):
     ITEMS = ITEM_POOL
+
+
+Pools: dict[str, Type[LootPool]] = {
+    'common': CommonLootPool
+}
