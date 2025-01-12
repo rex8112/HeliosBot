@@ -22,6 +22,7 @@
 import random
 from typing import TYPE_CHECKING, Type
 
+import discord
 from discord import Colour
 from enum import Enum
 
@@ -101,11 +102,11 @@ class LootPool:
 
         for rarity, items in rarity_items.items():
             if items:
-                embed = {
-                    'title': f'{loot_rarity_name(rarity)} Items',
-                    'description': '\n'.join([f'__**{item.item.display_name} x{item.item.quantity}**__\n{item.item.get_description()}' for item in items]),
-                    'color': loot_rarity_color(rarity).value
-                }
+                embed = discord.Embed(
+                    title=f'{loot_rarity_name(rarity)} Items',
+                    description='\n'.join([f'__**{item.item.display_name} x{item.item.quantity}**__\n{item.item.get_description()}' for item in items]),
+                    colour=loot_rarity_color(rarity).value
+                )
                 embeds.append(embed)
         return embeds
 
@@ -113,11 +114,11 @@ class LootPool:
     def get_loot_rarity_chance(rarity: LootRarities):
         """Get the chance of getting a certain rarity."""
         if rarity == LootRarities.UNCOMMON:
-            return 0.3
+            return 0.10
         elif rarity == LootRarities.RARE:
-            return 0.15
+            return 0.08
         elif rarity == LootRarities.EPIC:
-            return 0.04
+            return 0.02
         elif rarity == LootRarities.LEGENDARY:
             return 0.006
         else:
