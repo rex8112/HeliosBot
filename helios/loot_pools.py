@@ -158,20 +158,18 @@ ITEM_POOL = [
     LootItem(Items.gamble_credit(300), LootRarities.COMMON),
 
     LootItem(Items.shield(), LootRarities.UNCOMMON),
-    LootItem(Items.discount(10), LootRarities.UNCOMMON),
     LootItem(Items.gamble_credit(1000), LootRarities.UNCOMMON),
     LootItem(Items.bj_powerup('surrender'), LootRarities.UNCOMMON),
 
     LootItem(Items.mute_token(), LootRarities.RARE),
     LootItem(Items.deafen_token(), LootRarities.RARE),
-    LootItem(Items.discount(18), LootRarities.RARE),
     LootItem(Items.gamble_credit(5000), LootRarities.RARE),
     LootItem(Items.bj_powerup('show_dealer'), LootRarities.RARE),
 
     LootItem(Items.bubble(), LootRarities.EPIC),
     LootItem(Items.deflector(), LootRarities.EPIC),
     LootItem(Items.gamble_credit(10000), LootRarities.EPIC),
-    LootItem(Items.discount(25), LootRarities.EPIC),
+    # LootItem(Items.discount(25), LootRarities.EPIC),
     LootItem(Items.bj_powerup('show_next'), LootRarities.EPIC),
 
     LootItem(Items.bj_powerup('perfect_card'), LootRarities.LEGENDARY),
