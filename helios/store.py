@@ -144,6 +144,7 @@ class Store:
             StoreItem.from_item(Items.shield(), 100, 500, 10, 10, 30,  5),
             StoreItem.from_item(Items.bubble(), 1000, 10_000, 1000, 5, 10,  1),
             StoreItem.from_item(Items.deflector(), 500, 10_000, 500, 5, 10,  1),
+            StoreItem.from_item(Items.loot_crate('common'), 1000, 1000, 1000, 100, 100,  100),
         ]
 
     async def reset(self):
