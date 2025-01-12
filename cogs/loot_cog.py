@@ -84,6 +84,12 @@ class LootCog(commands.GroupCog, name='lootcrate'):
             await asyncio.sleep(1)
             await interaction.edit_original_response(embeds=embeds[:i + 1])
 
+    @app_commands.command(name='droprates', description='View the droprates for loot crates')
+    async def droprates(self, interaction: discord.Interaction):
+        pool = Pools['common']()
+        embeds = pool.get_loot_pool_embeds()
+        await interaction.response.send_message(embeds=embeds, ephemeral=True)
+
 
 async def setup(bot: 'HeliosBot'):
     await bot.add_cog(LootCog(bot))
