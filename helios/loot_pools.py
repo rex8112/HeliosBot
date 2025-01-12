@@ -116,11 +116,11 @@ class LootPool:
         if rarity == LootRarities.COMMON:
             return self.common_chance
         elif rarity == LootRarities.UNCOMMON:
-            return 0.10
+            return 0.20
         elif rarity == LootRarities.RARE:
-            return 0.08
+            return 0.10
         elif rarity == LootRarities.EPIC:
-            return 0.02
+            return 0.05
         elif rarity == LootRarities.LEGENDARY:
             return 0.006
         else:
