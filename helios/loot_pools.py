@@ -88,6 +88,7 @@ class LootPool:
     """A pool of items that can be randomly selected from."""
     ITEMS = []
     def __init__(self):
+        self.common_chance = 0.0
         self.items, self.weights = self.build_weighted_pool()
 
     def get_random_items(self, count: int = 1) -> list[LootItem]:
@@ -110,10 +111,11 @@ class LootPool:
                 embeds.append(embed)
         return embeds
 
-    @staticmethod
-    def get_loot_rarity_chance(rarity: LootRarities):
+    def get_loot_rarity_chance(self, rarity: LootRarities):
         """Get the chance of getting a certain rarity."""
-        if rarity == LootRarities.UNCOMMON:
+        if rarity == LootRarities.COMMON:
+            return self.common_chance
+        elif rarity == LootRarities.UNCOMMON:
             return 0.10
         elif rarity == LootRarities.RARE:
             return 0.08
@@ -133,15 +135,14 @@ class LootPool:
 
         # Calculate the chance of getting a common item
         rarities_with_items = [rarity for rarity, count in rarity_counts.items() if count > 0]
-        common_rarity_chance = 1 - sum([self.get_loot_rarity_chance(rarity) for rarity in rarities_with_items])
+        common_rarity_chance = 1 - sum([self.get_loot_rarity_chance(rarity) for rarity in rarities_with_items if rarity != LootRarities.COMMON])
+        self.common_chance = common_rarity_chance
 
         # Calculate the weight of each item in the pool
         rarity_item_weights = {
             rarity: self.get_loot_rarity_chance(rarity) / rarity_counts[rarity]
             for rarity in rarities_with_items
-            if rarity != LootRarities.COMMON
         }
-        rarity_item_weights[LootRarities.COMMON] = common_rarity_chance / rarity_counts[LootRarities.COMMON]
 
         items = []
         weights = []
@@ -153,8 +154,7 @@ class LootPool:
 
 ITEM_POOL = [
     LootItem(Items.gamble_credit(100), LootRarities.COMMON),
-    LootItem(Items.gamble_credit(500), LootRarities.COMMON),
-    LootItem(Items.discount(5), LootRarities.COMMON),
+    LootItem(Items.gamble_credit(300), LootRarities.COMMON),
 
     LootItem(Items.shield(), LootRarities.UNCOMMON),
     LootItem(Items.discount(10), LootRarities.UNCOMMON),
