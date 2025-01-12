@@ -76,7 +76,7 @@ class LootCog(commands.GroupCog, name='lootcrate'):
         [await member.inventory.add_item(i.item, i.item.quantity) for i in items]
         embeds = [
             discord.Embed(
-                title=f'{item.item.display_name} x{item.item.quantity}\n{item.item.get_description()}',
+                description=f'**{item.item.display_name}** x{item.item.quantity}\n{item.item.get_description()}',
                 color=item.color
             ) for item in items
         ]
