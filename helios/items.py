@@ -50,7 +50,7 @@ class Item:
         return ItemDescriptions.get_description(self)
 
     def copy(self, quantity: int = None):
-        return Item(self.name, quantity if quantity is None else self.quantity, self.display_name, self.data.copy())
+        return Item(self.name, quantity if quantity is not None else self.quantity, self.display_name, self.data.copy())
 
     def to_dict(self):
         return {
