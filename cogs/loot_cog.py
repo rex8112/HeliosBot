@@ -40,6 +40,8 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+import asyncio
+
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -79,7 +81,8 @@ class LootCog(commands.GroupCog, name='lootcrate'):
             ) for item in items
         ]
         for i in range(len(embeds)):
-            await interaction.edit_original_response(content=None, embeds=embeds[:i + 1])
+            await asyncio.sleep(1)
+            await interaction.edit_original_response(embeds=embeds[:i + 1])
 
 
 async def setup(bot: 'HeliosBot'):
