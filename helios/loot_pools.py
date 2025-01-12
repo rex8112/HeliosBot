@@ -104,7 +104,7 @@ class LootPool:
         for rarity, items in rarity_items.items():
             if items:
                 embed = discord.Embed(
-                    title=f'{loot_rarity_name(rarity)} Items',
+                    title=f'{loot_rarity_name(rarity)} Items {self.get_loot_rarity_chance(rarity):.1%}',
                     description='\n'.join([f'__**{item.item.display_name} x{item.item.quantity}**__\n{item.item.get_description()}' for item in items]),
                     colour=loot_rarity_color(rarity).value
                 )
@@ -154,6 +154,7 @@ class LootPool:
 
 ITEM_POOL = [
     LootItem(Items.gamble_credit(100), LootRarities.COMMON),
+    LootItem(Items.gamble_credit(200), LootRarities.COMMON),
     LootItem(Items.gamble_credit(300), LootRarities.COMMON),
 
     LootItem(Items.shield(), LootRarities.UNCOMMON),
