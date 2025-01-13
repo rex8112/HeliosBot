@@ -47,7 +47,7 @@ def initialize_db():
         db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
                           EventModel, ViolationModel, DynamicVoiceModel, DynamicVoiceGroupModel, TopicModel,
                           EffectModel, ThemeModel, BlackjackModel, DailyModel, GameModel, GameAliasModel, PugModel,
-                          InventoryModel, StoreModel])
+                          InventoryModel, StoreModel, TopicSubscriptionModel])
 
 
 def get_aware_utc_now():
@@ -421,6 +421,7 @@ class BlackjackModel(BaseModel):
     players = JSONField(default=[])
     hands = JSONField(default=[])
     bets = JSONField(default=[])
+    powerups = JSONField(default=[])
     winnings = JSONField(default=[])
     dealer_hand = JSONField(default=[])
     created = DatetimeTzField(default=get_aware_utc_now)
@@ -618,4 +619,37 @@ class StoreModel(BaseModel):
             return await objects.get(cls, server=server)
         except DoesNotExist:
             return None
+
+class TopicSubscriptionModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    member = ForeignKeyField(MemberModel, backref='topic_subscriptions', on_delete='CASCADE')
+    topic = ForeignKeyField(TopicModel, backref='subscriptions', on_delete='CASCADE')
+    created = DatetimeTzField(default=get_aware_utc_now)
+
+    class Meta:
+        table_name = 'topic_subscriptions'
+
+    @classmethod
+    async def create(cls, member: MemberModel, topic: TopicModel) -> 'TopicSubscriptionModel':
+        existing = await cls.get(member, topic)
+        if existing:
+            return existing
+        return await objects.create(cls, member=member, topic=topic)
+
+    @classmethod
+    async def get(cls, member: MemberModel, topic: TopicModel) -> Optional['TopicSubscriptionModel']:
+        try:
+            return await objects.get(cls, member=member, topic=topic)
+        except DoesNotExist:
+            return None
+
+    @classmethod
+    async def get_all(cls, member: MemberModel) -> list['TopicSubscriptionModel']:
+        q = cls.select().where(cls.member == member)
+        return await objects.prefetch(q, TopicModel.select())
+
+    @classmethod
+    async def get_all_by_topic(cls, topic: TopicModel) -> list['TopicSubscriptionModel']:
+        q = cls.select().where(cls.topic == topic)
+        return await objects.prefetch(q, MemberModel.select())
 

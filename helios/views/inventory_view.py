@@ -23,6 +23,8 @@ from typing import TYPE_CHECKING, Optional
 
 from discord import ui, SelectOption, Interaction
 
+from ..items import ItemDescriptions
+
 if TYPE_CHECKING:
     from ..items import Item
 
@@ -31,14 +33,21 @@ __all__ = ('ItemSelectorView',)
 
 
 class ItemSelectorView(ui.View):
-    def __init__(self, items: list['Item']):
+    def __init__(self, items: list['Item'], *, show_quantity: bool = True, show_descriptions: bool = False):
         super().__init__()
         self.items = items
         self.selected: Optional['Item'] = None
         self.last_interaction = None
 
         if items:
-            self.item_select.options = [SelectOption(label=str(item), value=str(i)) for i, item in enumerate(items)]
+            options = []
+            for i, item in enumerate(items):
+                label = item.display_name
+                if show_quantity:
+                    label += f' x{item.quantity}'
+                description = ItemDescriptions.get_description(item) if show_descriptions else None
+                options.append(SelectOption(label=label, value=str(i), description=description))
+            self.item_select.options = options
         else:
             self.item_select.disabled = True
             self.item_select.placeholder = 'No items available'
@@ -47,5 +56,6 @@ class ItemSelectorView(ui.View):
     @ui.select(placeholder='Select an item')
     async def item_select(self, interaction: Interaction, select: ui.Select):
         self.selected = self.items[int(select.values[0])]
+        self.last_interaction = interaction
         await interaction.response.defer()
         self.stop()

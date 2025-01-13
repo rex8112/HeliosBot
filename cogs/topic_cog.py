@@ -26,7 +26,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from helios import TopicChannel
+from helios import TopicChannel, TopicChannelStates
 
 if TYPE_CHECKING:
     from helios import HeliosBot
@@ -69,6 +69,47 @@ class TopicCog(commands.GroupCog, name='topic'):
         names = [name for name in names if name.startswith(current)][:25]
         return [app_commands.Choice(name=name, value=name) for name in names]
 
+    @app_commands.command(name='subscribe', description='Subscribe to the current topic.')
+    async def topic_subscribe(self, interaction: discord.Interaction):
+        server = self.bot.servers.get(guild_id=interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        channel = server.channels.get(interaction.channel_id)
+        if isinstance(channel, TopicChannel):
+            await channel.subscribe(member)
+            await interaction.response.send_message('Subscribed to topic', ephemeral=True)
+        else:
+            await interaction.response.send_message('Channel is not a topic', ephemeral=True)
+
+    @app_commands.command(name='unsubscribe', description='Unsubscribe from the current topic.')
+    async def topic_unsubscribe(self, interaction: discord.Interaction):
+        server = self.bot.servers.get(guild_id=interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        channel = server.channels.get(interaction.channel_id)
+        if isinstance(channel, TopicChannel):
+            await channel.unsubscribe(member)
+            await interaction.response.send_message('Unsubscribed from topic', ephemeral=True)
+        else:
+            await interaction.response.send_message('Channel is not a topic', ephemeral=True)
+
+    @app_commands.command(name='change_name', description='Change the name of the current topic.')
+    async def topic_change_name(self, interaction: discord.Interaction, name: str):
+        server = self.bot.servers.get(guild_id=interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        if member.forbidden:
+            await interaction.response.send_message('You are forbidden from performing this action', ephemeral=True)
+            return
+        channel = server.channels.get(interaction.channel_id)
+        old_name = channel.channel.name
+        if isinstance(channel, TopicChannel):
+            await interaction.response.defer()
+            role = channel.get_role()
+            await channel.channel.edit(name=name, topic=channel.get_description(name))
+            if role:
+                await role.edit(name=name)
+            await interaction.followup.send(content=f'Changed topic name from {old_name} to {name}')
+        else:
+            await interaction.response.send_message('Channel is not a topic', ephemeral=True)
+
     @app_commands.command(name='add', description='Add an existing channel as a topic')
     @commands.has_permissions(manage_channels=True)
     async def topic_add(
@@ -108,15 +149,18 @@ class TopicCog(commands.GroupCog, name='topic'):
         channel = server.channels.get(message.channel.id)
         if isinstance(channel, TopicChannel):
             if not channel.active:
-                if message.author.id == channel.solo_author_id and not channel.channel.permissions_for(message.author).manage_channels:
+                if (message.author.id == channel.solo_author_id
+                        and channel.state == TopicChannelStates.PendingArchive
+                        and not channel.channel.permissions_for(message.author).manage_channels):
                     if channel.last_solo_message is None:
                         m = await message.reply('Hey, I see you are the only one to post in this topic in the last week. '
                                                 'I will not be cancelling this archive. '
-                                                'I will restore it post-archive if anyone messages afterwards.')
+                                                'I will restore it post-archive if anyone (including you) messages afterwards.')
                         channel.last_solo_message = m.created_at
                     return
                 channel.authors.append(message.author.id)
-                await channel.restore(server.members.get(message.author.id))
+                ping = message.guild.me in message.mentions
+                await channel.restore(server.members.get(message.author.id), ping_role=ping, ping_message=message)
                 await channel.save()
 
 

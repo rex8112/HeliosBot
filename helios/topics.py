@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Optional
 import discord
 
 from .enums import TopicChannelStates
-from .database import TopicModel
+from .database import TopicModel, TopicSubscriptionModel
 
 if TYPE_CHECKING:
     from .member import HeliosMember
@@ -50,7 +50,7 @@ class TopicChannel:
 
         self.last_solo_message: Optional[datetime] = None
 
-        self.db_entry = None
+        self.db_entry: Optional['TopicModel'] = None
 
     @property
     def id(self):
@@ -112,6 +112,13 @@ class TopicChannel:
             return tmp[0]
         return None
 
+    @property
+    def role_name(self):
+        if self.channel is None:
+            return '_sub'
+        name = self.channel.name.replace('🛑', '')
+        return f'{name}_sub'
+
     def serialize(self):
         return {
             'channel_id': self.channel.id,
@@ -160,6 +167,9 @@ class TopicChannel:
         try:
             if del_channel:
                 await self.channel.delete()
+            role = self.get_role()
+            if role:
+                await role.delete()
         except (discord.Forbidden, discord.HTTPException, discord.NotFound):
             pass
         finally:
@@ -196,6 +206,7 @@ class TopicChannel:
             return
         self.state = TopicChannelStates.Archived
         await self.channel.edit(category=self.archive_category, sync_permissions=True)
+        await self.delete_role()
         if self.archive_message is None:
             await self.post_archive_message(embed=self._get_marked_embed())
         else:
@@ -211,9 +222,10 @@ class TopicChannel:
                                               view=view)
         self.archive_message = new_message
 
-    async def restore(self, saver: 'HeliosMember', delete=True) -> None:
+    async def restore(self, saver: 'HeliosMember', delete=True, *, ping_role=False, ping_message: discord.Message = None) -> None:
         self.last_solo_message = None
         embed = self._get_saved_embed()
+        old_state = self.state
         self.state = TopicChannelStates.Active
         self.archive_date = None
         await self.channel.edit(name=self.channel.name.replace('🛑', ''),
@@ -223,6 +235,21 @@ class TopicChannel:
         if self.archive_message is not None:
             await self.archive_message.edit(embed=embed, view=None, delete_after=15 if delete else None)
             self.archive_message = None
+        role = self.get_role()
+        if role:
+            return
+        embed = discord.Embed(
+            colour=discord.Colour.green(),
+            title='Rebuilding Role',
+            description='Rebuilding role for topic...'
+        )
+        message = await self.channel.send(embed=embed)
+        async with message.channel.typing():
+            await self.create_role()
+            await message.delete()
+        if ping_role:
+            role = self.get_role()
+            await self.channel.send(f'{role.mention}', reference=ping_message)
 
     async def pin(self, pinner: 'HeliosMember') -> None:
         if self.state == TopicChannelStates.Pinned:
@@ -247,6 +274,40 @@ class TopicChannel:
             time = last_message.created_at
         return time < self.oldest_allowed
 
+    async def subscribe(self, member: 'HeliosMember'):
+        existing = await TopicSubscriptionModel.get(member.db_entry, self.db_entry)
+        if not existing:
+            await TopicSubscriptionModel.create(member.db_entry, self.db_entry)
+        role = self.get_role()
+        if role:
+            await member.member.add_roles(role, reason='Subscribed to topic')
+
+    async def unsubscribe(self, member: 'HeliosMember'):
+        existing = await TopicSubscriptionModel.get(member.db_entry, self.db_entry)
+        if existing:
+            await existing.async_delete()
+        role = self.get_role()
+        if role:
+            await member.member.remove_roles(role, reason='Unsubscribed from topic')
+
+    async def get_subscribers(self):
+        entries = await TopicSubscriptionModel.get_all_by_topic(self.db_entry)
+        return [await self.server.members.fetch(entry.member.member_id) for entry in entries]
+
+    async def create_role(self):
+        role = await self.channel.guild.create_role(name=self.role_name, mentionable=True)
+        for member in await self.get_subscribers():
+            await member.member.add_roles(role, reason='Role created for topic')
+        return role
+
+    def get_role(self):
+        return discord.utils.get(self.server.guild.roles, name=self.role_name)
+
+    async def delete_role(self):
+        role = self.get_role()
+        if role:
+            await role.delete()
+
     def get_archivable(self) -> bool:
         """
         Returns whether the channel is ready to be archived
@@ -268,6 +329,13 @@ class TopicChannel:
             if await self.get_markable():
                 await self.mark()
 
+    def get_description(self, new_name: str = None) -> str:
+        return (f'Discussions about the topic "{new_name if new_name else self.channel.name}". If you would like to '
+                f'subscribe to this topic, '
+                'run the command `/topic subscribe` in this channel. If you would like to mention all subscribers, '
+                'while the topic is archived, simply include a @Helios in your message and the bot will mention the '
+                'role when it is restored.')
+
     def _get_marked_embed(self) -> discord.Embed:
         t = self.archive_date
         word = 'archived'
@@ -276,7 +344,7 @@ class TopicChannel:
             title=f'⚠ Flagged to be {word.capitalize()} ⚠',
             description=(
                 f'This channel has been flagged due to inactivity. The channel will be {word} '
-                f'<t:{int(t.timestamp())}:R> for later retrieval, assuming an admin does not remove it.'
+                f'<t:{int(t.timestamp())}:R> for later retrieval.'
             )
         )
         embed.add_field(

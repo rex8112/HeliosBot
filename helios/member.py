@@ -34,7 +34,7 @@ from .colour import Colour
 from .database import MemberModel, objects, TransactionModel, DailyModel
 from .exceptions import IdMismatchError
 from .inventory import Inventory
-from .items import Items
+from .items import Items, Item
 from .violation import Violation
 from .voice_template import VoiceTemplate
 
@@ -168,6 +168,14 @@ class HeliosMember(HasFlags):
     def effects(self):
         return self.bot.effects.get_effects(self)
 
+    @property
+    def forbidden(self):
+        return self.get_flag('FORBIDDEN')
+
+    @forbidden.setter
+    def forbidden(self, value: bool):
+        self.set_flag('FORBIDDEN', value)
+
     def has_effect(self, effect: str):
         effects = self.effects
         for e in effects:
@@ -285,20 +293,24 @@ class HeliosMember(HasFlags):
     async def load_inventory(self):
         self.inventory = await Inventory.load(self)
 
-    async def claim_daily(self) -> int:
+    async def claim_daily(self) -> list['Item']:
         """
         :return: Whether the daily could be claimed.
         """
         days = get_day()
-        points = self.daily_points()
-        if points == 0:
-            return 0
         give = await DailyModel.claim(self._db_entry, days)
+        items = []
         if give:
-            item = Items.gamble_credit(int(points / 5))
-            await self.inventory.add_item(item, 5)
-            return points
-        return 0
+            shield = Items.shield()
+            shields = self.inventory.get_matching_items(shield)
+            loot_crate = Items.loot_crate('common')
+            await self.inventory.add_item(loot_crate, 1)
+            items.append(loot_crate)
+            if not shields:
+                await self.inventory.add_item(shield, 1)
+                items.append(shield)
+            return items
+        return []
 
     async def is_daily_claimed(self, *, offset: int = 0) -> bool:
         days = get_day() + offset
