@@ -114,12 +114,9 @@ class SelectHelpView(discord.ui.View):
         super().__init__()
         self.options = options
         opts = []
-        for i, option in options:
-            opts.append(discord.SelectOption(label=option[0], value=i))
+        for i, option in enumerate(options):
+            opts.append(discord.SelectOption(label=option[0], value=str(i)))
         self.select_help.options = opts
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        return interaction.user.id == self.message.author.id
 
     @discord.ui.select(placeholder='Select a topic', min_values=1, max_values=1)
     async def select_help(self, interaction: discord.Interaction, select: discord.ui.Select):
