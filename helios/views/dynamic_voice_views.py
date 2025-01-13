@@ -80,6 +80,9 @@ class DynamicVoiceView(ui.View):
     @ui.button(label='Actions', style=ButtonStyle.blurple)
     async def dynamic_actions(self, interaction: Interaction, button: ui.Button):
         server = self.voice.server
+        member = server.members.get(interaction.user.id)
+        if member.is_noob():
+            await interaction.response.send_message('You are too new to use this feature.', ephemeral=True)
         view = ActionView(self.voice.bot)
         await interaction.response.send_message(embed=view.get_embed(server), view=view)
 
