@@ -153,17 +153,17 @@ class LootPool:
         return items, weights
 
 ITEM_POOL = [
-    LootItem(Items.gamble_credit(100), LootRarities.COMMON),
-    LootItem(Items.gamble_credit(200), LootRarities.COMMON),
-    LootItem(Items.gamble_credit(300), LootRarities.COMMON),
+    LootItem(Items.gamble_credit(1000), LootRarities.COMMON),
+    LootItem(Items.gamble_credit(2000), LootRarities.COMMON),
+    LootItem(Items.gamble_credit(3000), LootRarities.COMMON),
 
     LootItem(Items.shield(), LootRarities.UNCOMMON),
-    LootItem(Items.gamble_credit(1000), LootRarities.UNCOMMON),
+    LootItem(Items.gamble_credit(5000), LootRarities.UNCOMMON),
     LootItem(Items.bj_powerup('surrender'), LootRarities.UNCOMMON),
 
     LootItem(Items.mute_token(), LootRarities.RARE),
     LootItem(Items.deafen_token(), LootRarities.RARE),
-    LootItem(Items.gamble_credit(5000), LootRarities.RARE),
+    LootItem(Items.gamble_credit(7500), LootRarities.RARE),
     LootItem(Items.bj_powerup('show_dealer'), LootRarities.RARE),
 
     LootItem(Items.bubble(), LootRarities.EPIC),
