@@ -255,7 +255,7 @@ class Blackjack:
             self.current_player = 0
             while self.current_player < len(self.players):
                 if self.hands[self.current_player][self.current_hand].get_hand_bj_values() >= 21 \
-                        or sum(self.bets[self.current_player]) == 0:
+                        or (sum(self.bets[self.current_player]) == 0 and not self.credits[self.current_player]):
                     await self.stand()
                     continue
 
@@ -310,6 +310,7 @@ class Blackjack:
         elif powerup == 'surrender':
             bets_total = sum(self.bets[self.current_player])
             self.bets[self.current_player][self.current_hand] = 0
+            self.credits[self.current_player] = None
             await self.players[self.current_player].add_points(bets_total, 'Helios: Blackjack',
                                                                f'{self.id}: Surrender')
             return True
