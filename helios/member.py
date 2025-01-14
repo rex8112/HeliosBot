@@ -363,7 +363,8 @@ class HeliosMember(HasFlags):
             self._db_entry.update_model_instance(self._db_entry, data)
             await self._db_entry.async_save()
             self._changed = False
-        await self.inventory.save()
+        if self.inventory:
+            await self.inventory.save()
 
     async def load(self):
         if self._id != 0:

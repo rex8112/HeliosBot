@@ -254,7 +254,8 @@ class Blackjack:
             # Player Turns
             self.current_player = 0
             while self.current_player < len(self.players):
-                if self.hands[self.current_player][self.current_hand].get_hand_bj_values() >= 21:
+                if self.hands[self.current_player][self.current_hand].get_hand_bj_values() >= 21 \
+                        or sum(self.bets[self.current_player]) == 0:
                     await self.stand()
                     continue
 
@@ -309,7 +310,6 @@ class Blackjack:
         elif powerup == 'surrender':
             bets_total = sum(self.bets[self.current_player])
             self.bets[self.current_player][self.current_hand] = 0
-            await self.stand()
             await self.players[self.current_player].add_points(bets_total, 'Helios: Blackjack',
                                                                f'{self.id}: Surrender')
             return True
@@ -472,7 +472,7 @@ class Blackjack:
 
 class BlackjackView(discord.ui.View):
     def __init__(self, blackjack: Blackjack):
-        super().__init__(timeout=30)
+        super().__init__(timeout=40)
         self.blackjack = blackjack
         self.check_buttons()
 
