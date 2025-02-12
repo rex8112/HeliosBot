@@ -255,7 +255,7 @@ class Blackjack:
             self.current_player = 0
             while self.current_player < len(self.players):
                 if self.hands[self.current_player][self.current_hand].get_hand_bj_values() >= 21 \
-                        or (sum(self.bets[self.current_player]) == 0 and not self.credits[self.current_player]):
+                        or (self.powerups[self.current_player] == 'surrender'):
                     await self.stand()
                     continue
 
@@ -308,12 +308,13 @@ class Blackjack:
         if powerup == 'force_bust':
             self.force_bust = True
         elif powerup == 'surrender':
-            bets_total = sum(self.bets[self.current_player])
-            self.bets[self.current_player][self.current_hand] = 0
-            self.credits[self.current_player] = None
+            credit = self.credits[self.current_player].data['credit'] if self.credits[self.current_player] else None
+            if credit:
+                bets_total = credit
+            else:
+                bets_total = sum(self.bets[self.current_player])
             await self.players[self.current_player].add_points(bets_total, 'Helios: Blackjack',
                                                                f'{self.id}: Surrender')
-            return True
         elif powerup == 'show_dealer':
             for card in self.dealer_hand.cards:
                 card.hidden = False
@@ -411,6 +412,10 @@ class Blackjack:
             for j, hand in enumerate(self.hands[i]):
                 player_value = hand.get_hand_bj_values()
                 credit = self.credits[i].data['credit'] if self.credits[i] else None
+                if self.powerups[i] == 'surrender':
+                    amount_won.append(0)
+                    continue
+
                 if credit:
                     bet = credit
                 else:
@@ -445,7 +450,10 @@ class Blackjack:
                 self.hand_images.append(BlackjackHandSplitImage(hands, icon, player.member.display_name[:10], bets))
             else:
                 credit = self.credits[self.players.index(player)]
-                bet = credit.data['credit'] if credit else bets[0]
+                if self.powerups[self.players.index(player)] == 'surrender':
+                    bet = 0
+                else:
+                    bet = credit.data['credit'] if credit else bets[0]
                 self.hand_images.append(BlackjackHandImage(hands[0], icon, player.member.display_name[:10], bet, bool(credit)))
         self.dealer_hand_image = BlackjackHandImage(self.dealer_hand, self.dealer_icon, 'Dealer', 0)
 
