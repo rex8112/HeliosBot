@@ -34,7 +34,7 @@ from .colour import Colour
 from .database import MemberModel, objects, TransactionModel, DailyModel
 from .exceptions import IdMismatchError
 from .inventory import Inventory
-from .items import Items
+from .items import Items, Item
 from .violation import Violation
 from .voice_template import VoiceTemplate
 
@@ -168,6 +168,14 @@ class HeliosMember(HasFlags):
     def effects(self):
         return self.bot.effects.get_effects(self)
 
+    @property
+    def forbidden(self):
+        return self.get_flag('FORBIDDEN')
+
+    @forbidden.setter
+    def forbidden(self, value: bool):
+        self.set_flag('FORBIDDEN', value)
+
     def has_effect(self, effect: str):
         effects = self.effects
         for e in effects:
@@ -280,25 +288,29 @@ class HeliosMember(HasFlags):
         return self.points / self.activity_points
 
     def daily_points(self) -> int:
-        return 10_000
+        return 7_500
 
     async def load_inventory(self):
         self.inventory = await Inventory.load(self)
 
-    async def claim_daily(self) -> int:
+    async def claim_daily(self) -> list['Item']:
         """
         :return: Whether the daily could be claimed.
         """
         days = get_day()
-        points = self.daily_points()
-        if points == 0:
-            return 0
         give = await DailyModel.claim(self._db_entry, days)
+        items = []
         if give:
-            item = Items.gamble_credit(int(points / 5))
-            await self.inventory.add_item(item, 5)
-            return points
-        return 0
+            shield = Items.shield()
+            shields = self.inventory.get_matching_items(shield)
+            loot_crate = Items.loot_crate('common')
+            await self.inventory.add_item(loot_crate, 1)
+            items.append(loot_crate)
+            if not shields:
+                await self.inventory.add_item(shield, 1)
+                items.append(shield)
+            return items
+        return []
 
     async def is_daily_claimed(self, *, offset: int = 0) -> bool:
         days = get_day() + offset
@@ -351,7 +363,8 @@ class HeliosMember(HasFlags):
             self._db_entry.update_model_instance(self._db_entry, data)
             await self._db_entry.async_save()
             self._changed = False
-        await self.inventory.save()
+        if self.inventory:
+            await self.inventory.save()
 
     async def load(self):
         if self._id != 0:
@@ -398,43 +411,90 @@ class HeliosMember(HasFlags):
         self._ap_paid = self._activity_points
         return points
 
-    async def voice_mute(self, *, reason=None):
-        actions = await self.bot.event_manager.get_specific_actions('on_voice', self, 'unmute')
+    async def clear_on_voice(self,  action: str):
+        actions = await self.bot.event_manager.get_specific_actions('on_voice', self, action)
         [await self.bot.event_manager.delete_action(x) for x in actions]
+
+    async def voice_mute(self, *, reason=None):
+        await self.clear_on_voice('unmute')
         voice = self.member.voice
         if voice is None or voice.channel is None:
             await self.bot.event_manager.add_action('on_voice', self, 'mute')
             return True
         elif self.member.voice.mute is False:
-            await self.member.edit(mute=True, reason=reason)
+            try:
+                await self.member.edit(mute=True, reason=reason)
+                return True
+            except (discord.Forbidden, discord.HTTPException):
+                return False
 
     async def voice_unmute(self, *, reason=None):
-        actions = await self.bot.event_manager.get_specific_actions('on_voice', self, 'mute')
-        [await self.bot.event_manager.delete_action(x) for x in actions]
+        await self.clear_on_voice('mute')
         voice = self.member.voice
         if voice is None or voice.channel is None:
             await self.bot.event_manager.add_action('on_voice', self, 'unmute')
+            return True
         elif self.member.voice.mute is True:
-            await self.member.edit(mute=False, reason=reason)
+            try:
+                await self.member.edit(mute=False, reason=reason)
+                return True
+            except (discord.Forbidden, discord.HTTPException):
+                return False
 
     async def voice_deafen(self, *, reason=None):
-        actions = await self.bot.event_manager.get_specific_actions('on_voice', self, 'undeafen')
-        [await self.bot.event_manager.delete_action(x) for x in actions]
+        await self.clear_on_voice('undeafen')
         voice = self.member.voice
         if voice is None or voice.channel is None:
             await self.bot.event_manager.add_action('on_voice', self, 'deafen')
             return True
         elif self.member.voice.deaf is False:
-            await self.member.edit(deafen=True, reason=reason)
+            try:
+                await self.member.edit(deafen=True, reason=reason)
+                return True
+            except (discord.Forbidden, discord.HTTPException):
+                return False
 
     async def voice_undeafen(self, *, reason=None):
-        actions = await self.bot.event_manager.get_specific_actions('on_voice', self, 'deafen')
-        [await self.bot.event_manager.delete_action(x) for x in actions]
+        await self.clear_on_voice('deafen')
         voice = self.member.voice
         if voice is None or voice.channel is None:
             await self.bot.event_manager.add_action('on_voice', self, 'undeafen')
+            return True
         elif self.member.voice.deaf is True:
-            await self.member.edit(deafen=False, reason=reason)
+            try:
+                await self.member.edit(deafen=False, reason=reason)
+                return True
+            except (discord.Forbidden, discord.HTTPException):
+                return False
+
+    async def voice_mute_deafen(self, *, reason=None):
+        await self.clear_on_voice('undeafen')
+        await self.clear_on_voice('unmute')
+        voice = self.member.voice
+        if voice is None or voice.channel is None:
+            await self.bot.event_manager.add_action('on_voice', self, 'mute')
+            await self.bot.event_manager.add_action('on_voice', self, 'deafen')
+            return True
+        elif self.member.voice.mute is False or self.member.voice.deaf is False:
+            try:
+                await self.member.edit(mute=True, deafen=True, reason=reason)
+                return True
+            except (discord.Forbidden, discord.HTTPException):
+                return False
+
+    async def voice_unmute_undeafen(self, *, reason=None):
+        await self.clear_on_voice('deafen')
+        await self.clear_on_voice('mute')
+        voice = self.member.voice
+        if voice is None or voice.channel is None:
+            await self.bot.event_manager.add_action('on_voice', self, 'unmute')
+            await self.bot.event_manager.add_action('on_voice', self, 'undeafen')
+        elif self.member.voice.mute is True or self.member.voice.deaf is True:
+            try:
+                await self.member.edit(mute=False, deafen=False, reason=reason)
+                return True
+            except (discord.Forbidden, discord.HTTPException):
+                return False
 
     async def temp_mute(self, duration: int, muter: 'HeliosMember', price: int):
         async def unmute(m):

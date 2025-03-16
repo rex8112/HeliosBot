@@ -135,6 +135,16 @@ class AdminCog(commands.GroupCog, name='admin'):
         view = server.store.get_edit_view()
         await interaction.response.send_message(embed=view.get_embed(), view=view, ephemeral=True)
 
+    @app_commands.command(name='refresh_tdescriptions', description='Refreshes all topic descriptions')
+    @commands.has_permissions(manage_channels=True)
+    async def refresh_desc(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        server = self.bot.servers.get(interaction.guild_id)
+        for topic in server.channels.topic_channels.values():
+            if topic.channel.topic != topic.get_description():
+                await topic.channel.edit(topic=topic.get_description())
+        await interaction.followup.send(content='Finished')
+
     @app_commands.command(name='other', description='Other commands')
     @commands.has_permissions(administrator=True)
     async def other(self, interaction: discord.Interaction, command: str, arg: str):

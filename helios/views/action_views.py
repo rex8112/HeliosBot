@@ -26,7 +26,8 @@ from typing import TYPE_CHECKING, Optional
 import discord
 
 from ..colour import Colour
-from ..effects import MuteEffect, DeafenEffect, ShieldEffect, ChannelShieldEffect
+from ..effects import MuteEffect, DeafenEffect, ShieldEffect, ChannelShieldEffect, DeflectorEffect
+from .generic_views import YesNoView
 
 if TYPE_CHECKING:
     from ..helios_bot import HeliosBot
@@ -49,6 +50,10 @@ class ActionView(discord.ui.View):
             colour=Colour.actions(),
             description='Use action tokens to perform actions.')
         embed.add_field(name='Mute', value='Mute a user for a set amount of time.')
+        embed.add_field(name='Deafen', value='Deafen a user for a set amount of time.')
+        embed.add_field(name='Shield', value='Protect yourself from harmful actions.')
+        embed.add_field(name='Channel Shield', value='Protect a voice channel from harmful actions.')
+        embed.add_field(name='Deflector', value='Deflect a mute or deafen effect back to sender.')
         return embed
 
     @discord.ui.button(label='Mute', style=discord.ButtonStyle.grey, custom_id='helios:action:shop:mute')
@@ -238,6 +243,91 @@ class ActionView(discord.ui.View):
         items = member.inventory.get_items('bubble')
         if items:
             await member.inventory.remove_item(items[0], view.get_cost())
+
+    @discord.ui.button(label='Deflector', style=discord.ButtonStyle.grey, custom_id='helios:action:shop:deflector')
+    async def deflector_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Deflect a mute or deafen effect back to sender."""
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        await interaction.response.defer(ephemeral=True, thinking=True)
+
+        channel = member.member.voice.channel if member.member.voice else None
+        if channel is None:
+            embed = discord.Embed(
+                title='Not in Voice',
+                description='You must be in a voice channel to purchase this item.',
+                colour=discord.Colour.red()
+            )
+            await interaction.followup.send(embed=embed)
+            return
+        channel = member.server.channels.dynamic_voice.channels.get(channel.id)
+        if channel is None:
+            embed = discord.Embed(
+                title='Not in Dynamic Voice',
+                description='You must be in a dynamic voice channel to purchase this item.',
+                colour=discord.Colour.red()
+            )
+            await interaction.followup.send(embed=embed)
+            return
+        if channel.has_effect('bubble'):
+            embed = discord.Embed(
+                title='Already Shielded',
+                description='This channel is already shielded.',
+                colour=discord.Colour.red()
+            )
+            await interaction.followup.send(embed=embed)
+            return
+        if member.has_effect('DeflectorEffect'):
+            embed = discord.Embed(
+                title='Deflector Active',
+                description='You already have a deflector active.',
+                colour=discord.Colour.red()
+            )
+            await interaction.followup.send(embed=embed)
+            return
+        deflectors = member.inventory.get_items('deflector')
+        if not deflectors:
+            embed = discord.Embed(
+                title='No Deflectors',
+                description='You do not have any deflectors.',
+                colour=discord.Colour.red()
+            )
+            await interaction.followup.send(embed=embed)
+            return
+
+        view = YesNoView(member.member, timeout=30)
+        embed = discord.Embed(
+            title='Deflector',
+            description=f'Are you sure you want to activate 1 deflector token for up to one hour?',
+            colour=discord.Colour.blurple()
+        )
+
+        message: discord.WebhookMessage = await interaction.followup.send(embed=embed, view=view)
+        if await view.wait():
+            embed = discord.Embed(
+                title='Timed out',
+                colour=discord.Colour.red()
+            )
+            await message.edit(embed=embed, view=None)
+            return
+
+        if not view.value:
+            embed = discord.Embed(
+                title='Cancelled',
+                colour=discord.Colour.red()
+            )
+            await message.edit(embed=embed, view=None)
+            return
+
+        embed = discord.Embed(
+            title='Purchased!',
+            colour=discord.Colour.green()
+        )
+        effect = DeflectorEffect(member, 60 * 60)
+        await server.bot.effects.add_effect(effect)
+        await member.inventory.remove_item(deflectors[0], 1)
+        await message.edit(embed=embed, view=None)
+        return
 
 
 class TempMuteActionView(discord.ui.View):

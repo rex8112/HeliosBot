@@ -40,6 +40,7 @@ from .shop import Shop
 from .store import Store
 from .theme import ThemeManager
 from .tools.settings import Settings, SettingItem
+from .views import VoiceControllerView
 
 if TYPE_CHECKING:
     from .server_manager import ServerManager
@@ -131,7 +132,7 @@ class Server:
         self.court = Court(self)
         self.music_player = MusicPlayer(self)
         self.topics = {}
-        self.voice_controllers = []
+        self.voice_controllers: list['VoiceControllerView'] = []
         self.settings = ServerSettings(self.bot)
         self.theme = ThemeManager(self)
         self.gambling = GamblingManager(self)
@@ -206,6 +207,14 @@ class Server:
             await self.channels.setup(data.channels)
         await self.theme.load()
         self.store = await Store.from_server(self)
+
+        role = self.voice_controller_role
+        if role is None:
+            return
+        for member in role.members:
+            h_member = self.members.get(member.id)
+            await h_member.voice_unmute_undeafen(reason='VoiceControlled Cleanup')
+            await member.remove_roles(role)
 
         self.start()
         logger.debug(f'Server {self.name} setup complete')
@@ -287,6 +296,9 @@ class Server:
             elif action.action == 'deafen':
                 edits['deafen'] = True
         if len(edits) > 0:
-            await member.edit(**edits)
-            await self.bot.event_manager.clear_actions('on_voice', helios_member)
-            await self.save()
+            try:
+                await member.edit(**edits)
+                await self.bot.event_manager.clear_actions('on_voice', helios_member)
+                await self.save()
+            except (discord.Forbidden, discord.HTTPException):
+                ...

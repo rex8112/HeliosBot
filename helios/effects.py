@@ -238,7 +238,7 @@ class MuteEffect(Effect):
         embed = discord.Embed(
             title='Muted',
             colour=discord.Colour.orange(),
-            description=f'Someone spent **{self.cost}** {self.target.server.points_name.capitalize()} to mute you for '
+            description=f'Someone spent **{self.cost}** token(s) to mute you for '
                         f'**{self.duration}** seconds.'
         )
         return embed
@@ -313,7 +313,7 @@ class DeafenEffect(Effect):
         embed = discord.Embed(
             title='Deafened',
             colour=discord.Colour.orange(),
-            description=f'Someone spent **{self.cost}** {self.target.server.points_name.capitalize()} to deafen you for '
+            description=f'Someone spent **{self.cost}** token(s) to deafen you for '
                         f'**{self.duration}** seconds. **The deafen has just ended.**'
         )
         return embed

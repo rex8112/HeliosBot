@@ -50,7 +50,7 @@ class Item:
         return ItemDescriptions.get_description(self)
 
     def copy(self, quantity: int = None):
-        return Item(self.name, self.quantity if self.quantity is None else quantity, self.display_name, self.data.copy())
+        return Item(self.name, quantity if quantity is not None else self.quantity, self.display_name, self.data.copy())
 
     def to_dict(self):
         return {
@@ -160,6 +160,22 @@ class Items:
     def deflector():
         return Item('deflector', 1, 'Deflector')
 
+    @staticmethod
+    def bj_powerup(action: Literal['surrender','show_dealer','show_next','perfect_card']):
+        if action == 'surrender':
+            return Item('bj_powerup', 1, 'Blackjack Powerup: Surrender', {'action': 'surrender'})
+        elif action == 'show_dealer':
+            return Item('bj_powerup', 1, 'Blackjack Powerup: Show Dealer Card', {'action': 'show_dealer'})
+        elif action == 'show_next':
+            return Item('bj_powerup', 1, 'Blackjack Powerup: Show Next Card', {'action': 'show_next'})
+        elif action == 'perfect_card':
+            return Item('bj_powerup', 1, 'Blackjack Powerup: Perfect Card', {'action': 'perfect_card'})
+        else:
+            raise ValueError('Invalid action')
+
+    @staticmethod
+    def loot_crate(_type: Literal['common']):
+        return Item('loot_crate', 1, 'Loot Crate', {'type': _type})
 
 class ItemDescriptions:
     @staticmethod
@@ -199,3 +215,16 @@ class ItemDescriptions:
     @staticmethod
     def deflector(item: Item):
         return 'Deflects one harmful effect for a limited time'
+
+    @staticmethod
+    def bj_powerup(item: Item):
+        if item.data['action'] == 'surrender':
+            return 'Allows surrendering a blackjack hand'
+        elif item.data['action'] == 'show_dealer':
+            return 'Allows showing the dealer\'s hidden card'
+        elif item.data['action'] == 'show_next':
+            return 'Allows showing the next card in the deck'
+        elif item.data['action'] == 'perfect_card':
+            return 'Allows drawing the perfect card for the situation. Will draw 11 if your hand is < 10'
+        else:
+            return 'No description available'

@@ -101,8 +101,8 @@ class Store:
         for item in self.items:
             stock_increment = (item.max_stock - item.min_stock) // 5
             price_increment = (item.max_price - item.min_price) // 5
-            diff = item.stock -  item.quantity
-            half = item.stock // 2
+            diff = max(item.stock -  item.quantity, 1)
+            half = max(item.stock // 2, 1)
             perc = diff / half # 1.0 = 50% stock remaining, 1.5 = 25% stock remaining, 2.0 = 0% stock remaining, 0.5 = 75% stock remaining, etc.
             if perc < 1.0:
                 inverted = 1.0 - perc
@@ -116,6 +116,10 @@ class Store:
                 p_inc = max(int(price_increment * inverted), 1)
                 item.stock += s_inc
                 item.price += p_inc
+            item.price = max(item.min_price, item.price)
+            item.price = min(item.max_price, item.price)
+            item.stock = max(item.min_stock, item.stock)
+            item.stock = min(item.max_stock, item.stock)
             item.quantity = item.stock
         self.set_next_refresh()
         await self.save()
@@ -139,7 +143,8 @@ class Store:
             StoreItem.from_item(Items.deafen_token(), 100, 1000, 50, 5, 15,  3),
             StoreItem.from_item(Items.shield(), 100, 500, 10, 10, 30,  5),
             StoreItem.from_item(Items.bubble(), 1000, 10_000, 1000, 5, 10,  1),
-            # StoreItem.from_item(Items.deflector(), 500, 10_000, 500, 5, 10,  1),
+            StoreItem.from_item(Items.deflector(), 500, 10_000, 500, 5, 10,  1),
+            StoreItem.from_item(Items.loot_crate('common'), 10000, 10000, 10000, 100, 100,  100),
         ]
 
     async def reset(self):
@@ -148,6 +153,16 @@ class Store:
             item.set_to_max()
             item.refresh()
         self.set_next_refresh()
+        await self.save()
+
+    async def reset_missing(self):
+        item_names = [x.name for x in self.items]
+        items = self.get_reset_items()
+        for item in items:
+            if item.name not in item_names:
+                self.add_item(item)
+                item.set_to_max()
+                item.refresh()
         await self.save()
 
     async def purchase(self, item: StoreItem, member: 'HeliosMember', quantity: int):
@@ -428,4 +443,9 @@ class StoreEditView(discord.ui.View):
     @discord.ui.button(label='Reset Store', style=discord.ButtonStyle.red, row=3)
     async def reset_store(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.store.reset()
+        await self.refresh_message(interaction)
+
+    @discord.ui.button(label='Add missing', style=discord.ButtonStyle.red, row=3)
+    async def add_missing(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.store.reset_missing()
         await self.refresh_message(interaction)

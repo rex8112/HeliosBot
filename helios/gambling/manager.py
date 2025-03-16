@@ -55,6 +55,11 @@ class GamblingManager:
         except ValueError:
             ...
 
+    def can_run_blackjack(self, channel: TextChannel):
+        if channel in [game.channel for game in self.games if isinstance(game, Blackjack)]:
+            return False
+        return True
+
     async def run_blackjack(self, channel: TextChannel):
         bj = Blackjack(self, channel)
         self.add_game(bj)

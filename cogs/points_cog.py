@@ -29,7 +29,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 import helios
-from helios import ActionView, TexasHoldEm, Blackjack
+from helios import ActionView, TexasHoldEm, Blackjack, Items
 from helios.database import TransactionModel
 from helios.shop import *
 
@@ -128,11 +128,6 @@ class PointsCog(commands.Cog):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
 
-        if await member.is_daily_claimed() or await member.is_daily_claimed(offset=-1):
-            await interaction.response.send_message(content='You can not transfer points if you claimed daily in the '
-                                                            'last two days.', ephemeral=True)
-            return
-
         target = server.members.get(target.id)
         tax_rate = server.settings.transfer_tax.value
         tax = max(int(points * tax_rate), 1)
@@ -205,13 +200,14 @@ class PointsCog(commands.Cog):
     async def daily(self, interaction: discord.Interaction):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
-        points = await member.claim_daily()
-        if points == 0:
-            await interaction.response.send_message(f'You have already claimed your daily {server.points_name}',
-                                                        ephemeral=True)
-            return
-        await interaction.response.send_message(f'You have claimed **{points:,}** daily gambling credits',
-                                                ephemeral=True)
+
+        items = await member.claim_daily()
+        if len(items) == 2:
+            await interaction.response.send_message(f'You have claimed your daily loot crate and shield', ephemeral=True)
+        elif len(items) == 1:
+            await interaction.response.send_message(f'You have claimed your daily loot crate', ephemeral=True)
+        else:
+            await interaction.response.send_message(f'You have already claimed your daily!', ephemeral=True)
 
     @app_commands.command(name='basic_leaderboard', description='See a top 10 leaderboard')
     @app_commands.guild_only()
@@ -261,6 +257,9 @@ class PointsCog(commands.Cog):
     async def blackjack(self, interaction: discord.Interaction):
         server = self.bot.servers.get(interaction.guild_id)
         channel = interaction.channel
+        if not server.gambling.can_run_blackjack(channel):
+            await interaction.response.send_message('Blackjack is already running in this channel', ephemeral=True)
+            return
         await interaction.response.send_message('Starting Blackjack', ephemeral=True)
         await server.gambling.run_blackjack(channel)
 
