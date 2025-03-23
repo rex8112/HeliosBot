@@ -19,3 +19,29 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+from datetime import datetime
+
+
+class TimeSlot:
+    def __init__(self, start: datetime, end: datetime, schedule: 'Schedule', type: str, data: dict):
+        self.type = type
+        self.data = data
+        self.schedule = schedule
+        self.start = start
+        self.end = end
+
+
+
+    def key(self):
+        return str(self.start) + str(self.end)
+
+    def __hash__(self):
+        return hash(self.key())
+
+
+class Schedule:
+    def __init__(self):
+        self.now = datetime.now().astimezone()
+        self.schedule = []
+
+        self._last_check = self.now
