@@ -77,7 +77,7 @@ class MusicPlayer:
 
     @staticmethod
     def verify_url(url: str) -> bool:
-        regex = r'https:\/\/(?:www\.)?youtu(?:be\.com|\.be)\/(?:playlist\?list=([^"&?\/\s]+)|(?:watch\?v=)?([^"&?\/\s]{3,11}))'
+        regex = r'https:\/\/(?:www\.)?|(?:music\.)?youtu(?:be\.com|\.be)\/(?:playlist\?list=([^"&?\/\s]+)|(?:watch\?v=)?([^"&?\/\s]{3,11}))'
         matches = re.match(regex, url, re.RegexFlag.I)
         return matches is not None
 
