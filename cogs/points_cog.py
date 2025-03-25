@@ -250,7 +250,7 @@ class PointsCog(commands.Cog):
     @app_commands.guild_only()
     async def play_command(self, interaction: discord.Interaction, song: str):
         server = self.bot.servers.get(interaction.guild_id)
-        await server.music_player.member_play(interaction, song)
+        await server.voice_controller.play_music(interaction, song)
 
     @app_commands.command(name='blackjack', description='Play a game of blackjack')
     @app_commands.guild_only()

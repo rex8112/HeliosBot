@@ -21,13 +21,16 @@
 #  SOFTWARE.
 import asyncio
 from datetime import datetime
+from types import MethodType
 
 from typing import TYPE_CHECKING, Optional, Awaitable
 
 import discord
 from discord.utils import utcnow
 
+from .music import MusicPlayer
 from .tools.async_event import AsyncEvent
+from .voice_scheduler import Schedule, TimeSlot
 
 if TYPE_CHECKING:
     from .server import Server
@@ -43,14 +46,54 @@ class HeliosVoiceController:
         self.last_start: Optional[datetime] = None
         self.last_end: Optional[datetime] = None
         self.in_use = False
+        self.schedule = Schedule()
 
         self.connect_event = AsyncEvent()
         self.disconnect_event = AsyncEvent()
         self.on_connect = self.connect_event.on
         self.on_disconnect = self.disconnect_event.on
 
+        self.schedule.add_handler('music', lambda slot: self.start_music(slot))
+        self.schedule.add_handler('music_end', lambda slot: self.stop_music(slot))
+
         self._current_audio = None
         self._task = None
+
+        self.schedule.start()
+
+    async def play_music(self, interaction: discord.Interaction, *args):
+        slot = self.schedule.current_slot()
+        if slot and slot.type == 'music':
+            music_player: 'MusicPlayer' = slot.data['music_player']
+            await music_player.member_play(interaction, *args)
+        else:
+            await interaction.response.defer(ephemeral=True)
+            data = {'channel_id': interaction.channel.id, 'interaction': interaction}
+            if args:
+                data['url'] = args[0]
+
+            self.schedule.create_now_slot(5*60, 'music', data)
+
+    async def start_music(self, slot: TimeSlot):
+        channel_id = slot.data['channel_id']
+        channel = self.bot.get_channel(channel_id)
+        if not channel:
+            return
+        interaction = slot.data.get('interaction')
+        start_url = slot.data.get('url')
+        requester_id = slot.data.get('requester_id')
+        requester = self.server.members.get(requester_id)
+        await self.connect(channel)
+        music_player = MusicPlayer(self, self.schedule, slot)
+        slot.data['music_player'] = music_player
+        music_player.start()
+        if start_url and interaction:
+            await music_player.member_play(interaction, start_url)
+
+    async def stop_music(self, slot: TimeSlot):
+        music_player = slot.data['music_player']
+        await music_player.stop()
+        await self.disconnect()
 
     async def connect(self, channel: discord.VoiceChannel) -> discord.VoiceClient:
         """Connect to a voice channel."""
