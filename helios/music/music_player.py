@@ -141,15 +141,19 @@ class MusicPlayer:
                 shuffle = view.value if view.value is not None else False
                 if shuffle:
                     playlist.shuffle()
-                await self.add_playlist(playlist)
-                await message.edit(content=f'Added {len(playlist)} songs to the queue', view=None)
+                if await self.add_playlist(playlist):
+                    await message.edit(content=f'Added {len(playlist)} songs to the queue', view=None)
+                else:
+                    await message.edit(content='Failed to add playlist to queue, not enough available time', view=None)
             else:
                 song = await self.fetch_song(url, requester=member)
                 if song is None:
                     await interaction.followup.send('Sorry, I could not get that, is it private or typed wrong?')
                     return
-                await self.add_song(song)
-                await interaction.followup.send(content=f'Added {song.title} to the queue')
+                if await self.add_song(song):
+                    await interaction.followup.send(content=f'Added {song.title} to the queue')
+                else:
+                    await interaction.followup.send(content='Failed to add song to queue, not enough available time')
         else:
             await interaction.followup.send(content='Invalid URL Given')
 
@@ -256,7 +260,7 @@ class MusicPlayer:
                 played_for = (now - self.vc.last_start).total_seconds()
                 time_left = duration - (played_for + start)
 
-                if time_left / duration > 0.1 or not self.is_connected():
+                if time_left / duration > 0.1 and self.is_connected():
                     start += played_for
                     await asyncio.sleep(1)
                 else:
@@ -375,17 +379,31 @@ class MusicPlayer:
             return delta
         return 0
 
+    def check_schedule(self, duration: int):
+        now = datetime.now().astimezone()
+        song_end = now + timedelta(seconds=duration)
+        if song_end > self.time_slot.end - timedelta(seconds=5*60):
+            res = self.schedule.set_end_time(self.time_slot, song_end + timedelta(seconds=5*60))
+            return res
+        return True
+
     async def add_song(self, song: 'Song'):
         """Add a song to the queue."""
+        if not self.check_schedule(song.duration):
+            return False
         self.playlist.add_song(song)
         if self.loop_running:
             await self.update_message()
+        return True
 
     async def add_playlist(self, playlist: 'YoutubePlaylist'):
         """Add a playlist to the queue."""
+        if not self.check_schedule(playlist.total_duration):
+            return False
         [self.playlist.add_song(x) for x in playlist.unplayed]
         if self.loop_running:
             await self.update_message()
+        return True
 
     async def update_message(self):
         if self._control_message is None:

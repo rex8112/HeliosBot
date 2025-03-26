@@ -66,7 +66,8 @@ class Song:
         if duration is None:
             return 0
         if self.requester:
-            cost_per_minute = self.requester.server.settings.music_points_per_minute.value
+            # cost_per_minute = self.requester.server.settings.music_points_per_minute.value
+            cost_per_minute = 0
         else:
             cost_per_minute = 0
         return int((duration * cost_per_minute) / 60)

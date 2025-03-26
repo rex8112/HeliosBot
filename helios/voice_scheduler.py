@@ -84,6 +84,12 @@ class Schedule:
         slot.end = new_end
         return True
 
+    def set_end_time(self, slot: TimeSlot, end: datetime):
+        if self.is_conflicting_time(end):
+            return False
+        slot.end = end
+        return True
+
     def current_slot(self):
         for slot in self.schedule:
             if slot.start <= self.now <= slot.end:
