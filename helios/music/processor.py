@@ -22,6 +22,8 @@
 
 import asyncio
 import functools
+from typing import Union
+
 import yt_dlp
 
 import discord
@@ -72,9 +74,12 @@ async def get_info(url: str, *, process=True, is_playlist=False):
     return data
 
 
-async def get_audio_source(url: str):
+async def get_audio_source(url: str, *, start: Union[int, float] = 0):
     try:
         data = await get_info(url)
-        return discord.FFmpegPCMAudio(source=data['url'], **ffmpeg_options, executable='ffmpeg')
+        options = ffmpeg_options.copy()
+        if start:
+            options['before_options'] += f' -ss {start}'
+        return discord.FFmpegPCMAudio(source=data['url'], **options, executable='ffmpeg')
     except yt_dlp.DownloadError:
         return None

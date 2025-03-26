@@ -33,9 +33,9 @@ from .database import ServerModel, objects
 from .exceptions import IdMismatchError
 from .gambling.manager import GamblingManager
 from .game import GameManager
+from .helios_voice_controller import HeliosVoiceController
 from .member import HeliosMember
 from .member_manager import MemberManager
-from .music import MusicPlayer
 from .shop import Shop
 from .store import Store
 from .theme import ThemeManager
@@ -130,7 +130,7 @@ class Server:
         self.shop = Shop(self.bot)
         self.store: Optional['Store'] = None
         self.court = Court(self)
-        self.music_player = MusicPlayer(self)
+        self.voice_controller = HeliosVoiceController(self)
         self.topics = {}
         self.voice_controllers: list['VoiceControllerView'] = []
         self.settings = ServerSettings(self.bot)
@@ -227,11 +227,13 @@ class Server:
         logger.debug(f'Starting server {self.name}')
         self.games.start()
         self.store.start()
+        self.voice_controller.start()
 
     def stop(self):
         logger.debug(f'Stopping server {self.name}')
         self.games.stop()
         self.store.stop()
+        self.voice_controller.stop()
 
     # Methods
     def deserialize(self, data: ServerModel) -> None:

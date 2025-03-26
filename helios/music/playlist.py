@@ -79,6 +79,12 @@ class Playlist:
         view = PaginatorView(self.songs, self.get_embed_songs, page_size=5)
         return view
 
+    def get_current_song(self):
+        try:
+            return self.songs[0]
+        except IndexError:
+            return None
+
     def next(self):
         try:
             return self.songs.pop(0)

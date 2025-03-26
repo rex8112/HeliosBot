@@ -38,6 +38,8 @@ from ..exceptions import ConnectError
 from ..views.generic_views import YesNoView
 
 if TYPE_CHECKING:
+    from ..helios_voice_controller import HeliosVoiceController
+    from ..voice_scheduler import Schedule, TimeSlot
     from ..server import Server
     from ..member import HeliosMember
 
@@ -46,30 +48,30 @@ logger = logging.getLogger('HeliosLogger.Music')
 
 
 class MusicPlayer:
-    def __init__(self, server: 'Server'):
+    def __init__(self, vc: 'HeliosVoiceController', schedule: 'Schedule', time_slot: 'TimeSlot'):
         """A class to manage music in a server."""
-        self.server = server
+        self.vc = vc
+        self.server: 'Server' = vc.server
+        self.schedule = schedule
+        self.time_slot = time_slot
+
         self.currently_playing: Optional['Song'] = None
-        self.playlists: dict[discord.VoiceChannel, Playlist] = {}
-        self._vc: Optional[discord.VoiceClient] = None
+        self.background_playlist: Playlist = Playlist()
+        self._playlist: Playlist = Playlist()
+        self._vc: Optional[discord.VoiceClient] = self.server.guild.voice_client
         self._started: Optional[datetime] = None
         self._ended: Optional[datetime] = None
         self._control_message: Optional[discord.Message] = None
         self._control_view: Optional['MusicPlayerView'] = None
         self._leaving = False
         self._stopping = False
-
-        self.on_voice_state_update = self.server.bot.event(self.on_voice_state_update)
+        self._skipping = False
+        self.loop_running = False
+        self._task = None
 
     @property
     def playlist(self) -> Playlist:
-        if self.is_connected():
-            playlist = self.playlists.get(self._vc.channel)
-            if playlist is None:
-                self.playlists[self._vc.channel] = playlist = Playlist()
-            return playlist
-        else:
-            return Playlist()
+        return self._playlist
 
     @property
     def channel(self):
@@ -77,7 +79,7 @@ class MusicPlayer:
 
     @staticmethod
     def verify_url(url: str) -> bool:
-        regex = r'https:\/\/(?:www\.)?youtu(?:be\.com|\.be)\/(?:playlist\?list=([^"&?\/\s]+)|(?:watch\?v=)?([^"&?\/\s]{3,11}))'
+        regex = r'https:\/\/(?:www\.)?|(?:music\.)?youtu(?:be\.com|\.be)\/(?:playlist\?list=([^"&?\/\s]+)|(?:watch\?v=)?([^"&?\/\s]{3,11}))'
         matches = re.match(regex, url, re.RegexFlag.I)
         return matches is not None
 
@@ -99,7 +101,7 @@ class MusicPlayer:
         if interaction.user.voice is None:
             await interaction.response.send_message(content='Must be in a VC', ephemeral=True)
             return
-        if server.music_player.channel and interaction.user.voice.channel != server.music_player.channel:
+        if self.channel and interaction.user.voice.channel != self.channel:
             await interaction.response.send_message(content=f'I am currently busy, sorry.')
             return
 
@@ -114,16 +116,14 @@ class MusicPlayer:
             url = modal.url.value
             interaction = modal.interaction
         else:
-            await interaction.response.defer(ephemeral=True)
+            if not interaction.response.is_done():
+                await interaction.response.defer(ephemeral=True)
 
-        if not server.music_player.is_connected():
-            await server.music_player.join_channel(interaction.user.voice.channel)
-
-        matches = server.music_player.verify_url(url)
-        is_playlist = server.music_player.is_playlist(url)
+        matches = self.verify_url(url)
+        is_playlist = self.is_playlist(url)
         if matches:
             if is_playlist:
-                playlist = await server.music_player.fetch_playlist(url, requester=member)
+                playlist = await self.fetch_playlist(url, requester=member)
                 if playlist is None:
                     await interaction.followup.send('Sorry, I could not get that, is it private or typed wrong?')
                     return
@@ -139,15 +139,19 @@ class MusicPlayer:
                 shuffle = view.value if view.value is not None else False
                 if shuffle:
                     playlist.shuffle()
-                await server.music_player.add_playlist(playlist)
-                await message.edit(content=f'Added {len(playlist)} songs to the queue', view=None)
+                if await self.add_playlist(playlist):
+                    await message.edit(content=f'Added {len(playlist)} songs to the queue', view=None)
+                else:
+                    await message.edit(content='Failed to add playlist to queue, not enough available time', view=None)
             else:
-                song = await server.music_player.fetch_song(url, requester=member)
+                song = await self.fetch_song(url, requester=member)
                 if song is None:
                     await interaction.followup.send('Sorry, I could not get that, is it private or typed wrong?')
                     return
-                await server.music_player.add_song(song)
-                await interaction.followup.send(content=f'Added {song.title} to the queue')
+                if await self.add_song(song):
+                    await interaction.followup.send(content=f'Added {song.title} to the queue')
+                else:
+                    await interaction.followup.send(content='Failed to add song to queue, not enough available time')
         else:
             await interaction.followup.send(content='Invalid URL Given')
 
@@ -205,8 +209,71 @@ class MusicPlayer:
         self._ended = None
         self.check_vc.stop()
 
+    def start(self):
+        self._task = asyncio.create_task(self.main_loop())
+
+    def stop(self):
+        self._stopping = True
+        if self._control_message is not None:
+            self._control_view.stop()
+
+    async def main_loop(self):
+        self.loop_running = True
+        try:
+            while not self._stopping:
+                try:
+                    if self._control_message is None:
+                        await self.refresh_message()
+                    if not self.is_connected() or not await self.play_music():
+                        await asyncio.sleep(1)
+                except Exception as e:
+                    logger.error(f'{self.server.name}: Music Player: Main Loop Error: <{type(e).__name__}> {e}')
+                    await asyncio.sleep(1)
+            await self._control_message.delete()
+        finally:
+            self.loop_running = False
+
+    async def play_music(self):
+        if self.playlist.get_current_song() is None:
+            return False
+        if self.currently_playing is not None:
+            logger.critical(f'{self.server.name}: Music Player: Two loops running at once')
+            return False
+        song = self.playlist.next()
+        if song is None:
+            return False
+        self._skipping = False
+        self.currently_playing = song
+        await self.update_message()
+
+        duration = song.duration
+        start = 0
+        finished = False
+        while not finished:
+            try:
+                await self.vc.play(await song.audio_source(start=start))
+            except Exception as e:
+                logger.error(f'{self.server.name}: Music Player: Failed to play song: {e}')
+                pass
+            # If song ended early, try to continue unless it was skipped.
+            if self._skipping:
+                break
+            now = datetime.now().astimezone()
+            played_for = (now - self.vc.last_start).total_seconds()
+            time_left = duration - (played_for + start)
+
+            if time_left / duration > 0.1 and not self._stopping:
+                start += played_for
+                await asyncio.sleep(1)
+            else:
+                finished = True
+
+        self.currently_playing = None
+        await self.update_message()
+        return True
+
     def is_connected(self) -> bool:
-        return self._vc and self._vc.is_connected()
+        return self.vc.voice_client and self.vc.voice_client.is_connected()
 
     async def song_finished(self, exception: Optional[Exception]) -> None:
         if self._stopping:
@@ -294,7 +361,8 @@ class MusicPlayer:
         return True
 
     def skip_song(self):
-        self._vc.stop()
+        self._skipping = True
+        self.vc.voice_client.stop()
 
     def skip_playlist(self):
         if self.currently_playing and self.currently_playing.playlist:
@@ -315,21 +383,31 @@ class MusicPlayer:
             return delta
         return 0
 
+    def check_schedule(self, duration: int):
+        now = datetime.now().astimezone()
+        song_end = now + timedelta(seconds=duration)
+        if song_end > self.time_slot.end - timedelta(seconds=5*60):
+            res = self.schedule.set_end_time(self.time_slot, song_end + timedelta(seconds=5*60))
+            return res
+        return True
+
     async def add_song(self, song: 'Song'):
         """Add a song to the queue."""
+        if not self.check_schedule(song.duration):
+            return False
         self.playlist.add_song(song)
-        if self.currently_playing is None:
-            await self.play_song(self.playlist.next())
-        else:
+        if self.loop_running:
             await self.update_message()
+        return True
 
     async def add_playlist(self, playlist: 'YoutubePlaylist'):
         """Add a playlist to the queue."""
+        if not self.check_schedule(playlist.total_duration):
+            return False
         [self.playlist.add_song(x) for x in playlist.unplayed]
-        if self.currently_playing is None:
-            await self.play_song(self.playlist.next())
-        else:
+        if self.loop_running:
             await self.update_message()
+        return True
 
     async def update_message(self):
         if self._control_message is None:
@@ -338,7 +416,11 @@ class MusicPlayer:
         await self._control_message.edit(embeds=self.get_embeds(), view=self._control_view)
 
     async def refresh_message(self):
-        await self._control_message.delete()
+        if self._control_message:
+            await self._control_message.delete()
+        if self._control_view is None or self._control_view.is_finished():
+            self._control_view = MusicPlayerView(self)
+            self._control_view.update_buttons()
         self._control_message = await self.channel.send(embeds=self.get_embeds(), view=self._control_view)
 
     @tasks.loop(seconds=10)
@@ -379,6 +461,9 @@ class MusicPlayer:
         if self.currently_playing:
             ends = datetime.now().astimezone() + timedelta(seconds=self.currently_playing.duration)
             np_string = f'[{self.currently_playing.title}]({self.currently_playing.url})\nBy {self.currently_playing.author}\nEnds in: {format_dt(ends, "R")}'
+        elif self.playlist.get_current_song():
+            song = self.playlist.get_current_song()
+            np_string = f'**<LOADING...>\n[{song.title}]({song.url})\nBy {song.author}'
         embed = discord.Embed(
             title='Now Playing',
             colour=Colour.music(),

@@ -21,7 +21,7 @@
 #  SOFTWARE.
 import asyncio
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 from .processor import *
 
@@ -66,7 +66,8 @@ class Song:
         if duration is None:
             return 0
         if self.requester:
-            cost_per_minute = self.requester.server.settings.music_points_per_minute.value
+            # cost_per_minute = self.requester.server.settings.music_points_per_minute.value
+            cost_per_minute = 0
         else:
             cost_per_minute = 0
         return int((duration * cost_per_minute) / 60)
@@ -88,8 +89,8 @@ class Song:
         return cls(info['title'], info['uploader'], url, info['duration'], thumbnail,
                    requester=requester, playlist=playlist)
 
-    async def audio_source(self):
-        return await get_audio_source(self.url)
+    async def audio_source(self, *, start: Union[int, float] = 0):
+        return await get_audio_source(self.url, start=start)
 
     async def wait(self):
         await self.finished.wait()

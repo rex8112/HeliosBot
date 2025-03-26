@@ -59,6 +59,7 @@ class DynamicVoiceView(ui.View):
         embed.add_field(name='Store', value='Opens the Store')
         embed.add_field(name='Game Controller', value='Open a Game Controller to control mutes for in game voice chat.')
         embed.add_field(name='Split', value='Split the channel into two separate channels.')
+        embed.add_field(name='Music', value='Play music in the channel.')
         embed.add_field(name='Private', value='Make the channel private.')
         embed.add_field(name='PUG', value='Create a PUG Group to invite temporary members.')
         embeds.append(embed)
@@ -128,6 +129,16 @@ class DynamicVoiceView(ui.View):
             return
         view = SplitPrepView(self.voice)
         await interaction.response.send_message(content='Splitting Channel', view=view, ephemeral=True)
+
+    @ui.button(label='Music', style=ButtonStyle.blurple)
+    async def dynamic_music(self, interaction: Interaction, button: ui.Button):
+        member = self.voice.server.members.get(interaction.user.id)
+        if member.member not in self.voice.channel.members:
+            await interaction.response.send_message(content='You are not in the channel.', ephemeral=True)
+            return
+
+        await interaction.response.defer()
+        await self.voice.server.voice_controller.play_music(interaction)
 
     @ui.button(label='Private', style=ButtonStyle.red)
     async def dynamic_private(self, interaction: Interaction, button: ui.Button):
