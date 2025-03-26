@@ -227,11 +227,13 @@ class Server:
         logger.debug(f'Starting server {self.name}')
         self.games.start()
         self.store.start()
+        self.voice_controller.start()
 
     def stop(self):
         logger.debug(f'Stopping server {self.name}')
         self.games.stop()
         self.store.stop()
+        self.voice_controller.stop()
 
     # Methods
     def deserialize(self, data: ServerModel) -> None:

@@ -20,6 +20,7 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 import asyncio
+import logging
 from datetime import datetime
 from types import MethodType
 
@@ -27,6 +28,7 @@ from typing import TYPE_CHECKING, Optional, Awaitable
 
 import discord
 from discord.utils import utcnow
+from discord.ext.tasks import loop
 
 from .music import MusicPlayer
 from .tools.async_event import AsyncEvent
@@ -36,6 +38,9 @@ if TYPE_CHECKING:
     from .server import Server
     from .helios_bot import HeliosBot
     from .member import HeliosMember
+
+
+logger = logging.getLogger('Helios.VoiceController')
 
 
 class HeliosVoiceController:
@@ -59,26 +64,40 @@ class HeliosVoiceController:
         self._current_audio = None
         self._task = None
 
+    def start(self):
         self.schedule.start()
+        self.check_vc.start()
+        self.server.bot.add_listener(self.on_voice_state_update)
 
-    async def play_music(self, interaction: discord.Interaction, *args):
+    def stop(self):
+        self.schedule.stop()
+        self.check_vc.stop()
+        self.server.bot.remove_listener(self.on_voice_state_update)
+
+    async def play_music(self, interaction: discord.Interaction, *args, dont_start_music=False):
         slot = self.schedule.current_slot()
         if slot and slot.type == 'music':
             music_player: 'MusicPlayer' = slot.data['music_player']
             await music_player.member_play(interaction, *args)
         else:
-            await interaction.response.defer(ephemeral=True)
-            data = {'channel_id': interaction.channel.id, 'interaction': interaction}
+            if dont_start_music:
+                await interaction.response.defer(ephemeral=True)
+                data = {'channel_id': interaction.channel.id}
+            else:
+                data = {'channel_id': interaction.channel.id, 'interaction': interaction}
             if args:
                 data['url'] = args[0]
 
             self.schedule.create_now_slot(5*60, 'music', data)
 
     async def start_music(self, slot: TimeSlot):
+        if self.in_use:
+            return False
+        self.claim()
         channel_id = slot.data['channel_id']
         channel = self.bot.get_channel(channel_id)
         if not channel:
-            return
+            return False
         interaction = slot.data.get('interaction')
         start_url = slot.data.get('url')
         requester_id = slot.data.get('requester_id')
@@ -91,6 +110,7 @@ class HeliosVoiceController:
             await music_player.member_play(interaction, start_url)
 
     async def stop_music(self, slot: TimeSlot):
+        self.release()
         music_player = slot.data['music_player']
         await music_player.stop()
         await self.disconnect()
@@ -115,11 +135,36 @@ class HeliosVoiceController:
     async def disconnect(self) -> bool:
         """Disconnect from the voice channel."""
         if self.voice_client:
-            await self.voice_client.disconnect()
+            try:
+                await self.voice_client.disconnect()
+            except Exception as e:
+                logger.error(f'Error disconnecting from voice channel: {e}')
             self.voice_client = None
             await self.disconnect_event()
             return True
         return False
+
+    async def on_voice_state_update(self, before: discord.VoiceState, after: discord.VoiceState):
+        if before.channel == after.channel:
+            return
+        if before.channel and before.channel.guild == self.server.guild:
+            if after.channel is None:
+                await self.bot_on_disconnect(before.channel)
+
+    async def bot_on_disconnect(self, channel: discord.VoiceChannel):
+        if self.voice_client:
+            if self.in_use:
+                if not await self.connect(channel) and self.schedule.current_slot():
+                    self.schedule.current_slot().end = datetime.now().astimezone()
+            else:
+                self.voice_client = None
+                await self.disconnect_event()
+
+    @loop(seconds=5)
+    async def check_vc(self):
+        if self.schedule.current_slot():
+            if self.voice_client and len(self.voice_client.channel.members) <= 1:
+                self.schedule.current_slot().end = datetime.now().astimezone()
 
     def claim(self):
         """Claim the voice controller for use."""

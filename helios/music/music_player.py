@@ -214,7 +214,7 @@ class MusicPlayer:
     def start(self):
         self._task = asyncio.create_task(self.main_loop())
 
-    async def stop(self):
+    def stop(self):
         self._stopping = True
         if self._control_message is not None:
             self._control_view.stop()
@@ -222,11 +222,11 @@ class MusicPlayer:
     async def main_loop(self):
         self.loop_running = True
         try:
-            while self.is_connected() and not self._stopping:
+            while not self._stopping:
                 try:
                     if self._control_message is None:
                         await self.refresh_message()
-                    if not await self.play_music():
+                    if not self.is_connected() or not await self.play_music():
                         await asyncio.sleep(1)
                 except Exception as e:
                     logger.error(f'{self.server.name}: Music Player: Main Loop Error: <{type(e).__name__}> {e}')
