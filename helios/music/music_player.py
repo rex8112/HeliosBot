@@ -65,6 +65,7 @@ class MusicPlayer:
         self._control_view: Optional['MusicPlayerView'] = None
         self._leaving = False
         self._stopping = False
+        self._skipping = False
         self.loop_running = False
         self._task = None
 
@@ -117,9 +118,6 @@ class MusicPlayer:
         else:
             if not interaction.response.is_done():
                 await interaction.response.defer(ephemeral=True)
-
-        if not self.is_connected():
-            await self.join_channel(interaction.user.voice.channel)
 
         matches = self.verify_url(url)
         is_playlist = self.is_playlist(url)
@@ -230,6 +228,7 @@ class MusicPlayer:
                         await asyncio.sleep(1)
                 except Exception as e:
                     logger.error(f'{self.server.name}: Music Player: Main Loop Error: <{type(e).__name__}> {e}')
+                    await asyncio.sleep(1)
             await self._control_message.delete()
         finally:
             self.loop_running = False
@@ -243,6 +242,7 @@ class MusicPlayer:
         song = self.playlist.next()
         if song is None:
             return False
+        self._skipping = False
         self.currently_playing = song
         await self.update_message()
 
@@ -252,25 +252,28 @@ class MusicPlayer:
         while not finished:
             try:
                 await self.vc.play(await song.audio_source(start=start))
-                finished = True
             except Exception as e:
-                # If the song fails to play, try to continue from where it left off
                 logger.error(f'{self.server.name}: Music Player: Failed to play song: {e}')
-                now = datetime.now().astimezone()
-                played_for = (now - self.vc.last_start).total_seconds()
-                time_left = duration - (played_for + start)
+                pass
+            # If song ended early, try to continue unless it was skipped.
+            if self._skipping:
+                break
+            now = datetime.now().astimezone()
+            played_for = (now - self.vc.last_start).total_seconds()
+            time_left = duration - (played_for + start)
 
-                if time_left / duration > 0.1 and self.is_connected():
-                    start += played_for
-                    await asyncio.sleep(1)
-                else:
-                    finished = True
+            if time_left / duration > 0.1 and not self._stopping:
+                start += played_for
+                await asyncio.sleep(1)
+            else:
+                finished = True
 
         self.currently_playing = None
+        await self.update_message()
         return True
 
     def is_connected(self) -> bool:
-        return self._vc and self._vc.is_connected()
+        return self.vc.voice_client and self.vc.voice_client.is_connected()
 
     async def song_finished(self, exception: Optional[Exception]) -> None:
         if self._stopping:
@@ -358,7 +361,8 @@ class MusicPlayer:
         return True
 
     def skip_song(self):
-        self._vc.stop()
+        self._skipping = True
+        self.vc.voice_client.stop()
 
     def skip_playlist(self):
         if self.currently_playing and self.currently_playing.playlist:
@@ -457,6 +461,9 @@ class MusicPlayer:
         if self.currently_playing:
             ends = datetime.now().astimezone() + timedelta(seconds=self.currently_playing.duration)
             np_string = f'[{self.currently_playing.title}]({self.currently_playing.url})\nBy {self.currently_playing.author}\nEnds in: {format_dt(ends, "R")}'
+        elif self.playlist.get_current_song():
+            song = self.playlist.get_current_song()
+            np_string = f'**<LOADING...>\n[{song.title}]({song.url})\nBy {song.author}'
         embed = discord.Embed(
             title='Now Playing',
             colour=Colour.music(),

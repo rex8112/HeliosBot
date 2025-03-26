@@ -63,16 +63,20 @@ class HeliosVoiceController:
 
         self._current_audio = None
         self._task = None
+        self._on_voice_wrapper = None
 
     def start(self):
+        async def on_voice_wrapper(member, before, after):
+            await self.on_voice_state_update(member, before, after)
+        self._on_voice_wrapper = on_voice_wrapper
         self.schedule.start()
         self.check_vc.start()
-        self.server.bot.add_listener(self.on_voice_state_update)
+        self.server.bot.add_listener(self.on_voice_state_update, 'on_voice_state_update')
 
     def stop(self):
         self.schedule.stop()
         self.check_vc.stop()
-        self.server.bot.remove_listener(self.on_voice_state_update)
+        self.server.bot.remove_listener(self.on_voice_state_update, 'on_voice_state_update')
 
     async def play_music(self, interaction: discord.Interaction, *args, dont_start_music=False):
         slot = self.schedule.current_slot()
@@ -112,7 +116,8 @@ class HeliosVoiceController:
     async def stop_music(self, slot: TimeSlot):
         self.release()
         music_player = slot.data['music_player']
-        await music_player.stop()
+
+        music_player.stop()
         await self.disconnect()
 
     async def connect(self, channel: discord.VoiceChannel) -> discord.VoiceClient:
@@ -120,12 +125,13 @@ class HeliosVoiceController:
         attempts = 0
         while attempts < 5:
             try:
-                if self.voice_client:
+                if self.voice_client and self.voice_client.is_connected():
                     await self.voice_client.move_to(channel)
                 else:
-                    self.voice_client = await channel.connect()
-            except asyncio.TimeoutError:
+                    self.voice_client: discord.VoiceClient = await channel.connect()
+            except (asyncio.TimeoutError, discord.ClientException):
                 attempts += 1
+                await asyncio.sleep(1)
             else:
                 await self.connect_event(channel)
                 return self.voice_client
@@ -144,18 +150,30 @@ class HeliosVoiceController:
             return True
         return False
 
-    async def on_voice_state_update(self, before: discord.VoiceState, after: discord.VoiceState):
+    async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+        if member != self.server.guild.me:
+            return
         if before.channel == after.channel:
+            return
+        if not self.in_use:
             return
         if before.channel and before.channel.guild == self.server.guild:
             if after.channel is None:
                 await self.bot_on_disconnect(before.channel)
+            elif after.channel.id != self.schedule.current_slot().data.get('channel_id'):
+                await asyncio.sleep(1)
+                channel = self.bot.get_channel(self.schedule.current_slot().data.get('channel_id'))
+                await self.connect(channel)
 
     async def bot_on_disconnect(self, channel: discord.VoiceChannel):
         if self.voice_client:
             if self.in_use:
-                if not await self.connect(channel) and self.schedule.current_slot():
-                    self.schedule.current_slot().end = datetime.now().astimezone()
+                try:
+                    await self.connect(channel)
+                except ConnectionError:
+                    if self.schedule.current_slot():
+                        self.schedule.current_slot().end = datetime.now().astimezone()
+
             else:
                 self.voice_client = None
                 await self.disconnect_event()
@@ -163,7 +181,8 @@ class HeliosVoiceController:
     @loop(seconds=5)
     async def check_vc(self):
         if self.schedule.current_slot():
-            if self.voice_client and len(self.voice_client.channel.members) <= 1:
+            channel = self.bot.get_channel(self.schedule.current_slot().data.get('channel_id'))
+            if self.voice_client and self.voice_client.guild.me in channel.members and len(channel.members) <= 1:
                 self.schedule.current_slot().end = datetime.now().astimezone()
 
     def claim(self):
