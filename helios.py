@@ -88,6 +88,19 @@ async def main():
             profiles_sample_rate=1.0
         )
 
+    if settings.log_level == 'DEBUG':
+        logger.setLevel(logging.DEBUG)
+        consoleHandler.setLevel(logging.DEBUG)
+        fileHandler.setLevel(logging.DEBUG)
+    elif settings.log_level == 'INFO':
+        logger.setLevel(logging.INFO)
+        consoleHandler.setLevel(logging.INFO)
+        fileHandler.setLevel(logging.INFO)
+    elif settings.log_level == 'WARNING':
+        logger.setLevel(logging.WARNING)
+        consoleHandler.setLevel(logging.WARNING)
+        fileHandler.setLevel(logging.WARNING)
+
     initialize_db()
     async with bot:
         setup_logging(root=False)
