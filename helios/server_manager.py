@@ -65,7 +65,7 @@ class ServerManager:
                     server.channels.manage_channels()
                 ]
                 await asyncio.gather(*tasks, return_exceptions=True)
-            await asyncio.sleep(15)
+            await asyncio.sleep(5)
 
     async def setup(self):
         await self.bot.wait_until_ready()
