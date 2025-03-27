@@ -155,60 +155,6 @@ class MusicPlayer:
         else:
             await interaction.followup.send(content='Invalid URL Given')
 
-    async def join_channel(self, channel: discord.VoiceChannel):
-        if self.is_connected():
-            if self._vc.channel == channel:
-                return
-            if self._control_message:
-                try:
-                    await self._control_message.delete()
-                except (discord.Forbidden, discord.NotFound):
-                    ...
-                self._control_message = None
-                self._control_view = None
-            await self._vc.move_to(channel)
-        else:
-            logger.debug(f'{self.server.name}: Music Player: Joining {channel.name}')
-            tries = 0
-            while not self.is_connected() and tries < 3:
-                try:
-                    self._vc = await channel.connect(self_deaf=True)
-                except (asyncio.TimeoutError, discord.HTTPException) as e:
-                    logger.error(f'{self.server.name}: Music Player: Failed to join {channel.name}: {e}')
-                    await asyncio.sleep(1)
-                tries += 1
-
-            if not self.is_connected():
-                raise ConnectError(f'Failed to join {channel.name}')
-            logger.debug(f'{self.server.name}: Music Player: Joined {channel.name}')
-        self._leaving = False
-        self._control_view = MusicPlayerView(self)
-        self._control_view.update_buttons()
-        self._control_message = await self._vc.channel.send(embeds=self.get_embeds(), view=self._control_view)
-        self.check_vc.start()
-
-    async def leave_channel(self):
-        self._leaving = True
-        self.currently_playing = None
-        self.playlists.clear()
-        if self._vc is not None:
-            self._vc.stop()
-            await self._vc.disconnect()
-        self._vc = None
-
-        try:
-            await self._control_message.delete()
-        except (discord.Forbidden, discord.NotFound, AttributeError) as e:
-            logger.warning(f'{self.server.name}: Music Player: Failed to delete control message: {e}')
-
-        if self._control_message is not None:
-            self._control_view.stop()
-        self._control_message = None
-        self._control_view = None
-        self._leaving = False
-        self._ended = None
-        self.check_vc.stop()
-
     def start(self):
         self._task = asyncio.create_task(self.main_loop())
 
@@ -275,91 +221,6 @@ class MusicPlayer:
     def is_connected(self) -> bool:
         return self.vc.voice_client and self.vc.voice_client.is_connected()
 
-    async def song_finished(self, exception: Optional[Exception]) -> None:
-        if self._stopping:
-            return
-        if exception:
-            logger.error(f'{self.server.name}: Music Player: Exception in song_finished: {exception}')
-        duration_played = self.seconds_running()
-        cost_per_minute = self.server.settings.music_points_per_minute.value
-        cost = int((duration_played * cost_per_minute) / 60)
-        try:
-            await self.currently_playing.requester.add_points(-cost, 'Helios', f'Music Charged for {cost/cost_per_minute}'
-                                                                               f' minutes')
-            if self.currently_playing.tips > 0:
-                embed = discord.Embed(
-                    title=f'Tipped for {self.currently_playing.title}',
-                    colour=Colour.success(),
-                    description=f'You have been tipped **{self.currently_playing.tips}** times.'
-                )
-                await self.currently_playing.requester.member.send(embed=embed)
-        except (discord.Forbidden, discord.HTTPException, AttributeError):
-            ...
-
-        self.stop_song()
-
-        if self._leaving:
-            return
-        if exception or not self.is_connected():
-            return
-        await self.play_next()
-
-    async def play_next(self):
-        if not self.is_connected():
-            return False
-        cont = False
-        next_song = None
-
-        while cont is False:
-            next_song = self.playlist.next()
-            if next_song and next_song.playlist:
-                next_song.playlist.next()
-
-            if next_song and next_song.requester.member in self.channel.members:
-                if next_song.requester.points > int((next_song.duration * 2) / 60):
-                    cont = True
-            if len(self.playlist) == 0 and next_song is None:
-                cont = True
-
-        if next_song is None:
-            await self.update_message()
-            return
-        await self.play_song(next_song)
-
-    async def play_song(self, song: 'Song') -> bool:
-        if not self.is_connected():
-            return False
-
-        self._stopping = False
-        self.currently_playing = song
-        self._started = datetime.now().astimezone()
-        self._ended = None
-        loop = asyncio.get_event_loop()
-        audio_source = await song.audio_source()
-        await asyncio.sleep(0.5)
-        if audio_source is None:
-            return await self.play_next()
-        self._vc.play(audio_source, after=lambda x: loop.create_task(self.song_finished(x)), bitrate=64)
-        await self.update_message()
-        return True
-
-    async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-        if member != member.guild.me:
-            return
-        if before.channel and after.channel is None and self._leaving is False:
-            self.stop_song()
-            await self.leave_channel()
-
-    def stop_song(self) -> bool:
-        self._stopping = True
-        self.currently_playing = None
-        self._started = None
-        self._ended = datetime.now().astimezone()
-        if not self.is_connected():
-            return False
-        self._vc.stop()
-        return True
-
     def skip_song(self):
         self._skipping = True
         self.vc.voice_client.stop()
@@ -422,21 +283,6 @@ class MusicPlayer:
             self._control_view = MusicPlayerView(self)
             self._control_view.update_buttons()
         self._control_message = await self.channel.send(embeds=self.get_embeds(), view=self._control_view)
-
-    @tasks.loop(seconds=10)
-    async def check_vc(self):
-        if not self.is_connected():
-            return
-
-        ago = datetime.now().astimezone() - timedelta(minutes=5)
-        if self._ended and self._ended <= ago:
-            await self.leave_channel()
-        elif self.members_in_channel() == 0:
-            await self.leave_channel()
-
-    @check_vc.before_loop
-    async def before_check_vc(self):
-        await self.server.bot.wait_until_ready()
 
     def seconds_running(self) -> int:
         if self.currently_playing is None:
