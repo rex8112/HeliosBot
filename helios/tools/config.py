@@ -39,6 +39,7 @@ class Config:
         self.db_username = 'admin'
         self.db_password = '123'
         self.sentry_dsn = ''
+        self.log_level = 'INFO'
 
     # Class Methods
     @classmethod
@@ -77,7 +78,8 @@ class Config:
             'db_port': self.db_port,
             'db_username': self.db_username,
             'db_password': self.db_password,
-            'sentry_dsn': self.sentry_dsn
+            'sentry_dsn': self.sentry_dsn,
+            'log_level': self.log_level
         }
         self._serialize(data)
 

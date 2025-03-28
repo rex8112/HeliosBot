@@ -70,7 +70,7 @@ class EventsCog(commands.Cog):
             )
             await view.wait()
             if view.value:
-                await message.channel.send(mention_string)
+                await message.reply(content=mention_string)
             else:
                 try:
                     await mess.delete()

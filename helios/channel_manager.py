@@ -91,7 +91,6 @@ class ChannelManager:
         await self.bot.wait_until_ready()
         await self.purge_dead_channels()
         await self.manage_topics()
-        await self.manage_voices()
 
         logger.debug(f'{self.server.name}: Channel Manager: Running Dynamic Voice Check')
         await self.dynamic_voice.check_channels()
@@ -155,29 +154,6 @@ class ChannelManager:
             if c.channel.position != i:
                 logger.debug(f'{c.channel.name} is at {c.channel.position} should be at {i}')
                 await c.channel.edit(position=i)
-
-    async def manage_voices(self):
-        voice_channels: list[VoiceChannel] = self.get_type('private_voice')
-        neutralize = []
-        delete = []
-        save = []
-        update_message = []
-        for v in voice_channels:
-            if v.can_delete():
-                delete.append(v.delete())
-            elif v.can_neutralize():
-                neutralize.append(v.neutralize())
-                save.append(v.save())
-                update_message.append(v.update_message())
-            else:
-                update_message.append(v.update_message())
-        if delete:
-            await asyncio.gather(*delete)
-        if neutralize:
-            await asyncio.gather(*neutralize)
-            await asyncio.gather(*save)
-        if update_message:
-            await asyncio.gather(*update_message)
 
     async def add_topic(self, channel: discord.TextChannel, owner: 'HeliosMember') -> tuple[bool, str]:
         if self.channels.get(channel.id):
