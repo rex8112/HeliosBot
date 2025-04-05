@@ -166,10 +166,21 @@ class DynamicVoiceView(ui.View):
                 member.templates.insert(0, template)
                 await member.save(True)
 
+            embed = Embed(
+                title='Would you like this to be extra private?',
+                description='It will move everyone to a new private channel instead of change the current channel.',
+                color=Color.blurple()
+            )
+            embed.set_footer(text='This will default to no if you do not respond.')
+            view = YesNoView(member.member, timeout=5)
+            await interaction.edit_original_response(embed=embed, view=view)
+            await view.wait()
+            extra_private = view.value if view.value is not None else False
+
             # If member has the ability to move members, make the channel private without a vote.
             if self.voice.channel.permissions_for(member.member).move_members or len(self.voice.channel.members) == 1:
-                await self.voice.make_private(member, template)
-                await interaction.edit_original_response(content=f'{self.voice.channel.mention} set to private.',
+                channel = await self.voice.manager.make_private(member, channel=self.voice, template=template, extra_private=extra_private)
+                await interaction.edit_original_response(content=f'{channel.channel.mention} set to private.',
                                                          embed=None, view=None)
                 await self.voice.update_control_message(force=True)
             else:
@@ -191,8 +202,7 @@ class DynamicVoiceView(ui.View):
                     await view.wait()
                     if view.get_result():
                         await message.edit(content='Vote Passed', view=None, embed=None, delete_after=10)
-                        await self.voice.make_private(member, template)
-                        await self.voice.update_control_message(force=True)
+                        await self.voice.manager.make_private(member, channel=self.voice, template=template, extra_private=extra_private)
                     else:
                         await message.edit(content='Vote Failed', view=None, embed=None, delete_after=10)
                 finally:
@@ -208,8 +218,7 @@ class DynamicVoiceView(ui.View):
             member.templates.insert(0, template)
             await member.save(True)
 
-            channel = await self.voice.manager.get_inactive_channel()
-            await channel.make_private(member, template)
+            channel = await self.voice.manager.make_private(member, template=template)
             await interaction.edit_original_response(content=f'{channel.channel.mention} created and set to private.', embed=None, view=None)
 
     @ui.button(label='PUG', style=ButtonStyle.red)

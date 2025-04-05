@@ -19,6 +19,7 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+import asyncio
 import json
 import logging
 from datetime import datetime, timedelta
@@ -26,6 +27,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Optional, Union
 
 import discord
+from discord.utils import utcnow
 
 from .database import DynamicVoiceGroupModel, DynamicVoiceModel
 from .pug import PUGManager
@@ -58,6 +60,7 @@ class VoiceSettings(Settings):
     control_message = SettingItem('control_message', None, discord.PartialMessage)
     inactive = SettingItem('inactive', False, bool)
     custom_name = SettingItem('custom_name', None, str)
+    inactive_on = SettingItem('inactive_on', utcnow(), datetime)
 
 
 class DynamicVoiceChannel:
@@ -481,6 +484,7 @@ class DynamicVoiceChannel:
                 overwrites=self.inactive_overwrites
             )
             self.custom_name = None
+            self.settings.inactive_on.value = utcnow()
             await self.save()
 
 
@@ -735,7 +739,9 @@ class VoiceManager:
 
     async def get_inactive_channel(self):
         inactive = self.get_inactive()
-        ready_inactive = list(filter(lambda x: x.name_on_cooldown() is False and x.free is True, inactive))
+        ready_inactive = filter(lambda x: x.name_on_cooldown() is False and x.free is True, inactive)
+        s = sorted(ready_inactive, key=lambda x: x.settings.inactive_on.value, reverse=True)
+        ready_inactive = list(s)
 
         if len(ready_inactive) > 0:
             return ready_inactive.pop()
@@ -761,6 +767,24 @@ class VoiceManager:
         channel.settings = VoiceSettings(self.server.bot)
         await channel.make_inactive(force=True)
 
+    async def make_private(self, owner: 'HeliosMember', *, channel: Union[discord.VoiceChannel, DynamicVoiceChannel] = None,
+                           template: Optional[VoiceTemplate] = None, extra_private: bool = False) -> DynamicVoiceChannel:
+        if isinstance(channel, discord.VoiceChannel):
+            channel = self.channels[channel.id]
+        if extra_private and channel:
+            new_channel = await self.get_inactive_channel()
+            await new_channel.make_private(owner, template or channel.build_template(owner))
+            moves = []
+            for member in channel.channel.members:
+                moves.append(member.move_to(new_channel.channel, reason='Dynamic Voice: Extra Private'))
+            await asyncio.gather(*moves)
+            return new_channel
+        else:
+            if channel is None:
+                channel = await self.get_inactive_channel()
+            await channel.make_private(owner, template or channel.build_template(owner))
+            await channel.save()
+            return channel
 
     async def create_group(self, minimum: int, minimum_empty: int, template: str, game_template: str, maximum: int = 0):
         group = await DynamicVoiceGroup.create(self.server, minimum, minimum_empty, template, game_template, maximum)
