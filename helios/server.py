@@ -117,6 +117,12 @@ class ServerSettings(Settings):
     daily_store_refreshes = SettingItem('daily_store_refreshes', 1, int,
                                         group='Shop', title='Daily Store Refreshes',
                                         description='The number of times the store refreshes daily.')
+    inactive_admin = SettingItem('inactive_admin', None, discord.Role,
+                                 group='Admin', title='Inactive Admin Role',
+                                    description='The role that signifies a user is an admin and can toggle powers.')
+    active_admin = SettingItem('active_admin', None, discord.Role,
+                                 group='Admin', title='Active Admin Role',
+                                 description='The role that signifies a user currently has admin powers.')
 
 
 class Server:

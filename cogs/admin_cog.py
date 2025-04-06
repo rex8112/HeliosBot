@@ -51,6 +51,29 @@ from helios.shop import *
 if TYPE_CHECKING:
     from helios import HeliosBot, HeliosMember
 
+@app_commands.guild_only()
+class AdminToggleCog(commands.GroupCog, name='toggle'):
+    def __init__(self, bot: 'HeliosBot'):
+        self.bot = bot
+
+    @app_commands.command(name='admin', description='Toggle your own powers')
+    async def toggle(self, interaction: discord.Interaction):
+        server = self.bot.servers.get(interaction.guild_id)
+        inactive: discord.Role = server.settings.inactive_admin.value
+        active = server.settings.active_admin.value
+        if inactive is None or active is None:
+            return await interaction.response.send_message('This is not setup', ephemeral=True)
+        if inactive in interaction.user.roles:
+            if active in interaction.user.roles:
+                await interaction.user.remove_roles(active)
+                await interaction.response.send_message('You are now inactive', ephemeral=True)
+            else:
+                await interaction.user.add_roles(active)
+                await interaction.response.send_message('You are now active', ephemeral=True)
+        else:
+            await interaction.response.send_message('You are not an admin', ephemeral=True)
+            return
+
 
 @app_commands.guild_only()
 @app_commands.default_permissions(administrator=True)
@@ -160,4 +183,5 @@ class AdminCog(commands.GroupCog, name='admin'):
 
 
 async def setup(bot: 'HeliosBot'):
+    await bot.add_cog(AdminToggleCog(bot))
     await bot.add_cog(AdminCog(bot))

@@ -19,6 +19,7 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+from datetime import datetime, timezone
 from types import MethodType
 from typing import TypeVar, Generic, Optional, Generator, Any
 
@@ -129,6 +130,8 @@ class Settings:
             return f'{item.value.channel.id}:{item.value.id}'
         elif item.type is discord.Member:
             return f'{item.value.guild.id}:{item.value.id}'
+        elif item.type is datetime:
+            return item.value.isoformat()
 
     def deserialize_item(self, v_type: type, value: Any):
         if value is None:
@@ -153,6 +156,8 @@ class Settings:
             guild_id, member_id = value.split(':')
             guild = self.bot.get_guild(int(guild_id))
             return guild.get_member(int(member_id)) if guild else None
+        elif v_type is datetime:
+            return datetime.fromisoformat(value)
 
     def get_role(self, role_id: int) -> Optional[discord.Role]:
         for guild in self.bot.guilds:
