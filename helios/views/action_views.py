@@ -102,6 +102,7 @@ class ActionView(discord.ui.View):
     async def deafen_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
+        item = Items.deafen_token()
         await interaction.response.defer(ephemeral=True, thinking=True)
 
         view = TempDeafenActionView(member)
@@ -129,13 +130,8 @@ class ActionView(discord.ui.View):
             colour=discord.Colour.green()
         )
         selected_member = server.members.get(view.selected_member.id)
-        effect = DeafenEffect(selected_member, view.selected_seconds, cost=view.value, deafener=member,
-                              reason=f'{member.member.name} temp deafened for {view.selected_seconds} seconds.')
-        await self.bot.effects.add_effect(effect)
+        await item.use(member, selected_member, view.value)
         await message.edit(embed=embed, view=None)
-        items = member.inventory.get_items('deafen_token')
-        if items:
-            await member.inventory.remove_item(items[0], view.get_value())
 
     @discord.ui.button(label='Shield', style=discord.ButtonStyle.grey, custom_id='helios:action:shop:shield')
     async def shield_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -525,35 +521,9 @@ class TempDeafenActionView(TempMuteActionView):
 
     async def verify_member(self):
         member: 'HeliosMember' = self.selected_member
-        if member is None:
-            self.error_message = 'You must select someone first.'
-            return False
-        if self.author.is_shielded():
-            self.error_message = 'You are shielded.'
-            return False
-        if self.author.member.voice is None:
-            self.error_message = 'You are not in a voice channel.'
-            return False
-        if member.is_noob():
-            self.error_message = f'{member.member.display_name} is still too new to be deafened.'
-            return False
-        if not member.member.voice or not member.member.voice.channel.permissions_for(self.author.member).view_channel:
-            self.error_message = f'{member.member.display_name} is not in a voice channel.'
-            return False
-        if member.member.voice.deaf:
-            self.error_message = f'{member.member.display_name} is already deafened.'
-            return False
-        if member == self.author.server.me:
-            self.error_message = f'You can not deafen me, that would be a waste. I\'m not programmed to hear you.'
-            return False
-        if member.is_shielded():
-            self.error_message = f'{member.member.display_name} is shielded.'
-            return False
-        if self.value > self.author_tokens():
-            self.error_message = f'You do not have enough tokens, you need {self.value}.'
-            return False
-        self.error_message = ''
-        return True
+        item = Items.deafen_token()
+        verified, self.error_message = await item.verify(self.author, member, self.value)
+        return verified
 
 class DurationView(discord.ui.View):
     def __init__(self, author: 'HeliosMember', options: list[tuple[str, int]] = None, *, price_per_time: int = 1,
