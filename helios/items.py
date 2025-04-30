@@ -20,12 +20,18 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 
-__all__ = ('Item', 'Items', 'StoreItem', 'ItemDescriptions')
+__all__ = ('Item', 'Items', 'MuteItem', 'StoreItem', 'ItemDescriptions')
 
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
+
+from .effects import MuteEffect, DeafenEffect
+
+if TYPE_CHECKING:
+    from .member import HeliosMember
 
 
 class Item:
+    """An item that can be used or stored in the inventory"""
     def __init__(self, name: str, quantity: int, display_name: str, data: dict = None):
         if data is None:
             data = {}
@@ -60,9 +66,134 @@ class Item:
             'data': self.data if self.data else {}
         }
 
+    async def verify(self, user: 'HeliosMember', target: 'HeliosMember', *args) -> tuple[bool, str]:
+        """Verify if the item can be used
+        :param user: The user using the item
+        :param target: The target user
+        :param args: The arguments passed to the item"""
+        return True, ''
+
+    async def use(self, user: 'HeliosMember', target: 'HeliosMember', *args) -> bool:
+        """Use the item
+        :param user: The user using the item
+        :param target: The target user
+        :param args: The arguments passed to the item"""
+        verify = await self.verify(user, target, *args)
+        return verify[0]
+
     @classmethod
     def from_dict(cls, data: dict):
         return cls(data['name'], data['quantity'], data['display_name'], data['data'])
+
+
+class MuteItem(Item):
+    SECONDS_PER_TOKEN = 15
+
+    def user_tokens(self, user: 'HeliosMember') -> int:
+        """Get the number of tokens the user has"""
+        return user.inventory.get_items(self.name)[0].quantity if user.inventory.get_items(self.name) else 0
+
+    """An item that can be used to mute a user"""
+    async def verify(self, user: 'HeliosMember', target: 'HeliosMember', *args) -> tuple[bool, str]:
+        value = args[0] if args else 0
+        if not isinstance(value, int):
+            return False, 'Invalid value'
+
+        if target is None:
+            return False, 'You must select someone first.'
+        if target.is_shielded():
+            return False, 'You are shielded.'
+        if user.member.voice is None:
+            return False, 'You are not in a voice channel.'
+        if not user.member.voice.channel.permissions_for(target.member).view_channel:
+            return False, f'{target.member.display_name} can not see your channel.'
+        if target.is_noob():
+            return False, f'{target.member.display_name} is still too new to be muted.'
+        if target.member.voice is None or not target.member.voice.channel.permissions_for(
+                user.member).view_channel:
+            return False, f'{target.member.display_name} is not in a voice channel.'
+        if target.member.voice.mute:
+            return False, f'{target.member.display_name} is already muted.'
+        if target == target.server.me:
+            return False, f'You can not mute me.'
+        if target.is_shielded():
+            return False, f'{target.member.display_name} is shielded.'
+        if value <= 0:
+            return False, 'You must select a value greater than 0.'
+        if value > self.user_tokens(user):
+            return False, f'You do not have enough tokens, you need {value}.'
+        # if member.member.top_role > member.member.guild.me.top_role or member.member.guild.owner == member.member:
+        #     self.error_message = f'I am sorry, I could not mute {member.member.display_name} even if I wanted to.'
+        #     self.selected_member = None
+        #     return False
+        return True, ''
+
+    async def use(self, user: 'HeliosMember', target: 'HeliosMember', *args) -> bool:
+        verify = await self.verify(user, target, *args)
+        if not verify[0]:
+            return False
+
+        value = args[0]
+
+        effect = MuteEffect(target, self.SECONDS_PER_TOKEN * value, cost=value, muter=user,
+                            reason=f'{target.member.name} temp muted for {self.SECONDS_PER_TOKEN * value} seconds.')
+        await user.bot.effects.add_effect(effect)
+        items = user.inventory.get_items('mute_token')
+        if items:
+            await user.inventory.remove_item(items[0], value)
+
+
+class DeafenItem(Item):
+    SECONDS_PER_TOKEN = 15
+
+    def user_tokens(self, user: 'HeliosMember') -> int:
+        """Get the number of tokens the user has"""
+        return user.inventory.get_items(self.name)[0].quantity if user.inventory.get_items(self.name) else 0
+
+
+    async def verify(self, user: 'HeliosMember', target: 'HeliosMember', *args) -> tuple[bool, str]:
+        value = args[0] if args else 0
+        if not isinstance(value, int):
+            return False, 'Invalid value'
+
+        if target is None:
+            return False, 'You must select someone first.'
+        if user.is_shielded():
+            return False, 'You are shielded.'
+        if user.member.voice is None:
+            return False, 'You are not in a voice channel.'
+        if not user.member.voice.channel.permissions_for(target.member).view_channel:
+            return False, f'{target.member.display_name} can not see your channel.'
+        if target.is_noob():
+            return False, f'{target.member.display_name} is still too new to be deafened.'
+        if not target.member.voice or not target.member.voice.channel.permissions_for(user.member).view_channel:
+            return False, f'{target.member.display_name} is not in a voice channel.'
+        if target.member.voice.deaf:
+            return False, f'{target.member.display_name} is already deafened.'
+        if target == user.server.me:
+            return False, f'You can not deafen me, that would be a waste. I\'m not programmed to hear you.'
+        if target.is_shielded():
+            return False, f'{target.member.display_name} is shielded.'
+        if value <= 0:
+            return False, 'You must select a value greater than 0.'
+        if value > self.user_tokens(user):
+            return False, f'You do not have enough tokens, you need {value}.'
+        return True, ''
+
+    async def use(self, user: 'HeliosMember', target: 'HeliosMember', *args) -> bool:
+        verify = await self.verify(user, target, *args)
+        if not verify[0]:
+            return False
+
+        value = args[0]
+
+        effect = DeafenEffect(target, self.SECONDS_PER_TOKEN * value, cost=value, deafener=user,
+                            reason=f'{target.member.name} temp deafened for {self.SECONDS_PER_TOKEN * value} seconds.')
+        await user.bot.effects.add_effect(effect)
+        items = user.inventory.get_items('deafen_token')
+        if items:
+            await user.inventory.remove_item(items[0], value)
+
 
 
 class StoreItem(Item):
@@ -127,6 +258,19 @@ class StoreItem(Item):
 
 class Items:
     @staticmethod
+    def get_item_type(name: str):
+        if name == 'mute_token':
+            return MuteItem
+        elif name == 'deafen_token':
+            return DeafenItem
+        return Item
+
+    @staticmethod
+    def get_from_dict(data: dict):
+        cls = Items.get_item_type(data['name'])
+        return cls.from_dict(data)
+
+    @staticmethod
     def discount(discount: int, restrictions: list[str] = None):
         if restrictions is None:
             restrictions = []
@@ -142,11 +286,11 @@ class Items:
 
     @staticmethod
     def mute_token():
-        return Item('mute_token', 1, 'Mute Token')
+        return MuteItem('mute_token', 1, 'Mute Token')
 
     @staticmethod
     def deafen_token():
-        return Item('deafen_token', 1, 'Deafen Token')
+        return DeafenItem('deafen_token', 1, 'Deafen Token')
 
     @staticmethod
     def shield():

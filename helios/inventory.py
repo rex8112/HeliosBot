@@ -26,7 +26,7 @@ import discord
 from discord import ui, Interaction, SelectOption
 
 from .colour import Colour
-from .items import Item
+from .items import Item, Items
 from .database import InventoryModel
 
 if TYPE_CHECKING:
@@ -87,7 +87,7 @@ class Inventory:
             return cls.from_db(member, data)
         if member.id != data['member_id']:
             raise ValueError('Member ID does not match')
-        items = [Item.from_dict(item) for item in data['items']]
+        items = [Items.get_from_dict(item) for item in data['items']]
         c = cls(member)
         c.items = items
         return c
@@ -96,7 +96,7 @@ class Inventory:
     def from_db(cls, member: 'HeliosMember', data: InventoryModel):
         if member.db_id != data.member_id:
             raise ValueError('Member ID does not match')
-        items = [Item.from_dict(item) for item in data.items]
+        items = [Items.get_from_dict(item) for item in data.items]
         c = cls(member)
         c.items = items
         c._model = data

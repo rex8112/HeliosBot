@@ -27,6 +27,7 @@ import discord
 
 from ..colour import Colour
 from ..effects import MuteEffect, DeafenEffect, ShieldEffect, ChannelShieldEffect, DeflectorEffect
+from ..items import MuteItem, Items
 from .generic_views import YesNoView
 
 if TYPE_CHECKING:
@@ -60,6 +61,7 @@ class ActionView(discord.ui.View):
     async def mute_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
+        item = Items.mute_token()
         await interaction.response.defer(ephemeral=True, thinking=True)
 
         view = TempMuteActionView(member)
@@ -87,18 +89,20 @@ class ActionView(discord.ui.View):
             colour=discord.Colour.green()
         )
         selected_member = server.members.get(view.selected_member.id)
-        effect = MuteEffect(selected_member, view.selected_seconds, cost=view.value, muter=member,
-                            reason=f'{member.member.name} temp muted for {view.selected_seconds} seconds.')
-        await self.bot.effects.add_effect(effect)
+        await item.use(member, selected_member, view.value)
+        # effect = MuteEffect(selected_member, view.selected_seconds, cost=view.value, muter=member,
+        #                     reason=f'{member.member.name} temp muted for {view.selected_seconds} seconds.')
+        # await self.bot.effects.add_effect(effect)
         await message.edit(embed=embed, view=None)
-        items = member.inventory.get_items('mute_token')
-        if items:
-            await member.inventory.remove_item(items[0], view.get_value())
+        # items = member.inventory.get_items('mute_token')
+        # if items:
+        #     await member.inventory.remove_item(items[0], view.get_value())
 
     @discord.ui.button(label='Deafen', style=discord.ButtonStyle.grey, custom_id='helios:action:shop:deafen')
     async def deafen_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
+        item = Items.deafen_token()
         await interaction.response.defer(ephemeral=True, thinking=True)
 
         view = TempDeafenActionView(member)
@@ -126,13 +130,8 @@ class ActionView(discord.ui.View):
             colour=discord.Colour.green()
         )
         selected_member = server.members.get(view.selected_member.id)
-        effect = DeafenEffect(selected_member, view.selected_seconds, cost=view.value, deafener=member,
-                              reason=f'{member.member.name} temp deafened for {view.selected_seconds} seconds.')
-        await self.bot.effects.add_effect(effect)
+        await item.use(member, selected_member, view.value)
         await message.edit(embed=embed, view=None)
-        items = member.inventory.get_items('deafen_token')
-        if items:
-            await member.inventory.remove_item(items[0], view.get_value())
 
     @discord.ui.button(label='Shield', style=discord.ButtonStyle.grey, custom_id='helios:action:shop:shield')
     async def shield_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -344,6 +343,7 @@ class TempMuteActionView(discord.ui.View):
         self.error_message: str = ''
 
         self.item = self.store.get_item(self.item_name)
+        self.reload_buttons()
 
     def get_value(self):
         return math.ceil(self.selected_seconds / 15)
@@ -378,7 +378,33 @@ class TempMuteActionView(discord.ui.View):
             return items[0].quantity
         return 0
 
+    def get_available_members(self) -> list[discord.SelectOption]:
+        channels = []
+        for channel in self.author.guild.voice_channels:
+            if channel.permissions_for(self.author.member).view_channel:
+                if channel == self.author.member.voice.channel if self.author.member.voice else None:
+                    channels.insert(0, channel)
+                else:
+                    channels.append(channel)
+
+        options = []
+        for channel in channels:
+            options.extend(
+                discord.SelectOption(label=member.display_name, value=str(member.id), description=f'In {channel.name}')
+                for member in channel.members
+            )
+        return options
+
     def reload_buttons(self):
+        options = self.get_available_members()
+        if options:
+            self.member_select.placeholder = 'Select a member'
+            self.member_select.options = options
+            self.member_select.disabled = False
+        else:
+            self.member_select.placeholder = 'No members available'
+            self.member_select.options = [discord.SelectOption(label='No members available', value='none')]
+            self.member_select.disabled = True
         if self.error_message:
             self.confirm_button.disabled = True
         else:
@@ -390,47 +416,16 @@ class TempMuteActionView(discord.ui.View):
 
     async def verify_member(self):
         member: 'HeliosMember' = self.selected_member
-        if member is None:
-            self.error_message = 'You must select someone first.'
-            return False
-        if self.author.is_shielded():
-            self.error_message = 'You are shielded.'
-            return False
-        if self.author.member.voice is None:
-            self.error_message = 'You are not in a voice channel.'
-            return False
-        if member.is_noob():
-            self.error_message = f'{member.member.display_name} is still too new to be muted.'
-            return False
-        if member.member.voice is None or not member.member.voice.channel.permissions_for(self.author.member).view_channel:
-            self.error_message = f'{member.member.display_name} is not in a voice channel.'
-            return False
-        if member.member.voice.mute:
-            self.error_message = f'{member.member.display_name} is already muted.'
-            return False
-        if member == self.author.server.me:
-            self.error_message = f'You can not mute me.'
-            return False
-        if member.is_shielded():
-            self.error_message = f'{member.member.display_name} is shielded.'
-            return False
-        if self.value > self.author_tokens():
-            self.error_message = f'You do not have enough tokens, you need {self.value}.'
-            return False
-        # if member.member.top_role > member.member.guild.me.top_role or member.member.guild.owner == member.member:
-        #     self.error_message = f'I am sorry, I could not mute {member.member.display_name} even if I wanted to.'
-        #     self.selected_member = None
-        #     return False
-        self.error_message = ''
-        return True
+        item = Items.mute_token()
+        verified, self.error_message = await item.verify(self.author, member, self.value)
+        return verified
 
-    @discord.ui.select(cls=discord.ui.UserSelect, row=0)
-    async def member_select(self, interaction: discord.Interaction, select: discord.ui.UserSelect):
+    @discord.ui.select(row=0)
+    async def member_select(self, interaction: discord.Interaction, select: discord.ui.Select):
         if interaction.user != self.author.member:
             await interaction.response.send_message(content='You are not allowed to use this.', ephemeral=True)
             return
-        member: discord.Member = select.values[0]
-        member: 'HeliosMember' = self.author.server.members.get(member.id)
+        member: discord.Member = self.author.server.members.get(int(select.values[0]))
         self.selected_member = member
         await self.reload_message(interaction)
 
@@ -526,35 +521,9 @@ class TempDeafenActionView(TempMuteActionView):
 
     async def verify_member(self):
         member: 'HeliosMember' = self.selected_member
-        if member is None:
-            self.error_message = 'You must select someone first.'
-            return False
-        if self.author.is_shielded():
-            self.error_message = 'You are shielded.'
-            return False
-        if self.author.member.voice is None:
-            self.error_message = 'You are not in a voice channel.'
-            return False
-        if member.is_noob():
-            self.error_message = f'{member.member.display_name} is still too new to be deafened.'
-            return False
-        if not member.member.voice or not member.member.voice.channel.permissions_for(self.author.member).view_channel:
-            self.error_message = f'{member.member.display_name} is not in a voice channel.'
-            return False
-        if member.member.voice.deaf:
-            self.error_message = f'{member.member.display_name} is already deafened.'
-            return False
-        if member == self.author.server.me:
-            self.error_message = f'You can not deafen me, that would be a waste. I\'m not programmed to hear you.'
-            return False
-        if member.is_shielded():
-            self.error_message = f'{member.member.display_name} is shielded.'
-            return False
-        if self.value > self.author_tokens():
-            self.error_message = f'You do not have enough tokens, you need {self.value}.'
-            return False
-        self.error_message = ''
-        return True
+        item = Items.deafen_token()
+        verified, self.error_message = await item.verify(self.author, member, self.value)
+        return verified
 
 class DurationView(discord.ui.View):
     def __init__(self, author: 'HeliosMember', options: list[tuple[str, int]] = None, *, price_per_time: int = 1,
