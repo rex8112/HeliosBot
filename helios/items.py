@@ -141,6 +141,7 @@ class MuteItem(Item):
         items = user.inventory.get_items('mute_token')
         if items:
             await user.inventory.remove_item(items[0], value)
+        await target.statistics.muted.increment(value)
 
 
 class DeafenItem(Item):
@@ -193,6 +194,7 @@ class DeafenItem(Item):
         items = user.inventory.get_items('deafen_token')
         if items:
             await user.inventory.remove_item(items[0], value)
+        await target.statistics.deafened.increment(value)
 
 
 
