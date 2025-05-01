@@ -89,6 +89,8 @@ class VoiceControllerView(discord.ui.View):
                                 reason='Joined Voice Controller')
             if self.running:
                 await self.activate(mem)
+
+            await self.server.members.get(mem.id).statistics.game_controllers_joined.increment()
             return True
         return False
 

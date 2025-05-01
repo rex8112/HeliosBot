@@ -120,6 +120,7 @@ class DynamicVoiceView(ui.View):
         view = VoiceControllerView(server, channel, name=name, maximum=maximum, allow_dead=allow_dead)
         await view.join(member.member)
         view.message = await interaction.channel.send(embed=view.embed, view=view)
+        await member.statistics.game_controllers_created.increment()
 
     @ui.button(label='Split', style=ButtonStyle.blurple)
     async def dynamic_split(self, interaction: Interaction, button: ui.Button):
