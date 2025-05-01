@@ -39,10 +39,10 @@ class StatisticsCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        server = self.bot.servers.get(message.guild.id)
-        member = server.members.get(message.author.id)
         if message.author.bot:
             return
+        server = self.bot.servers.get(message.guild.id)
+        member = server.members.get(message.author.id)
         if not member:
             return
         if not server.cooldowns.on_cooldown('message_stat', message.author.id):
