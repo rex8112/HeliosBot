@@ -377,6 +377,7 @@ class SplitView(ui.View):
                     await member.move_to(self.selected_channel)
                 except discord.HTTPException:
                     pass
+            await self.voice.server.members.get(interaction.user.id).statistics.splits.increment()
         self.stop()
 
     @ui.button(label='Cancel', style=ButtonStyle.red)
