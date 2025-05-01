@@ -278,15 +278,34 @@ class Blackjack:
             await asyncio.sleep(1)
 
         self.calculate_winnings()
+        stats = []
         for i, player in enumerate(self.players):
+            stats.append(player.statistics.bj_games.increment())
             for j, winning in enumerate(self.winnings[i]):
                 desc = f'{self.id}: Winnings'
                 if j > 0:
                     desc = f'{self.id}: Split Winnings'
                 await player.add_points(winning, 'Helios: Blackjack', desc)
-            self.manager.add_loss(player, sum(self.bets[i]) - sum(self.winnings[i]))
+            total_bets = sum(self.bets[i])
+            total_winnings = sum(self.winnings[i])
+
+            # Stats
+            if total_winnings > total_bets:
+                winning = total_winnings - total_bets
+                stats.append(player.statistics.bj_wins.increment())
+                stats.append(player.statistics.bj_amt_won.increment(winning))
+            elif total_winnings < total_bets:
+                losing = total_bets - total_winnings
+                stats.append(player.statistics.bj_losses.increment())
+                stats.append(player.statistics.bj_amt_lost.increment(losing))
+            else:
+                stats.append(player.statistics.bj_ties.increment())
+
+            self.manager.add_loss(player, total_bets - total_winnings)
         await self.update_message('Game Over')
         await self.db_entry.async_update(winnings=self.winnings)
+        if stats:
+            asyncio.create_task(asyncio.gather(*stats))
         asyncio.create_task(self.manager.run_blackjack(self.channel))
 
     async def hit(self):
