@@ -64,6 +64,8 @@ class StatisticsCog(commands.Cog):
     async def on_message(self, message: discord.Message):
         if message.author.bot:
             return
+        if message.guild is None:
+            return
         server = self.bot.servers.get(message.guild.id)
         member = server.members.get(message.author.id)
         if not member:
