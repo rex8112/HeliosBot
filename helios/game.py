@@ -89,7 +89,7 @@ class GameManager:
         if game is None and create_new:
             await GameModel.create_game(name, display_name=name, icon='')
             game = await GameModel.find_game(name)
-        elif game is None:
+        if game is None:
             return None
         game = Game.from_db(game)
         self.add_game(game)

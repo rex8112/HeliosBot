@@ -138,7 +138,6 @@ class DynamicVoiceView(ui.View):
             await interaction.response.send_message(content='You are not in the channel.', ephemeral=True)
             return
 
-        await interaction.response.defer()
         await self.voice.server.voice_controller.play_music(interaction)
 
     @ui.button(label='Private', style=ButtonStyle.red)
