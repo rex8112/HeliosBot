@@ -305,7 +305,7 @@ class Blackjack:
         await self.update_message('Game Over')
         await self.db_entry.async_update(winnings=self.winnings)
         if stats:
-            asyncio.create_task(asyncio.gather(*stats))
+            [asyncio.create_task(x) for x in stats]
         asyncio.create_task(self.manager.run_blackjack(self.channel))
 
     async def hit(self):
