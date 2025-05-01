@@ -57,7 +57,11 @@ class Stat:
         await StatisticHistoryModel.record(await self.model())
 
     async def get_change_since(self, since: datetime.datetime):
-        return await StatisticHistoryModel.get_change_since(await self.model(), since)
+        earliest = await StatisticHistoryModel.get_earliest_since(await self.model(), since)
+        current = await self.value()
+        if earliest:
+            return current - earliest.value
+        return current
 
 
 class Statistics:

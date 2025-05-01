@@ -20,10 +20,11 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 import asyncio
-from datetime import time, datetime
+from datetime import time, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import discord
+from discord import app_commands
 from discord.ext import commands, tasks
 
 from helios.database import StatisticModel
@@ -39,6 +40,23 @@ class StatisticsCog(commands.Cog):
 
     def cog_unload(self):
         self.update_statistics.stop()
+
+    @app_commands.command(name='stats', description='Look at your current stats')
+    async def stats(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        embed = discord.Embed(
+            title=f'Statistics for {member.member.display_name}',
+            color=discord.Color.blue()
+        )
+        embed.set_footer(text='This is just a placeholder')
+        description = 'Total statistics:'
+        for stat in member.statistics.all_stats():
+            value = await stat.value()
+            description += f'\n**{stat.display_name}**: {value}'
+        embed.description = description
+        await interaction.followup.send(embed=embed)
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
