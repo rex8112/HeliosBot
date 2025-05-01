@@ -19,11 +19,12 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+import datetime
 from typing import Optional, Generator
 
 import discord
 
-from .database import StatisticModel
+from .database import StatisticModel, StatisticHistoryModel
 
 
 class Stat:
@@ -40,6 +41,9 @@ class Stat:
         self._guild = guild.id
         self._member = member.id
 
+    async def model(self):
+        return await StatisticModel.get(self._guild, self._member, self.name)
+
     async def value(self):
         return await StatisticModel.get_value(self._guild, self._member, self.name)
 
@@ -48,6 +52,12 @@ class Stat:
 
     async def set_value(self, value: int):
         await StatisticModel.set_value(self._guild, self._member, self.name, value)
+
+    async def record_history(self):
+        await StatisticHistoryModel.record(await self.model())
+
+    async def get_change_since(self, since: datetime.datetime):
+        return await StatisticHistoryModel.get_change_since(await self.model(), since)
 
 
 class Statistics:
