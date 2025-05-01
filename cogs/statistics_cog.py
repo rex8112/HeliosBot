@@ -37,9 +37,11 @@ class StatisticsCog(commands.Cog):
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
         self.update_statistics.start()
+        self.daily_statistics.start()
 
     def cog_unload(self):
         self.update_statistics.stop()
+        self.daily_statistics.stop()
 
     @app_commands.command(name='stats', description='Look at your current stats')
     async def stats(self, interaction: discord.Interaction):
