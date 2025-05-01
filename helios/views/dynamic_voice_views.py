@@ -120,6 +120,7 @@ class DynamicVoiceView(ui.View):
         view = VoiceControllerView(server, channel, name=name, maximum=maximum, allow_dead=allow_dead)
         await view.join(member.member)
         view.message = await interaction.channel.send(embed=view.embed, view=view)
+        await member.statistics.game_controllers_created.increment()
 
     @ui.button(label='Split', style=ButtonStyle.blurple)
     async def dynamic_split(self, interaction: Interaction, button: ui.Button):
@@ -183,6 +184,7 @@ class DynamicVoiceView(ui.View):
                 await interaction.edit_original_response(content=f'{channel.channel.mention} set to private.',
                                                          embed=None, view=None)
                 await self.voice.update_control_message(force=True)
+                await member.statistics.private_channels.increment()
             else:
                 # Vote Process
                 if self.waiting:
@@ -203,6 +205,7 @@ class DynamicVoiceView(ui.View):
                     if view.get_result():
                         await message.edit(content='Vote Passed', view=None, embed=None, delete_after=10)
                         await self.voice.manager.make_private(member, channel=self.voice, template=template, extra_private=extra_private)
+                        await member.statistics.private_channels.increment()
                     else:
                         await message.edit(content='Vote Failed', view=None, embed=None, delete_after=10)
                 finally:
@@ -220,6 +223,7 @@ class DynamicVoiceView(ui.View):
 
             channel = await self.voice.manager.make_private(member, template=template)
             await interaction.edit_original_response(content=f'{channel.channel.mention} created and set to private.', embed=None, view=None)
+            await member.statistics.private_channels.increment()
 
     @ui.button(label='PUG', style=ButtonStyle.red)
     async def pug(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -232,6 +236,7 @@ class DynamicVoiceView(ui.View):
         if await modal.wait():
             return
         await self.voice.manager.pug_manager.create_pug(modal.value, member, self.voice)
+        await member.statistics.pugs.increment()
 
     @ui.button(label='Change Game Name', style=ButtonStyle.gray)
     async def change_game_name(self, interaction: Interaction, button: ui.Button):
@@ -373,6 +378,7 @@ class SplitView(ui.View):
                     await member.move_to(self.selected_channel)
                 except discord.HTTPException:
                     pass
+            await self.voice.server.members.get(interaction.user.id).statistics.splits.increment()
         self.stop()
 
     @ui.button(label='Cancel', style=ButtonStyle.red)
