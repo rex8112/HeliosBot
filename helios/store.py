@@ -176,6 +176,8 @@ class Store:
         await member.add_points(-total_price, 'Helios: Store', f'Purchased {quantity} of {item.name}')
         await member.inventory.add_item(item.to_item(), quantity)
         await self.save()
+        await member.statistics.items_purchased.increment(quantity)
+        await member.statistics.items_purchased_value.increment(total_price)
         return quantity
 
     def add_item(self, item: 'StoreItem'):

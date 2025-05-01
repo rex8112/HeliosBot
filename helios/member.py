@@ -54,11 +54,16 @@ class MemberStatistics(Statistics):
     messages = Stat('messages', 'Messages', 'The number of messages sent in the server.')
     limited_messages = Stat('limited_messages', 'Limited Messages',
                             'The number of messages with a delay between them.')
+
     voice_time = Stat('voice_time', 'Voice Time', 'The amount of time spent in voice channels.')
     alone_time = Stat('alone_time', 'Alone Time', 'The amount of time spent in voice channels alone.')
     afk_time = Stat('afk_time', 'AFK Time', 'The amount of time spent in the AFK channel.')
     game_time = Stat('game_time', 'Game Time', 'The amount of time spent playing games in a voice channel.')
+
     max_points = Stat('max_points', 'Max Points', 'The maximum amount of points held at one time.')
+
+    items_purchased = Stat('items_purchased', 'Items Purchased', 'The number of items purchased from the shop.')
+    items_purchased_value = Stat('items_purchased_value', 'Items Purchased Value', 'The total value of items purchased from the shop.')
     muted = Stat('muted', 'Muted', 'The number of times muted.')
     sent_mutes = Stat('sent_mutes', 'Sent Mutes', 'The number of times muting other users.')
     deafened = Stat('deafened', 'Deafened', 'The number of times deafened.')
@@ -66,8 +71,14 @@ class MemberStatistics(Statistics):
     private_channels = Stat('private_channels', 'Private Channels Created',
                             'The number of private channels created.')
     pugs = Stat('pugs', 'PUGs Created', 'The number of PUGs created.')
+
+    splits = Stat('splits', 'Splits', 'The number of times you split a call using the button.')
+    game_controllers_created = Stat('game_controllers_created', 'Game Controllers Created', 'The number of game controllers created.')
+    game_controllers_joined = Stat('game_controllers_joined', 'Game Controllers Joined', 'The number of game controllers joined.')
+
     loot_boxes = Stat('loot_boxes', 'Loot Boxes Opened', 'The number of loot boxes opened.')
     daily_claims = Stat('daily_claims', 'Daily Claims', 'The number of daily claims made.')
+
     bj_games = Stat('bj_games', 'BlackJack Games Played', 'The number of blackjack games played.')
     bj_wins = Stat('bj_wins', 'BlackJack Wins', 'The number of blackjack games won.')
     bj_losses = Stat('bj_losses', 'BlackJack Losses', 'The number of blackjack games lost.')
