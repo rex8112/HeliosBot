@@ -19,7 +19,7 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
-
+import asyncio
 import datetime
 import json
 from typing import TYPE_CHECKING, Optional, Any
@@ -668,7 +668,9 @@ class StatisticModel(BaseModel):
 
     @classmethod
     async def create(cls, server_id: int, member_id: Optional[int], name: str, value: int) -> 'StatisticModel':
-        return await objects.create(cls, server_id=server_id, member_id=member_id, name=name, value=value)
+        model = await objects.create(cls, server_id=server_id, member_id=member_id, name=name, value=value)
+        asyncio.create_task(StatisticHistoryModel.record(model))
+        return model
 
     @classmethod
     async def get(cls, server_id: int, member_id: Optional[int], name: str) -> Optional['StatisticModel']:
@@ -738,11 +740,10 @@ class StatisticHistoryModel(BaseModel):
             return None
 
     @classmethod
-    async def get_change_since(cls, stat: 'StatisticModel', since: datetime.datetime) -> int:
-        q = cls.select(fn.SUM(cls.value).alias('change')).where(cls.statistic == stat, cls.created > since)
+    async def get_earliest_since(cls, stat: 'StatisticModel', since: datetime.datetime) -> Optional['StatisticHistoryModel']:
+        q = cls.select().where(cls.statistic == stat, cls.created > since).order_by(cls.created.asc())
         try:
-            res = await objects.get(q)
-            return res.change
+            return await objects.get(q)
         except DoesNotExist:
             return 0
 
