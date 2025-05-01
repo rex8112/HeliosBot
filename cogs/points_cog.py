@@ -204,8 +204,10 @@ class PointsCog(commands.Cog):
         items = await member.claim_daily()
         if len(items) == 2:
             await interaction.response.send_message(f'You have claimed your daily loot crate and shield', ephemeral=True)
+            await member.statistics.daily_claims.increment()
         elif len(items) == 1:
             await interaction.response.send_message(f'You have claimed your daily loot crate', ephemeral=True)
+            await member.statistics.daily_claims.increment()
         else:
             await interaction.response.send_message(f'You have already claimed your daily!', ephemeral=True)
 
