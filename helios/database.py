@@ -47,7 +47,7 @@ def initialize_db():
         db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
                           EventModel, ViolationModel, DynamicVoiceModel, DynamicVoiceGroupModel, TopicModel,
                           EffectModel, ThemeModel, BlackjackModel, DailyModel, GameModel, GameAliasModel, PugModel,
-                          InventoryModel, StoreModel, TopicSubscriptionModel])
+                          InventoryModel, StoreModel, TopicSubscriptionModel, StatisticModel])
 
 
 def get_aware_utc_now():
@@ -652,4 +652,59 @@ class TopicSubscriptionModel(BaseModel):
     async def get_all_by_topic(cls, topic: TopicModel) -> list['TopicSubscriptionModel']:
         q = cls.select().where(cls.topic == topic)
         return await objects.prefetch(q, MemberModel.select())
+
+
+class StatisticModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    server_id = BigIntegerField()
+    member_id = BigIntegerField(null=True)
+    name = CharField(max_length=25, index=True)
+    value = BigIntegerField(default=0)
+    created = DatetimeTzField(default=get_aware_utc_now)
+    updated = DatetimeTzField(default=get_aware_utc_now)
+
+    class Meta:
+        table_name = 'statistics'
+
+    @classmethod
+    async def create(cls, server_id: int, member_id: Optional[int], name: str, value: int) -> 'StatisticModel':
+        return await objects.create(cls, server_id=server_id, member_id=member_id, name=name, value=value)
+
+    @classmethod
+    async def get(cls, server_id: int, member_id: Optional[int], name: str) -> Optional['StatisticModel']:
+        try:
+            return await objects.get(cls, server_id=server_id, member_id=member_id, name=name)
+        except DoesNotExist:
+            return None
+
+    @classmethod
+    async def get_value(cls, server_id: int, member_id: Optional[int], name: str) -> int:
+        try:
+            statistic = await cls.get(server_id, member_id, name)
+            if statistic:
+                return statistic.value
+            return 0
+        except DoesNotExist:
+            return 0
+
+    @classmethod
+    async def get_all(cls, server_id: int, member_id: Optional[int]) -> list['StatisticModel']:
+        q = cls.select().where(cls.server_id == server_id, cls.member_id == member_id)
+        return await objects.prefetch(q)
+
+    @classmethod
+    async def increment(cls, server_id: int, member_id: Optional[int], name: str, amount: int = 1) -> None:
+        q = (cls.update(value=cls.value + amount, updated=get_aware_utc_now())
+             .where(cls.server_id == server_id, cls.member_id == member_id, cls.name == name))
+        changed = await objects.execute(q)
+        if changed == 0:
+            await cls.create(server_id, member_id, name, amount)
+
+    @classmethod
+    async def set_value(cls, server_id: int, member_id: Optional[int], name: str, value: int) -> None:
+        q = (cls.update(value=value, updated=get_aware_utc_now())
+             .where(cls.server_id == server_id, cls.member_id == member_id, cls.name == name))
+        changed = await objects.execute(q)
+        if changed == 0:
+            await cls.create(server_id, member_id, name, value)
 

@@ -36,6 +36,7 @@ from .exceptions import IdMismatchError
 from .inventory import Inventory
 from .items import Items, Item
 from .violation import Violation
+from .statistic import Statistics, Stat
 from .voice_template import VoiceTemplate
 
 if TYPE_CHECKING:
@@ -47,6 +48,29 @@ if TYPE_CHECKING:
 
 def round_down_hundred(x: int) -> int:
     return int(x - x % 100)
+
+
+class MemberStatistics(Statistics):
+    messages = Stat('messages', 'Messages', 'The number of messages sent in the server.')
+    limited_messages = Stat('limited_messages', 'Limited Messages',
+                            'The number of messages with a delay between them.')
+    voice_time = Stat('voice_time', 'Voice Time', 'The amount of time spent in voice channels.')
+    alone_time = Stat('alone_time', 'Alone Time', 'The amount of time spent in voice channels alone.')
+    afk_time = Stat('afk_time', 'AFK Time', 'The amount of time spent in the AFK channel.')
+    game_time = Stat('game_time', 'Game Time', 'The amount of time spent playing games in a voice channel.')
+    max_points = Stat('max_points', 'Max Points', 'The maximum amount of points held at one time.')
+    muted = Stat('muted', 'Muted', 'The number of times muted.')
+    deafened = Stat('deafened', 'Deafened', 'The number of times deafened.')
+    private_channels = Stat('private_channels', 'Private Channels Created',
+                            'The number of private channels created.')
+    loot_boxes = Stat('loot_boxes', 'Loot Boxes Opened', 'The number of loot boxes opened.')
+    daily_claims = Stat('daily_claims', 'Daily Claims', 'The number of daily claims made.')
+    bj_games = Stat('bj_games', 'BlackJack Games Played', 'The number of blackjack games played.')
+    bj_wins = Stat('bj_wins', 'BlackJack Wins', 'The number of blackjack games won.')
+    bj_losses = Stat('bj_losses', 'BlackJack Losses', 'The number of blackjack games lost.')
+    bj_ties = Stat('bj_ties', 'BlackJack Ties', 'The number of blackjack games tied.')
+    bj_amt_won = Stat('bj_amt_won', 'BlackJack Amount Won', 'The amount of points won in blackjack games.')
+    bj_amt_lost = Stat('bj_amt_lost', 'BlackJack Amount Lost', 'The amount of points lost in blackjack games.')
 
 
 class HeliosMember(HasFlags):
@@ -61,6 +85,8 @@ class HeliosMember(HasFlags):
         self.templates: list['VoiceTemplate'] = []
         self.inventory: Optional['Inventory'] = None
         self.flags = []
+
+        self.statistics = MemberStatistics(member.guild, member)
 
         self._allow_on_voice = 0
 
@@ -397,6 +423,9 @@ class HeliosMember(HasFlags):
         await objects.create(TransactionModel, member=self._db_entry,
                              description=description, amount=price,
                              payee=payee[:25])
+        old_max = await self.statistics.max_points.value()
+        if old_max < self.points:
+            await self.statistics.max_points.set_value(self.points)
 
     async def transfer_points(self, target: 'HeliosMember', price: int, description: str,
                               receive_description: str = None):

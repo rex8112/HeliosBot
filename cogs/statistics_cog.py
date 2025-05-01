@@ -1,0 +1,75 @@
+#  MIT License
+#
+#  Copyright (c) 2023 Riley Winkler
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy
+#  of this software and associated documentation files (the "Software"), to deal
+#  in the Software without restriction, including without limitation the rights
+#  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#  copies of the Software, and to permit persons to whom the Software is
+#  furnished to do so, subject to the following conditions:
+#
+#  The above copyright notice and this permission notice shall be included in all
+#  copies or substantial portions of the Software.
+#
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+#  SOFTWARE.
+import asyncio
+from typing import TYPE_CHECKING
+
+import discord
+from discord.ext import commands, tasks
+
+if TYPE_CHECKING:
+    from helios import HeliosBot
+
+
+class StatisticsCog(commands.Cog):
+    def __init__(self, bot: 'HeliosBot'):
+        self.bot = bot
+        self.update_statistics.start()
+
+    def cog_unload(self):
+        self.update_statistics.stop()
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        server = self.bot.servers.get(message.guild.id)
+        member = server.members.get(message.author.id)
+        if message.author.bot:
+            return
+        if not member:
+            return
+        if not server.cooldowns.on_cooldown('message_stat', message.author.id):
+            server.cooldowns.set_duration('message_stat', message.author.id, 15)
+            await member.statistics.limited_messages.increment()
+
+        await member.statistics.messages.increment()
+
+    @tasks.loop(minutes=1)
+    async def update_statistics(self):
+        updates = []
+        for server in self.bot.servers.servers.values():
+            for channel in server.guild.voice_channels:
+                if channel.members:
+                    for member in channel.members:
+                        if member.bot:
+                            continue
+                        helios_member = server.members.get(member.id)
+                        if helios_member:
+                            updates.append(helios_member.statistics.voice_time.increment())
+                            if len(list(filter(lambda x: not x.bot, channel.members))) == 1:
+                                updates.append(helios_member.statistics.alone_time.increment())
+                            if helios_member.get_game_activity():
+                                updates.append(helios_member.statistics.game_time.increment())
+        if updates:
+            await asyncio.gather(*updates)
+
+
+async def setup(bot: 'HeliosBot'):
+    await bot.add_cog(StatisticsCog(bot))
