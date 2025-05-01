@@ -183,6 +183,7 @@ class DynamicVoiceView(ui.View):
                 await interaction.edit_original_response(content=f'{channel.channel.mention} set to private.',
                                                          embed=None, view=None)
                 await self.voice.update_control_message(force=True)
+                await member.statistics.private_channels.increment()
             else:
                 # Vote Process
                 if self.waiting:
@@ -203,6 +204,7 @@ class DynamicVoiceView(ui.View):
                     if view.get_result():
                         await message.edit(content='Vote Passed', view=None, embed=None, delete_after=10)
                         await self.voice.manager.make_private(member, channel=self.voice, template=template, extra_private=extra_private)
+                        await member.statistics.private_channels.increment()
                     else:
                         await message.edit(content='Vote Failed', view=None, embed=None, delete_after=10)
                 finally:
@@ -220,6 +222,7 @@ class DynamicVoiceView(ui.View):
 
             channel = await self.voice.manager.make_private(member, template=template)
             await interaction.edit_original_response(content=f'{channel.channel.mention} created and set to private.', embed=None, view=None)
+            await member.statistics.private_channels.increment()
 
     @ui.button(label='PUG', style=ButtonStyle.red)
     async def pug(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -232,6 +235,7 @@ class DynamicVoiceView(ui.View):
         if await modal.wait():
             return
         await self.voice.manager.pug_manager.create_pug(modal.value, member, self.voice)
+        await member.statistics.pugs.increment()
 
     @ui.button(label='Change Game Name', style=ButtonStyle.gray)
     async def change_game_name(self, interaction: Interaction, button: ui.Button):

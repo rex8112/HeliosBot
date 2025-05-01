@@ -63,6 +63,7 @@ class MemberStatistics(Statistics):
     deafened = Stat('deafened', 'Deafened', 'The number of times deafened.')
     private_channels = Stat('private_channels', 'Private Channels Created',
                             'The number of private channels created.')
+    pugs = Stat('pugs', 'PUGs Created', 'The number of PUGs created.')
     loot_boxes = Stat('loot_boxes', 'Loot Boxes Opened', 'The number of loot boxes opened.')
     daily_claims = Stat('daily_claims', 'Daily Claims', 'The number of daily claims made.')
     bj_games = Stat('bj_games', 'BlackJack Games Played', 'The number of blackjack games played.')
