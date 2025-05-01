@@ -60,7 +60,9 @@ class MemberStatistics(Statistics):
     game_time = Stat('game_time', 'Game Time', 'The amount of time spent playing games in a voice channel.')
     max_points = Stat('max_points', 'Max Points', 'The maximum amount of points held at one time.')
     muted = Stat('muted', 'Muted', 'The number of times muted.')
+    sent_mutes = Stat('sent_mutes', 'Sent Mutes', 'The number of times muting other users.')
     deafened = Stat('deafened', 'Deafened', 'The number of times deafened.')
+    sent_deafens = Stat('sent_deafens', 'Sent Deafens', 'The number of times deafening other users.')
     private_channels = Stat('private_channels', 'Private Channels Created',
                             'The number of private channels created.')
     pugs = Stat('pugs', 'PUGs Created', 'The number of PUGs created.')

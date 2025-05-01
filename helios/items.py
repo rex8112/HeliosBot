@@ -142,6 +142,7 @@ class MuteItem(Item):
         if items:
             await user.inventory.remove_item(items[0], value)
         await target.statistics.muted.increment(value)
+        await user.statistics.sent_mutes.increment(value)
 
 
 class DeafenItem(Item):
@@ -195,6 +196,7 @@ class DeafenItem(Item):
         if items:
             await user.inventory.remove_item(items[0], value)
         await target.statistics.deafened.increment(value)
+        await user.statistics.sent_deafens.increment(value)
 
 
 
