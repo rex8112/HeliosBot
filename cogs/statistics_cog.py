@@ -20,10 +20,13 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 import asyncio
+from datetime import time, datetime
 from typing import TYPE_CHECKING
 
 import discord
 from discord.ext import commands, tasks
+
+from helios.database import StatisticModel
 
 if TYPE_CHECKING:
     from helios import HeliosBot
@@ -51,6 +54,10 @@ class StatisticsCog(commands.Cog):
 
         await member.statistics.messages.increment()
 
+    @tasks.loop(time=time(hour=0, minute=0, tzinfo=datetime.now().astimezone().tzinfo))
+    async def daily_statistics(self):
+        await StatisticModel.record_all()
+
     @tasks.loop(minutes=1)
     async def update_statistics(self):
         updates = []
@@ -62,11 +69,14 @@ class StatisticsCog(commands.Cog):
                             continue
                         helios_member = server.members.get(member.id)
                         if helios_member:
-                            updates.append(helios_member.statistics.voice_time.increment())
-                            if len(list(filter(lambda x: not x.bot, channel.members))) == 1:
-                                updates.append(helios_member.statistics.alone_time.increment())
-                            if helios_member.get_game_activity():
-                                updates.append(helios_member.statistics.game_time.increment())
+                            if channel == channel.guild.afk_channel:
+                                updates.append(helios_member.statistics.afk_time.increment())
+                            else:
+                                updates.append(helios_member.statistics.voice_time.increment())
+                                if len(list(filter(lambda x: not x.bot, channel.members))) == 1:
+                                    updates.append(helios_member.statistics.alone_time.increment())
+                                if helios_member.get_game_activity():
+                                    updates.append(helios_member.statistics.game_time.increment())
         if updates:
             await asyncio.gather(*updates)
 

@@ -47,7 +47,7 @@ def initialize_db():
         db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
                           EventModel, ViolationModel, DynamicVoiceModel, DynamicVoiceGroupModel, TopicModel,
                           EffectModel, ThemeModel, BlackjackModel, DailyModel, GameModel, GameAliasModel, PugModel,
-                          InventoryModel, StoreModel, TopicSubscriptionModel, StatisticModel])
+                          InventoryModel, StoreModel, TopicSubscriptionModel, StatisticModel, StatisticHistoryModel])
 
 
 def get_aware_utc_now():
@@ -693,6 +693,13 @@ class StatisticModel(BaseModel):
         return await objects.prefetch(q)
 
     @classmethod
+    async def record_all(cls):
+        q = cls.select()
+        stats = await objects.prefetch(q)
+        for stat in stats:
+            await StatisticHistoryModel.record(stat)
+
+    @classmethod
     async def increment(cls, server_id: int, member_id: Optional[int], name: str, amount: int = 1) -> None:
         q = (cls.update(value=cls.value + amount, updated=get_aware_utc_now())
              .where(cls.server_id == server_id, cls.member_id == member_id, cls.name == name))
@@ -707,4 +714,44 @@ class StatisticModel(BaseModel):
         changed = await objects.execute(q)
         if changed == 0:
             await cls.create(server_id, member_id, name, value)
+
+
+class StatisticHistoryModel(BaseModel):
+    id = AutoField(primary_key=True, unique=True)
+    statistic = ForeignKeyField(StatisticModel, backref='history', on_delete='CASCADE')
+    value = BigIntegerField(default=0)
+    created = DatetimeTzField(default=get_aware_utc_now)
+
+    class Meta:
+        table_name = 'statistic_history'
+
+    @classmethod
+    async def create(cls, stat: 'StatisticModel') -> 'StatisticHistoryModel':
+        return await objects.create(cls, statistic=stat, value=stat.value)
+
+    @classmethod
+    async def get_latest(cls, stat: 'StatisticModel') -> Optional['StatisticHistoryModel']:
+        q = cls.select().where(cls.statistic == stat).order_by(cls.created.desc())
+        try:
+            return await objects.get(q)
+        except DoesNotExist:
+            return None
+
+    @classmethod
+    async def get_change_since(cls, stat: 'StatisticModel', since: datetime.datetime) -> int:
+        q = cls.select(fn.SUM(cls.value).alias('change')).where(cls.statistic == stat, cls.created > since)
+        try:
+            res = await objects.get(q)
+            return res.change
+        except DoesNotExist:
+            return 0
+
+    @classmethod
+    async def record(cls, stat: 'StatisticModel') -> None:
+        latest = await cls.get_latest(stat)
+        if latest:
+            if latest.value != stat.value:
+                await cls.create(stat)
+        else:
+            await cls.create(stat)
 
