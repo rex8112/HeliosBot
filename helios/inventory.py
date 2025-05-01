@@ -130,7 +130,7 @@ class Inventory:
         for item in self.items:
             embed.add_field(
                 name=item.display_name,
-                value=f'Quantity: **{item.quantity}\n{item.get_description()}**',
+                value=f'Quantity: *{item.quantity}\n{item.get_description()}*',
                 inline=False
             )
         return embed
