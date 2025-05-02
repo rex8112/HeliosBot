@@ -306,7 +306,6 @@ class HeliosMember(HasFlags):
             template = VoiceTemplate(self, temp['name'], data=temp)
             self.templates.append(template)
         self.flags = json.loads(data.flags)
-        self._activity_points = data.activity_points
         self._points = data.points
         self._ap_paid = data.ap_paid
         self._new = False
