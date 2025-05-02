@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 class StatisticsCog(commands.Cog):
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
+        # Disabled as this is handled in Member.check_vc()
         # self.update_statistics.start()
         self.daily_statistics.start()
 
