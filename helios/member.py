@@ -253,8 +253,8 @@ class HeliosMember(HasFlags):
         self.templates.append(template)
         return template
 
-    def is_noob(self):
-        return self.activity_points < 1440
+    async def is_noob(self):
+        return await self.get_activity_points() < 1440
 
     def is_shielded(self):
         if self.member.voice is not None:
@@ -265,7 +265,8 @@ class HeliosMember(HasFlags):
                     return True
         return self.has_effect('shieldeffect')
 
-    def profile(self) -> discord.Embed:
+    async def profile(self) -> discord.Embed:
+        ap = await self.get_activity_points()
         embed = discord.Embed(
             title=self.member.display_name,
             colour=self.colour(),
@@ -273,7 +274,7 @@ class HeliosMember(HasFlags):
         )
         embed.set_thumbnail(url=self.member.display_avatar.url)
         embed.add_field(name=f'{self.server.points_name.capitalize()}', value=f'{self.points:,}')
-        embed.add_field(name=f'Activity {self.server.points_name.capitalize()}', value=f'{self.activity_points:,}')
+        embed.add_field(name=f'Activity {self.server.points_name.capitalize()}', value=f'{ap:,}')
         embed.add_field(name=f'Joined {self.server.guild.name}', value=format_dt(self.member.joined_at, 'R'))
         return embed
 
@@ -322,13 +323,37 @@ class HeliosMember(HasFlags):
         }
         return data
 
-    def point_to_activity_percentage(self) -> float:
-        if self.activity_points == 0:
+    async def point_to_activity_percentage(self) -> float:
+        ap = await self.get_activity_points()
+        if ap == 0:
             return 0.0
-        return self.points / self.activity_points
+        return self.points / ap
 
     def daily_points(self) -> int:
         return 7_500
+
+    async def get_activity_points(self) -> int:
+        """
+        Get the activity points for this user.
+        :return: The activity points for this user.
+        """
+        # Load the statistics from the database
+        stats = await self.statistics.get_all_stats([
+            'messages', 'limited_messages', 'voice_time', 'game_time', 'bj_games', 'daily_claims', 'alone_time',
+        ])
+
+        # Calculate the activity points
+        points = 0
+        points += stats.get('messages', 0)
+        points += stats.get('limited_messages', 0) * 10
+        points += stats.get('voice_time', 0)
+        points += stats.get('game_time', 0)
+        points += stats.get('bj_games', 0)
+        points += stats.get('daily_claims', 0) * 100
+
+        points -= stats.get('alone_time', 0) // 4 * 3
+        self._activity_points = points
+        return points
 
     async def load_inventory(self):
         self.inventory = await Inventory.load(self)
@@ -368,17 +393,28 @@ class HeliosMember(HasFlags):
         minutes = delta.seconds // 60
         self._last_check = now
 
-        if self.member.voice and not self.member.voice.afk:
-            before = self.is_noob()
+        if self.member.voice:
+            updates = []
+            channel = self.member.voice.channel
+            before = await self.is_noob()
             for _ in range(minutes):
-                if len(self.member.voice.channel.members) > 1:
-                    self.add_activity_points(amt)
-                elif self._partial >= partial:
-                    self.add_activity_points(amt)
-                    self._partial = 0
-                else:
-                    self._partial += 1
-            if before is True and self.is_noob() is False:
+                if self.member.voice.afk:
+                    # AFK Times
+                    updates.append(self.statistics.afk_time.increment())
+                    continue
+
+                # Spent a minute in a voice channel
+                updates.append(self.statistics.voice_time.increment())
+                if len(list(filter(lambda x: not x.bot, channel.members))) == 1:
+                    # Alone in a voice channel
+                    updates.append(self.statistics.alone_time.increment())
+                if self.get_game_activity():
+                    # Playing a game
+                    updates.append(self.statistics.game_time.increment())
+
+            await asyncio.gather(*updates)
+
+            if before is True and await self.is_noob() is False:
                 embed = discord.Embed(
                     title='Congratulations!',
                     colour=Colour.success(),

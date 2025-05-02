@@ -31,13 +31,13 @@ class GamblingManager:
         else:
             self.loss_streak[member] += loss
 
-    def needs_help(self, member: 'HeliosMember'):
+    async def needs_help(self, member: 'HeliosMember'):
         if self.server.cooldowns.on_cooldown('gambling.helped', member):
             return False
         if member not in self.loss_streak:
             return False
 
-        if member.activity_points < 10_000:
+        if await member.get_activity_points() < 10_000:
             return False
         if self.loss_streak[member] > member.points >= 1_000:
             return True

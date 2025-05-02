@@ -717,7 +717,7 @@ class BlackjackJoinView(discord.ui.View):
                 content=f'You do not have enough {member.server.points_name.capitalize()}s.')
             return
 
-        if self.blackjack.manager.needs_help(member):
+        if await self.blackjack.manager.needs_help(member):
             dealer_cards = [self.blackjack.deck.cards[-1], self.blackjack.deck.cards[-len(self.blackjack.players) - 3]]
             dealer_hand = Hand()
             dealer_hand.add_cards(dealer_cards)
@@ -747,7 +747,7 @@ class BlackjackJoinView(discord.ui.View):
         await self.blackjack.add_player(member, amount)
         await interaction.followup.send(content=f'You have joined the game with a bet of {amount} '
                                                 f'{member.server.points_name.capitalize()}.')
-        if self.blackjack.manager.needs_help(member):
+        if await self.blackjack.manager.needs_help(member):
             self.blackjack.force_bust = True
             self.blackjack.manager.helped(member)
 
