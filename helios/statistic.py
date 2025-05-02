@@ -87,3 +87,9 @@ class Statistics:
             value = getattr(self, key)
             if isinstance(value, Stat):
                 yield value
+
+    async def get_all_stats(self, stats: list[str] = None) -> dict[str, int]:
+        stat_names = [stat.name for stat in self.all_stats() if stat.name in stats] if stats \
+            else [stat.name for stat in self.all_stats()]
+        stats = await StatisticModel.get_all(self._guild_id, self._member_id, stats=stat_names)
+        return {stat.name: stat.value for stat in stats}

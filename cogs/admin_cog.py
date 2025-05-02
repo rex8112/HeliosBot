@@ -19,6 +19,7 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+import asyncio
 from datetime import datetime, timedelta
 
 import discord
@@ -181,6 +182,19 @@ class AdminCog(commands.GroupCog, name='admin'):
                 description += f'\n**{stat.display_name}**: {value}'
             embed.description = description
             await interaction.followup.send(embed=embed)
+        elif command == 'migrate_ap':
+            await interaction.response.defer(ephemeral=True)
+            tasks = []
+            for server in self.bot.servers.servers.values():
+                for member in server.members.members.values():
+                    ap = member.db_entry.activity_points
+                    if ap > 0:
+                        await member.statistics.voice_time.increment(ap)
+                        member.db_entry.activity_points = 0
+                        tasks.append(member.db_entry.async_save(only=['activity_points']))
+
+            await asyncio.gather(*tasks)
+            await interaction.followup.send('Finished')
 
 
 async def setup(bot: 'HeliosBot'):

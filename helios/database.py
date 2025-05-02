@@ -690,8 +690,11 @@ class StatisticModel(BaseModel):
             return 0
 
     @classmethod
-    async def get_all(cls, server_id: int, member_id: Optional[int]) -> list['StatisticModel']:
-        q = cls.select().where(cls.server_id == server_id, cls.member_id == member_id)
+    async def get_all(cls, server_id: int, member_id: Optional[int], *, stats: list[str] = None) -> list['StatisticModel']:
+        if stats:
+            q = cls.select().where(cls.server_id == server_id, cls.member_id == member_id, cls.name << stats)
+        else:
+            q = cls.select().where(cls.server_id == server_id, cls.member_id == member_id)
         return await objects.prefetch(q)
 
     @classmethod

@@ -107,7 +107,7 @@ class MuteItem(Item):
             return False, 'You are not in a voice channel.'
         if not user.member.voice.channel.permissions_for(target.member).view_channel:
             return False, f'{target.member.display_name} can not see your channel.'
-        if target.is_noob():
+        if await target.is_noob():
             return False, f'{target.member.display_name} is still too new to be muted.'
         if target.member.voice is None or not target.member.voice.channel.permissions_for(
                 user.member).view_channel:
@@ -166,7 +166,7 @@ class DeafenItem(Item):
             return False, 'You are not in a voice channel.'
         if not user.member.voice.channel.permissions_for(target.member).view_channel:
             return False, f'{target.member.display_name} can not see your channel.'
-        if target.is_noob():
+        if await target.is_noob():
             return False, f'{target.member.display_name} is still too new to be deafened.'
         if not target.member.voice or not target.member.voice.channel.permissions_for(user.member).view_channel:
             return False, f'{target.member.display_name} is not in a voice channel.'

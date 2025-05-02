@@ -105,7 +105,7 @@ class PointsCog(commands.Cog):
         member = server.members.get(interaction.user.id)
         await interaction.response.send_message(
             f'Current {server.points_name.capitalize()}: **{member.points:,}**\n'
-            f'Activity {server.points_name.capitalize()}: **{member.activity_points:,}**\n'
+            f'Activity {server.points_name.capitalize()}: **{await member.get_activity_points():,}**\n'
             f'Change in the last 24 hours: **{await member.get_24hr_change():,}**\n'
             f'Pending Payment: **{member.unpaid_ap}**',
             ephemeral=True
@@ -217,6 +217,8 @@ class PointsCog(commands.Cog):
         server = self.bot.servers.get(interaction.guild_id)
         members = list(server.members.members.values())
         member = server.members.get(interaction.user.id)
+        tasks = [x.get_activity_points() for x in members]
+        await asyncio.gather(*tasks)
         leaderboard_string = build_leaderboard(member, members, lambda x: x.activity_points)
         a_embed = discord.Embed(
             colour=member.colour(),
@@ -288,7 +290,7 @@ class PointsCog(commands.Cog):
     async def who_is(self, interaction: discord.Interaction, member: discord.Member):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(member.id)
-        await interaction.response.send_message(embed=member.profile(), ephemeral=True)
+        await interaction.response.send_message(embed=await member.profile(), ephemeral=True)
 
     @tasks.loop(time=time(hour=0, minute=0, tzinfo=datetime.now().astimezone().tzinfo))
     async def pay_ap(self):
