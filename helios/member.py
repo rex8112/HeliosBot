@@ -482,7 +482,7 @@ class HeliosMember(HasFlags):
         await self.add_points(-price, target.member.name, description)
 
     async def payout_activity_points(self):
-        points = self._activity_points - self._ap_paid
+        points = await self.get_activity_points() - self._ap_paid
         if points <= 0:
             return 0
         await self.add_points(points, 'Helios', 'Activity Points Payout')
