@@ -317,7 +317,6 @@ class HeliosMember(HasFlags):
             'member_id': self.member.id,
             'templates': json.dumps([x.serialize() for x in self.templates]),
             'flags': json.dumps(self.flags),
-            'activity_points': self._activity_points,
             'points': self._points,
             'ap_paid': self._ap_paid
         }
