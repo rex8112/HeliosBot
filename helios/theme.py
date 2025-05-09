@@ -48,6 +48,13 @@ class ThemeManager:
         if self.current_theme:
             self.build_role_map()
 
+    async def apply_theme(self, theme: 'Theme'):
+        current_roles = list(self.role_map.values())
+        new_role_map = {}
+        to_remove = current_roles[len(theme.roles):]
+        for i, theme_role in enumerate(theme.roles):
+            cur_role = current_roles[i]
+
     async def build_theme(self, roles: list[discord.Role]):
         if self.current_theme:
             self.current_theme.current = False
