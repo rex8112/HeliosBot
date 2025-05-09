@@ -213,9 +213,9 @@ class ThemeCog(commands.Cog):
                         colour=discord.Colour.blurple()
                     )
                     if server.announcement_channel:
-                        await server.announcement_channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
-                        embeds = get_leaderboard_embeds(server)
-                        await server.announcement_channel.send(embeds=embeds, view=self.lb_view)
+                        await server.announcement_channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none(), view=self.lb_view)
+                        #embeds = get_leaderboard_embeds(server)
+                        #await server.announcement_channel.send(embeds=embeds, view=self.lb_view)
 
 
 class SelectRoleView(ui.View):
