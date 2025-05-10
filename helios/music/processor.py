@@ -50,7 +50,7 @@ ytdlopts = {
 
 ffmpeg_options = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-    'options': '-vn -sn -dn -ignore_unknown'
+    'options': '-vn -sn -dn -ignore_unknown -http_persistent 0'
 }
 
 ytdl = yt_dlp.YoutubeDL(ytdlopts)

@@ -156,7 +156,8 @@ class MusicPlayer:
             await interaction.followup.send(content='Invalid URL Given')
 
     def start(self):
-        self._task = asyncio.create_task(self.main_loop())
+        if not self.loop_running:
+            self._task = asyncio.create_task(self.main_loop())
 
     def stop(self):
         self._stopping = True
@@ -287,7 +288,7 @@ class MusicPlayer:
     def seconds_running(self) -> int:
         if self.currently_playing is None:
             return 0
-        return int((datetime.now().astimezone() - self._started).total_seconds())
+        return int((datetime.now().astimezone() - self._started).total_seconds()) if self._started else 0
 
     def time_left(self) -> int:
         if self.currently_playing is None:
