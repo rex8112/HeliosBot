@@ -163,7 +163,10 @@ class HeliosVoiceController:
             elif after.channel.id != self.schedule.current_slot().data.get('channel_id'):
                 await asyncio.sleep(1)
                 channel = self.bot.get_channel(self.schedule.current_slot().data.get('channel_id'))
-                await self.connect(channel)
+                try:
+                    await self.connect(channel)
+                except discord.NotFound:
+                    self.schedule.current_slot().end = datetime.now().astimezone()
 
     async def bot_on_disconnect(self, channel: discord.VoiceChannel):
         if self.voice_client:
