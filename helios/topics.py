@@ -274,6 +274,14 @@ class TopicChannel:
             time = last_message.created_at
         return time < self.oldest_allowed
 
+    async def is_subscribed(self, member: 'HeliosMember') -> bool:
+        """
+        Check if a member is subscribed to the topic
+        :param member: The member to check
+        :return: True if the member is subscribed, False otherwise
+        """
+        return await TopicSubscriptionModel.get(member.db_entry, self.db_entry) is not None
+
     async def subscribe(self, member: 'HeliosMember'):
         existing = await TopicSubscriptionModel.get(member.db_entry, self.db_entry)
         if not existing:
