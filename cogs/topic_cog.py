@@ -36,6 +36,12 @@ class TopicCog(commands.GroupCog, name='topic'):
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
 
+        self.toggle_sub_context = app_commands.ContextMenu(
+            name='Toggle Subscribe',
+            callback=self.toggle_sub_context,
+        )
+        self.bot.tree.add_command(self.toggle_sub_context)
+
     @app_commands.command(name='new', description='Create a new topic')
     @app_commands.describe(name='The name of the topic. Auto fill shows existing topics.')
     async def topic_create(
@@ -88,6 +94,20 @@ class TopicCog(commands.GroupCog, name='topic'):
         if isinstance(channel, TopicChannel):
             await channel.unsubscribe(member)
             await interaction.response.send_message('Unsubscribed from topic', ephemeral=True)
+        else:
+            await interaction.response.send_message('Channel is not a topic', ephemeral=True)
+
+    async def toggle_sub_context(self, interaction: discord.Interaction, message: discord.Message):
+        server = self.bot.servers.get(guild_id=interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        channel = server.channels.get(message.channel.id)
+        if isinstance(channel, TopicChannel):
+            if await channel.is_subscribed(member):
+                await channel.unsubscribe(member)
+                await interaction.response.send_message('Unsubscribed from topic', ephemeral=True)
+            else:
+                await channel.subscribe(member)
+                await interaction.response.send_message('Subscribed to topic', ephemeral=True)
         else:
             await interaction.response.send_message('Channel is not a topic', ephemeral=True)
 
