@@ -308,6 +308,17 @@ class DynamicVoiceChannel:
             self._should_update = False
             await self.send_control_message()
 
+    async def trim_messages(self):
+        if len(self.channel.members) == 0 and self.state != DynamicVoiceState.CONTROLLED and await self.check_if_old_messages():
+            logger.debug(f'{self.server.name}: Dynamic Voice: Two week old messages found, deleting {self.channel.name}')
+            await self.delete()
+        else:
+            logger.debug(f'{self.server.name}: Dynamic Voice: Trimming messages in {self.channel.name}')
+            twelve_days_ago = datetime.now().astimezone() - timedelta(days=12)
+            two_weeks_ago = datetime.now().astimezone() - timedelta(weeks=2)
+            deleted = await self.channel.purge(before=twelve_days_ago, after=two_weeks_ago, reason='Dynamic Voice Channel Trim')
+            logger.debug(f'{self.server.name}: Dynamic Voice: Deleted {len(deleted)} messages in {self.channel.name}')
+
     async def get_majority_game(self):
         games = {None: 0}
         for member in self.channel.members:
@@ -421,22 +432,36 @@ class DynamicVoiceChannel:
             await self.update_control_message(force=True)
             await self.save()
 
-    async def purge_channel(self):
-        await self.channel.purge(limit=None, bulk=True, oldest_first=True, check=lambda x: x != self._control_message)
+    async def purge_channel(self, new_only=False):
+        """Purge the channel of messages."""
+        if new_only:
+            two_weeks_ago = datetime.now().astimezone() - timedelta(weeks=2)
+            await self.channel.purge(limit=None, bulk=True, after=two_weeks_ago,
+                                     check=lambda x: x != self._control_message)
+        else:
+            await self.channel.purge(limit=None, bulk=True, check=lambda x: x != self._control_message)
 
-    async def unmake_private(self):
+    async def check_if_old_messages(self):
+        messages = [x async for x in self.channel.history(limit=1, oldest_first=True)]
+        two_weeks_ago = datetime.now().astimezone() - timedelta(weeks=2)
+        return messages and messages[0].created_at < two_weeks_ago
+
+    async def unmake_private(self, purge_only_new=False):
         """Unmake the channel private."""
         if self.state == DynamicVoiceState.PRIVATE:
-            await self.purge_channel()
+            if not purge_only_new and await self.check_if_old_messages():
+                return False
+            await self.purge_channel(new_only=purge_only_new)
             if self.channel.nsfw:
                 await self.channel.edit(nsfw=False)
             self.template = None
             self.owner = None
+            return True
 
     async def make_active(self, group: 'DynamicVoiceGroup'):
         """Make the channel active."""
         if self.state != DynamicVoiceState.ACTIVE:
-            await self.unmake_private()
+            await self.unmake_private(purge_only_new=True)
             self.unmake_controlled()
             self.state = DynamicVoiceState.ACTIVE
             self.number = self.manager.get_next_number(group)
@@ -456,7 +481,7 @@ class DynamicVoiceChannel:
         """Make the channel controlled."""
         if self.state != DynamicVoiceState.CONTROLLED:
             self.unmake_active()
-            await self.unmake_private()
+            await self.unmake_private(purge_only_new=True)
             self.state = DynamicVoiceState.CONTROLLED
             self._custom_view_type = custom_view_type
             await self.save()
@@ -474,7 +499,9 @@ class DynamicVoiceChannel:
         if self.state != DynamicVoiceState.INACTIVE or force:
             self.unmake_active()
             self.unmake_controlled()
-            await self.unmake_private()
+            if not await self.unmake_private():
+                await self.delete()
+                return
             self.state = DynamicVoiceState.INACTIVE
 
             for effect in self.bot.effects.get_effects(self):
@@ -676,10 +703,19 @@ class VoiceManager:
             if channel.state != DynamicVoiceState.INACTIVE:
                 await channel.update_control_message(force=force)
 
+    async def trim_messages(self):
+        tasks = []
+        for channel in self.channels.values():
+            tasks.append(channel.trim_messages())
+        await asyncio.gather(*tasks)
+
     async def check_channels(self):
         if not self._setup:
             return
 
+        logger.debug(f'{self.server.name}: Voice Manager: Checking Channels')
+        logger.debug(f'{self.server.name}: Voice Manager: Trimming Messages')
+        await self.trim_messages()
         all_max = 0
         logger.debug(f'{self.server.name}: Voice Manager: Checking Groups')
         for group in self.groups.values():
@@ -763,7 +799,7 @@ class VoiceManager:
         if isinstance(channel, discord.VoiceChannel):
             channel = self.channels[channel.id]
 
-        await channel.purge_channel()
+        await channel.purge_channel(new_only=True)
         channel.settings = VoiceSettings(self.server.bot)
         await channel.make_inactive(force=True)
 
