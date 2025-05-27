@@ -52,8 +52,33 @@ class ThemeManager:
         current_roles = list(self.role_map.values())
         new_role_map = {}
         to_remove = current_roles[len(theme.roles):]
+        last_pos = max(x.position for x in self.server.guild.roles)
         for i, theme_role in enumerate(theme.roles):
-            cur_role = current_roles[i]
+            try:
+                cur_role = current_roles[i]
+            except IndexError:
+                cur_role = None
+
+            try:
+                color = discord.Colour.from_str(theme_role.color)
+            except ValueError:
+                color = discord.Colour.dark_gray
+
+            if cur_role:
+                # Update existing role
+                last_pos = cur_role.position
+                await cur_role.edit(name=theme_role.name, color=color, reason='Theme Update')
+            else:
+                # Create new role
+                cur_role = await self.server.guild.create_role(name=theme_role.name, colour=color,
+                                                               permissions=discord.Permissions.none(), hoist=True,
+                                                               reason='Theme Update')
+                await cur_role.edit(position=last_pos+1, reason='Theme Update')
+                last_pos = cur_role.position
+
+            new_role_map[theme_role] = cur_role
+        for role in to_remove:
+            await role.delete(reason='Theme Update')
 
     async def build_theme(self, roles: list[discord.Role]):
         if self.current_theme:
