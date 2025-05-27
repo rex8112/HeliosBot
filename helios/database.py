@@ -388,6 +388,8 @@ class ThemeModel(BaseModel):
     owner = ForeignKeyField(MemberModel, backref='themes', null=True)
     editable = BooleanField(default=True)
     current = BooleanField(default=False)
+    sort_stat = CharField(max_length=25, default='points')
+    sort_type = CharField(max_length=25, default='total')
     created = DatetimeTzField(default=get_aware_utc_now)
 
     class Meta:

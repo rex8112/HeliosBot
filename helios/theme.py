@@ -146,6 +146,8 @@ class Theme:
         self.owner: Optional['HeliosMember'] = None
         self.editable = True
         self.current = False
+        self.sort_stat = 'points'
+        self.sort_type = 'total'
         self.db_entry: Optional[ThemeModel] = None
 
     def has_role(self, role: discord.Role):
@@ -165,6 +167,8 @@ class Theme:
             'owner': self.owner.db_entry if self.owner else None,
             'current': self.current,
             'editable': self.editable,
+            'sort_stat': self.sort_stat,
+            'sort_type': self.sort_type
         }
 
     @classmethod
@@ -174,6 +178,8 @@ class Theme:
         theme.current = db_entry.current
         theme.editable = db_entry.editable
         theme.owner = server.members.get(db_entry.owner_id) if db_entry.owner_id else None
+        theme.sort_stat = db_entry.sort_stat
+        theme.sort_type = db_entry.sort_type
         return theme
 
     @classmethod
