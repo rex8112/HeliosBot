@@ -385,8 +385,9 @@ class ThemeModel(BaseModel):
     server = ForeignKeyField(ServerModel, backref='themes')
     name = CharField(max_length=25)
     roles = JSONField(default=[])
+    owner = ForeignKeyField(MemberModel, backref='themes', null=True)
+    editable = BooleanField(default=True)
     current = BooleanField(default=False)
-    used = BooleanField(default=False)
     created = DatetimeTzField(default=get_aware_utc_now)
 
     class Meta:

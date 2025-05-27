@@ -49,7 +49,13 @@ class MemberManager:
     def get(self, member_id: Union[int, discord.Member]) -> Optional[HeliosMember]:
         if isinstance(member_id, discord.Member):
             member_id = member_id.id
-        return self.members.get(member_id)
+        mem = self.members.get(member_id)
+        if mem is None:
+            for m in self.members.values():
+                if m.db_id == member_id:
+                    mem = m
+                    break
+        return mem
 
     async def fetch(self, member_id: int, *, force=False):
         member = self.get(member_id)

@@ -143,8 +143,9 @@ class Theme:
         self.server = server
         self.name = name
         self.roles = roles
+        self.owner: Optional['HeliosMember'] = None
+        self.editable = True
         self.current = False
-        self.used = False
         self.db_entry: Optional[ThemeModel] = None
 
     def has_role(self, role: discord.Role):
@@ -161,8 +162,9 @@ class Theme:
         return {
             'name': self.name,
             'roles': [x.to_dict() for x in self.roles],
+            'owner': self.owner.db_entry if self.owner else None,
             'current': self.current,
-            'used': self.used
+            'editable': self.editable,
         }
 
     @classmethod
@@ -170,7 +172,8 @@ class Theme:
         theme = cls(server, db_entry.name, [ThemeRole.from_dict(x) for x in db_entry.roles])
         theme.db_entry = db_entry
         theme.current = db_entry.current
-        theme.used = db_entry.used
+        theme.editable = db_entry.editable
+        theme.owner = server.members.get(db_entry.owner_id) if db_entry.owner_id else None
         return theme
 
     @classmethod
