@@ -89,7 +89,6 @@ class ThemeManager:
         self.current_theme.roles[-1].maximum = -1
         await self.current_theme.save()
         self.current_theme.current = True
-        self.current_theme.used = True
         self.build_role_map()
         await self.current_theme.save()
 
@@ -159,7 +158,7 @@ class Theme:
             await self.db_entry.async_update(**self.to_dict())
         else:
             d = self.to_dict()
-            self.db_entry = await ThemeModel.create(server=self.server.db_entry, name=d['name'], roles=d['roles'])
+            self.db_entry = await ThemeModel.create(server=self.server.db_entry, owner=self.owner.db_entry if self.owner else None, name=d['name'], roles=d['roles'])
 
     def to_dict(self):
         return {

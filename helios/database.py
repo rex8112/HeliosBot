@@ -409,6 +409,15 @@ class ThemeModel(BaseModel):
             return None
 
     @classmethod
+    async def get_themes(cls, server: ServerModel, owner: MemberModel = None):
+        """Get all themes for a server, optionally filtered by owner."""
+        if owner:
+            q = cls.select().where(cls.server == server, cls.owner == owner)
+        else:
+            q = cls.select().where(cls.server == server)
+        return await objects.prefetch(q)
+
+    @classmethod
     async def get(cls, id: int) -> Optional['ThemeModel']:
         try:
             return await objects.get(ThemeModel, id=id)
@@ -416,8 +425,8 @@ class ThemeModel(BaseModel):
             return None
 
     @classmethod
-    async def create(cls, server: ServerModel, name: str, roles: list[dict]) -> 'ThemeModel':
-        return await objects.create(cls, server=server, name=name, roles=roles)
+    async def create(cls, server: ServerModel, owner: MemberModel, name: str, roles: list[dict]) -> 'ThemeModel':
+        return await objects.create(cls, server=server, owner=owner, name=name, roles=roles)
 
 
 class BlackjackModel(BaseModel):
