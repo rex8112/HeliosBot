@@ -148,6 +148,7 @@ class Theme:
         self.current = False
         self.sort_stat = 'points'
         self.sort_type = 'total'
+        self.banner_url: Optional[str] = None
         self.db_entry: Optional[ThemeModel] = None
 
     def has_role(self, role: discord.Role):
@@ -168,7 +169,8 @@ class Theme:
             'current': self.current,
             'editable': self.editable,
             'sort_stat': self.sort_stat,
-            'sort_type': self.sort_type
+            'sort_type': self.sort_type,
+            'banner_url': self.banner_url
         }
 
     @classmethod
@@ -180,6 +182,7 @@ class Theme:
         theme.owner = server.members.get(db_entry.owner_id) if db_entry.owner_id else None
         theme.sort_stat = db_entry.sort_stat
         theme.sort_type = db_entry.sort_type
+        theme.banner_url = db_entry.banner_url
         return theme
 
     @classmethod
@@ -202,6 +205,7 @@ class ThemeRole:
         self.name = name
         self.color = color
         self.maximum = maximum
+        self.icon_url: Optional[str] = None
 
     def _key(self):
         return self.name, self.color, self.maximum
@@ -219,27 +223,12 @@ class ThemeRole:
         return {
             'name': self.name,
             'color': self.color,
-            'maximum': self.maximum
+            'maximum': self.maximum,
+            'icon_url': self.icon_url
         }
 
     @classmethod
     def from_dict(cls, data: dict):
-        return cls(data['name'], data['color'], data['maximum'])
-
-
-class EditThemeView(ui.View):
-    def __init__(self, theme: Theme):
-        super().__init__()
-        self.theme = theme
-
-    @ui.button(label='Edit Name', style=ButtonStyle.primary)
-    async def edit_name(self, interaction: Interaction, button: ui.Button):
-        pass
-
-    @ui.button(label='Edit Color', style=ButtonStyle.primary)
-    async def edit_color(self, interaction: Interaction, button: ui.Button):
-        pass
-
-    @ui.button(label='Edit Roles', style=ButtonStyle.primary)
-    async def edit_roles(self, interaction: Interaction, button: ui.Button):
-        pass
+        role = cls(data['name'], data['color'], data['maximum'])
+        role.icon_url = data.get('icon_url')
+        return role

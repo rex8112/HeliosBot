@@ -29,7 +29,7 @@ import discord
 from discord import app_commands, Interaction, ui
 from discord.ext import commands, tasks
 
-from helios import DynamicVoiceGroup, VoiceManager, PaginatorSelectView, Colour
+from helios import DynamicVoiceGroup, VoiceManager, PaginatorSelectView, Colour, ThemeEditView
 
 if TYPE_CHECKING:
     from helios import HeliosBot, HeliosMember, Server
@@ -196,6 +196,15 @@ class ThemeCog(commands.Cog):
             await interaction.followup.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
         else:
             await interaction.followup.send('No changes were made.')
+
+    @app_commands.command(name='test_view', description='Test the ThemeEdit view.')
+    @app_commands.guild_only()
+    @app_commands.default_permissions(administrator=True)
+    async def test_view(self, interaction: discord.Interaction):
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        view = ThemeEditView(server, member)
+        await interaction.response.send_message(embed=view.get_embed(), view=view, ephemeral=True)
 
     @tasks.loop(time=time(hour=0, minute=5, tzinfo=datetime.now().astimezone().tzinfo))
     async def sort_themes(self):

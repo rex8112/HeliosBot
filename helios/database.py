@@ -383,13 +383,14 @@ class EffectModel(BaseModel):
 class ThemeModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
     server = ForeignKeyField(ServerModel, backref='themes')
-    name = CharField(max_length=25)
+    name = CharField(max_length=25, unique=True)
     roles = JSONField(default=[])
     owner = ForeignKeyField(MemberModel, backref='themes', null=True)
     editable = BooleanField(default=True)
     current = BooleanField(default=False)
     sort_stat = CharField(max_length=25, default='points')
     sort_type = CharField(max_length=25, default='total')
+    banner_url = CharField(max_length=255, null=True)
     created = DatetimeTzField(default=get_aware_utc_now)
 
     class Meta:

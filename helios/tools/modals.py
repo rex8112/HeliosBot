@@ -19,7 +19,9 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+from typing import Optional
 
+import discord
 from discord import ui, Interaction
 
 
@@ -87,18 +89,20 @@ class SearchModal(ui.Modal, title='Search'):
         self.stop()
 
 
-def get_simple_modal(title: str, label: str):
+def get_simple_modal(title: str, label: str, max_length: int = None):
     class SimpleModal(ui.Modal, title=title):
-        search = ui.TextInput(label=label)
+        search = ui.TextInput(label=label, max_length=max_length)
 
         def __init__(self, *, default=None, timeout=30):
             super().__init__(timeout=timeout)
             if default:
                 self.search.default = default
             self.value = None
+            self.interaction: Optional[discord.Interaction] = None
 
         async def on_submit(self, interaction: Interaction) -> None:
             self.value = self.search.value
+            self.interaction = interaction
             await interaction.response.defer()
             self.stop()
 
