@@ -19,6 +19,7 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+import asyncio
 from typing import TYPE_CHECKING, Callable, Optional
 
 import discord
@@ -159,6 +160,19 @@ class Theme:
         else:
             d = self.to_dict()
             self.db_entry = await ThemeModel.create(server=self.server.db_entry, owner=self.owner.db_entry if self.owner else None, name=d['name'], roles=d['roles'])
+
+    async def get_sorted_members(self) -> tuple[list[tuple['HeliosMember', int]], str]:
+        member_value = {}
+        async def fill_value(member: 'HeliosMember'):
+            if self.sort_stat == 'points':
+                member_value[member] = member.points
+            elif self.sort_stat == 'activity':
+                member_value[member] = await member.get_activity_points()
+
+        tasks = [fill_value(member) for member in self.server.members.members.values() if not member.member.bot]
+        await asyncio.gather(*tasks)
+        sorted_members_list = sorted(member_value.items(), key=lambda x: x[1], reverse=True)
+        return list(sorted_members_list), self.sort_stat
 
     def to_dict(self):
         return {

@@ -53,10 +53,10 @@ def get_leaderboard_string(num: int, member: 'HeliosMember', value: int, prefix:
     return f'{prefix:2}{num:3}. {member.member.display_name:>32}: {value:10,}\n'
 
 
-def get_leaderboard_embeds(server: 'Server', member: Optional['HeliosMember'] = None, only_member=False):
+async def get_leaderboard_embeds(server: 'Server', member: Optional['HeliosMember'] = None, only_member=False):
     theme = server.theme.current_theme
     if theme is None:
-        members = [(x, i) for i, x in enumerate(list(server.members.members.values()))]
+        members = [(x, x.points, i) for i, x in enumerate(list(server.members.members.values()))]
         leaderboard_string = build_leaderboard(member, members)
         p_embed = discord.Embed(
             colour=Colour.helios(),
@@ -65,18 +65,19 @@ def get_leaderboard_embeds(server: 'Server', member: Optional['HeliosMember'] = 
         )
         return [p_embed]
 
-    members = list(sorted(filter(lambda x: not x.member.bot, server.members.members.values()), key=lambda x: -x.points))
+    member_values, stat_name = await theme.get_sorted_members()
     index = 0
     embeds = []
     for role in theme.roles:
         discord_role = server.theme.role_map[role]
-        role_members = []
+        role_members: list[tuple['HeliosMember', int, int]] = []
         member_in = False
-        for i in range(role.maximum if role.maximum > 0 else len(members) - index):
+        for i in range(role.maximum if role.maximum > 0 else len(member_values) - index):
             try:
-                if members[index] == member:
+                if member_values[index][0] == member:
                     member_in = True
-                role_members.append((members[index], index))
+                mem, val = member_values[index]
+                role_members.append((mem, val, index))
                 index += 1
             except IndexError:
                 break
@@ -92,24 +93,24 @@ def get_leaderboard_embeds(server: 'Server', member: Optional['HeliosMember'] = 
     return embeds
 
 
-def build_leaderboard(author: 'HeliosMember', member_pos: list[tuple['HeliosMember', int]]) -> str:
+def build_leaderboard(author: 'HeliosMember', member_val_pos: list[tuple['HeliosMember', int, int]], ) -> str:
     leaderboard_string = ''
     user_found = False
-    for mem, pos in member_pos[:10]:
+    for mem, val, pos in member_val_pos[:10]:
         modifier = ''
         if mem == author:
             modifier = '>'
             user_found = True
-        leaderboard_string += get_leaderboard_string(pos+1, mem, mem.points, modifier)
-    mem_only = [x[0] for x in member_pos]
+        leaderboard_string += get_leaderboard_string(pos+1, mem, val, modifier)
+    mem_only = [x[0] for x in member_val_pos]
     if not user_found and author in mem_only:
         index = mem_only.index(author)
         leaderboard_string += '...\n'
-        for mem, i in member_pos[index - 1:index + 2]:
+        for mem, val, i in member_val_pos[index - 1:index + 2]:
             modifier = ''
             if mem == author:
                 modifier = '>'
-            leaderboard_string += get_leaderboard_string(i, mem, mem.points, modifier)
+            leaderboard_string += get_leaderboard_string(i, mem, val, modifier)
     return leaderboard_string
 
 
