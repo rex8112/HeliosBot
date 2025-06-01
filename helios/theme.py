@@ -23,8 +23,8 @@ import asyncio
 from typing import TYPE_CHECKING, Callable, Optional
 
 import discord
-from discord import ui, ButtonStyle, Interaction
 
+from .colour import Colour
 from .database import ThemeModel
 
 if TYPE_CHECKING:
@@ -103,7 +103,8 @@ class ThemeManager:
     async def sort_members(self):
         if not self.current_theme:
             return
-        members = sorted_members(self.server.members.members.values(), key=lambda x: x.points)
+        member_val, stat_name = await self.current_theme.get_sorted_members()
+        members, values = zip(*member_val)
         member_role_pairs = []
         changes: list[tuple['HeliosMember', discord.Role, discord.Role]] = []
         for theme_role in self.current_theme.roles:
@@ -173,6 +174,72 @@ class Theme:
         await asyncio.gather(*tasks)
         sorted_members_list = sorted(member_value.items(), key=lambda x: x[1], reverse=True)
         return list(sorted_members_list), self.sort_stat
+
+
+    @staticmethod
+    def get_leaderboard_string(num: int, member: 'HeliosMember', value: int, prefix: str = ''):
+        return f'{prefix:2}{num:3}. {member.member.display_name:>32}: {value:10,}\n'
+
+
+    async def get_leaderboard_embeds(self, member: Optional['HeliosMember'] = None, only_member=False):
+        theme = self.server.theme.current_theme
+        if theme is None:
+            members = [(x, x.points, i) for i, x in enumerate(list(self.server.members.members.values()))]
+            leaderboard_string = self.build_leaderboard(member, members)
+            p_embed = discord.Embed(
+                colour=Colour.helios(),
+                title=f'{self.server.guild.name} {self.server.points_name.capitalize()} Leaderboard',
+                description=f'```{leaderboard_string}```'
+            )
+            return [p_embed]
+
+        member_values, stat_name = await theme.get_sorted_members()
+        index = 0
+        embeds = []
+        for role in theme.roles:
+            discord_role = server.theme.role_map[role]
+            role_members: list[tuple['HeliosMember', int, int]] = []
+            member_in = False
+            for i in range(role.maximum if role.maximum > 0 else len(member_values) - index):
+                try:
+                    if member_values[index][0] == member:
+                        member_in = True
+                    mem, val = member_values[index]
+                    role_members.append((mem, val, index))
+                    index += 1
+                except IndexError:
+                    break
+            lb_str = self.build_leaderboard(member, role_members)
+            embed = discord.Embed(
+                title=discord_role.name,
+                color=discord_role.color,
+                description=f'```{lb_str}```'
+            )
+            if member_in and only_member:
+                return [embed]
+            embeds.append(embed)
+        return embeds
+
+
+    def build_leaderboard(self, author: 'HeliosMember', member_val_pos: list[tuple['HeliosMember', int, int]], ) -> str:
+        leaderboard_string = ''
+        user_found = False
+        for mem, val, pos in member_val_pos[:10]:
+            modifier = ''
+            if mem == author:
+                modifier = '>'
+                user_found = True
+            leaderboard_string += self.get_leaderboard_string(pos+1, mem, val, modifier)
+        mem_only = [x[0] for x in member_val_pos]
+        if not user_found and author in mem_only:
+            index = mem_only.index(author)
+            leaderboard_string += '...\n'
+            for mem, val, i in member_val_pos[index - 1:index + 2]:
+                modifier = ''
+                if mem == author:
+                    modifier = '>'
+                leaderboard_string += self.get_leaderboard_string(i, mem, val, modifier)
+        return leaderboard_string
 
     def to_dict(self):
         return {

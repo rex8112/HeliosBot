@@ -21,19 +21,17 @@
 #  SOFTWARE.
 
 import logging
-import traceback
 from datetime import time, datetime
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING
 
 import discord
 from discord import app_commands, Interaction, ui
 from discord.ext import commands, tasks
 
-from helios import DynamicVoiceGroup, VoiceManager, PaginatorSelectView, Colour, ThemeEditView
+from helios import ThemeEditView
 
 if TYPE_CHECKING:
-    from helios import HeliosBot, HeliosMember, Server
-
+    from helios import HeliosBot, HeliosMember
 
 logger = logging.getLogger('Helios.ThemeCog')
 
@@ -49,71 +47,7 @@ def get_change_str(changes: list[tuple['HeliosMember', discord.Role, discord.Rol
     return ch_str
 
 
-def get_leaderboard_string(num: int, member: 'HeliosMember', value: int, prefix: str = ''):
-    return f'{prefix:2}{num:3}. {member.member.display_name:>32}: {value:10,}\n'
-
-
-async def get_leaderboard_embeds(server: 'Server', member: Optional['HeliosMember'] = None, only_member=False):
-    theme = server.theme.current_theme
-    if theme is None:
-        members = [(x, x.points, i) for i, x in enumerate(list(server.members.members.values()))]
-        leaderboard_string = build_leaderboard(member, members)
-        p_embed = discord.Embed(
-            colour=Colour.helios(),
-            title=f'{server.guild.name} {server.points_name.capitalize()} Leaderboard',
-            description=f'```{leaderboard_string}```'
-        )
-        return [p_embed]
-
-    member_values, stat_name = await theme.get_sorted_members()
-    index = 0
-    embeds = []
-    for role in theme.roles:
-        discord_role = server.theme.role_map[role]
-        role_members: list[tuple['HeliosMember', int, int]] = []
-        member_in = False
-        for i in range(role.maximum if role.maximum > 0 else len(member_values) - index):
-            try:
-                if member_values[index][0] == member:
-                    member_in = True
-                mem, val = member_values[index]
-                role_members.append((mem, val, index))
-                index += 1
-            except IndexError:
-                break
-        lb_str = build_leaderboard(member, role_members)
-        embed = discord.Embed(
-            title=discord_role.name,
-            color=discord_role.color,
-            description=f'```{lb_str}```'
-        )
-        if member_in and only_member:
-            return [embed]
-        embeds.append(embed)
-    return embeds
-
-
-def build_leaderboard(author: 'HeliosMember', member_val_pos: list[tuple['HeliosMember', int, int]], ) -> str:
-    leaderboard_string = ''
-    user_found = False
-    for mem, val, pos in member_val_pos[:10]:
-        modifier = ''
-        if mem == author:
-            modifier = '>'
-            user_found = True
-        leaderboard_string += get_leaderboard_string(pos+1, mem, val, modifier)
-    mem_only = [x[0] for x in member_val_pos]
-    if not user_found and author in mem_only:
-        index = mem_only.index(author)
-        leaderboard_string += '...\n'
-        for mem, val, i in member_val_pos[index - 1:index + 2]:
-            modifier = ''
-            if mem == author:
-                modifier = '>'
-            leaderboard_string += get_leaderboard_string(i, mem, val, modifier)
-    return leaderboard_string
-
-
+# noinspection PyUnresolvedReferences
 class ThemeCog(commands.Cog):
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
@@ -132,14 +66,7 @@ class ThemeCog(commands.Cog):
         member = server.members.get(interaction.user.id)
         theme = server.theme.current_theme
         if theme is None:
-            members = [(x, i) for i,x in enumerate(list(server.members.members.values()))]
-            leaderboard_string = build_leaderboard(member, members)
-            p_embed = discord.Embed(
-                colour=member.colour(),
-                title=f'{member.guild.name} {server.points_name.capitalize()} Leaderboard',
-                description=f'```{leaderboard_string}```'
-            )
-            return await interaction.response.send_message(embeds=[p_embed])
+            return await interaction.response.send_message('No theme is currently active so no leaderboard can be made.', ephemeral=True)
         members = list(sorted(filter(lambda x: not x.member.bot, server.members.members.values()), key=lambda x: -x.points))
         index = 0
         embeds = []
@@ -152,7 +79,7 @@ class ThemeCog(commands.Cog):
                     index += 1
                 except IndexError:
                     break
-            lb_str = build_leaderboard(member, role_members)
+            lb_str = theme.build_leaderboard(member, role_members)
             embed = discord.Embed(
                 title=discord_role.name,
                 color=discord_role.color,
@@ -214,7 +141,6 @@ class ThemeCog(commands.Cog):
             changes = await tm.sort_members()
             if server.announcement_channel:
                 if changes:
-                    logger.info(f'Sorted {len(changes)} members on {server.name}.')
                     logger.info(f'Sorted {len(changes)} member(s) on {server.name}.')
                     changes_str = get_change_str(changes)
                     embed = discord.Embed(
@@ -228,6 +154,7 @@ class ThemeCog(commands.Cog):
                         #await server.announcement_channel.send(embeds=embeds, view=self.lb_view)
 
 
+# noinspection PyUnresolvedReferences
 class SelectRoleView(ui.View):
     def __init__(self, author: discord.Member):
         super().__init__()
@@ -244,6 +171,7 @@ class SelectRoleView(ui.View):
         self.stop()
 
 
+# noinspection PyUnresolvedReferences
 class LeaderboardView(ui.View):
     def __init__(self, bot: 'HeliosBot'):
         super().__init__(timeout=None)
@@ -252,8 +180,11 @@ class LeaderboardView(ui.View):
     @ui.button(label='Show Me!', custom_id='leaderboard.showme', style=discord.ButtonStyle.green)
     async def show_me(self, interaction: Interaction, _: ui.Button):
         server = self.bot.servers.get(interaction.guild_id)
+        theme = server.theme.current_theme
+        if theme is None:
+            return await interaction.response.send_message('No theme is currently active so no leaderboard can be made.', ephemeral=True)
         member = server.members.get(interaction.user.id)
-        embeds = get_leaderboard_embeds(server, member, only_member=True)
+        embeds = theme.get_leaderboard_embeds(server, member, only_member=True)
         await interaction.response.send_message(embeds=embeds, ephemeral=True)
 
 
