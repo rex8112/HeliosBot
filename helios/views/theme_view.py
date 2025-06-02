@@ -52,6 +52,8 @@ class ThemeEditView(ui.View):
         options = [discord.SelectOption(label=role.name, value=str(i)) for i, role in enumerate(self.theme.roles)]
         options.append(discord.SelectOption(label='Add New Role', value='new'))
         self.edit_role.options = options
+        if self.new:
+            self.save_close.label = 'Create & Close'
 
     async def update_message(self, interaction: discord.Interaction):
         self.update_buttons()
@@ -125,7 +127,7 @@ class ThemeEditView(ui.View):
         if not self.new:
             await self.theme.save()
 
-    @ui.button(label='Save & Close', style=discord.ButtonStyle.green)
+    @ui.button(label='Close', style=discord.ButtonStyle.green)
     async def save_close(self, interaction: discord.Interaction, button: ui.Button):
         if self.new:
             # First save just to create the theme, second save needs to happen for more detailed info
