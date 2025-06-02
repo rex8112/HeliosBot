@@ -385,6 +385,7 @@ class ThemeModel(BaseModel):
     server = ForeignKeyField(ServerModel, backref='themes')
     name = CharField(max_length=25, unique=True)
     roles = JSONField(default=[])
+    groups = JSONField(default=[])
     owner = ForeignKeyField(MemberModel, backref='themes', null=True)
     editable = BooleanField(default=True)
     current = BooleanField(default=False)
@@ -425,8 +426,8 @@ class ThemeModel(BaseModel):
             return None
 
     @classmethod
-    async def create(cls, server: ServerModel, owner: MemberModel, name: str, roles: list[dict]) -> 'ThemeModel':
-        return await objects.create(cls, server=server, owner=owner, name=name, roles=roles)
+    async def create(cls, server: ServerModel, owner: MemberModel, name: str, roles: list[dict], groups: list[dict]) -> 'ThemeModel':
+        return await objects.create(cls, server=server, owner=owner, name=name, roles=roles, groups=groups)
 
 
 class BlackjackModel(BaseModel):

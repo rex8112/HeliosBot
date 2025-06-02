@@ -26,6 +26,7 @@ import discord
 
 from .colour import Colour
 from .database import ThemeModel
+from .dynamic_voice import DynamicVoiceGroup
 
 if TYPE_CHECKING:
     from .server import Server
@@ -80,6 +81,17 @@ class ThemeManager:
             new_role_map[theme_role] = cur_role
         for role in to_remove:
             await role.delete(reason='Theme Update')
+
+        cur_groups = self.server.channels.dynamic_voice.groups.values()
+        vm = self.server.channels.dynamic_voice
+        await asyncio.gather(*[vm.delete_group(group) for group in cur_groups if group not in theme.groups])
+        for group in theme.groups:
+            if group not in cur_groups:
+                await vm.create_group_from_data(group.to_dict())
+        self.current_theme = theme
+        theme.current = True
+        theme.editable = False
+        await theme.save()
 
     async def build_theme(self, roles: list[discord.Role]):
         if self.current_theme:
@@ -140,10 +152,11 @@ class ThemeManager:
 
 
 class Theme:
-    def __init__(self, server: 'Server', name: str, roles: list['ThemeRole']):
+    def __init__(self, server: 'Server', name: str, roles: list['ThemeRole'], groups: list['DynamicVoiceGroup']):
         self.server = server
         self.name = name
         self.roles = roles
+        self.groups = groups
         self.owner: Optional['HeliosMember'] = None
         self.editable = True
         self.current = False
@@ -160,7 +173,9 @@ class Theme:
             await self.db_entry.async_update(**self.to_dict())
         else:
             d = self.to_dict()
-            self.db_entry = await ThemeModel.create(server=self.server.db_entry, owner=self.owner.db_entry if self.owner else None, name=d['name'], roles=d['roles'])
+            self.db_entry = await ThemeModel.create(server=self.server.db_entry,
+                                                    owner=self.owner.db_entry if self.owner else None,
+                                                    name=d['name'], roles=d['roles'], groups=d['groups'])
 
     async def get_sorted_members(self) -> tuple[list[tuple['HeliosMember', int]], str]:
         member_value = {}
@@ -175,11 +190,9 @@ class Theme:
         sorted_members_list = sorted(member_value.items(), key=lambda x: x[1], reverse=True)
         return list(sorted_members_list), self.sort_stat
 
-
     @staticmethod
     def get_leaderboard_string(num: int, member: 'HeliosMember', value: int, prefix: str = ''):
         return f'{prefix:2}{num:3}. {member.member.display_name:>32}: {value:10,}\n'
-
 
     async def get_leaderboard_embeds(self, member: Optional['HeliosMember'] = None, only_member=False):
         theme = self.server.theme.current_theme
@@ -220,7 +233,6 @@ class Theme:
             embeds.append(embed)
         return embeds
 
-
     def build_leaderboard(self, author: 'HeliosMember', member_val_pos: list[tuple['HeliosMember', int, int]], ) -> str:
         leaderboard_string = ''
         user_found = False
@@ -246,6 +258,7 @@ class Theme:
             'name': self.name,
             'roles': [x.to_dict() for x in self.roles],
             'owner': self.owner.db_entry if self.owner else None,
+            'groups': [x.to_dict() for x in self.groups],
             'current': self.current,
             'editable': self.editable,
             'sort_stat': self.sort_stat,
@@ -255,7 +268,8 @@ class Theme:
 
     @classmethod
     def from_db(cls, server: 'Server', db_entry: ThemeModel):
-        theme = cls(server, db_entry.name, [ThemeRole.from_dict(x) for x in db_entry.roles])
+        theme = cls(server, db_entry.name, [ThemeRole.from_dict(x) for x in db_entry.roles],
+                    [DynamicVoiceGroup.from_dict(server, x) for x in db_entry.groups])
         theme.db_entry = db_entry
         theme.current = db_entry.current
         theme.editable = db_entry.editable

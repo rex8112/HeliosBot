@@ -497,7 +497,7 @@ class DynamicVoiceGroupSettings(Settings):
 
 
 class DynamicVoiceGroup:
-    def __init__(self, server: 'Server', minimum: int, minimum_empty: int, template: str, game_template: str, maximum: int = 0):
+    def __init__(self, server: 'Server', minimum: int, minimum_empty: int, template: str, game_template: str, maximum: int = 10):
         """"
         :param server: The server this group belongs to.
         :param minimum: The minimum number of members required to create a new channel.
@@ -515,6 +515,11 @@ class DynamicVoiceGroup:
         self.settings.game_template.value = game_template
 
         self.db_entry = None
+
+    def __eq__(self, other):
+        if isinstance(other, DynamicVoiceGroup):
+            return self.to_dict() == other.to_dict()
+        return NotImplemented
 
     # Properties
     @property
@@ -567,14 +572,14 @@ class DynamicVoiceGroup:
 
     def get_game_name(self, number: int, game: str):
         template = self.game_template
-        template.replace('{g}', '')
+        # template.replace('{g}', '')
         length = len(template)
         if length + len(game) > 25:
             game = game[:25 - length - 3] + '...'
 
         return self.game_template.replace('{n}', str(number)).replace('{g}', game)
 
-    def serialize(self) -> dict:
+    def to_dict(self) -> dict:
         return {
             'min': self.min,
             'min_empty': self.min_empty,
@@ -584,9 +589,20 @@ class DynamicVoiceGroup:
         }
 
     @classmethod
+    def from_dict(cls, server: 'Server', data: dict):
+        return cls(
+            server,
+            minimum=data.get('min', 3),
+            minimum_empty=data.get('min_empty', 2),
+            template=data.get('template', '🎮 Gaming {n}'),
+            game_template=data.get('game_template', '{n}. {g}'),
+            maximum=data.get('max', 10)
+        )
+
+    @classmethod
     async def create(cls, server: 'Server', minimum: int, minimum_empty: int, template: str, game_template: str, maximum: int = 0):
         group = cls(server, minimum, minimum_empty, template, game_template, maximum)
-        group.db_entry = await DynamicVoiceGroupModel.create_model(server.db_entry, **group.serialize())
+        group.db_entry = await DynamicVoiceGroupModel.create_model(server.db_entry, **group.to_dict())
         return group
 
     @classmethod
@@ -602,7 +618,7 @@ class DynamicVoiceGroup:
 
     async def save(self):
         if self.db_entry:
-            await DynamicVoiceGroupModel.async_update(self.db_entry, **self.serialize())
+            await DynamicVoiceGroupModel.async_update(self.db_entry, **self.to_dict())
 
 
 def need_sorting(all_channels):
@@ -792,9 +808,22 @@ class VoiceManager:
         await self.check_channels()
         return group
 
+    async def create_group_from_data(self, data: dict):
+        group = await DynamicVoiceGroup.create(self.server, data['min'], data['min_empty'], data['template'],
+                                               data['game_template'], data['max'])
+        self.groups[group.id] = group
+        await self.check_channels()
+        return group
+
     async def delete_group(self, group: 'DynamicVoiceGroup'):
         for channel in self.get_group_channels(group):
-            await channel.delete()
+            if channel.channel.members:
+                owner = self.server.members.get(channel.channel.members[0].id)
+                template = VoiceTemplate(owner, 'Old Channel')
+                template.private = False
+                await channel.make_private(owner, template)
+            else:
+                await channel.delete()
         await DynamicVoiceGroupModel.async_delete(group.db_entry)
         del self.groups[group.id]
 
