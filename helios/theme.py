@@ -111,7 +111,7 @@ class ThemeManager:
             role = self.role_map[theme_role]
             if not role:
                 continue
-            maximum = theme_role.maximum if theme_role.maximum != -1 else len(members)
+            maximum = theme_role.maximum if theme_role != self.current_theme.roles[-1] else len(members)
             for i in range(maximum):
                 member = members.pop()
                 member_role_pairs.append((member, role))
@@ -197,7 +197,7 @@ class Theme:
         index = 0
         embeds = []
         for role in theme.roles:
-            discord_role = server.theme.role_map[role]
+            discord_role = self.server.theme.role_map[role]
             role_members: list[tuple['HeliosMember', int, int]] = []
             member_in = False
             for i in range(role.maximum if role.maximum > 0 else len(member_values) - index):

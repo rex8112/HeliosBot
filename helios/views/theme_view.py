@@ -66,6 +66,8 @@ class ThemeEditView(ui.View):
         for role in self.theme.roles:
             desc += f'\n**{role.name}** - Max: {role.maximum} - {role.color}'
         embed.description = desc
+        if not self.new:
+            embed.set_footer(text='Changes are saved automatically on existing themes.')
         if self.theme.banner_url:
             embed.set_image(url=self.theme.banner_url)
 
@@ -88,6 +90,8 @@ class ThemeEditView(ui.View):
         if new and role.name:
             self.theme.roles.append(role)
         await self.update_message(interaction)
+        if not self.new:
+            await self.theme.save()
 
     @ui.button(label='Change Theme Name', style=discord.ButtonStyle.primary)
     async def change_name_button(self, interaction: discord.Interaction, button: ui.Button):
@@ -102,6 +106,8 @@ class ThemeEditView(ui.View):
             return
         self.theme.name = modal.value
         await self.update_message(interaction)
+        if not self.new:
+            await self.theme.save()
 
     @ui.button(label='Set Banner URL', style=discord.ButtonStyle.primary)
     async def set_banner_button(self, interaction: discord.Interaction, button: ui.Button):
@@ -116,6 +122,18 @@ class ThemeEditView(ui.View):
         else:
             self.theme.banner_url = modal.value
         await self.update_message(interaction)
+        if not self.new:
+            await self.theme.save()
+
+    @ui.button(label='Save & Close', style=discord.ButtonStyle.green)
+    async def save_close(self, interaction: discord.Interaction, button: ui.Button):
+        if self.new:
+            # First save just to create the theme, second save needs to happen for more detailed info
+            await self.theme.save()
+            self.new = False
+        await self.theme.save()
+        await interaction.response.edit_message(content='Theme saved successfully!', view=None, embeds=[], delete_after=5)
+        self.stop()
 
 
 class RoleEditView(ui.View):
@@ -138,7 +156,7 @@ class RoleEditView(ui.View):
             title='Edit Role',
             description=f'Editing role: **{self.role.name}**\n'
                         f'Color: {self.role.color}\n'
-                        f'Maximum: {self.role.maximum if self.role.maximum != -1 else "Unlimited"}',
+                        f'Maximum: {self.role.maximum}',
             color=discord.Color.from_str(self.role.color)
         )
         if self.role.icon_url:
@@ -179,7 +197,7 @@ class RoleEditView(ui.View):
 
     @ui.button(label='Change Maximum', style=discord.ButtonStyle.primary)
     async def change_maximum_button(self, interaction: discord.Interaction, button: ui.Button):
-        modal_cls = get_simple_modal('Change Role Maximum', 'Maximum (-1 for unlimited)')
+        modal_cls = get_simple_modal('Change Role Maximum', 'Maximum')
         modal = modal_cls(default=str(self.role.maximum))
         await interaction.response.send_modal(modal)
         if await modal.wait():
@@ -187,8 +205,8 @@ class RoleEditView(ui.View):
         interaction = modal.interaction
         try:
             maximum = int(modal.value)
-            if maximum <= 0 and maximum != -1:
-                self.error_message = 'Maximum must be a positive number or -1 for unlimited.'
+            if maximum <= 0:
+                self.error_message = 'Maximum must be a positive number. If this is the bottom most role it will be unlimited no matter what and you can set this to whatever.'
             else:
                 self.role.maximum = maximum
                 self.error_message = None
