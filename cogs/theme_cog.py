@@ -67,25 +67,7 @@ class ThemeCog(commands.Cog):
         theme = server.theme.current_theme
         if theme is None:
             return await interaction.response.send_message('No theme is currently active so no leaderboard can be made.', ephemeral=True)
-        members = list(sorted(filter(lambda x: not x.member.bot, server.members.members.values()), key=lambda x: -x.points))
-        index = 0
-        embeds = []
-        for role in theme.roles:
-            discord_role = server.theme.role_map[role]
-            role_members = []
-            for i in range(role.maximum if role.maximum > 0 else len(members) - index):
-                try:
-                    role_members.append((members[index], index))
-                    index += 1
-                except IndexError:
-                    break
-            lb_str = theme.build_leaderboard(member, role_members)
-            embed = discord.Embed(
-                title=discord_role.name,
-                color=discord_role.color,
-                description=f'```{lb_str}```'
-            )
-            embeds.append(embed)
+        embeds = await theme.get_leaderboard_embeds(member)
 
         await interaction.response.send_message(embeds=embeds, ephemeral=True)
 
@@ -125,17 +107,56 @@ class ThemeCog(commands.Cog):
         else:
             await interaction.followup.send('No changes were made.')
 
-    @app_commands.command(name='test_view', description='Test the ThemeEdit view.')
+    @app_commands.command(name='create_theme', description='Create a new theme.')
     @app_commands.guild_only()
-    @app_commands.default_permissions(administrator=True)
-    async def test_view(self, interaction: discord.Interaction, theme: str = None):
+    async def create_theme(self, interaction: discord.Interaction):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
-        if theme:
-            tm = server.theme
-            theme = await tm.get_theme(theme)
+        view = ThemeEditView(server, member)
+        await interaction.response.send_message(embed=view.get_embed(), view=view, ephemeral=True)
+
+    @app_commands.command(name='edit_theme', description='Edit an existing theme.')
+    @app_commands.guild_only()
+    async def edit_theme(self, interaction: discord.Interaction, theme: str):
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        tm = server.theme
+        theme = await tm.get_theme(theme)
+        if theme is None:
+            return await interaction.response.send_message('Theme not found.', ephemeral=True)
         view = ThemeEditView(server, member, theme=theme)
         await interaction.response.send_message(embed=view.get_embed(), view=view, ephemeral=True)
+
+    @app_commands.command(name='list_themes', description='List all your themes.')
+    @app_commands.guild_only()
+    async def list_themes(self, interaction: discord.Interaction):
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        tm = server.theme
+        themes = await tm.get_themes()
+        themes = [theme for theme in themes if theme.owner == member]
+        if not themes:
+            return await interaction.response.send_message('You have no themes.', ephemeral=True)
+        theme_list = '\n'.join([f'{theme.name}' for theme in themes])
+        embed = discord.Embed(
+            title='Your Themes',
+            description=theme_list,
+            colour=discord.Colour.blurple()
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @app_commands.command(name='apply_theme', description='Apply a theme to your server.')
+    @app_commands.guild_only()
+    @app_commands.default_permissions(administrator=True)
+    async def apply_theme(self, interaction: discord.Interaction, theme: str):
+        server = self.bot.servers.get(interaction.guild_id)
+        tm = server.theme
+        theme = await tm.get_theme(theme)
+        if theme is None:
+            return await interaction.response.send_message('Theme not found.', ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
+        await tm.apply_theme(theme)
+        await interaction.followup.send(f'Applied theme **{theme.name}** to the server.')
 
     @tasks.loop(time=time(hour=0, minute=5, tzinfo=datetime.now().astimezone().tzinfo))
     async def sort_themes(self):

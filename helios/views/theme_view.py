@@ -22,6 +22,7 @@
 from typing import TYPE_CHECKING
 
 import discord
+import peewee
 from discord import ui
 from numpy.ma.core import maximum
 
@@ -57,6 +58,14 @@ class ThemeEditView(ui.View):
         options = [discord.SelectOption(label=group.template, value=str(i)) for i, group in enumerate(self.theme.groups)]
         options.append(discord.SelectOption(label='Add New Group', value='new'))
         self.edit_group.options = options
+        editable = self.theme.editable and (self.author == self.theme.owner or self.author.member.guild_permissions.administrator)
+        if not editable:
+            self.change_name_button.disabled = True
+            self.set_afk_name_button.disabled = True
+            self.set_banner_button.disabled = True
+            self.edit_role.disabled = True
+            self.edit_group.disabled = True
+            self.save_close.disabled = True
         if self.new:
             self.save_close.label = 'Create & Close'
 
@@ -227,7 +236,11 @@ class ThemeEditView(ui.View):
             if error:
                 await interaction.response.send_message(error, ephemeral=True)
                 return
-            await self.theme.save()
+            try:
+                await self.theme.save()
+            except peewee.IntegrityError:
+                await interaction.response.send_message('Theme with this name already exists. Please choose a different name.', ephemeral=True)
+                return
             self.new = False
         await self.theme.save()
         await interaction.response.edit_message(content='Theme saved successfully!', view=None, embeds=[], delete_after=5)

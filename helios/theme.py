@@ -58,11 +58,15 @@ class ThemeManager:
             return None
         return Theme.from_db(self.server, theme)
 
+    async def get_themes(self) -> list['Theme']:
+        themes = await ThemeModel.get_all(self.server.db_entry)
+        return [Theme.from_db(self.server, theme) for theme in themes]
+
     async def apply_theme(self, theme: 'Theme'):
         current_roles = list(self.role_map.values())
         new_role_map = {}
         to_remove = current_roles[len(theme.roles):]
-        last_pos = max(x.position for x in self.server.guild.roles)
+        last_pos = 1
         for i, theme_role in enumerate(theme.roles):
             try:
                 cur_role = current_roles[i]
@@ -83,7 +87,7 @@ class ThemeManager:
                 cur_role = await self.server.guild.create_role(name=theme_role.name, colour=color,
                                                                permissions=discord.Permissions.none(), hoist=True,
                                                                reason='Theme Update')
-                await cur_role.edit(position=last_pos+1, reason='Theme Update')
+                await cur_role.edit(position=last_pos, reason='Theme Update')
                 last_pos = cur_role.position
 
             new_role_map[theme_role] = cur_role
@@ -96,10 +100,22 @@ class ThemeManager:
         for group in theme.groups:
             if group not in cur_groups:
                 await vm.create_group_from_data(group.to_dict())
+        afk_channel = self.server.guild.afk_channel
+        if afk_channel and theme.afk_channel and theme.afk_channel != afk_channel.name:
+            await afk_channel.edit(name=theme.afk_channel)
+        await self.set_current(theme)
+        await self.sort_members()
+
+    async def set_current(self, theme: 'Theme'):
+        if self.current_theme:
+            self.current_theme.current = False
+            self.current_theme.editable = True
+            await self.current_theme.save()
         self.current_theme = theme
-        theme.current = True
-        theme.editable = False
-        await theme.save()
+        self.current_theme.current = True
+        self.current_theme.editable = False
+        await self.current_theme.save()
+        self.build_role_map()
 
     async def build_theme(self, roles: list[discord.Role]):
         if self.current_theme:
@@ -125,6 +141,7 @@ class ThemeManager:
             return
         member_val, stat_name = await self.current_theme.get_sorted_members()
         members, values = zip(*member_val)
+        members = list(members)
         member_role_pairs = []
         changes: list[tuple['HeliosMember', discord.Role, discord.Role]] = []
         for theme_role in self.current_theme.roles:
@@ -133,7 +150,7 @@ class ThemeManager:
                 continue
             maximum = theme_role.maximum if theme_role != self.current_theme.roles[-1] else len(members)
             for i in range(maximum):
-                member = members.pop()
+                member = members.pop(0)
                 member_role_pairs.append((member, role))
         for member, role in member_role_pairs:
             old_role = None
