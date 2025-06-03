@@ -52,19 +52,19 @@ class ThemeEditView(ui.View):
 
     def update_buttons(self):
         # Role Selection
+        editable = self.theme.editable and (self.author == self.theme.owner or self.author.member.guild_permissions.administrator)
         options = [discord.SelectOption(label=role.name, value=str(i)) for i, role in enumerate(self.theme.roles)]
-        options.append(discord.SelectOption(label='Add New Role', value='new'))
+        if editable:
+            options.append(discord.SelectOption(label='Add New Role', value='new'))
         self.edit_role.options = options
         options = [discord.SelectOption(label=group.template, value=str(i)) for i, group in enumerate(self.theme.groups)]
-        options.append(discord.SelectOption(label='Add New Group', value='new'))
+        if editable:
+            options.append(discord.SelectOption(label='Add New Group', value='new'))
         self.edit_group.options = options
-        editable = self.theme.editable and (self.author == self.theme.owner or self.author.member.guild_permissions.administrator)
         if not editable:
             self.change_name_button.disabled = True
             self.set_afk_name_button.disabled = True
             self.set_banner_button.disabled = True
-            self.edit_role.disabled = True
-            self.edit_group.disabled = True
             self.save_close.disabled = True
         if self.new:
             self.save_close.label = 'Create & Close'
@@ -114,21 +114,22 @@ class ThemeEditView(ui.View):
                 return 'Role maximum must be a positive number.'
         for group in self.theme.groups:
             if not group.template:
-                return 'Group template cannot be empty.'
+                return 'Channel template cannot be empty.'
             if not group.game_template:
-                return 'Group game template cannot be empty.'
+                return 'Channel game template cannot be empty.'
             if group.min > group.max:
-                return 'Group minimum cannot be greater than maximum.'
+                return 'Channel minimum cannot be greater than maximum.'
             if group.min_empty > group.max:
-                return 'Group minimum empty cannot be greater than maximum.'
+                return 'Channel minimum empty cannot be greater than maximum.'
             if group.max <= 0:
-                return 'Group maximum must be a positive number.'
+                return 'Channel maximum must be a positive number.'
             if group.min_empty > group.min:
-                return 'Group minimum empty cannot be greater than minimum.'
+                return 'Channel minimum empty cannot be greater than minimum.'
         return None
 
     @ui.select(placeholder='Add/Edit Role', min_values=1, max_values=1)
     async def edit_role(self, interaction: discord.Interaction, select: ui.Select):
+        editable = not self.change_name_button.disabled
         if select.values[0] == 'new':
             last_max = self.theme.roles[-1].maximum if self.theme.roles else 1
             role = ThemeRole(name='', color='#000000', maximum=last_max)
@@ -138,6 +139,10 @@ class ThemeEditView(ui.View):
             role = self.theme.roles[role_index]
             new = False
         view = RoleEditView(role, timeout=self.timeout)
+        if not editable:
+            await interaction.response.edit_message(embeds=view.get_embeds())
+            view.stop()
+            return
         await interaction.response.edit_message(embeds=view.get_embeds(), view=view)
         if await view.wait():
             return
@@ -154,8 +159,9 @@ class ThemeEditView(ui.View):
         if not self.new:
             await self.theme.save()
 
-    @ui.select(placeholder='Add/Edit Group', min_values=1, max_values=1)
+    @ui.select(placeholder='Add/Edit Channel Settings', min_values=1, max_values=1)
     async def edit_group(self, interaction: discord.Interaction, select: ui.Select):
+        editable = not self.change_name_button.disabled
         if select.values[0] == 'new':
             group = DynamicVoiceGroup(self.server, template='{n}{st} Channel', minimum=3, maximum=10, minimum_empty=2, game_template='{n}. {g}')
             new = True
@@ -164,6 +170,10 @@ class ThemeEditView(ui.View):
             group = self.theme.groups[group_index]
             new = False
         view = GroupEditView(group, timeout=self.timeout)
+        if not editable:
+            await interaction.response.edit_message(embeds=view.get_embeds())
+            view.stop()
+            return
         await interaction.response.edit_message(embeds=view.get_embeds(), view=view)
         if await view.wait():
             return
@@ -374,8 +384,8 @@ class GroupEditView(ui.View):
             embeds.append(embed)
 
         embed = discord.Embed(
-            title='Edit Group',
-            description=f'Editing group: **{self.group.template}**\n'
+            title='Edit Channel Group',
+            description=f'Template: **{self.group.template}**\n'
                         f'Minimum: {self.group.min}\n'
                         f'Maximum: {self.group.max}\n'
                         f'Minimum Empty: {self.group.min_empty}\n'
