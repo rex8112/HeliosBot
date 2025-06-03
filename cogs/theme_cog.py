@@ -121,7 +121,7 @@ class ThemeCog(commands.Cog):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
         tm = server.theme
-        theme = await tm.get_theme(theme)
+        theme = await tm.get_theme(theme.lower())
         if theme is None:
             return await interaction.response.send_message('Theme not found.', ephemeral=True)
         view = ThemeEditView(server, member, theme=theme)
@@ -151,7 +151,7 @@ class ThemeCog(commands.Cog):
     async def apply_theme(self, interaction: discord.Interaction, theme: str):
         server = self.bot.servers.get(interaction.guild_id)
         tm = server.theme
-        theme = await tm.get_theme(theme)
+        theme = await tm.get_theme(theme.lower())
         if theme is None:
             return await interaction.response.send_message('Theme not found.', ephemeral=True)
         await interaction.response.defer(ephemeral=True)

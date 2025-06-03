@@ -201,7 +201,7 @@ class ThemeEditView(ui.View):
         if not modal.value:
             await interaction.followup.send('Theme name cannot be empty.', ephemeral=True)
             return
-        self.theme.name = modal.value
+        self.theme.name = modal.value.lower()
         await self.update_message(interaction)
         if not self.new:
             await self.theme.save()
