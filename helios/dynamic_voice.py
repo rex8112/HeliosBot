@@ -567,8 +567,18 @@ class DynamicVoiceGroup:
         self.settings.game_template.value = value
 
     # Methods
+    def ordinal(self, n: int) -> str:
+        """Convert a number to its ordinal representation."""
+        if 11 <= (n % 100) <= 13:
+            suffix = 'th'
+        else:
+            suffix = ['th', 'st', 'nd', 'rd', 'th'][min(n % 10, 4)]
+        return suffix
+
     def get_name(self, number: int):
-        return self.template.replace('{n}', str(number))
+        name = self.template.replace('{n}', str(number))
+        name = name.replace('{st}', self.ordinal(number))
+        return name
 
     def get_game_name(self, number: int, game: str):
         template = self.game_template
@@ -577,7 +587,7 @@ class DynamicVoiceGroup:
         if length + len(game) > 25:
             game = game[:25 - length - 3] + '...'
 
-        return self.game_template.replace('{n}', str(number)).replace('{g}', game)
+        return self.game_template.replace('{n}', str(number)).replace('{g}', game).replace('{st}', self.ordinal(number))
 
     def to_dict(self) -> dict:
         return {

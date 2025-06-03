@@ -148,7 +148,7 @@ class ThemeEditView(ui.View):
     @ui.select(placeholder='Add/Edit Group', min_values=1, max_values=1)
     async def edit_group(self, interaction: discord.Interaction, select: ui.Select):
         if select.values[0] == 'new':
-            group = DynamicVoiceGroup(self.server, template='Channel {n}', minimum=3, maximum=10, minimum_empty=2, game_template='{n}. {g}')
+            group = DynamicVoiceGroup(self.server, template='{n}{st} Channel', minimum=3, maximum=10, minimum_empty=2, game_template='{n}. {g}')
             new = True
         else:
             group_index = int(select.values[0])
@@ -369,6 +369,7 @@ class GroupEditView(ui.View):
                         f'Game Template: {self.group.game_template}',
             color=discord.Color.blurple()
         )
+        embed.set_footer(text='Use {n} for channel number, {st} for the 1(st) 2(nd) parts if desired, and {g} for game name in templates.')
         embeds.append(embed)
         return embeds
 
