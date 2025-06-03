@@ -128,10 +128,13 @@ class ThemeCog(commands.Cog):
     @app_commands.command(name='test_view', description='Test the ThemeEdit view.')
     @app_commands.guild_only()
     @app_commands.default_permissions(administrator=True)
-    async def test_view(self, interaction: discord.Interaction):
+    async def test_view(self, interaction: discord.Interaction, theme: str = None):
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
-        view = ThemeEditView(server, member)
+        if theme:
+            tm = server.theme
+            theme = await tm.get_theme(theme)
+        view = ThemeEditView(server, member, theme=theme)
         await interaction.response.send_message(embed=view.get_embed(), view=view, ephemeral=True)
 
     @tasks.loop(time=time(hour=0, minute=5, tzinfo=datetime.now().astimezone().tzinfo))

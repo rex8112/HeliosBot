@@ -391,6 +391,7 @@ class ThemeModel(BaseModel):
     current = BooleanField(default=False)
     sort_stat = CharField(max_length=25, default='points')
     sort_type = CharField(max_length=25, default='total')
+    afk_channel = CharField(max_length=25, default='💤 AFK Channel')
     banner_url = CharField(max_length=255, null=True)
     created = DatetimeTzField(default=get_aware_utc_now)
 
@@ -422,6 +423,14 @@ class ThemeModel(BaseModel):
     async def get(cls, id: int) -> Optional['ThemeModel']:
         try:
             return await objects.get(ThemeModel, id=id)
+        except DoesNotExist:
+            return None
+
+    @classmethod
+    async def get_by_name(cls, name: str) -> Optional['ThemeModel']:
+        """Get a theme by its name."""
+        try:
+            return await objects.get(ThemeModel, name=name)
         except DoesNotExist:
             return None
 

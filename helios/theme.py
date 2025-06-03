@@ -50,6 +50,14 @@ class ThemeManager:
         if self.current_theme:
             self.build_role_map()
 
+    async def get_theme(self, theme_name: str) -> Optional['Theme']:
+        if self.current_theme and self.current_theme.name.lower() == theme_name.lower():
+            return self.current_theme
+        theme = await ThemeModel.get_by_name(theme_name)
+        if not theme:
+            return None
+        return Theme.from_db(self.server, theme)
+
     async def apply_theme(self, theme: 'Theme'):
         current_roles = list(self.role_map.values())
         new_role_map = {}
@@ -162,6 +170,7 @@ class Theme:
         self.current = False
         self.sort_stat = 'points'
         self.sort_type = 'total'
+        self.afk_channel: str = '💤 AFK Channel'
         self.banner_url: Optional[str] = None
         self.db_entry: Optional[ThemeModel] = None
 
@@ -170,7 +179,9 @@ class Theme:
 
     async def save(self):
         if self.db_entry:
-            await self.db_entry.async_update(**self.to_dict())
+            data = self.to_dict()
+            del data['owner']  # prevent synchronous access to owner
+            await self.db_entry.async_update(**data)
         else:
             d = self.to_dict()
             self.db_entry = await ThemeModel.create(server=self.server.db_entry,
@@ -263,6 +274,7 @@ class Theme:
             'editable': self.editable,
             'sort_stat': self.sort_stat,
             'sort_type': self.sort_type,
+            'afk_channel': self.afk_channel,
             'banner_url': self.banner_url
         }
 
@@ -276,6 +288,7 @@ class Theme:
         theme.owner = server.members.get(db_entry.owner_id) if db_entry.owner_id else None
         theme.sort_stat = db_entry.sort_stat
         theme.sort_type = db_entry.sort_type
+        theme.afk_channel = db_entry.afk_channel
         theme.banner_url = db_entry.banner_url
         return theme
 

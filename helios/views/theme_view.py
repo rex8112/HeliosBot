@@ -23,7 +23,9 @@ from typing import TYPE_CHECKING
 
 import discord
 from discord import ui
+from numpy.ma.core import maximum
 
+from ..dynamic_voice import DynamicVoiceGroup
 from ..theme import Theme, ThemeRole
 from ..tools.modals import get_simple_modal
 
@@ -39,7 +41,7 @@ class ThemeEditView(ui.View):
         self.server = server
         self.author = author
         if theme is None:
-            theme = Theme(server, name='', roles=[])
+            theme = Theme(server, name='', roles=[], groups=[])
             theme.owner = author
             self.new = True
         else:
@@ -52,6 +54,9 @@ class ThemeEditView(ui.View):
         options = [discord.SelectOption(label=role.name, value=str(i)) for i, role in enumerate(self.theme.roles)]
         options.append(discord.SelectOption(label='Add New Role', value='new'))
         self.edit_role.options = options
+        options = [discord.SelectOption(label=group.template, value=str(i)) for i, group in enumerate(self.theme.groups)]
+        options.append(discord.SelectOption(label='Add New Group', value='new'))
+        self.edit_group.options = options
         if self.new:
             self.save_close.label = 'Create & Close'
 
@@ -66,7 +71,14 @@ class ThemeEditView(ui.View):
         )
         desc = f'By {self.theme.owner.member.mention}\n' if self.theme.owner else 'No owner set\n'
         for role in self.theme.roles:
-            desc += f'\n**{role.name}** - Max: {role.maximum} - {role.color}'
+            maximum = role.maximum if role != self.theme.roles[-1] else 'Unlimited'
+            desc += f'\n**{role.name}** - Max: {maximum} - {role.color}'
+        desc += '\n\n'
+        for group in self.theme.groups:
+            maximum = group.max
+            desc += f'**{group.template}** - {group.min} to {maximum} channels\n'
+        desc += '\n\n'
+        desc += f'AFK Channel: **{self.theme.afk_channel}**\n'
         embed.description = desc
         if not self.new:
             embed.set_footer(text='Changes are saved automatically on existing themes.')
@@ -74,6 +86,37 @@ class ThemeEditView(ui.View):
             embed.set_image(url=self.theme.banner_url)
 
         return embed
+
+    def validate(self):
+        if not self.theme.name:
+            return 'Theme name cannot be empty.'
+        if not self.theme.roles:
+            return 'At least one role must be defined.'
+        if not self.theme.groups:
+            return 'At least one group must be defined.'
+        if self.theme.afk_channel is None:
+            return 'AFK channel must be set.'
+        for role in self.theme.roles:
+            if not role.name:
+                return 'Role name cannot be empty.'
+            if not role.color:
+                return 'Role color cannot be empty.'
+            if role.maximum <= 0:
+                return 'Role maximum must be a positive number.'
+        for group in self.theme.groups:
+            if not group.template:
+                return 'Group template cannot be empty.'
+            if not group.game_template:
+                return 'Group game template cannot be empty.'
+            if group.min > group.max:
+                return 'Group minimum cannot be greater than maximum.'
+            if group.min_empty > group.max:
+                return 'Group minimum empty cannot be greater than maximum.'
+            if group.max <= 0:
+                return 'Group maximum must be a positive number.'
+            if group.min_empty > group.min:
+                return 'Group minimum empty cannot be greater than minimum.'
+        return None
 
     @ui.select(placeholder='Add/Edit Role', min_values=1, max_values=1)
     async def edit_role(self, interaction: discord.Interaction, select: ui.Select):
@@ -89,8 +132,41 @@ class ThemeEditView(ui.View):
         await interaction.response.edit_message(embeds=view.get_embeds(), view=view)
         if await view.wait():
             return
-        if new and role.name:
+        if view.delete:
+            if new:
+                await self.update_message(interaction)
+                return
+            if len(self.theme.roles) <= 1:
+                return
+            self.theme.roles.remove(role)
+        elif new and role.name:
             self.theme.roles.append(role)
+        await self.update_message(interaction)
+        if not self.new:
+            await self.theme.save()
+
+    @ui.select(placeholder='Add/Edit Group', min_values=1, max_values=1)
+    async def edit_group(self, interaction: discord.Interaction, select: ui.Select):
+        if select.values[0] == 'new':
+            group = DynamicVoiceGroup(self.server, template='Channel {n}', minimum=3, maximum=10, minimum_empty=2, game_template='{n}. {g}')
+            new = True
+        else:
+            group_index = int(select.values[0])
+            group = self.theme.groups[group_index]
+            new = False
+        view = GroupEditView(group, timeout=self.timeout)
+        await interaction.response.edit_message(embeds=view.get_embeds(), view=view)
+        if await view.wait():
+            return
+        if view.delete:
+            if new:
+                await self.update_message(interaction)
+                return
+            if len(self.theme.groups) <= 1:
+                return
+            self.theme.groups.remove(group)
+        elif new and group.template:
+            self.theme.groups.append(group)
         await self.update_message(interaction)
         if not self.new:
             await self.theme.save()
@@ -107,6 +183,22 @@ class ThemeEditView(ui.View):
             await interaction.followup.send('Theme name cannot be empty.', ephemeral=True)
             return
         self.theme.name = modal.value
+        await self.update_message(interaction)
+        if not self.new:
+            await self.theme.save()
+
+    @ui.button(label='Set AFK Name', style=discord.ButtonStyle.primary)
+    async def set_afk_name_button(self, interaction: discord.Interaction, button: ui.Button):
+        modal_cls = get_simple_modal('Set AFK Channel Name', 'AFK Channel Name', max_length=25)
+        modal = modal_cls(default=self.theme.afk_channel)
+        await interaction.response.send_modal(modal)
+        if await modal.wait():
+            return
+        interaction = modal.interaction
+        if not modal.value:
+            return
+        else:
+            self.theme.afk_channel = modal.value
         await self.update_message(interaction)
         if not self.new:
             await self.theme.save()
@@ -131,6 +223,10 @@ class ThemeEditView(ui.View):
     async def save_close(self, interaction: discord.Interaction, button: ui.Button):
         if self.new:
             # First save just to create the theme, second save needs to happen for more detailed info
+            error = self.validate()
+            if error:
+                await interaction.response.send_message(error, ephemeral=True)
+                return
             await self.theme.save()
             self.new = False
         await self.theme.save()
@@ -142,6 +238,7 @@ class RoleEditView(ui.View):
     def __init__(self, role: 'ThemeRole', *, timeout: float = 180.0):
         super().__init__(timeout=timeout)
         self.role = role
+        self.delete = False
         self.error_message = None
 
     def get_embeds(self) -> list[discord.Embed]:
@@ -236,5 +333,151 @@ class RoleEditView(ui.View):
 
     @ui.button(label='Close', style=discord.ButtonStyle.gray)
     async def close_button(self, interaction: discord.Interaction, button: ui.Button):
+        await interaction.response.defer()
+        self.stop()
+
+    @ui.button(label='Delete', style=discord.ButtonStyle.danger)
+    async def delete_button(self, interaction: discord.Interaction, button: ui.Button):
+        self.delete = True
+        await interaction.response.defer()
+        self.stop()
+
+
+class GroupEditView(ui.View):
+    def __init__(self, group: 'DynamicVoiceGroup', *, timeout: float = 180.0):
+        super().__init__(timeout=timeout)
+        self.group = group
+        self.delete = False
+        self.error_message = None
+
+    def get_embeds(self) -> list[discord.Embed]:
+        embeds = []
+        if self.error_message:
+            embed = discord.Embed(
+                title='Error',
+                description=self.error_message,
+                color=discord.Color.red()
+            )
+            embeds.append(embed)
+
+        embed = discord.Embed(
+            title='Edit Group',
+            description=f'Editing group: **{self.group.template}**\n'
+                        f'Minimum: {self.group.min}\n'
+                        f'Maximum: {self.group.max}\n'
+                        f'Minimum Empty: {self.group.min_empty}\n'
+                        f'Game Template: {self.group.game_template}',
+            color=discord.Color.blurple()
+        )
+        embeds.append(embed)
+        return embeds
+
+    @ui.button(label='Change Template', style=discord.ButtonStyle.primary)
+    async def change_template_button(self, interaction: discord.Interaction, button: ui.Button):
+        modal_cls = get_simple_modal('Change Group Template', 'Template')
+        modal = modal_cls(default=self.group.template)
+        await interaction.response.send_modal(modal)
+        if await modal.wait():
+            return
+        interaction = modal.interaction
+        if not modal.value:
+            self.error_message = 'Group template cannot be empty.'
+        elif '{n}' not in modal.value:
+            self.error_message = 'Group template must contain {n} for channel number.'
+        else:
+            self.group.template = modal.value
+            self.error_message = None
+        await interaction.edit_original_response(embeds=self.get_embeds(), view=self)
+
+    @ui.button(label='Change Game Template', style=discord.ButtonStyle.primary)
+    async def change_game_template_button(self, interaction: discord.Interaction, button: ui.Button):
+        modal_cls = get_simple_modal('Change Group Game Template', 'Game Template')
+        modal = modal_cls(default=self.group.game_template)
+        await interaction.response.send_modal(modal)
+        if await modal.wait():
+            return
+        interaction = modal.interaction
+        if not modal.value:
+            self.error_message = 'Group game template cannot be empty.'
+        elif '{n}' not in modal.value or '{g}' not in modal.value:
+            self.error_message = 'Group game template must contain {n} for channel number and {g} for game name.'
+        else:
+            self.group.game_template = modal.value
+            self.error_message = None
+        await interaction.edit_original_response(embeds=self.get_embeds(), view=self)
+
+    @ui.button(label='Change Minimum', style=discord.ButtonStyle.primary)
+    async def change_minimum_button(self, interaction: discord.Interaction, button: ui.Button):
+        modal_cls = get_simple_modal('Change Group Minimum Channels', 'Minimum')
+        modal = modal_cls(default=str(self.group.min))
+        await interaction.response.send_modal(modal)
+        if await modal.wait():
+            return
+        interaction = modal.interaction
+        try:
+            minimum = int(modal.value)
+            if minimum < 0:
+                self.error_message = 'Minimum cannot be negative.'
+            elif minimum > self.group.max:
+                self.error_message = 'Minimum cannot be greater than maximum.'
+            else:
+                self.group.min = minimum
+                self.error_message = None
+        except ValueError:
+            self.error_message = 'Invalid minimum value. Please enter a valid number.'
+        await interaction.edit_original_response(embeds=self.get_embeds(), view=self)
+
+    @ui.button(label='Change Maximum', style=discord.ButtonStyle.primary)
+    async def change_maximum_button(self, interaction: discord.Interaction, button: ui.Button):
+        modal_cls = get_simple_modal('Change Group Maximum Channels', 'Maximum')
+        modal = modal_cls(default=str(self.group.max))
+        await interaction.response.send_modal(modal)
+        if await modal.wait():
+            return
+        interaction = modal.interaction
+        try:
+            maximum = int(modal.value)
+            if maximum <= 0:
+                self.error_message = 'Maximum must be a positive number.'
+            elif maximum < self.group.min:
+                self.error_message = 'Maximum cannot be less than minimum.'
+            else:
+                self.group.max = maximum
+                self.error_message = None
+        except ValueError:
+            self.error_message = 'Invalid maximum value. Please enter a valid number.'
+        await interaction.edit_original_response(embeds=self.get_embeds(), view=self)
+
+    @ui.button(label='Change Minimum Empty', style=discord.ButtonStyle.primary)
+    async def change_minimum_empty_button(self, interaction: discord.Interaction, button: ui.Button):
+        modal_cls = get_simple_modal('Change Group Minimum Empty Channels', 'Minimum Empty')
+        modal = modal_cls(default=str(self.group.min_empty))
+        await interaction.response.send_modal(modal)
+        if await modal.wait():
+            return
+        interaction = modal.interaction
+        try:
+            minimum_empty = int(modal.value)
+            if minimum_empty < 0:
+                self.error_message = 'Minimum empty cannot be negative.'
+            elif minimum_empty > self.group.max:
+                self.error_message = 'Minimum empty cannot be greater than maximum.'
+            elif minimum_empty > self.group.min:
+                self.error_message = 'Minimum empty cannot be greater than minimum.'
+            else:
+                self.group.min_empty = minimum_empty
+                self.error_message = None
+        except ValueError:
+            self.error_message = 'Invalid minimum empty value. Please enter a valid number.'
+        await interaction.edit_original_response(embeds=self.get_embeds(), view=self)
+
+    @ui.button(label='Close', style=discord.ButtonStyle.gray)
+    async def close_button(self, interaction: discord.Interaction, button: ui.Button):
+        await interaction.response.defer()
+        self.stop()
+
+    @ui.button(label='Delete', style=discord.ButtonStyle.danger)
+    async def delete_button(self, interaction: discord.Interaction, button: ui.Button):
+        self.delete = True
         await interaction.response.defer()
         self.stop()
