@@ -20,6 +20,9 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 import asyncio
+from io import BytesIO
+
+import aiohttp
 from typing import TYPE_CHECKING, Callable, Optional
 
 import discord
@@ -63,10 +66,12 @@ class ThemeManager:
         return [Theme.from_db(self.server, theme) for theme in themes]
 
     async def apply_theme(self, theme: 'Theme'):
+        # Roles
         current_roles = list(self.role_map.values())
         new_role_map = {}
         to_remove = current_roles[len(theme.roles):]
         last_pos = 1
+        set_icons = []
         for i, theme_role in enumerate(theme.roles):
             try:
                 cur_role = current_roles[i]
@@ -89,22 +94,61 @@ class ThemeManager:
                                                                reason='Theme Update')
                 await cur_role.edit(position=last_pos, reason='Theme Update')
                 last_pos = cur_role.position
+            set_icons.append(self.set_role_icon(cur_role, theme_role.icon_url))
 
             new_role_map[theme_role] = cur_role
+        await asyncio.gather(*set_icons, return_exceptions=True)
         for role in to_remove:
             await role.delete(reason='Theme Update')
 
+        # Dynamic Voice Groups
         cur_groups = self.server.channels.dynamic_voice.groups.values()
         vm = self.server.channels.dynamic_voice
         await asyncio.gather(*[vm.delete_group(group) for group in cur_groups if group not in theme.groups])
         for group in theme.groups:
             if group not in cur_groups:
                 await vm.create_group_from_data(group.to_dict())
+        # AFK Channel
         afk_channel = self.server.guild.afk_channel
         if afk_channel and theme.afk_channel and theme.afk_channel != afk_channel.name:
             await afk_channel.edit(name=theme.afk_channel)
+        # Set Guild Banner
+        await self.set_guild_banner(theme.banner_url)
+        # Set current theme
         await self.set_current(theme)
         await self.sort_members()
+
+    async def set_role_icon(self, role: discord.Role, icon_url: Optional[str]):
+        if 'ROLE_ICONS' not in self.server.guild.features:
+            return
+        if not icon_url:
+            if role.display_icon:
+                await role.edit(display_icon=None, reason='Theme Update')
+            return
+        async with aiohttp.ClientSession() as session:
+            response = await session.get(icon_url)
+            img_bytes = BytesIO(await response.read())
+            img_bytes.seek(0)
+            try:
+                await role.edit(display_icon=img_bytes.read(), reason='Theme Update')
+            except discord.HTTPException:
+                pass
+
+    async def set_guild_banner(self, banner_url: Optional[str]):
+        if 'BANNER' not in self.server.guild.features:
+            return
+        if not banner_url:
+            if self.server.guild.banner:
+                await self.server.guild.edit(banner=None, reason='Theme Update')
+            return
+        async with aiohttp.ClientSession() as session:
+            response = await session.get(banner_url)
+            img_bytes = BytesIO(await response.read())
+            img_bytes.seek(0)
+            try:
+                await self.server.guild.edit(banner=img_bytes.read(), reason='Theme Update')
+            except discord.HTTPException:
+                pass
 
     async def set_current(self, theme: 'Theme'):
         if self.current_theme:
@@ -121,13 +165,22 @@ class ThemeManager:
         if self.current_theme:
             self.current_theme.current = False
             await self.current_theme.save()
-        self.current_theme = Theme(self.server, self.server.name,
-                                   [ThemeRole(x.name, str(x.colour), len(x.members)) for x in roles])
-        self.current_theme.roles[-1].maximum = -1
-        await self.current_theme.save()
-        self.current_theme.current = True
-        self.build_role_map()
-        await self.current_theme.save()
+
+        t_roles = []
+        for role in roles:
+            t_role = ThemeRole(role.name, str(role.colour), len(role.members))
+            if role.display_icon:
+                t_role.icon_url = role.display_icon.url
+            t_roles.append(t_role)
+
+        theme = Theme(self.server, self.server.name.lower(), t_roles,
+                      [DynamicVoiceGroup.from_dict(self.server, x.to_dict()) for x in self.server.channels.dynamic_voice.groups.values()]
+                      )
+        await theme.save()
+        theme.afk_channel = self.server.guild.afk_channel.name if self.server.guild.afk_channel else '💤 AFK Channel'
+        theme.owner = self.server.members.get(self.server.guild.owner_id)
+        theme.banner_url = self.server.guild.banner.url if self.server.guild.banner else None
+        await self.set_current(theme)
 
     def build_role_map(self):
         self.role_map = {}
