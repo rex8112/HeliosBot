@@ -69,7 +69,7 @@ class ThemeSelectView(ui.View):
         options = []
         for i, theme in enumerate(self.get_paged_themes(), start=self.page * self.page_size):
             options.append(discord.SelectOption(label=theme.name,
-                                                description=f'By {theme.owner.member.display_name}', value=str(i)))
+                                                description=f'By {theme.owner.member.display_name if theme.owner else "None"}', value=str(i)))
         if not options:
             options.append(discord.SelectOption(label='No Themes Available', value='-1', default=True))
             self.select_theme.disabled = True
@@ -366,7 +366,7 @@ class ThemeEditView(ui.View):
             await interaction.response.edit_message(view=None, delete_after=5)
         self.stop()
 
-    @ui.button(label='Share', style=discord.ButtonStyle.blurple)
+    @ui.button(label='Share', style=discord.ButtonStyle.gray)
     async def share_button(self, interaction: discord.Interaction, button: ui.Button):
         await interaction.response.send_message(embed=self.get_embed(), ephemeral=False)
 
