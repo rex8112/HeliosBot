@@ -314,7 +314,7 @@ class DynamicVoiceChannel:
             await self.delete()
         else:
             logger.debug(f'{self.server.name}: Dynamic Voice: Trimming messages in {self.channel.name}')
-            twelve_days_ago = datetime.now().astimezone() - timedelta(days=12)
+            twelve_days_ago = datetime.now().astimezone() - timedelta(days=10)
             two_weeks_ago = datetime.now().astimezone() - timedelta(weeks=2)
             deleted = await self.channel.purge(before=twelve_days_ago, after=two_weeks_ago, reason='Dynamic Voice Channel Trim')
             logger.debug(f'{self.server.name}: Dynamic Voice: Deleted {len(deleted)} messages in {self.channel.name}')
@@ -441,10 +441,10 @@ class DynamicVoiceChannel:
         else:
             await self.channel.purge(limit=None, bulk=True, check=lambda x: x != self._control_message)
 
-    async def check_if_old_messages(self):
+    async def check_if_old_messages(self) -> bool:
         messages = [x async for x in self.channel.history(limit=1, oldest_first=True)]
         two_weeks_ago = datetime.now().astimezone() - timedelta(weeks=2)
-        return messages and messages[0].created_at < two_weeks_ago
+        return bool(messages and messages[0].created_at < two_weeks_ago)
 
     async def unmake_private(self, purge_only_new=False):
         """Unmake the channel private."""
