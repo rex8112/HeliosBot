@@ -61,7 +61,7 @@ class Stat:
         current = await self.value()
         if earliest:
             return current - earliest.value
-        return current
+        return 0
 
 
 class Statistics:

@@ -383,10 +383,16 @@ class EffectModel(BaseModel):
 class ThemeModel(BaseModel):
     id = AutoField(primary_key=True, unique=True)
     server = ForeignKeyField(ServerModel, backref='themes')
-    name = CharField(max_length=25)
+    name = CharField(max_length=25, unique=True)
     roles = JSONField(default=[])
+    groups = JSONField(default=[])
+    owner = ForeignKeyField(MemberModel, backref='themes', null=True)
+    editable = BooleanField(default=True)
     current = BooleanField(default=False)
-    used = BooleanField(default=False)
+    sort_stat = CharField(max_length=25, default='points')
+    sort_type = CharField(max_length=25, default='total')
+    afk_channel = CharField(max_length=25, default='💤 AFK Channel')
+    banner_url = CharField(max_length=255, null=True)
     created = DatetimeTzField(default=get_aware_utc_now)
 
     class Meta:
@@ -405,6 +411,15 @@ class ThemeModel(BaseModel):
             return None
 
     @classmethod
+    async def get_themes(cls, server: ServerModel, owner: MemberModel = None):
+        """Get all themes for a server, optionally filtered by owner."""
+        if owner:
+            q = cls.select().where(cls.server == server, cls.owner == owner)
+        else:
+            q = cls.select().where(cls.server == server)
+        return await objects.prefetch(q)
+
+    @classmethod
     async def get(cls, id: int) -> Optional['ThemeModel']:
         try:
             return await objects.get(ThemeModel, id=id)
@@ -412,8 +427,16 @@ class ThemeModel(BaseModel):
             return None
 
     @classmethod
-    async def create(cls, server: ServerModel, name: str, roles: list[dict]) -> 'ThemeModel':
-        return await objects.create(cls, server=server, name=name, roles=roles)
+    async def get_by_name(cls, name: str) -> Optional['ThemeModel']:
+        """Get a theme by its name."""
+        try:
+            return await objects.get(ThemeModel, name=name)
+        except DoesNotExist:
+            return None
+
+    @classmethod
+    async def create(cls, server: ServerModel, owner: MemberModel, name: str, roles: list[dict], groups: list[dict]) -> 'ThemeModel':
+        return await objects.create(cls, server=server, owner=owner, name=name, roles=roles, groups=groups)
 
 
 class BlackjackModel(BaseModel):

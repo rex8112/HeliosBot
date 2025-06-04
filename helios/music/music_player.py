@@ -215,6 +215,8 @@ class MusicPlayer:
             else:
                 finished = True
 
+        if song.playlist:
+            song.playlist.next()
         self.currently_playing = None
         await self.update_message()
         return True
