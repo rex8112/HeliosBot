@@ -869,7 +869,7 @@ class VoiceManager:
                 template.private = False
                 await channel.make_private(owner, template)
             else:
-                await channel.delete()
+                await channel.make_inactive()
         await DynamicVoiceGroupModel.async_delete(group.db_entry)
         del self.groups[group.id]
 
