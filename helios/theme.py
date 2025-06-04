@@ -20,6 +20,7 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 import asyncio
+import logging
 from io import BytesIO
 
 import aiohttp
@@ -34,6 +35,9 @@ from .dynamic_voice import DynamicVoiceGroup
 if TYPE_CHECKING:
     from .server import Server
     from .member import HeliosMember
+
+
+logger = logging.getLogger('Helios.ThemeManager')
 
 
 def sorted_members(members: list['HeliosMember'], key: Callable[['HeliosMember'], int]) -> list['HeliosMember']:
@@ -125,14 +129,17 @@ class ThemeManager:
             if role.display_icon:
                 await role.edit(display_icon=None, reason='Theme Update')
             return
-        async with aiohttp.ClientSession() as session:
-            response = await session.get(icon_url)
-            img_bytes = BytesIO(await response.read())
-            img_bytes.seek(0)
-            try:
-                await role.edit(display_icon=img_bytes.read(), reason='Theme Update')
-            except discord.HTTPException:
-                pass
+        try:
+            async with aiohttp.ClientSession() as session:
+                response = await session.get(icon_url)
+                img_bytes = BytesIO(await response.read())
+                img_bytes.seek(0)
+                try:
+                    await role.edit(display_icon=img_bytes.read(), reason='Theme Update')
+                except discord.HTTPException:
+                    pass
+        except Exception as e:
+            logger.error(f'Error setting role icon for {role.name}: {type(e).__name__}: {e}')
 
     async def set_guild_banner(self, banner_url: Optional[str]):
         if 'BANNER' not in self.server.guild.features:
@@ -141,14 +148,18 @@ class ThemeManager:
             if self.server.guild.banner:
                 await self.server.guild.edit(banner=None, reason='Theme Update')
             return
-        async with aiohttp.ClientSession() as session:
-            response = await session.get(banner_url)
-            img_bytes = BytesIO(await response.read())
-            img_bytes.seek(0)
-            try:
-                await self.server.guild.edit(banner=img_bytes.read(), reason='Theme Update')
-            except discord.HTTPException:
-                pass
+        try:
+            async with aiohttp.ClientSession() as session:
+                response = await session.get(banner_url)
+                img_bytes = BytesIO(await response.read())
+                img_bytes.seek(0)
+                try:
+                    await self.server.guild.edit(banner=img_bytes.read(), reason='Theme Update')
+                except discord.HTTPException:
+                    pass
+        except Exception as e:
+            logger.error(f'Error setting guild banner: {type(e).__name__}: {e}')
+            return
 
     async def set_current(self, theme: 'Theme'):
         if self.current_theme:
@@ -162,10 +173,6 @@ class ThemeManager:
         self.build_role_map()
 
     async def build_theme(self, roles: list[discord.Role]):
-        if self.current_theme:
-            self.current_theme.current = False
-            await self.current_theme.save()
-
         t_roles = []
         for role in roles:
             t_role = ThemeRole(role.name, str(role.colour), len(role.members))

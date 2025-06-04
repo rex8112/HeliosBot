@@ -28,7 +28,7 @@ import discord
 from discord import app_commands, Interaction, ui
 from discord.ext import commands, tasks
 
-from helios import ThemeEditView
+from helios import ThemeEditView, ThemeSelectView
 
 if TYPE_CHECKING:
     from helios import HeliosBot, HeliosMember
@@ -107,47 +107,27 @@ class ThemeCog(commands.Cog):
         else:
             await interaction.followup.send('No changes were made.')
 
-    @app_commands.command(name='create_theme', description='Create a new theme.')
+    @app_commands.command(name='themes', description='Create/Edit/View themes.')
     @app_commands.guild_only()
-    async def create_theme(self, interaction: discord.Interaction):
+    @app_commands.describe(edit_theme='Quickly edit a theme by name.')
+    async def themes(self, interaction: discord.Interaction, edit_theme: str = None):
+        """Create/Edit/View themes."""
         server = self.bot.servers.get(interaction.guild_id)
         member = server.members.get(interaction.user.id)
-        view = ThemeEditView(server, member)
+        if edit_theme:
+            theme = await server.theme.get_theme(edit_theme.lower())
+            if theme is None:
+                return await interaction.response.send_message('Theme not found.', ephemeral=True)
+            view = ThemeEditView(server, theme, member)
+            await interaction.response.send_message(embed=view.get_embed(), view=view, ephemeral=True)
+            return
+        themes = await server.theme.get_themes()
+        view = ThemeSelectView(server, themes, member)
         await interaction.response.send_message(embed=view.get_embed(), view=view, ephemeral=True)
-
-    @app_commands.command(name='edit_theme', description='Edit an existing theme.')
-    @app_commands.guild_only()
-    async def edit_theme(self, interaction: discord.Interaction, theme: str):
-        server = self.bot.servers.get(interaction.guild_id)
-        member = server.members.get(interaction.user.id)
-        tm = server.theme
-        theme = await tm.get_theme(theme.lower())
-        if theme is None:
-            return await interaction.response.send_message('Theme not found.', ephemeral=True)
-        view = ThemeEditView(server, member, theme=theme)
-        await interaction.response.send_message(embed=view.get_embed(), view=view, ephemeral=True)
-
-    @app_commands.command(name='list_themes', description='List all your themes.')
-    @app_commands.guild_only()
-    async def list_themes(self, interaction: discord.Interaction):
-        server = self.bot.servers.get(interaction.guild_id)
-        member = server.members.get(interaction.user.id)
-        tm = server.theme
-        themes = await tm.get_themes()
-        themes = [theme for theme in themes if theme.owner == member]
-        if not themes:
-            return await interaction.response.send_message('You have no themes.', ephemeral=True)
-        theme_list = '\n'.join([f'{theme.name}' for theme in themes])
-        embed = discord.Embed(
-            title='Your Themes',
-            description=theme_list,
-            colour=discord.Colour.blurple()
-        )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.command(name='apply_theme', description='Apply a theme to your server.')
     @app_commands.guild_only()
-    @app_commands.default_permissions(administrator=True)
+    @app_commands.default_permissions(manage_guild=True)
     async def apply_theme(self, interaction: discord.Interaction, theme: str):
         server = self.bot.servers.get(interaction.guild_id)
         tm = server.theme

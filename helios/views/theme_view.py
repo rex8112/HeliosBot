@@ -24,8 +24,8 @@ from typing import TYPE_CHECKING
 import discord
 import peewee
 from discord import ui
-from numpy.ma.core import maximum
 
+from ..colour import Colour
 from ..dynamic_voice import DynamicVoiceGroup
 from ..theme import Theme, ThemeRole
 from ..tools.modals import get_simple_modal
@@ -34,8 +34,116 @@ if TYPE_CHECKING:
     from ..server import Server
     from ..member import HeliosMember
 
-__all__ = ('ThemeEditView', 'RoleEditView')
+__all__ = ('ThemeSelectView', 'ThemeEditView', 'RoleEditView', 'GroupEditView')
 
+
+# noinspection PyUnresolvedReferences
+class ThemeSelectView(ui.View):
+    def __init__(self, server: 'Server', themes: list[Theme], author: 'HeliosMember', *, timeout: float = 600.0):
+        super().__init__(timeout=timeout)
+        self.server = server
+        self.themes = themes
+        self.author = author
+        self.page = 0
+        self.page_size = 10
+        self.max_page = (len(themes) - 1) // self.page_size
+        self.selected_theme = None
+        self.update_buttons()
+
+    def get_paged_themes(self) -> list[Theme]:
+        start = self.page * self.page_size
+        end = start + self.page_size
+        return self.themes[start:end]
+
+    def get_embed(self):
+        embed = discord.Embed(
+            title='Theme Selection',
+            description='Select a theme to edit or create a new one.',
+            color=Colour.helios()
+        )
+        if self.selected_theme:
+            embed.add_field(name='Selected Theme', value=self.selected_theme.name, inline=False)
+        return embed
+
+    def update_buttons(self):
+        options = []
+        for i, theme in enumerate(self.get_paged_themes(), start=self.page * self.page_size):
+            options.append(discord.SelectOption(label=theme.name,
+                                                description=f'By {theme.owner.member.display_name}', value=str(i)))
+        if not options:
+            options.append(discord.SelectOption(label='No Themes Available', value='-1', default=True))
+            self.select_theme.disabled = True
+        else:
+            self.select_theme.disabled = False
+        self.select_theme.options = options
+        self.number_page.label = f'{self.page + 1}/{self.max_page + 1}'
+        if self.page == 0:
+            self.previous_page.disabled = True
+        else:
+            self.previous_page.disabled = False
+        if self.page == self.max_page:
+            self.next_page.disabled = True
+        else:
+            self.next_page.disabled = False
+        if not self.selected_theme:
+            self.edit_theme.disabled = True
+        else:
+            self.edit_theme.disabled = False
+            if (self.selected_theme.owner and self.selected_theme.owner.id == self.author.id) or self.author.member.guild_permissions.manage_guild:
+                self.edit_theme.label = 'Edit Theme'
+            else:
+                self.edit_theme.label = 'View Theme'
+
+    @classmethod
+    async def from_server(cls, server: 'Server', author: 'HeliosMember' = None, *, timeout: float = 600.0) -> 'ThemeSelectView':
+        themes = await server.theme.get_themes()
+        return cls(server, themes, author, timeout=timeout)
+
+    @ui.select(placeholder='Select a Theme', min_values=1, max_values=1)
+    async def select_theme(self, interaction: discord.Interaction, select: ui.Select):
+        theme_index = int(select.values[0])
+        self.selected_theme = self.themes[theme_index]
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+    @ui.button(label='<', style=discord.ButtonStyle.gray, row=1)
+    async def previous_page(self, interaction: discord.Interaction, button: ui.Button):
+        if self.page > 0:
+            self.page -= 1
+            self.update_buttons()
+            await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+    @ui.button(label='1', style=discord.ButtonStyle.gray, row=1, disabled=True)
+    async def number_page(self, interaction: discord.Interaction, button: ui.Button):
+        # This button is just a placeholder to show the current page number
+        await interaction.response.defer()
+
+    @ui.button(label='>', style=discord.ButtonStyle.gray, row=1)
+    async def next_page(self, interaction: discord.Interaction, button: ui.Button):
+        if self.page < self.max_page:
+            self.page += 1
+            self.update_buttons()
+            await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+    @ui.button(label='Create Theme', style=discord.ButtonStyle.green, row=2)
+    async def create_theme(self, interaction: discord.Interaction, button: ui.Button):
+        mem = self.server.members.get(interaction.user.id)
+        view = ThemeEditView(self.server, mem)
+        await interaction.response.edit_message(embed=view.get_embed(), view=view)
+
+    @ui.button(label='Edit Theme', style=discord.ButtonStyle.blurple, row=2)
+    async def edit_theme(self, interaction: discord.Interaction, button: ui.Button):
+        if self.selected_theme is None:
+            await interaction.response.send_message('No theme selected.', ephemeral=True)
+            return
+        if interaction.user.id != self.author.id:
+            await interaction.response.send_message('You cannot edit this theme.', ephemeral=True)
+            return
+        view = ThemeEditView(self.server, self.author, self.selected_theme)
+        await interaction.response.edit_message(embed=view.get_embed(), view=view)
+
+
+# noinspection PyUnresolvedReferences
 class ThemeEditView(ui.View):
     def __init__(self, server: 'Server', author: 'HeliosMember', theme: 'Theme' = None, *, timeout: float = 600.0):
         super().__init__(timeout=timeout)
@@ -52,7 +160,7 @@ class ThemeEditView(ui.View):
 
     def update_buttons(self):
         # Role Selection
-        editable = self.theme.editable and (self.author == self.theme.owner or self.author.member.guild_permissions.administrator)
+        editable = self.theme.editable and (self.author == self.theme.owner or self.author.member.guild_permissions.manage_guild)
         options = [discord.SelectOption(label=role.name, value=str(i)) for i, role in enumerate(self.theme.roles)]
         if editable:
             options.append(discord.SelectOption(label='Add New Role', value='new'))
@@ -65,7 +173,6 @@ class ThemeEditView(ui.View):
             self.change_name_button.disabled = True
             self.set_afk_name_button.disabled = True
             self.set_banner_button.disabled = True
-            self.save_close.disabled = True
         if self.new:
             self.save_close.label = 'Create & Close'
 
@@ -140,7 +247,7 @@ class ThemeEditView(ui.View):
             new = False
         view = RoleEditView(role, timeout=self.timeout)
         if not editable:
-            await interaction.response.edit_message(embeds=view.get_embeds())
+            await interaction.response.send_message(embeds=view.get_embeds(), ephemeral=True)
             view.stop()
             return
         await interaction.response.edit_message(embeds=view.get_embeds(), view=view)
@@ -171,7 +278,7 @@ class ThemeEditView(ui.View):
             new = False
         view = GroupEditView(group, timeout=self.timeout)
         if not editable:
-            await interaction.response.edit_message(embeds=view.get_embeds())
+            await interaction.response.send_message(embeds=view.get_embeds(), ephemeral=True)
             view.stop()
             return
         await interaction.response.edit_message(embeds=view.get_embeds(), view=view)
@@ -252,11 +359,19 @@ class ThemeEditView(ui.View):
                 await interaction.response.send_message('Theme with this name already exists. Please choose a different name.', ephemeral=True)
                 return
             self.new = False
-        await self.theme.save()
-        await interaction.response.edit_message(content='Theme saved successfully!', view=None, embeds=[], delete_after=5)
+        if self.theme.editable:
+            await self.theme.save()
+            await interaction.response.edit_message(content='Theme saved successfully!', view=None, embeds=[], delete_after=5)
+        else:
+            await interaction.response.edit_message(view=None, delete_after=5)
         self.stop()
 
+    @ui.button(label='Share', style=discord.ButtonStyle.blurple)
+    async def share_button(self, interaction: discord.Interaction, button: ui.Button):
+        await interaction.response.send_message(embed=self.get_embed(), ephemeral=False)
 
+
+# noinspection PyUnresolvedReferences
 class RoleEditView(ui.View):
     def __init__(self, role: 'ThemeRole', *, timeout: float = 180.0):
         super().__init__(timeout=timeout)
@@ -366,6 +481,7 @@ class RoleEditView(ui.View):
         self.stop()
 
 
+# noinspection PyUnresolvedReferences
 class GroupEditView(ui.View):
     def __init__(self, group: 'DynamicVoiceGroup', *, timeout: float = 180.0):
         super().__init__(timeout=timeout)
