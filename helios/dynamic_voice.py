@@ -446,8 +446,8 @@ class DynamicVoiceChannel:
         two_weeks_ago = datetime.now().astimezone() - timedelta(weeks=2)
         return bool(messages and messages[0].created_at < two_weeks_ago)
 
-    async def unmake_private(self, purge_only_new=False):
-        """Unmake the channel private."""
+    async def unmake_private(self, purge_only_new=False) -> bool:
+        """Unmake the channel private. Returns if the channel should be kept"""
         if self.state == DynamicVoiceState.PRIVATE:
             if not purge_only_new and await self.check_if_old_messages():
                 return False
@@ -457,6 +457,7 @@ class DynamicVoiceChannel:
             self.template = None
             self.owner = None
             return True
+        return True
 
     async def make_active(self, group: 'DynamicVoiceGroup'):
         """Make the channel active."""
