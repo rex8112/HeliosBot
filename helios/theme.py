@@ -151,10 +151,9 @@ class ThemeManager:
         try:
             async with aiohttp.ClientSession() as session:
                 response = await session.get(banner_url)
-                img_bytes = BytesIO(await response.read())
-                img_bytes.seek(0)
+                img_bytes = await response.read()
                 try:
-                    await self.server.guild.edit(banner=img_bytes.read(), reason='Theme Update')
+                    await self.server.guild.edit(banner=img_bytes, reason='Theme Update')
                 except discord.HTTPException:
                     pass
         except Exception as e:
