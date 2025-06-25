@@ -783,6 +783,9 @@ class BlackjackJoinView(discord.ui.View):
         if self.blackjack.id is not None:
             await interaction.edit_original_response(content='The game has already started.', view=None)
             return
+        if member in self.blackjack.players:
+            await interaction.edit_original_response(content='You are already in the game.', view=None)
+            return
         if combined:
             await member.inventory.remove_item(item, item.quantity)
             await member.inventory.add_item(combined)
