@@ -56,6 +56,9 @@ class TopicChannel:
 
         self.db_entry: Optional['TopicModel'] = None
 
+    def __repr__(self):
+        return f'TopicChannel<{self.server.name}: {self.channel.name}>'
+
     @property
     def id(self):
         return self.channel.id

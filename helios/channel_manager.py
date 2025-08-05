@@ -76,8 +76,9 @@ class ChannelManager:
             self.channels[channel.id] = channel
 
     def create_run_task(self):
-        if not self._task:
-            self._task = self.bot.loop.create_task(self.manage_channels(), name=f'{self.server.id}: Channel Manager')
+        # if not self._task:
+            # self._task = self.bot.loop.create_task(self.manage_channels(), name=f'{self.server.id}: Channel Manager')
+        logger.critical('Channel manager task called incorrectly')
 
     def is_crowded(self):
         topics = self.get_type('topic')
@@ -90,7 +91,9 @@ class ChannelManager:
     async def manage_channels(self):
         await self.bot.wait_until_ready()
         await self.purge_dead_channels()
+        logger.debug(f'{self.server.name}: Channel Manager: Manage Topics')
         await self.manage_topics()
+        logger.debug(f'{self.server.name}: Channel Manager: Manage Topics Complete')
 
         logger.debug(f'{self.server.name}: Channel Manager: Running Dynamic Voice Check')
         await self.dynamic_voice.check_channels()
