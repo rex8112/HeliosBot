@@ -142,8 +142,10 @@ class ChannelManager:
         topic_channels.sort(key=lambda x: x.points if not x.pending else 0, reverse=True)
 
         save = []
+        logger.debug(f'{self.server.name}: {topic_channels}')
         for i, c in enumerate(topic_channels):
             if i > self.server.settings['topic_soft_cap'] - 1 or c.pending:
+                logger.debug(f'{self.server.name}: {i} - {c.pending}')
                 e_state.append(c.evaluate_state())
                 save.append(c)
         if e_state:
