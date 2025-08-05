@@ -191,8 +191,8 @@ class ThemeManager:
     def build_role_map(self):
         self.role_map = {}
         for t_role in self.current_theme.roles:
-            d_role = discord.utils.get(self.server.guild.roles, name=t_role.name,
-                                       colour=discord.Colour.from_str(t_role.color))
+            d_role = discord.utils.get(self.server.guild.roles, name=t_role.name,)
+                                       #colour=discord.Colour.from_str(t_role.color))
             self.role_map[t_role] = d_role
 
     async def sort_members(self):
