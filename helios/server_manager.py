@@ -64,7 +64,10 @@ class ServerManager:
                     server.members.manage_members(),
                     server.channels.manage_channels()
                 ]
-                await asyncio.gather(*tasks, return_exceptions=True)
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                for result in results:
+                    if isinstance(result, Exception):
+                        logger.error(f'{type(result).__name__}: {result}')
             await asyncio.sleep(5)
 
     async def setup(self):
