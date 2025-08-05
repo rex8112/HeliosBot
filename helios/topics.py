@@ -19,6 +19,7 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+import logging
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Optional
 
@@ -30,6 +31,9 @@ from .database import TopicModel, TopicSubscriptionModel
 if TYPE_CHECKING:
     from .member import HeliosMember
     from .server import Server
+
+
+logger = logging.getLogger('HeliosBot.Topics')
 
 
 def _get_archive_time():
@@ -203,14 +207,17 @@ class TopicChannel:
 
     async def archive(self) -> None:
         if self.archive_category is None:
+            logger.critical('ArchiveCategory not set')
             return
         self.state = TopicChannelStates.Archived
+        logger.debug(f'Moving channel {self.channel} to archive')
         await self.channel.edit(category=self.archive_category, sync_permissions=True)
+        logger.debug(f'Deleting channel role {self.role_name}')
         await self.delete_role()
         if self.archive_message is None:
-            await self.post_archive_message(embed=self._get_marked_embed())
+            await self.post_archive_message(embed=self._get_archived_embed())
         else:
-            await self.archive_message.edit(embed=self._get_marked_embed())
+            await self.archive_message.edit(embed=self._get_archived_embed())
 
     async def post_archive_message(self, content=None, *, embed=None, view=None):
         message = self.archive_message
@@ -333,9 +340,12 @@ class TopicChannel:
         return marked and timing
 
     async def evaluate_state(self):
+        logger.debug(f'Evaluating state: {self.state}')
         if self.state == TopicChannelStates.PendingArchive:
+            logger.debug('Archiving topic')
             if self.get_archivable():
                 await self.archive()
+            logger.debug('Archived topic')
         elif self.state == TopicChannelStates.Active:
             if await self.get_markable():
                 await self.mark()
@@ -361,6 +371,20 @@ class TopicChannel:
         embed.add_field(
             name=f'{word.capitalize()[:-1]} Time',
             value=f'<t:{int(t.timestamp())}:f>'
+        )
+        return embed
+
+    def _get_archived_embed(self) -> discord.Embed:
+        t = self.archive_date
+        word = 'archived'
+        embed = discord.Embed(
+            colour=discord.Colour.red(),
+            title=f'⚠ {word.capitalize()} ⚠',
+            description=(
+                f'This channel has been archived due to inactivity on {discord.utils.format_dt(t)}.'
+                f'To unarchive simply send a message. If you need to ping the role of this channel, simply include a '
+                f'@Helios in your message and the bot will mention the role when it is restored.'
+            )
         )
         return embed
 

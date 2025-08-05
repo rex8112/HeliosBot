@@ -141,13 +141,19 @@ class ChannelManager:
         await asyncio.gather(*e_values)
         topic_channels.sort(key=lambda x: x.points if not x.pending else 0, reverse=True)
 
+        save = []
         for i, c in enumerate(topic_channels):
             if i > self.server.settings['topic_soft_cap'] - 1 or c.pending:
                 e_state.append(c.evaluate_state())
-                e_save.append(c.save())
+                save.append(c)
         if e_state:
+            logger.debug(f'{self.server.name}: Channel Manager: Evaluating States')
             await asyncio.gather(*e_state)
-            await asyncio.gather(*e_save)
+            logger.debug(f'{self.server.name}: Channel Manager: Saving States')
+            tasks = []
+            for c in save:
+                tasks.append(c.save())
+            await asyncio.gather(*tasks)
 
         topic_channels = pinned + topic_channels
         for i, c in enumerate(topic_channels, start=1):
