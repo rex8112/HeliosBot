@@ -142,7 +142,7 @@ class ChannelManager:
         for c in topic_channels:
             e_values.append(c.get_points())
         await asyncio.gather(*e_values)
-        topic_channels.sort(key=lambda x: x.points if not x.pending else 0, reverse=True)
+        topic_channels.sort(key=lambda x: (x.points if not x.pending else 0, x.channel.name), reverse=True)
 
         save = []
         logger.debug(f'{self.server.name}: {topic_channels}')
