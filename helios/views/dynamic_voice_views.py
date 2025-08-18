@@ -29,7 +29,7 @@ from .generic_views import VoteView, YesNoView
 from ..colour import Colour
 from ..modals import VoiceNameChange
 from ..tools.modals import get_simple_modal
-from ..tools.settings import PrimalModal
+from ..tools import PrimalModal
 from .action_views import ActionView
 from .voice_view import VoiceControllerView
 
@@ -177,7 +177,7 @@ class DynamicVoiceView(ui.View):
             await view.wait()
             extra_private = view.value if view.value is not None else False
 
-            # If member has the ability to move members, make the channel private without a vote.
+            # If member can move members, make the channel private without a vote.
             if self.voice.channel.permissions_for(member.member).move_members or len(self.voice.channel.members) == 1:
                 channel = await self.voice.manager.make_private(member, channel=self.voice, template=template, extra_private=extra_private)
                 await interaction.edit_original_response(content=f'{channel.channel.mention} set to private.',
@@ -499,7 +499,7 @@ class PrivateVoiceView(DynamicVoiceView):
             await interaction.response.send_message(content='Can not change to public while name is on cooldown.',
                                                     ephemeral=True)
             return
-        # If member is the owner or has the ability to move members, make the channel public without a vote.
+        # If member is the owner or can move members, make the channel public without a vote.
         if self.voice.owner == interaction.user or self.voice.channel.permissions_for(member.member).move_members:
             group = list(self.voice.manager.groups.values())[0]
             await interaction.response.defer(thinking=True, ephemeral=True)

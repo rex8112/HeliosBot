@@ -26,7 +26,6 @@ from typing import TYPE_CHECKING, Optional, Union
 
 import discord
 
-from .channel import Channel_Dict, Channel, VoiceChannel
 from .database import ChannelModel, objects
 from .dynamic_voice import VoiceManager
 from .topics import TopicChannel
@@ -44,16 +43,15 @@ class ChannelManager:
     def __init__(self, server: 'Server'):
         self.bot: 'HeliosBot' = server.bot
         self.server = server
-        self.channels: dict[int, 'HeliosChannel'] = {}
         self.topic_channels: dict[int, TopicChannel] = {}
         self.dynamic_voice = VoiceManager(self.server)
 
         self._task = None
 
-    def get(self, channel_id: int) -> Optional[Union[Channel, TopicChannel]]:
-        channel = self.channels.get(channel_id)
-        if not channel:
-            channel = self.topic_channels.get(channel_id)
+    def get(self, channel_id: int) -> Optional[Union[TopicChannel]]:
+        channel = self.topic_channels.get(channel_id)
+        if channel is None:
+            channel = self.dynamic_voice.channels.get(channel_id)
         return channel
 
     def get_topic_by_name(self, name: str) -> Optional[TopicChannel]:
@@ -64,29 +62,11 @@ class ChannelManager:
                 return channel
         return
 
-    def get_type(self, t: str) -> list['HeliosChannel']:
-        return list(filter(lambda x: x.channel_type == t, self.channels.values()))
-
     def _add_channel(self, channel: Union['HeliosChannel', 'TopicChannel']):
         if self.get(channel.id):
             raise NotImplemented
         if isinstance(channel, TopicChannel):
             self.topic_channels[channel.id] = channel
-        else:
-            self.channels[channel.id] = channel
-
-    def create_run_task(self):
-        # if not self._task:
-            # self._task = self.bot.loop.create_task(self.manage_channels(), name=f'{self.server.id}: Channel Manager')
-        logger.critical('Channel manager task called incorrectly')
-
-    def is_crowded(self):
-        topics = self.get_type('topic')
-        counter = 0
-        for topic in topics:
-            if 'ARCHIVED' not in topic.flags:
-                counter += 1
-        return counter > 10
 
     async def manage_channels(self):
         await self.bot.wait_until_ready()
@@ -102,10 +82,6 @@ class ChannelManager:
     async def purge_dead_channels(self):
         deletes = []
         deletes_keys = []
-        for k, v in self.channels.items():
-            if v.alive is False:
-                deletes_keys.append(k)
-                deletes.append(v.delete(del_channel=False))
         for k, v in self.topic_channels.items():
             if v.alive is False:
                 deletes_keys.append(k)
@@ -117,10 +93,6 @@ class ChannelManager:
         if len(deletes) > 0:
             await asyncio.gather(*deletes)
             for k in deletes_keys:
-                try:
-                    del self.channels[k]
-                except KeyError:
-                    ...
                 try:
                     del self.topic_channels[k]
                 except KeyError:
@@ -199,22 +171,6 @@ class ChannelManager:
         else:
             return False, 'This server does not have `Topic Channel Creation` enabled.'
 
-    async def create_private_voice(self, owner: 'HeliosMember', *,
-                                   template: 'VoiceTemplate') -> VoiceChannel:
-        if self.server.private_create_channel:
-            category = self.server.private_create_channel.category
-            channel = await category.create_voice_channel(
-                name=template.name,
-                overwrites=template.overwrites
-            )
-            voice = VoiceChannel.new(self, channel.id)
-            voice.owner = owner
-            voice.template_name = template.name
-            await voice.update_message()
-            self._add_channel(voice)
-
-            return voice
-
     async def setup(self, channel_data: list[dict] = None):
         await self.dynamic_voice.setup()
         if not channel_data:
@@ -224,16 +180,6 @@ class ChannelManager:
 
         deletes = []
         neutralize = []
-        for data in channel_data:
-            channel_cls = Channel_Dict.get(data.type)
-            c: 'HeliosChannel' = channel_cls(self, data)
-            if c.alive:
-                self.channels[c.id] = c
-                if isinstance(c, VoiceChannel):
-                    if c.can_neutralize():
-                        neutralize.append(c.neutralize())
-            else:
-                deletes.append(c.delete(del_channel=False))
 
         topic_channels = await TopicChannel.get_all(self.server)
         for t in topic_channels:

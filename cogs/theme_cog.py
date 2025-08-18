@@ -28,7 +28,7 @@ import discord
 from discord import app_commands, Interaction, ui
 from discord.ext import commands, tasks
 
-from helios import ThemeEditView, ThemeSelectView
+from helios.views.theme_view import ThemeEditView, ThemeSelectView
 
 if TYPE_CHECKING:
     from helios import HeliosBot, HeliosMember

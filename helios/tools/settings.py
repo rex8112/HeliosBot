@@ -25,6 +25,7 @@ from typing import TypeVar, Generic, Optional, Generator, Any
 
 import discord.ext.commands
 
+from .modals import PrimalModal
 from ..views.generic_views import PaginatorSelectView
 
 V = TypeVar('V')
@@ -324,28 +325,3 @@ class BoolSelect(discord.ui.Select):
         else:
             self.value = False
         await interaction.response.send_message(content='Value Submitted', ephemeral=True)
-
-
-class PrimalModal(discord.ui.Modal):
-    value_text = discord.ui.TextInput(label='Value')
-
-    def __init__(self, title: str, v_type: type, /, **kwargs):
-        super().__init__(title=title)
-        self.type = v_type
-        self.value = None
-        self.str_max_length = kwargs.get('max_length', 100)
-        self.str_min_length = kwargs.get('min_length', 0)
-
-        if self.type is str:
-            self.value_text.min_length = self.str_min_length
-            self.value_text.max_length = self.str_max_length
-
-    async def on_submit(self, interaction: discord.Interaction, /):
-        value = self.value_text.value
-        try:
-            self.value = self.type(value)
-        except ValueError:
-            self.value = None
-            await interaction.response.send_message(content=f'Invalid type, must be {self.type}', ephemeral=True)
-            return
-        await interaction.response.send_message(content='Submitted', ephemeral=True)
