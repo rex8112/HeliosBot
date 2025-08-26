@@ -122,7 +122,7 @@ class LootPool:
         elif rarity == LootRarities.EPIC:
             return 0.05
         elif rarity == LootRarities.LEGENDARY:
-            return 0.006
+            return 0.001
         else:
             return 0.0
 
