@@ -40,6 +40,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger('HeliosLogger')
 
 
+def need_sorting(all_channels):
+    discord_channels = all_channels[0].channel.category.text_channels
+    for i, channel in enumerate(all_channels):
+        if channel.channel != discord_channels[i]:
+            return True
+    return False
+
+
 class ChannelManager:
     def __init__(self, server: 'Server'):
         self.bot: 'HeliosBot' = server.bot
@@ -132,7 +140,8 @@ class ChannelManager:
 
     async def manage_topics(self):
         """Get channel points, sort by them and evaluate_state on the lower channels after the tenth channel."""
-        topic_channels = list(filter(lambda x: x.active_only or x.pending, self.topic_channels.values()))
+        topic_channels = list(filter(lambda x: x.active_only, self.topic_channels.values()))
+        pending_channels = list(filter(lambda x: x.pending, self.topic_channels.values()))
         pinned = list(filter(lambda x: x.pinned, self.topic_channels.values()))
         if len(topic_channels) == 0:
             return
@@ -142,7 +151,8 @@ class ChannelManager:
         for c in topic_channels:
             e_values.append(c.get_points())
         await asyncio.gather(*e_values)
-        topic_channels.sort(key=lambda x: (x.points if not x.pending else 0, x.channel.name), reverse=True)
+        topic_channels.sort(key=lambda x: (x.points, x.channel.name), reverse=True)
+        topic_channels = topic_channels + pending_channels
 
         save = []
         logger.debug(f'{self.server.name}: {topic_channels}')
@@ -161,10 +171,11 @@ class ChannelManager:
             await asyncio.gather(*tasks)
 
         topic_channels = pinned + topic_channels
-        for i, c in enumerate(topic_channels, start=1):
-            if c.channel.position != i:
-                logger.debug(f'{c.channel.name} is at {c.channel.position} should be at {i}')
-                await c.channel.edit(position=i)
+        if need_sorting(topic_channels):
+            for i, c in enumerate(topic_channels):
+                if c.channel.position != i:
+                    logger.debug(f'{c.channel.name} is at {c.channel.position} should be at {i}')
+                    await c.channel.edit(position=i)
 
     async def add_topic(self, channel: discord.TextChannel, owner: 'HeliosMember') -> tuple[bool, str]:
         if self.channels.get(channel.id):
