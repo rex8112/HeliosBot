@@ -22,8 +22,6 @@
 import random
 from enum import Enum
 
-from .image import get_card_images
-
 
 class Suits(Enum):
     hearts = 'h'
@@ -185,6 +183,6 @@ class Hand:
             value += 10
         return value
 
-    def get_image(self):
-        min_slots = 5
-        return get_card_images(tuple(x.short() for x in self.cards if not x.hidden), max(min_slots, len(self.cards)))
+    # def get_image(self):
+    #     min_slots = 5
+    #     return get_card_images(tuple(x.short() for x in self.cards if not x.hidden), max(min_slots, len(self.cards)))

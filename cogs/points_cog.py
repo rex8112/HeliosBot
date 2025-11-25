@@ -29,7 +29,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 import helios
-from helios import ActionView, TexasHoldEm, Blackjack, Items
+from helios import ActionView, Blackjack, Items
 from helios.database import TransactionModel
 from helios.shop import *
 
@@ -267,25 +267,25 @@ class PointsCog(commands.Cog):
         await interaction.response.send_message('Starting Blackjack', ephemeral=True)
         await server.gambling.run_blackjack(channel)
 
-    @app_commands.command(name='texasholdem')
-    @app_commands.describe(buy_in='The amount of points to buy in with')
-    @app_commands.guild_only()
-    async def texas_holdem(self, interaction: discord.Interaction, buy_in: int = 1000):
-        """ Create a Texas Holdem game. """
-        server = self.bot.servers.get(interaction.guild_id)
-        category = server.settings.gambling_category.value
-        if category is None:
-            await interaction.response.send_message('No gambling category set.', ephemeral=True)
-            return
-        if buy_in > 1_000_000:
-            await interaction.response.send_message('Max buy in is 1,000,000', ephemeral=True)
-            return
-        if buy_in < 100:
-            await interaction.response.send_message('Minimum buy in is 100', ephemeral=True)
-            return
-        texas_holdem = TexasHoldEm(server, buy_in=buy_in)
-        await interaction.response.send_message('Creating Texas Holdem', ephemeral=True)
-        texas_holdem.start()
+    # @app_commands.command(name='texasholdem')
+    # @app_commands.describe(buy_in='The amount of points to buy in with')
+    # @app_commands.guild_only()
+    # async def texas_holdem(self, interaction: discord.Interaction, buy_in: int = 1000):
+    #     """ Create a Texas Holdem game. """
+    #     server = self.bot.servers.get(interaction.guild_id)
+    #     category = server.settings.gambling_category.value
+    #     if category is None:
+    #         await interaction.response.send_message('No gambling category set.', ephemeral=True)
+    #         return
+    #     if buy_in > 1_000_000:
+    #         await interaction.response.send_message('Max buy in is 1,000,000', ephemeral=True)
+    #         return
+    #     if buy_in < 100:
+    #         await interaction.response.send_message('Minimum buy in is 100', ephemeral=True)
+    #         return
+    #     texas_holdem = TexasHoldEm(server, buy_in=buy_in)
+    #     await interaction.response.send_message('Creating Texas Holdem', ephemeral=True)
+    #     texas_holdem.start()
 
     async def who_is(self, interaction: discord.Interaction, member: discord.Member):
         server = self.bot.servers.get(interaction.guild_id)

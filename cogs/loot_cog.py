@@ -28,7 +28,7 @@ from typing_extensions import Literal
 
 from helios import Blackjack, Items
 from helios.shop import *
-from helios.loot_pools import Pools
+from helios.loot_pools import Pools, LootRarities, loot_rarity_color
 
 if TYPE_CHECKING:
     from helios import HeliosBot, HeliosMember
@@ -60,6 +60,38 @@ class LootCog(commands.GroupCog, name='lootcrate'):
             ) for item in items
         ]
         await member.statistics.loot_boxes.increment()
+        for i in range(len(embeds)):
+            await asyncio.sleep(1)
+            await interaction.edit_original_response(embeds=embeds[:i + 1])
+
+    @app_commands.command(name='open_ten', description='Open 10 lootcrates')
+    async def open_lootcrate_10(self, interaction: discord.Interaction):
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(interaction.user.id)
+        loot_crates = member.inventory.get_items('loot_crate')
+        if not loot_crates or loot_crates[0].quantity < 10:
+            await interaction.response.send_message('You do not have 10 loot crates to open', ephemeral=True)
+            return
+        await interaction.response.send_message('Opening loot crates...')
+        loot_crate = loot_crates[0]
+        await member.inventory.remove_item(loot_crate, 10)
+        pool = Pools[loot_crate.data['type']]()
+        items = pool.get_random_items(30)
+        [await member.inventory.add_item(i.item, i.item.quantity) for i in items]
+        embeds = {
+            LootRarities.COMMON: discord.Embed(description='', colour=loot_rarity_color(LootRarities.COMMON)),
+            LootRarities.UNCOMMON: discord.Embed(description='', colour=loot_rarity_color(LootRarities.UNCOMMON)),
+            LootRarities.RARE: discord.Embed(description='', colour=loot_rarity_color(LootRarities.RARE)),
+            LootRarities.EPIC: discord.Embed(description='', colour=loot_rarity_color(LootRarities.EPIC)),
+            LootRarities.LEGENDARY: discord.Embed(description='', colour=loot_rarity_color(LootRarities.LEGENDARY)),
+        }
+        for item in items:
+            string = f'**{item.item.display_name}**\n'
+            embeds[item.rarity].description += string
+
+        embeds = [x for x in embeds.values() if x.description != '']
+
+        await member.statistics.loot_boxes.increment(10)
         for i in range(len(embeds)):
             await asyncio.sleep(1)
             await interaction.edit_original_response(embeds=embeds[:i + 1])

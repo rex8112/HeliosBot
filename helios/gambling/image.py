@@ -29,7 +29,6 @@ from typing import Union, TYPE_CHECKING, Optional, Literal
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageOps, ImageFont
-from pokerkit import Card as PCards
 
 if TYPE_CHECKING:
     from ..member import HeliosMember
@@ -37,27 +36,27 @@ if TYPE_CHECKING:
     from aiohttp import ClientSession
 
 
-def get_card_images(cards: tuple[Union[str, PCards], ...], slots: int) -> io.BytesIO:
-    if len(cards) > slots:
-        raise ValueError('Cards must be less than the slots.')
-
-    if len(cards) >= 1 and isinstance(cards[0], PCards):
-        cards = [f'{x.rank}{x.suit}' for x in cards]
-
-    width = 10 + (155 * slots)
-    background = Image.new(mode='RGBA', size=(width, 220), color=(255, 0, 0, 0))
-    x = 10
-    for card in cards:
-        try:
-            card = Image.open(f'./helios/resources/cards/{card}.png')
-            background.paste(card, (x, 10), mask=card)
-        except FileNotFoundError:
-            ...
-        x += 155
-    b = io.BytesIO()
-    background.save(b, 'PNG')
-    b.seek(0)
-    return b
+# def get_card_images(cards: tuple[Union[str, PCards], ...], slots: int) -> io.BytesIO:
+#     if len(cards) > slots:
+#         raise ValueError('Cards must be less than the slots.')
+#
+#     if len(cards) >= 1 and isinstance(cards[0], PCards):
+#         cards = [f'{x.rank}{x.suit}' for x in cards]
+#
+#     width = 10 + (155 * slots)
+#     background = Image.new(mode='RGBA', size=(width, 220), color=(255, 0, 0, 0))
+#     x = 10
+#     for card in cards:
+#         try:
+#             card = Image.open(f'./helios/resources/cards/{card}.png')
+#             background.paste(card, (x, 10), mask=card)
+#         except FileNotFoundError:
+#             ...
+#         x += 155
+#     b = io.BytesIO()
+#     background.save(b, 'PNG')
+#     b.seek(0)
+#     return b
 
 
 def get_result_color(result: str) -> str:
