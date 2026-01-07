@@ -42,14 +42,29 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 import asyncio
+from datetime import datetime, timezone
+from enum import Enum
 
 from websockets import connect, ConnectionClosed
+
+class Opcode(Enum):
+    DISPATCH = 0
+    HEARTBEAT = 1
+    IDENTIFY = 2
+    RESUME = 6
+    HELLO = 10
+    HEARTBEAT_ACK = 11
 
 class WebSocketClient:
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
         self.op_listeners = {}
         self.ws = None
+
+        self._last_heartbeat = datetime.now()
+        self._last_heartbeat_ack = datetime.now()
+
+        self.op_listeners[Opcode.HEARTBEAT_ACK] = self.heartbeat_ack
 
     async def connect(self, url: str):
         async with connect(url) as ws:
@@ -65,6 +80,7 @@ class WebSocketClient:
     async def heartbeat(self):
         while self.ws is not None:
             await self.send({'op': 1})
+            self._last_heartbeat = datetime.now()
             await asyncio.sleep(5)
 
     async def send(self, data: dict):
@@ -72,4 +88,9 @@ class WebSocketClient:
 
     async def recv(self, resp):
         """Handle received data."""
+        if 'op' in resp:
+            await self.op_listeners[Opcode(resp['op'])](resp)
         pass
+
+    async def heartbeat_ack(self, resp):
+        self._last_heartbeat_ack = datetime.now()
