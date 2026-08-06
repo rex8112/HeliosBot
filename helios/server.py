@@ -32,5 +32,9 @@ class Server:
         self.guild = guild
 
     @property
+    def id(self) -> int:
+        return self.guild.id
+
+    @property
     def bot(self):
         return self.manager.bot
