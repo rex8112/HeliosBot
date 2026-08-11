@@ -22,11 +22,12 @@
 import asyncio
 import datetime
 import json
-from typing import TYPE_CHECKING, Optional, Any
+from typing import TYPE_CHECKING, Optional, Iterable
 
 import discord.utils
-import peewee_async
-from peewee import *
+from tortoise import Tortoise
+from tortoise.models import Model
+from tortoise import fields
 
 from .tools.config import Config
 
@@ -35,19 +36,24 @@ if TYPE_CHECKING:
 
 settings = Config.from_file_path()
 
-db = peewee_async.MySQLDatabase(settings.db_path, user=settings.db_username, password=settings.db_password,
-                                host=settings.db_host, port=int(settings.db_port), charset='utf8mb4')
-db.set_allow_sync(False)
-objects = peewee_async.Manager(db)
+# db = peewee_async.MySQLDatabase(settings.db_path, user=settings.db_username, password=settings.db_password,
+#                                 host=settings.db_host, port=int(settings.db_port), charset='utf8mb4')
+# db.set_allow_sync(False)
+# objects = peewee_async.Manager(db)
 
 
-def initialize_db():
-    with db.allow_sync():
-        db.connect()
-        db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
-                          EventModel, ViolationModel, DynamicVoiceModel, DynamicVoiceGroupModel, TopicModel,
-                          EffectModel, ThemeModel, BlackjackModel, DailyModel, GameModel, GameAliasModel, PugModel,
-                          InventoryModel, StoreModel, TopicSubscriptionModel, StatisticModel, StatisticHistoryModel])
+async def initialize_db():
+    # with db.allow_sync():
+    #     db.connect()
+    #     db.create_tables([ServerModel, MemberModel, ChannelModel, TransactionModel,
+    #                       EventModel, ViolationModel, DynamicVoiceModel, DynamicVoiceGroupModel, TopicModel,
+    #                       EffectModel, ThemeModel, BlackjackModel, DailyModel, GameModel, GameAliasModel, PugModel,
+    #                       InventoryModel, StoreModel, TopicSubscriptionModel, StatisticModel, StatisticHistoryModel])
+    await Tortoise.init(
+        db_url=settings.db_path,
+        modules={'models': 'app.models'},
+    )
+    await Tortoise.generate_schemas(safe=True)
 
 
 def get_aware_utc_now():
@@ -80,14 +86,11 @@ class BaseModel(Model):
     @staticmethod
     def update_model_instance(model: Model, data: dict):
         """Update a model instance with a dictionary."""
-        for key, value in data.items():
-            old = getattr(model, key)
-            if old != value:
-                setattr(model, key, value)
+        model.update_from_dict(data)
 
-    def async_save(self, only=None):
+    def async_save(self, only: Optional[Iterable[str]] = None):
         """Save the model instance asynchronously."""
-        return objects.update(self, only=only)
+        return self.save(update_fields=only)
 
     def async_update(self, **kwargs):
         """Update the model instance asynchronously."""
@@ -96,69 +99,66 @@ class BaseModel(Model):
 
     def async_delete(self):
         """Delete the model instance asynchronously."""
-        return objects.delete(self)
-
-    class Meta:
-        database = db
+        return self.delete()
 
 
 class VersionModel(BaseModel):
-    version = CharField(max_length=12)
+    version = fields.CharField(max_length=12)
 
     class Meta:
         table_name = 'version'
 
 
 class ServerModel(BaseModel):
-    id = BigIntegerField(primary_key=True, unique=True)
-    name = CharField(max_length=26)
-    settings = TextField(default="")
-    flags = TextField(default="[]")
+    id = fields.BigIntField(primary_key=True)
+    name = fields.CharField(max_length=26)
+    settings = fields.JSONField(default={})
+    flags = fields.JSONField(default=[])
 
     class Meta:
-        table_name = 'servers'
+        table = 'servers'
 
 
 class ChannelModel(BaseModel):
-    id = BigIntegerField(primary_key=True, unique=True)
-    server = ForeignKeyField(ServerModel, backref='channels')
-    type = CharField(max_length=26)
-    settings = TextField(default='')
-    flags = TextField(default='[]')
+    id = fields.BigIntField(primary_key=True)
+    server = fields.ForeignKeyField(ServerModel, related_name='channels')
+    type = fields.CharField(max_length=26)
+    settings = fields.JSONField(default={})
+    flags = fields.JSONField(default=[])
 
     class Meta:
-        table_name = 'channels'
+        table = 'channels'
 
 
 class MemberModel(BaseModel):
-    id = AutoField(primary_key=True, unique=True)
-    server = ForeignKeyField(ServerModel, backref='members')
-    member_id = BigIntegerField()
-    activity_points = IntegerField(default=0)
-    points = IntegerField(default=0)
-    ap_paid = IntegerField(default=0)
-    templates = TextField(default='[]')
-    flags = TextField(default='[]')
+    id = fields.IntField(primary_key=True)
+    server = fields.ForeignKeyField(ServerModel, backref='members')
+    member_id = fields.BigIntField()
+    activity_points = fields.IntField(default=0)
+    points = fields.IntField(default=0)
+    ap_paid = fields.IntField(default=0)
+    templates = fields.JSONField(default=[])
+    flags = fields.JSONField(default=[])
 
     class Meta:
-        table_name = 'members'
+        table = 'members'
 
     @staticmethod
     async def create_model(server: ServerModel, **kwargs):
         """Create a new model instance in the database."""
-        return await objects.create(MemberModel, server=server, **kwargs)
+        return await MemberModel.create(server=server, **kwargs)
 
 
 class TransactionModel(BaseModel):
-    id = AutoField(primary_key=True, unique=True)
-    member = ForeignKeyField(MemberModel, backref='transactions')
-    payee = CharField(max_length=25)
-    description = CharField(max_length=50)
-    amount = IntegerField()
-    created_on = DatetimeTzField(default=get_aware_utc_now)
+    id = fields.IntField(primary_key=True)
+    member = fields.ForeignKeyField(MemberModel, backref='transactions')
+    payee = fields.CharField(max_length=25)
+    description = fields.CharField(max_length=50)
+    amount = fields.IntField()
+    created_on = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
-        table_name = 'transactions'
+        table = 'transactions'
 
     @staticmethod
     async def get_transactions_paginated(member: 'HeliosMember', page: int, limit: int) -> list['TransactionModel']:
