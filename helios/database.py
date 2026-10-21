@@ -54,9 +54,19 @@ async def initialize_db():
     #                       InventoryModel, StoreModel, TopicSubscriptionModel, StatisticModel, StatisticHistoryModel])
     await Tortoise.init(
         db_url=settings.db_path,
-        modules={'models': 'app.models'},
+        modules={'app': ['helios.database']},
     )
     await Tortoise.generate_schemas(safe=True)
+
+async def initialize_test_db():
+    await Tortoise.init(
+        db_url='sqlite://:memory:',
+        modules={'app': ['helios.database']},
+    )
+    await Tortoise.generate_schemas()
+
+async def close_db():
+    await Tortoise.close_connections()
 
 
 def get_aware_utc_now():
@@ -103,6 +113,9 @@ class BaseModel(Model):
     def async_delete(self):
         """Delete the model instance asynchronously."""
         return self.delete()
+
+    class Meta:
+        abstract = True
 
 
 class VersionModel(BaseModel):
@@ -164,22 +177,24 @@ class TransactionModel(BaseModel):
         table = 'transactions'
 
     @staticmethod
-    async def get_transactions_paginated(member: 'HeliosMember', page: int, limit: int) -> list['TransactionModel']:
-        q = (TransactionModel.select().where(TransactionModel.member_id == member.db_id)
-             .order_by(TransactionModel.id.desc()).paginate(page, limit))
-        q = await TransactionModel.all().filter(member__id=member.db_id).offset(page * limit).limit(limit).order_by('-id').prefetch_related()
-        return list(q)
+    async def get_transactions_paginated(member: 'MemberModel', page: int, limit: int) -> list['TransactionModel']:
+        # q = (TransactionModel.select().where(TransactionModel.member_id == member.db_id)
+        #      .order_by(TransactionModel.id.desc()).paginate(page, limit))
+        q = await TransactionModel.all().filter(member=member).offset(page * limit).limit(limit).order_by('-id').prefetch_related()
+        return q
 
     @staticmethod
-    async def get_24hr_change(member: 'HeliosMember'):
+    async def get_24hr_change(member: 'MemberModel'):
         ago = discord.utils.utcnow() - datetime.timedelta(days=1)
-        q = await TransactionModel.all().filter(member__id=member.db_id, created_on__gte=ago).annotate(day_change=Sum('amount'))
+        q = await TransactionModel.filter(member=member, created_on__gte=ago).annotate(day_change=Sum('amount')).first()
         return q.day_change
 
     @staticmethod
-    async def get_24hr_transfers_out(member: 'HeliosMember'):
+    async def get_24hr_transfers_out(member: 'MemberModel'):
         ago = discord.utils.utcnow() - datetime.timedelta(days=1)
-        q = await TransactionModel.all().filter(member__id=member.db_id, created_on__gte=ago, amount__lt=0, description='Transferred Points').annotate(day_change=Sum('amount'))
+        q = await (TransactionModel.filter(member=member, created_on__gte=ago,
+                                          amount__lt=0, description='Transferred Points')
+                   .annotate(day_change=Sum('amount')).first())
         return int(q.day_change) if q.day_change else 0
 
 
@@ -266,7 +281,7 @@ class DynamicVoiceGroupModel(BaseModel):
 
 class DynamicVoiceModel(BaseModel):
     """A model for dynamic voice channels."""
-    channel = fields.BigIntField(primary_key=True, generated=True)
+    channel = fields.BigIntField(primary_key=True)
     server = fields.ForeignKeyField(ServerModel, related_name='dynamic_voices')
     settings = fields.JSONField(default={})
 
