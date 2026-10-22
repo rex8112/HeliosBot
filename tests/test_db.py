@@ -82,5 +82,39 @@ class TestTransactionModels:
         assert change == -400
 
 
+class TestGameModels:
+    async def setup(self):
+        g1 = await db.GameModel.create_game(name='Game 1', display_name='Game 1', icon='na')
+        a1 = await g1.aliases.create(alias='Alias 1')
+        return g1, a1
+
+    @pytest.mark.asyncio
+    async def test_aliases(self, db_ctx):
+        g1, a1 = await self.setup()
+        q = await db.GameModel.find_game('Game 1')
+        assert q == g1
+        q = await db.GameModel.find_game('Alias 1')
+        assert q == g1
+        q = await db.GameModel.find_game('Alias 2')
+        assert q != g1
+
+    @pytest.mark.asyncio
+    async def test_playtime(self, db_ctx):
+        g1, a1 = await self.setup()
+        q = await g1.add_playtime(30)
+        g1 = await db.GameModel.find_game('Game 1')
+        assert g1.play_time == 30
+
+    @pytest.mark.asyncio
+    async def test_set_day_playtime(self, db_ctx):
+        g1, a1 = await self.setup()
+        q = await g1.add_playtime(30)
+        g1 = await db.GameModel.find_game('Game 1')
+        assert g1.last_day_playtime != 30
+        q = await g1.set_day_playtime()
+        g1 = await db.GameModel.find_game('Game 1')
+        assert g1.last_day_playtime == 30
+
+
 if __name__ == '__main__':
     unittest.main()
