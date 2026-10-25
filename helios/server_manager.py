@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Optional
 
 import discord
 
-from .database import ServerModel, MemberModel, ChannelModel
+from .database import ServerModel
 from .server import Server
 
 if TYPE_CHECKING:

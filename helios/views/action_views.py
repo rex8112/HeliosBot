@@ -25,10 +25,10 @@ from typing import TYPE_CHECKING, Optional
 
 import discord
 
-from ..colour import Colour
-from ..effects import MuteEffect, DeafenEffect, ShieldEffect, ChannelShieldEffect, DeflectorEffect
-from ..items import MuteItem, Items
 from .generic_views import YesNoView
+from ..colour import Colour
+from ..effects import ShieldEffect, ChannelShieldEffect, DeflectorEffect
+from ..items import Items
 
 if TYPE_CHECKING:
     from ..helios_bot import HeliosBot

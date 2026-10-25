@@ -21,21 +21,20 @@
 #  SOFTWARE.
 import asyncio
 import datetime
-import json
 from typing import TYPE_CHECKING, Optional, Iterable
 
 import discord.utils
 from tortoise import Tortoise
-from tortoise.functions import Sum
-from tortoise.expressions import Q, F
-from tortoise.models import Model
-from tortoise.exceptions import DoesNotExist
 from tortoise import fields
+from tortoise.exceptions import DoesNotExist
+from tortoise.expressions import Q, F
+from tortoise.functions import Sum
+from tortoise.models import Model
 
 from .tools.config import Config
 
 if TYPE_CHECKING:
-    from .member import HeliosMember
+    pass
 
 __all__ = (
     'initialize_db',

@@ -24,12 +24,10 @@ import asyncio
 import io
 from datetime import time, datetime
 
-import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 
-import helios
-from helios import ActionView, Blackjack, Items
+from helios import ActionView
 from helios.database import TransactionModel
 from helios.shop import *
 

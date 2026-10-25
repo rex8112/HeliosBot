@@ -22,10 +22,11 @@
 import asyncio
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
+
 from discord.ext.tasks import loop
 
 if TYPE_CHECKING:
-    from .server import Server
+    pass
 
 
 class TimeSlot:

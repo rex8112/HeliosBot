@@ -20,18 +20,13 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 import io
-import math
-from datetime import timedelta
+from typing import Union, TYPE_CHECKING, Optional, Literal
 
 import discord
 import requests
-from typing import Union, TYPE_CHECKING, Optional, Literal
-
-import numpy as np
 from PIL import Image, ImageDraw, ImageOps, ImageFont
 
 if TYPE_CHECKING:
-    from ..member import HeliosMember
     from .cards import Card, Hand
     from aiohttp import ClientSession
 

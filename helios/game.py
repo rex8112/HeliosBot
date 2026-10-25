@@ -25,7 +25,7 @@ from typing import Optional, TYPE_CHECKING
 import discord
 from discord.ext import tasks
 
-from .database import GameModel, GameAliasModel
+from .database import GameModel
 
 if TYPE_CHECKING:
     from .server import Server

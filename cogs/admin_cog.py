@@ -22,14 +22,13 @@
 import asyncio
 from datetime import datetime, timedelta
 
-import discord
 from discord import app_commands
 from discord.ext import commands
 from typing_extensions import Literal
 
 from helios import Blackjack, Items
-from helios.shop import *
 from helios.database import StatisticModel
+from helios.shop import *
 
 if TYPE_CHECKING:
     from helios import HeliosBot, HeliosMember

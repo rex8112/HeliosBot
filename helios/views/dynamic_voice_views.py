@@ -25,13 +25,12 @@ from typing import TYPE_CHECKING, Optional
 import discord
 from discord import ui, ButtonStyle, Interaction, Color, Embed
 
+from .action_views import ActionView
 from .generic_views import VoteView, YesNoView
-from ..colour import Colour
+from .voice_view import VoiceControllerView
 from ..modals import VoiceNameChange
 from ..tools.modals import get_simple_modal
 from ..tools.settings import PrimalModal
-from .action_views import ActionView
-from .voice_view import VoiceControllerView
 
 if TYPE_CHECKING:
     from ..dynamic_voice import DynamicVoiceChannel

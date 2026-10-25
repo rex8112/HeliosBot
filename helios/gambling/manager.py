@@ -1,4 +1,3 @@
-from datetime import timedelta
 from typing import TYPE_CHECKING, Union
 
 from discord import TextChannel

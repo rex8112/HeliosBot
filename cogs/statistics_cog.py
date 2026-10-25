@@ -20,7 +20,7 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 import asyncio
-from datetime import time, datetime, timedelta
+from datetime import time, datetime
 from typing import TYPE_CHECKING
 
 import discord

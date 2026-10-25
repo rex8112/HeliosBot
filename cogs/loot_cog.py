@@ -21,14 +21,11 @@
 #  SOFTWARE.
 import asyncio
 
-import discord
 from discord import app_commands
 from discord.ext import commands
-from typing_extensions import Literal
 
-from helios import Blackjack, Items
-from helios.shop import *
 from helios.loot_pools import Pools, LootRarities, loot_rarity_color
+from helios.shop import *
 
 if TYPE_CHECKING:
     from helios import HeliosBot, HeliosMember
