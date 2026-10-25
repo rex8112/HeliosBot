@@ -37,6 +37,31 @@ from .tools.config import Config
 if TYPE_CHECKING:
     from .member import HeliosMember
 
+__all__ = [
+    'initialize_db',
+    'VersionModel',
+    'ServerModel',
+    'ChannelModel',
+    'MemberModel',
+    'TransactionModel',
+    'EventModel',
+    'DynamicVoiceGroupModel',
+    'DynamicVoiceModel',
+    'TopicModel',
+    'EffectModel',
+    'ThemeModel',
+    'BlackjackModel',
+    'DailyModel',
+    'GameModel',
+    'GameAliasModel',
+    'PugModel',
+    'InventoryModel',
+    'TopicSubscriptionModel',
+    'StoreModel',
+    'StatisticModel',
+    'StatisticHistoryModel'
+]
+
 settings = Config.from_file_path()
 
 # db = peewee_async.MySQLDatabase(settings.db_path, user=settings.db_username, password=settings.db_password,
