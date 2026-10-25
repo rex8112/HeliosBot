@@ -22,7 +22,6 @@
 import asyncio
 import logging
 from datetime import datetime
-from types import MethodType
 
 from typing import TYPE_CHECKING, Optional, Awaitable
 
@@ -37,7 +36,6 @@ from .voice_scheduler import Schedule, TimeSlot
 if TYPE_CHECKING:
     from .server import Server
     from .helios_bot import HeliosBot
-    from .member import HeliosMember
 
 
 logger = logging.getLogger('Helios.VoiceController')

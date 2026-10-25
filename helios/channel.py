@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Optional, Union
 
 import discord
 
-from .database import ChannelModel, objects
+from .database import ChannelModel
 from .views import TopicView, VoiceView
 
 if TYPE_CHECKING:
@@ -94,13 +94,13 @@ class Channel:
 
     async def save(self):
         if self._new:
-            self.db_entry = await objects.create(ChannelModel, **self.serialize())
+            self.db_entry = await ChannelModel.create(**self.serialize())
             self._new = False
         else:
             data = self.serialize()
             del data['server']
             self.db_entry.update_model_instance(self.db_entry, data)
-            await objects.update(self.db_entry)
+            await self.db_entry.save()
 
     async def delete(self, del_channel=True):
         try:
@@ -111,7 +111,7 @@ class Channel:
         finally:
             if self._id in self.manager.channels:
                 self.manager.channels.pop(self._id)
-            await objects.delete(self.db_entry)
+            await self.db_entry.delete()
 
     def set_flag(self, flag: str, on: bool):
         if flag not in self._allowed_flags:
@@ -128,8 +128,8 @@ class Channel:
         if self.channel_type != data.type:
             raise TypeError(f'Channel data is of type `{data.type}` '
                             f'not `{self.channel_type}`')
-        self.flags = json.loads(data.flags) if data.flags else self.flags
-        self.settings = {**self._default_settings, **json.loads(data.settings)}
+        self.flags = data.flags if data.flags else self.flags
+        self.settings = {**self._default_settings, **data.settings}
 
     def serialize(self) -> dict:
         return {

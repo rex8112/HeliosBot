@@ -24,6 +24,7 @@ import asyncio
 import datetime
 import json
 import re
+from datetime import timezone
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 import discord
@@ -31,11 +32,10 @@ from discord.utils import format_dt
 
 from .abc import HasFlags
 from .colour import Colour
-from .database import MemberModel, objects, TransactionModel, DailyModel
+from .database import MemberModel, TransactionModel, DailyModel
 from .exceptions import IdMismatchError
 from .inventory import Inventory
 from .items import Items, Item
-from .violation import Violation
 from .statistic import Statistics, Stat
 from .voice_template import VoiceTemplate
 
@@ -111,7 +111,7 @@ class HeliosMember(HasFlags):
         self._ap_paid = 0
 
         self._point_mutes_cache = (datetime.datetime(year=2000, month=1, day=1,
-                                                     tzinfo=datetime.datetime.utcnow().astimezone().tzinfo), 0)
+                                                     tzinfo=datetime.datetime.now(timezone.utc).tzinfo), 0)
 
         self._temp_mute_data: Optional[tuple['HeliosMember', int]] = None
         self._temp_deafen_data: Optional[tuple['HeliosMember', int]] = None
@@ -302,10 +302,10 @@ class HeliosMember(HasFlags):
             raise IdMismatchError('Server Ids do not match.')
 
         self._id = data.id
-        for temp in json.loads(data.templates):
+        for temp in data.templates:
             template = VoiceTemplate(self, temp['name'], data=temp)
             self.templates.append(template)
-        self.flags = json.loads(data.flags)
+        self.flags = data.flags
         self._points = data.points
         self._ap_paid = data.ap_paid
         self._new = False
@@ -435,16 +435,16 @@ class HeliosMember(HasFlags):
         if self._changed or force:
             data = self.serialize()
             self._db_entry.update_model_instance(self._db_entry, data)
-            await self._db_entry.async_save()
+            await self._db_entry.save()
             self._changed = False
         if self.inventory:
             await self.inventory.save()
 
     async def load(self):
         if self._id != 0:
-            self._db_entry = MemberModel.get(id=self._id)
+            self._db_entry = await MemberModel.get(id=self._id)
         else:
-            self._db_entry = MemberModel.get(server=self.server.id, member_id=self.member.id)
+            self._db_entry = await MemberModel.get(server=self.server.id, member_id=self.member.id)
         self._deserialize(self._db_entry)
 
     async def verify(self, announce=True):
@@ -468,9 +468,9 @@ class HeliosMember(HasFlags):
         if len(description) > 50:
             description = description[:47] + '...'
         self.points += price
-        await objects.create(TransactionModel, member=self._db_entry,
-                             description=description, amount=price,
-                             payee=payee[:25])
+        await TransactionModel.create(member=self._db_entry,
+                                      description=description, amount=price,
+                                      payee=payee[:25])
         old_max = await self.statistics.max_points.value()
         if old_max < self.points:
             await self.statistics.max_points.set_value(self.points)
@@ -504,6 +504,7 @@ class HeliosMember(HasFlags):
                 return True
             except (discord.Forbidden, discord.HTTPException):
                 return False
+        return False
 
     async def voice_unmute(self, *, reason=None):
         await self.clear_on_voice('mute')
@@ -610,9 +611,6 @@ class HeliosMember(HasFlags):
                 hel = self.server.me
                 if unmuter and unmuter != muter.member and unmuter != hel.member:
                     member = self.server.members.get(unmuter.id)
-                    v = Violation.new_shop(member, hel, cost,
-                                           f'Unmuting {self.member.name} during a temporary mute.')
-                    await self.server.court.new_violation(v)
                     embed = discord.Embed(
                         title='Notice of Refund',
                         colour=discord.Colour.green(),
@@ -686,9 +684,6 @@ class HeliosMember(HasFlags):
                 hel = self.server.me
                 if unmuter and unmuter != muter.member and unmuter != hel.member:
                     member = self.server.members.get(unmuter.id)
-                    v = Violation.new_shop(member, hel, cost,
-                                           f'Undeafening {self.member.name} during a temporary deafen.')
-                    await self.server.court.new_violation(v)
                     embed = discord.Embed(
                         title='Notice of Refund',
                         colour=discord.Colour.green(),
@@ -767,11 +762,11 @@ class HeliosMember(HasFlags):
         return int(seconds)
 
     async def get_24hr_change(self):
-        res = await TransactionModel.get_24hr_change(self)
+        res = await TransactionModel.get_24hr_change(self.db_entry)
         return res if res else 0
 
     async def get_24hr_transfer(self):
-        res = await TransactionModel.get_24hr_transfers_out(self)
+        res = await TransactionModel.get_24hr_transfers_out(self.db_entry)
         return res if res else 0
 
 

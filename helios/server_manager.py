@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Optional
 
 import discord
 
-from .database import ServerModel, MemberModel, ChannelModel, objects
+from .database import ServerModel, MemberModel, ChannelModel
 from .server import Server
 
 if TYPE_CHECKING:
@@ -74,8 +74,7 @@ class ServerManager:
         await self.bot.wait_until_ready()
         start_time = time.time()
         tasks = []
-        q = ServerModel.select()
-        server_data = await objects.prefetch(q, MemberModel.select(), ChannelModel.select())
+        server_data = await ServerModel.all().prefetch_related('channels', 'members')
         server_dict = {}
         for data in server_data:
             server_dict[data.id] = data

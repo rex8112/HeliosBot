@@ -199,7 +199,7 @@ class Blackjack:
             return
 
         # Create Database Entry and set ID
-        self.db_entry = await BlackjackModel.create(self.to_dict()['players'])
+        self.db_entry = await BlackjackModel.create_model(self.to_dict()['players'])
         self.id = self.db_entry.id
 
         # Take Bets
@@ -220,24 +220,24 @@ class Blackjack:
         # Draw Initial Cards
         self.deck.draw_to_hand(self.dealer_hand)
         await self.update_message('Drawing Cards')
-        await self.db_entry.async_update(**self.to_dict())
+        await self.db_entry.update_from_dict(self.to_dict())
         await asyncio.sleep(0.5)
 
         for hand in self.hands:
             self.deck.draw_to_hand(hand[0])
             await self.update_message('Drawing Cards')
-            await self.db_entry.async_update(**self.to_dict())
+            await self.db_entry.update_from_dict(self.to_dict())
             await asyncio.sleep(0.5)
 
         self.deck.draw_to_hand(self.dealer_hand, hidden=True)
         await self.update_message('Drawing Cards')
-        await self.db_entry.async_update(**self.to_dict())
+        await self.db_entry.update_from_dict(self.to_dict())
         await asyncio.sleep(0.5)
 
         for hand in self.hands:
             self.deck.draw_to_hand(hand[0])
             await self.update_message('Drawing Cards')
-            await self.db_entry.async_update(**self.to_dict())
+            await self.db_entry.update_from_dict(self.to_dict())
             await asyncio.sleep(0.5)
 
         if self.dealer_hand.get_hand_bj_values(False) in [11, 10]:
@@ -268,13 +268,13 @@ class Blackjack:
                     self.view.stop()
                     await self.stand()
                     continue
-            await self.db_entry.async_update(**self.to_dict())
+            await self.db_entry.update_from_dict(self.to_dict())
             self.view = None
 
             await self.dealer_play()
 
             await self.update_message('Calculating Winnings')
-            await self.db_entry.async_update(**self.to_dict())
+            await self.db_entry.update_from_dict(self.to_dict())
             await asyncio.sleep(1)
 
         self.calculate_winnings()
@@ -303,7 +303,8 @@ class Blackjack:
 
             self.manager.add_loss(player, total_bets - total_winnings)
         await self.update_message('Game Over')
-        await self.db_entry.async_update(winnings=self.winnings)
+        self.db_entry.winnings = self.winnings
+        await self.db_entry.save(update_fields=['winnings'])
         if stats:
             [asyncio.create_task(x) for x in stats]
         asyncio.create_task(self.manager.run_blackjack(self.channel))

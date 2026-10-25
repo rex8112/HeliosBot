@@ -107,7 +107,7 @@ class PointsCog(commands.Cog):
             f'Current {server.points_name.capitalize()}: **{member.points:,}**\n'
             f'Activity {server.points_name.capitalize()}: **{await member.get_activity_points():,}**\n'
             f'Change in the last 24 hours: **{await member.get_24hr_change():,}**\n'
-            f'Pending Payment: **{member.unpaid_ap}**',
+            f'Pending Payment: **{member.unpaid_ap:,}**',
             ephemeral=True
         )
 

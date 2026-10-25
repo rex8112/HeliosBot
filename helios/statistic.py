@@ -42,7 +42,7 @@ class Stat:
         self._member = member.id
 
     async def model(self):
-        return await StatisticModel.get(self._guild, self._member, self.name)
+        return await StatisticModel.get_by_member_stat_name(self._guild, self._member, self.name)
 
     async def value(self):
         return await StatisticModel.get_value(self._guild, self._member, self.name)

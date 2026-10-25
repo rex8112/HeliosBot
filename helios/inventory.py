@@ -19,11 +19,9 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
-from enum import member
 from typing import TYPE_CHECKING, Union
 
 import discord
-from discord import ui, Interaction, SelectOption
 
 from .colour import Colour
 from .items import Item, Items
@@ -94,7 +92,7 @@ class Inventory:
 
     @classmethod
     def from_db(cls, member: 'HeliosMember', data: InventoryModel):
-        if member.db_id != data.member_id:
+        if member.db_entry != data.member:
             raise ValueError('Member ID does not match')
         items = [Items.get_from_dict(item) for item in data.items]
         c = cls(member)
@@ -108,7 +106,7 @@ class Inventory:
             if self._model:
                 d = self.to_dict()
                 del d['member']
-                await self._model.async_update(**d)
+                await self._model.update_from_dict(d)
                 self._unsaved = False
             else:
                 self._model = await InventoryModel.create(**self.to_dict())
@@ -117,7 +115,7 @@ class Inventory:
 
     @classmethod
     async def load(cls, member: 'HeliosMember'):
-        model = await InventoryModel.get(member.db_entry)
+        model = await InventoryModel.get_by_member(member.db_entry)
         if model is None:
             return cls(member)
         return cls.from_dict(member, model)

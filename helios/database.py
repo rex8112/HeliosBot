@@ -37,8 +37,9 @@ from .tools.config import Config
 if TYPE_CHECKING:
     from .member import HeliosMember
 
-__all__ = [
+__all__ = (
     'initialize_db',
+    'close_db',
     'VersionModel',
     'ServerModel',
     'ChannelModel',
@@ -60,7 +61,7 @@ __all__ = [
     'StoreModel',
     'StatisticModel',
     'StatisticHistoryModel'
-]
+)
 
 settings = Config.from_file_path()
 
@@ -78,8 +79,28 @@ async def initialize_db():
     #                       EffectModel, ThemeModel, BlackjackModel, DailyModel, GameModel, GameAliasModel, PugModel,
     #                       InventoryModel, StoreModel, TopicSubscriptionModel, StatisticModel, StatisticHistoryModel])
     await Tortoise.init(
-        db_url=settings.db_path,
+        config={
+            'connections': {
+                'default': {
+                    'engine': 'tortoise.backends.mysql',
+                    'credentials': {
+                        'host': settings.db_host,
+                        'port': settings.db_port,
+                        'user': settings.db_username,
+                        'password': settings.db_password,
+                        'database': settings.db_path,
+                    }
+                }
+            },
+            'apps': {
+                'models': {
+                    'models': ['helios.database'],
+                    'default_connection': 'default',
+                }
+            }
+        },
         modules={'app': ['helios.database']},
+
     )
     await Tortoise.generate_schemas(safe=True)
 
@@ -147,7 +168,7 @@ class VersionModel(BaseModel):
     version = fields.CharField(max_length=12)
 
     class Meta:
-        table_name = 'version'
+        table = 'version'
 
 
 class ServerModel(BaseModel):
@@ -155,6 +176,9 @@ class ServerModel(BaseModel):
     name = fields.CharField(max_length=26)
     settings = fields.JSONField(default={})
     flags = fields.JSONField(default=[])
+
+    members: fields.ReverseRelation[MemberModel]
+    channels: fields.ReverseRelation[ChannelModel]
 
     class Meta:
         table = 'servers'
@@ -205,7 +229,7 @@ class TransactionModel(BaseModel):
     async def get_transactions_paginated(member: 'MemberModel', page: int, limit: int) -> list['TransactionModel']:
         # q = (TransactionModel.select().where(TransactionModel.member_id == member.db_id)
         #      .order_by(TransactionModel.id.desc()).paginate(page, limit))
-        q = await TransactionModel.all().filter(member=member).offset(page * limit).limit(limit).order_by('-id').prefetch_related()
+        q = await TransactionModel.all().filter(member=member).offset(page * limit).limit(limit).order_by('-id').prefetch_related('member')
         return q
 
     @staticmethod
@@ -227,11 +251,11 @@ class EventModel(BaseModel):
     id = fields.IntField(primary_key=True)
     trigger = fields.CharField(max_length=20)
     action = fields.CharField(max_length=25)
-    server_id = fields.ForeignKeyField(ServerModel, related_name='startups', null=True)
+    server = fields.ForeignKeyField(ServerModel, related_name='startups', null=True)
     target_id = fields.BigIntField()
 
     class Meta:
-        table_name = 'events'
+        table = 'events'
 
 
 # class AuditLogModel(BaseModel):
@@ -249,7 +273,7 @@ class EventModel(BaseModel):
 #         return list(audits)
 #
 #     class Meta:
-#         table_name = 'auditlogs'
+#         table = 'auditlogs'
 
 
 # class CourtModel(BaseModel):
@@ -261,7 +285,7 @@ class EventModel(BaseModel):
 #     jury = JSONField(default=[])
 #
 #     class Meta:
-#         table_name = 'courts'
+#         table = 'courts'
 
 
 # class CaseModel(BaseModel):
@@ -275,7 +299,7 @@ class EventModel(BaseModel):
 #     created = DatetimeTzField(default=get_aware_utc_now)
 #
 #     class Meta:
-#         table_name = 'cases'
+#         table = 'cases'
 
 
 class DynamicVoiceGroupModel(BaseModel):
@@ -289,12 +313,12 @@ class DynamicVoiceGroupModel(BaseModel):
     game_template = fields.CharField(max_length=25)
 
     class Meta:
-        table_name = 'dynamicvoicegroups'
+        table = 'dynamicvoicegroups'
 
     @staticmethod
     async def get_all(server: ServerModel) -> list['DynamicVoiceGroupModel']:
         """Get all models for a server."""
-        q = await DynamicVoiceGroupModel.filter(server=server).prefetch_related()
+        q = await DynamicVoiceGroupModel.filter(server=server).prefetch_related('server')
         return q
 
     @staticmethod
@@ -311,12 +335,12 @@ class DynamicVoiceModel(BaseModel):
     settings = fields.JSONField(default={})
 
     class Meta:
-        table_name = 'dynamicvoices'
+        table = 'dynamicvoices'
 
     @staticmethod
     async def get_all(server: ServerModel) -> list['DynamicVoiceModel']:
         """Get all models for a server."""
-        q = await DynamicVoiceModel.filter(server=server).prefetch_related()
+        q = await DynamicVoiceModel.filter(server=server).prefetch_related('server')
 
         return q
 
@@ -346,7 +370,7 @@ class TopicModel(BaseModel):
     updated = fields.DatetimeField(auto_now=True)
 
     class Meta:
-        table_name = 'topics'
+        table = 'topics'
 
     def async_save(self, only=None):
         self.updated = get_aware_utc_now()
@@ -359,12 +383,12 @@ class TopicModel(BaseModel):
 
     @staticmethod
     async def get_by_channel(channel_id: int) -> 'TopicModel':
-        q = await TopicModel.filter(channel_id=channel_id).prefetch_related().first()
+        q = await TopicModel.filter(channel_id=channel_id).prefetch_related('server', 'creator').first()
         return q
 
     @staticmethod
     async def get_all(server: ServerModel) -> list['TopicModel']:
-        q = await TopicModel.filter(server=server).prefetch_related()
+        q = await TopicModel.filter(server=server).prefetch_related('server', 'creator')
         return q
 
 
@@ -378,7 +402,7 @@ class EffectModel(BaseModel):
     extra = fields.JSONField(default=dict())
 
     class Meta:
-        table_name = 'effects'
+        table = 'effects'
 
     @classmethod
     async def new(cls, type: str, target: str, duration: int,
@@ -411,11 +435,11 @@ class ThemeModel(BaseModel):
     created = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
-        table_name = 'themes'
+        table = 'themes'
 
     @classmethod
     async def get_all(cls, server: ServerModel) -> list['ThemeModel']:
-        q = await cls.filter(server=server).prefetch_related()
+        q = await cls.filter(server=server).prefetch_related('server', 'owner')
         return q
 
     @classmethod
@@ -427,15 +451,15 @@ class ThemeModel(BaseModel):
     async def get_themes(cls, server: ServerModel, owner: MemberModel = None):
         """Get all themes for a server, optionally filtered by owner."""
         if owner:
-            q = await cls.filter(server=server, owner=owner).prefetch_related()
+            q = await cls.filter(server=server, owner=owner).prefetch_related('server', 'owner')
         else:
-            q = await cls.filter(server=server).prefetch_related()
+            q = await cls.filter(server=server).prefetch_related('server', 'owner')
         return q
 
     @classmethod
     async def get_by_name(cls, name: str) -> Optional['ThemeModel']:
         """Get a theme by its name."""
-        q = await cls.filter(name=name).prefetch_related().first()
+        q = await cls.filter(name=name).prefetch_related('server', 'owner').first()
         return q
 
     @classmethod
@@ -455,7 +479,7 @@ class BlackjackModel(BaseModel):
     created = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
-        table_name = 'blackjack'
+        table = 'blackjack'
 
     @classmethod
     async def create_model(cls, players: list) -> 'BlackjackModel':
@@ -469,7 +493,7 @@ class DailyModel(BaseModel):
     claimed = fields.IntField(default=-1)
 
     class Meta:
-        table_name = 'dailies'
+        table = 'dailies'
 
     @classmethod
     async def claim(cls, member: MemberModel, day: int):
@@ -505,7 +529,7 @@ class GameModel(BaseModel):
     aliases: fields.ReverseRelation['GameAliasModel']
 
     class Meta:
-        table_name = 'games'
+        table = 'games'
 
     @classmethod
     async def create_game(cls, name: str, display_name: str, icon: str) -> 'GameModel':
@@ -532,7 +556,7 @@ class GameModel(BaseModel):
     async def set_day_playtime(cls):
         """Set the last day playtime to the current playtime."""
         # q = cls.select().where(cls.play_time > cls.last_day_playtime)
-        q = await cls.filter(play_time__gt=F('last_day_playtime')).prefetch_related().update(last_day_playtime=F('play_time'))
+        q = await cls.filter(play_time__gt=F('last_day_playtime')).prefetch_related('aliases').update(last_day_playtime=F('play_time'))
 
     async def add_playtime(self, time: int):
         """Add playtime to the game."""
@@ -557,7 +581,7 @@ class GameAliasModel(BaseModel):
     alias = fields.CharField(max_length=52, unique=True)
 
     class Meta:
-        table_name = 'game_aliases'
+        table = 'game_aliases'
 
 
 # class Lottery(BaseModel):
@@ -571,7 +595,7 @@ class GameAliasModel(BaseModel):
 #     tickets = JSONField(default=[])
 #
 #     class Meta:
-#         table_name = 'lotteries'
+#         table = 'lotteries'
 
 
 class PugModel(BaseModel):
@@ -585,7 +609,7 @@ class PugModel(BaseModel):
     effect = fields.ForeignKeyField(EffectModel, related_name='pugs', null=True)
 
     class Meta:
-        table_name = 'pugs'
+        table = 'pugs'
 
     @classmethod
     async def create_pug(cls, server_id: int, channel_id: int, invite: str, role: int) -> 'PugModel':
@@ -609,7 +633,7 @@ class InventoryModel(BaseModel):
     items = fields.JSONField(default=[])
 
     class Meta:
-        table_name = 'inventory'
+        table = 'inventory'
 
     @classmethod
     async def create_inventory(cls, member: MemberModel, items=None) -> 'InventoryModel':
@@ -621,7 +645,7 @@ class InventoryModel(BaseModel):
     @classmethod
     async def get_by_member(cls, member: MemberModel) -> Optional['InventoryModel']:
         try:
-            q = await cls.filter(member=member).first()
+            q = await cls.filter(member=member).prefetch_related('member').first()
             return q
         except DoesNotExist:
             return None
@@ -638,7 +662,7 @@ class StoreModel(BaseModel):
     next_refresh = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
-        table_name = 'stores'
+        table = 'stores'
 
     @classmethod
     async def create_store(cls, server: ServerModel, items: list = None, next_refresh: datetime.datetime = None) -> 'StoreModel':
@@ -664,7 +688,7 @@ class TopicSubscriptionModel(BaseModel):
     created = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
-        table_name = 'topic_subscriptions'
+        table = 'topic_subscriptions'
 
     @classmethod
     async def create_topic_sub(cls, member: MemberModel, topic: TopicModel) -> 'TopicSubscriptionModel':
@@ -703,7 +727,7 @@ class StatisticModel(BaseModel):
     history: fields.ReverseRelation['StatisticHistoryModel']
 
     class Meta:
-        table_name = 'statistics'
+        table = 'statistics'
 
     @classmethod
     async def create_stat(cls, server_id: int, member_id: Optional[int], name: str, value: int) -> 'StatisticModel':
@@ -769,7 +793,7 @@ class StatisticHistoryModel(BaseModel):
     created = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
-        table_name = 'statistic_history'
+        table = 'statistic_history'
 
     @classmethod
     async def create_history(cls, stat: 'StatisticModel') -> 'StatisticHistoryModel':

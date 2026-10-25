@@ -29,7 +29,7 @@ import discord
 from discord.ext import commands
 from discord.utils import setup_logging
 
-from helios import db
+from helios import close_db
 from helios.tools import Config
 
 logger = logging.getLogger('HeliosLogger')
@@ -93,7 +93,7 @@ async def main():
         await bot.start(settings.token)
         await asyncio.sleep(0.1)
     await asyncio.sleep(0.1)
-    db.close()
+    await close_db()
 
 if __name__ == '__main__':
     asyncio.run(main())

@@ -29,52 +29,41 @@ from .database import EventModel
 if TYPE_CHECKING:
     from .member import HeliosMember
     from .helios_bot import HeliosBot
-    from peewee_async import Manager
 
 
 EventTrigger = Literal['on_voice', 'on_start']
 
 
 class EventManager:
-    def __init__(self, bot: 'HeliosBot', db_manager: 'Manager'):
-        self.db_manager = db_manager
+    def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
 
     async def add_action(self, trigger: EventTrigger, member: Union['HeliosMember', discord.abc.Snowflake],
                          action: str) -> Awaitable[EventModel]:
-        return await self.db_manager.create(EventModel, trigger=trigger, action=action, target_id=member.id,
-                                            server_id=member.server.id if getattr(member, 'server', None) else member.guild.id)
+        return await EventModel.create(trigger=trigger, action=action, target_id=member.id,
+                                       server_id=member.server.id if getattr(member, 'server', None) else member.guild.id)
 
     async def get_actions(self, trigger: EventTrigger, member: 'HeliosMember') -> list[EventModel]:
-        q = EventModel.select().where(EventModel.trigger == trigger, EventModel.target_id == member.id,
-                                      EventModel.server_id == member.server.id)
-        actions = await self.db_manager.prefetch(q)
+        actions = await EventModel.filter(trigger=trigger, target_id=member.id, server_id=member.server.db_entry)
         l: list[EventModel] = [x for x in actions]
         return l
 
     async def get_specific_actions(self, trigger: EventTrigger, member: 'HeliosMember', action: str):
-        q = EventModel.select().where(EventModel.trigger == trigger, EventModel.target_id == member.id,
-                                      EventModel.server_id == member.server.id, EventModel.action == action)
-        actions = await self.db_manager.prefetch(q)
+        actions = await EventModel.filter(trigger=trigger, target_id=member.id, server_id=member.server.db_entry, action=action)
         l: list[EventModel] = [x for x in actions]
         return l
 
     async def get_all_trigger_actions(self, trigger: EventTrigger):
-        q = EventModel.select().where(EventModel.trigger == trigger)
-        actions = await self.db_manager.prefetch(q)
+        actions = await EventModel.filter(trigger=trigger)
         l: list[EventModel] = list(actions)
         return l
 
     async def delete_action(self, action: EventModel):
-        await self.db_manager.delete(action)
+        await action.delete()
 
     async def clear_actions(self, trigger: EventTrigger, member: Union['HeliosMember', discord.abc.Snowflake] = None):
         if member is None:
-            q = EventModel.select().where(EventModel.trigger == trigger)
+            await EventModel.filter(trigger=trigger).delete()
         else:
-            q = EventModel.select().where(EventModel.trigger == trigger, EventModel.target_id == member.id,
-                                          EventModel.server_id == member.server.id)
-        actions = await self.db_manager.prefetch(q)
-        async with self.db_manager.atomic():
-            for action in actions:
-                await self.db_manager.delete(action)
+            await EventModel.filter(trigger=trigger, target_id=member.id,
+                                    server_id=member.server.db_entry).delete()

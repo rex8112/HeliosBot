@@ -205,7 +205,7 @@ class PUGManager:
         pugs_data = await PugModel.get_all(self.server.db_entry)
         for pug_data in pugs_data:
             save = False
-            voice = self.server.channels.dynamic_voice.channels.get(pug_data.channel_id)
+            voice = self.server.channels.dynamic_voice.channels.get(pug_data.channel)
             if not voice:
                 continue
             server_members = [self.server.members.get(m) for m in pug_data.server_members]
@@ -224,7 +224,7 @@ class PUGManager:
             if not invite:
                 invite = await PUGChannel.create_invite(voice)
                 save = True
-            effect = pug_data.effect_id
+            effect = pug_data.effect
             pug = PUGChannel(voice, server_members, temporary_members, role, invite, effect)
             pug.db_entry = pug_data
             await voice.make_controlled(view_cls(pug))

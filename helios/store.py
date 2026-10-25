@@ -68,7 +68,7 @@ class Store:
 
     @classmethod
     async def from_server(cls, server: 'Server'):
-        entry = await StoreModel.get(server=server.db_entry)
+        entry = await StoreModel.get_or_none(server=server.db_entry)
         if entry is None:
             store = cls(server)
             await store.reset()
@@ -84,7 +84,7 @@ class Store:
                 next_refresh=self.next_refresh,
             )
         else:
-            await self.db_entry.async_update(**self.to_dict())
+            await self.db_entry.update_from_dict(self.to_dict())
 
     def start(self):
         self.refresh_loop.start()
