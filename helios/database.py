@@ -687,7 +687,7 @@ class StatisticModel(BaseModel):
         return model
 
     @classmethod
-    async def get_by_member_name(cls, server_id: int, member_id: Optional[int], name: str) -> Optional['StatisticModel']:
+    async def get_by_member_stat_name(cls, server_id: int, member_id: Optional[int], name: str) -> Optional['StatisticModel']:
         try:
             return await cls.filter(server_id=server_id, member_id=member_id, name=name).first()
         except DoesNotExist:
@@ -696,7 +696,7 @@ class StatisticModel(BaseModel):
     @classmethod
     async def get_value(cls, server_id: int, member_id: Optional[int], name: str) -> int:
         try:
-            statistic = await cls.get_by_member_name(server_id, member_id, name)
+            statistic = await cls.get_by_member_stat_name(server_id, member_id, name)
             if statistic:
                 return statistic.value
             return 0

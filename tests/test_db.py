@@ -116,5 +116,31 @@ class TestGameModels:
         assert g1.last_day_playtime == 30
 
 
+class TestStatisticModels:
+    async def setup(self):
+        s1 = await db.StatisticModel.create_stat(server_id=321, member_id=123, name='Test', value=100)
+        return s1
+
+    @pytest.mark.asyncio
+    async def test_statistics(self, db_ctx):
+        s1 = await self.setup()
+        s = await db.StatisticModel.get_by_member_stat_name(server_id=321, member_id=123, name='Test')
+        assert s == s1
+        v = await db.StatisticModel.get_value(server_id=321, member_id=123, name='Test')
+        assert v == 100
+        a = await db.StatisticModel.get_all(server_id=321, member_id=123)
+        assert len(a) == 1
+        a = await db.StatisticModel.get_all(server_id=321, member_id=123, stats=['Test'])
+        assert len(a) == 1
+
+    @pytest.mark.asyncio
+    async def test_statistics_increment(self, db_ctx):
+        s1 = await self.setup()
+        await db.StatisticModel.increment(server_id=321, member_id=123, name='Test', amount=10)
+        s1 = await db.StatisticModel.get_by_member_stat_name(server_id=321, member_id=123, name='Test')
+        assert s1.value == 110
+
+
+
 if __name__ == '__main__':
     unittest.main()
