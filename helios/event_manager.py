@@ -44,12 +44,12 @@ class EventManager:
                                        server_id=member.server.id if getattr(member, 'server', None) else member.guild.id)
 
     async def get_actions(self, trigger: EventTrigger, member: 'HeliosMember') -> list[EventModel]:
-        actions = await EventModel.filter(trigger=trigger, target_id=member.id, server_id=member.server.db_entry)
+        actions = await EventModel.filter(trigger=trigger, target_id=member.id, server=member.server.db_entry)
         l: list[EventModel] = [x for x in actions]
         return l
 
     async def get_specific_actions(self, trigger: EventTrigger, member: 'HeliosMember', action: str):
-        actions = await EventModel.filter(trigger=trigger, target_id=member.id, server_id=member.server.db_entry, action=action)
+        actions = await EventModel.filter(trigger=trigger, target_id=member.id, server=member.server.db_entry, action=action)
         l: list[EventModel] = [x for x in actions]
         return l
 
