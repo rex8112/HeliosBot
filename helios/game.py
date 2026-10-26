@@ -172,7 +172,9 @@ class Game:
 
     @classmethod
     def from_db(cls, db_entry: GameModel):
-        aliases: list[str] = [alias.alias for alias in db_entry.aliases]
+        aliases: list[str] = []
+        for alias in db_entry.aliases:
+            aliases.append(alias.alias)
         obj = cls(db_entry.name, display_name=db_entry.display_name, icon=db_entry.icon,
                   alias=aliases, play_time=db_entry.play_time,
                   last_day_playtime=db_entry.last_day_playtime, last_played=db_entry.last_played)
