@@ -542,7 +542,7 @@ class GameModel(BaseModel):
     async def find_game(cls, name: str) -> Optional['GameModel']:
         """Find a game by name or alias."""
         # q = cls.select().join(GameAliasModel, join_type=JOIN.LEFT_OUTER).where((cls.name == name) | (GameAliasModel.alias == name))
-        q = await cls.filter(Q(name=name) | Q(aliases__alias=name)).first()
+        q = await cls.filter(Q(name=name) | Q(aliases__alias=name)).prefetch_related('aliases').first()
         try:
             res = q
             if res:
