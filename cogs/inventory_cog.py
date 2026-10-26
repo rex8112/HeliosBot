@@ -40,12 +40,9 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
-import discord
 from discord import app_commands
 from discord.ext import commands
-from typing_extensions import Literal
 
-from helios import Blackjack, Items
 from helios.shop import *
 
 if TYPE_CHECKING:

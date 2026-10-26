@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Optional, Union
 import discord
 
 from .channel import Channel_Dict, Channel, VoiceChannel
-from .database import ChannelModel, objects
+from .database import ChannelModel
 from .dynamic_voice import VoiceManager
 from .topics import TopicChannel
 
@@ -226,11 +226,10 @@ class ChannelManager:
 
             return voice
 
-    async def setup(self, channel_data: list[dict] = None):
+    async def setup(self, channel_data: list[ChannelModel] = None):
         await self.dynamic_voice.setup()
         if not channel_data:
-            q = ChannelModel.select().where(ChannelModel.server == self.server.id)
-            data = await objects.prefetch(q)
+            data = await ChannelModel.filter(server=self.server.db_entry)
             channel_data = data
 
         deletes = []

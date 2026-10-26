@@ -145,8 +145,7 @@ class TopicChannel:
             data = self.serialize()
             del data['channel_id']
             del data['creator']
-            TopicModel.update_model_instance(self.db_entry, data)
-            await self.db_entry.async_save()
+            await self.db_entry.update_from_dict(data)
 
     # noinspection PyUnresolvedReferences
     @classmethod
@@ -292,21 +291,21 @@ class TopicChannel:
         """
         role = self.get_role()
         if role is None:
-            return await TopicSubscriptionModel.get(member.db_entry, self.db_entry) is not None
+            return await TopicSubscriptionModel.get_by_member_topic(member.db_entry, self.db_entry) is not None
         return role in member.member.roles
 
     async def subscribe(self, member: 'HeliosMember'):
-        existing = await TopicSubscriptionModel.get(member.db_entry, self.db_entry)
+        existing = await TopicSubscriptionModel.get_by_member_topic(member.db_entry, self.db_entry)
         if not existing:
-            await TopicSubscriptionModel.create(member.db_entry, self.db_entry)
+            await TopicSubscriptionModel.create_topic_sub(member.db_entry, self.db_entry)
         role = self.get_role()
         if role:
             await member.member.add_roles(role, reason='Subscribed to topic')
 
     async def unsubscribe(self, member: 'HeliosMember'):
-        existing = await TopicSubscriptionModel.get(member.db_entry, self.db_entry)
+        existing = await TopicSubscriptionModel.get_by_member_topic(member.db_entry, self.db_entry)
         if existing:
-            await existing.async_delete()
+            await existing.delete()
         role = self.get_role()
         if role:
             await member.member.remove_roles(role, reason='Unsubscribed from topic')

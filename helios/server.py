@@ -28,8 +28,7 @@ import discord
 
 from .channel_manager import ChannelManager
 from .cooldowns import Cooldowns
-from .court import Court
-from .database import ServerModel, objects
+from .database import ServerModel
 from .exceptions import IdMismatchError
 from .gambling.manager import GamblingManager
 from .game import GameManager
@@ -135,7 +134,6 @@ class Server:
         self.members = MemberManager(self)
         self.shop = Shop(self.bot)
         self.store: Optional['Store'] = None
-        self.court = Court(self)
         self.voice_controller = HeliosVoiceController(self)
         self.topics = {}
         self.voice_controllers: list['VoiceControllerView'] = []
@@ -209,8 +207,10 @@ class Server:
         else:
             logger.debug(f'Setting up server {self.name}')
             self.deserialize(data)
-            await self.members.setup(data.members)
-            await self.channels.setup(data.channels)
+            members = await data.members.all()
+            channels = await data.channels.all()
+            await self.members.setup(members)
+            await self.channels.setup(channels)
         await self.theme.load()
         self.store = await Store.from_server(self)
 
@@ -250,8 +250,8 @@ class Server:
         """
         if data.id != self.id:
             raise IdMismatchError('ID in data does not match server ID', self.id, data.id)
-        self.flags = json.loads(data.flags)
-        self.settings.load_dict(json.loads(data.settings))
+        self.flags = data.flags
+        self.settings.load_dict(data.settings)
         self.db_entry = data
         self.loaded = True
 
@@ -280,16 +280,16 @@ class Server:
     async def save(self):
         try:
             if self._new:
-                self.db_entry = objects.create(ServerModel, **self.serialize())
+                self.db_entry = ServerModel.create(**self.serialize())
                 self._new = False
             else:
                 self.db_entry.update_model_instance(self.db_entry, self.serialize())
-                await objects.update(self.db_entry)
+                await self.db_entry.save()
         finally:
             self._save_task = None
 
     async def do_on_voice(self, helios_member: 'HeliosMember'):
-        if helios_member.allow_on_voice is False:
+        if not helios_member.allow_on_voice:
             return
         member: discord.Member = helios_member.member
         actions = await self.bot.event_manager.get_actions('on_voice', helios_member)

@@ -30,15 +30,14 @@ import discord
 from aiohttp import ClientSession
 from discord.ext import commands, tasks
 
-from .database import EventModel, objects
+
 from .effects import EffectsManager
 from .event_manager import EventManager
 from .http import HTTPClient
-from .server import Server
 from .server_manager import ServerManager
 from .store import StoreView
 from .tools import Config
-from .views import ActionView, ViolationPayButton, StartBlackjackView
+from .views import ActionView, StartBlackjackView
 
 logger = logging.getLogger('HeliosLogger')
 
@@ -46,7 +45,7 @@ logger = logging.getLogger('HeliosLogger')
 class HeliosBot(commands.Bot):
     def __init__(self, command_prefix, *, intents, settings: Config, **options):
         self.servers = ServerManager(self)
-        self.event_manager = EventManager(self, objects)
+        self.event_manager = EventManager(self)
         self.effects = EffectsManager(self)
         self.settings = settings
         self.ready_once = True
@@ -57,16 +56,6 @@ class HeliosBot(commands.Bot):
         self._last_activity = None
 
         super().__init__(command_prefix, intents=intents, **options)
-
-    @staticmethod
-    async def add_startup(action: str, target_id: int, server: 'Server' = None) -> EventModel:
-        model: EventModel = await objects.create(EventModel, action=action, target_id=target_id,
-                                                 server=server.db_entry)
-        return model
-
-    @staticmethod
-    async def remove_startup(model: EventModel):
-        await objects.delete(model)
 
     def add_activity(self, activity: str):
         self.activities.append(activity)
@@ -93,7 +82,6 @@ class HeliosBot(commands.Bot):
             api_password=self.settings.api_password,
             name_api_key=self.settings.randomname_api_key
         )
-        self.add_dynamic_items(ViolationPayButton)
 
     async def run_startup_actions(self):
         rem_actions = []

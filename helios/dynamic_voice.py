@@ -79,7 +79,7 @@ class DynamicVoiceChannel:
 
         self.free = True
 
-        self.db_entry = None
+        self.db_entry: Optional['DynamicVoiceModel'] = None
         self._unsaved = False
         self._last_name_change = discord.utils.utcnow() - self.NAME_COOLDOWN
         self._last_message_update = discord.utils.utcnow() - self.MESSAGE_UPDATE_COOLDOWN
@@ -234,7 +234,7 @@ class DynamicVoiceChannel:
         for entry in db_channels:
             d_channel = manager.server.guild.get_channel(entry.channel)
             if d_channel is None:
-                await DynamicVoiceModel.async_delete(entry)
+                await entry.delete()
                 continue
             channel = cls(manager, d_channel)
             channel.settings.load_dict(entry.settings)
@@ -245,10 +245,10 @@ class DynamicVoiceChannel:
     # Database Methods
     async def save(self):
         if self.db_entry and self._unsaved:
-            await DynamicVoiceModel.async_update(self.db_entry, **self.serialize())
+            await self.db_entry.update_from_dict(self.serialize())
 
     async def delete(self):
-        await DynamicVoiceModel.async_delete(self.db_entry)
+        await self.db_entry.delete()
         del self.manager.channels[self.channel.id]
         try:
             await self.channel.delete()
@@ -542,7 +542,7 @@ class DynamicVoiceGroup:
         self.settings.template.value = template
         self.settings.game_template.value = game_template
 
-        self.db_entry = None
+        self.db_entry: Optional['DynamicVoiceGroupModel'] = None
 
     def __eq__(self, other):
         if isinstance(other, DynamicVoiceGroup):
@@ -656,7 +656,7 @@ class DynamicVoiceGroup:
 
     async def save(self):
         if self.db_entry:
-            await DynamicVoiceGroupModel.async_update(self.db_entry, **self.to_dict())
+            await self.db_entry.update_from_dict(self.to_dict())
 
 
 def need_sorting(all_channels):
@@ -871,7 +871,7 @@ class VoiceManager:
                 await channel.make_private(owner, template)
             else:
                 await channel.make_inactive()
-        await DynamicVoiceGroupModel.async_delete(group.db_entry)
+        await group.db_entry.delete()
         del self.groups[group.id]
 
     def get_next_number(self, group: 'DynamicVoiceGroup'):

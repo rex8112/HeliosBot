@@ -24,9 +24,8 @@ import asyncio
 from typing import TYPE_CHECKING, Union, Optional
 
 import discord
-import peewee
 
-from .database import MemberModel, objects
+from .database import MemberModel
 from .member import HeliosMember
 
 if TYPE_CHECKING:
@@ -61,10 +60,7 @@ class MemberManager:
         member = self.get(member_id)
         if member and not force:
             return member
-        try:
-            mem_data = await objects.get(MemberModel, member_id=member_id, server_id=self.guild.id)
-        except peewee.DoesNotExist:
-            mem_data = None
+        mem_data = await MemberModel.get_or_none(member_id=member_id, server_id=self.guild.id)
         mem = self.guild.get_member(member_id)
         if mem_data and mem:
             member = HeliosMember(self, mem, data=mem_data)
@@ -100,7 +96,7 @@ class MemberManager:
 
     async def setup(self, member_data: list[MemberModel] = None):
         if member_data is None:
-            member_data = MemberModel.select().where(MemberModel.server == self.server.id)
+            member_data = await MemberModel.filter(server=self.server.db_entry)
         tasks = []
         member_data_dict = {}
         for data in member_data:

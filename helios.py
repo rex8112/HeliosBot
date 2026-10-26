@@ -29,7 +29,7 @@ import sentry_sdk
 import discord
 from discord.utils import setup_logging
 
-from helios import HeliosBot, db, initialize_db
+from helios import HeliosBot, initialize_db, close_db
 from helios.tools import Config
 
 logger = logging.getLogger('HeliosLogger')
@@ -81,11 +81,12 @@ async def main():
             dsn=settings.sentry_dsn,
             # Set traces_sample_rate to 1.0 to capture 100%
             # of transactions for performance monitoring.
-            traces_sample_rate=1.0,
+            traces_sample_rate=0.1,
             # Set profiles_sample_rate to 1.0 to profile 100%
             # of sampled transactions.
             # We recommend adjusting this value in production.
-            profiles_sample_rate=1.0
+            profiles_sample_rate=1.0,
+            auto_session_tracking=False,
         )
 
     if settings.log_level == 'DEBUG':
@@ -101,14 +102,16 @@ async def main():
         consoleHandler.setLevel(logging.WARNING)
         fileHandler.setLevel(logging.WARNING)
 
-    initialize_db()
-    async with bot:
-        setup_logging(root=False)
-        await load_extensions()
-        await bot.start(bot.settings.token, reconnect=False)
+    await initialize_db()
+    try:
+        async with bot:
+            setup_logging(root=False)
+            await load_extensions()
+            await bot.start(bot.settings.token, reconnect=False)
+            await asyncio.sleep(0.1)
         await asyncio.sleep(0.1)
-    await asyncio.sleep(0.1)
-    db.close()
+    finally:
+        await close_db()
 
 if __name__ == '__main__':
     asyncio.run(main())

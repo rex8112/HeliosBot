@@ -25,7 +25,7 @@ from typing import Optional, TYPE_CHECKING
 import discord
 from discord.ext import tasks
 
-from .database import GameModel, GameAliasModel
+from .database import GameModel
 
 if TYPE_CHECKING:
     from .server import Server
@@ -138,10 +138,7 @@ class Game:
         else:
             data = self.to_dict()
             del data['alias']
-            await self.db_entry.async_update(**data)
-
-        for alias in self.alias:
-            await GameAliasModel.create(game=self.db_entry, alias=alias)
+            await self.db_entry.update_from_dict(data)
 
     async def convert_to_alias_of(self, game: 'Game'):
         await self.db_entry.delete_game()
@@ -157,13 +154,15 @@ class Game:
 
     async def set_day_playtime(self):
         self.last_day_playtime = self.play_time
-        await self.db_entry.async_update(last_day_playtime=self.play_time)
+        self.db_entry.last_day_playtime = self.play_time
+        await self.db_entry.save(update_fields=['last_day_playtime'])
 
     async def update_icon(self, icon: str):
         if self.icon == icon:
             return
         self.icon = icon
-        await self.db_entry.async_update(icon=icon)
+        self.db_entry.icon = icon
+        await self.db_entry.save(update_fields=['icon'])
 
     @classmethod
     def from_dict(cls, data: dict):
@@ -173,8 +172,9 @@ class Game:
 
     @classmethod
     def from_db(cls, db_entry: GameModel):
+        aliases: list[str] = [alias.alias for alias in db_entry.aliases]
         obj = cls(db_entry.name, display_name=db_entry.display_name, icon=db_entry.icon,
-                  alias=[alias.alias for alias in db_entry.aliases], play_time=db_entry.play_time,
+                  alias=aliases, play_time=db_entry.play_time,
                   last_day_playtime=db_entry.last_day_playtime, last_played=db_entry.last_played)
         obj.db_entry = db_entry
         return obj

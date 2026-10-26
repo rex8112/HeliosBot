@@ -8,5 +8,4 @@ from .shop_view import *
 from .theme_view import *
 from .topic_view import *
 from .verify_view import *
-from .violation_view import *
 from .voice_view import *

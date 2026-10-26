@@ -26,8 +26,6 @@ from typing import TYPE_CHECKING, Union, Optional
 
 import discord
 from discord.utils import utcnow
-# noinspection PyUnresolvedReferences
-from playhouse.shortcuts import model_to_dict
 
 from .database import EffectModel
 
@@ -71,7 +69,7 @@ class EffectsManager:
     async def fetch_all(self):
         models = await EffectModel.get_all()
         for model in models:
-            effect = Effect.from_dict(model_to_dict(model), self.bot)
+            effect = Effect.from_model(model, self.bot)
             if effect is not None:
                 effect.db_entry = model
                 self._add_effect(effect)
@@ -181,9 +179,9 @@ class Effect:
 
     @classmethod
     def from_dict(cls, data: dict, bot: 'HeliosBot'):
-        for subcls in cls.__subclasses__():
-            if subcls.__name__ == data['type']:
-                return subcls.from_dict(data, bot)
+        for subclass in cls.__subclasses__():
+            if subclass.__name__ == data['type']:
+                return subclass.from_dict(data, bot)
         target = cls.deserialize_target(data['target'], bot)
         if target is None:
             return None
@@ -191,6 +189,20 @@ class Effect:
         effect.applied = data['applied']
         effect._applied_at = data['applied_at']
         effect.load_extras(data['extra'])
+        return effect
+
+    @classmethod
+    def from_model(cls, data: 'EffectModel', bot: 'HeliosBot'):
+        for subclass in cls.__subclasses__():
+            if subclass.__name__ == data.type:
+                return subclass.from_model(data, bot)
+        target = cls.deserialize_target(data.target, bot)
+        if target is None:
+            return None
+        effect = cls(target, data.duration)
+        effect.applied = data.applied
+        effect._applied_at = data.applied_at
+        effect.load_extras(data.extra)
         return effect
 
     async def apply(self):

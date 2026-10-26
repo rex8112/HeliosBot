@@ -21,19 +21,14 @@
 #  SOFTWARE.
 
 import logging
-import traceback
-from datetime import time, datetime
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING
 
 import discord
-from discord import app_commands, Interaction, ui
-from discord.ext import commands, tasks
-
-from helios import DynamicVoiceGroup, VoiceManager, PaginatorSelectView, Colour
+from discord import app_commands
+from discord.ext import commands
 
 if TYPE_CHECKING:
-    from helios import HeliosBot, HeliosMember, Server
-
+    from helios import HeliosBot
 
 logger = logging.getLogger('Helios.GamesCog')
 

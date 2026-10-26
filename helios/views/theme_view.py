@@ -22,8 +22,8 @@
 from typing import TYPE_CHECKING
 
 import discord
-import peewee
 from discord import ui
+from tortoise.exceptions import IntegrityError
 
 from ..colour import Colour
 from ..dynamic_voice import DynamicVoiceGroup
@@ -355,7 +355,7 @@ class ThemeEditView(ui.View):
                 return
             try:
                 await self.theme.save()
-            except peewee.IntegrityError:
+            except IntegrityError:
                 await interaction.response.send_message('Theme with this name already exists. Please choose a different name.', ephemeral=True)
                 return
             self.new = False

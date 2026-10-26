@@ -257,7 +257,7 @@ class Theme:
         if self.db_entry:
             data = self.to_dict()
             del data['owner']  # prevent synchronous access to owner
-            await self.db_entry.async_update(**data)
+            await self.db_entry.update_from_dict(data)
         else:
             d = self.to_dict()
             self.db_entry = await ThemeModel.create(server=self.server.db_entry,
@@ -361,7 +361,7 @@ class Theme:
         theme.db_entry = db_entry
         theme.current = db_entry.current
         theme.editable = db_entry.editable
-        theme.owner = server.members.get(db_entry.owner_id) if db_entry.owner_id else None
+        theme.owner = server.members.get(db_entry.owner) if db_entry.owner else None
         theme.sort_stat = db_entry.sort_stat
         theme.sort_type = db_entry.sort_type
         theme.afk_channel = db_entry.afk_channel

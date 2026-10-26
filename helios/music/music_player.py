@@ -20,21 +20,19 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 import asyncio
+import logging
 import math
 import re
-import logging
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Optional
 
 import discord
 from discord import Interaction
-from discord.ext import tasks
 from discord.utils import format_dt
 
 from .playlist import Playlist, YoutubePlaylist
 from .song import Song
 from ..colour import Colour
-from ..exceptions import ConnectError
 from ..views.generic_views import YesNoView
 
 if TYPE_CHECKING:
