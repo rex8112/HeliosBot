@@ -245,6 +245,11 @@ class TransactionModel(BaseModel):
                    .annotate(day_change=Sum('amount')).first())
         return int(q.day_change) if q.day_change else 0
 
+    @staticmethod
+    async def calculate_balance(member: 'MemberModel'):
+        q = await TransactionModel.filter(member=member).annotate(balance=Sum('amount')).first()
+        return q.balance
+
 
 class EventModel(BaseModel):
     id = fields.IntField(primary_key=True)
