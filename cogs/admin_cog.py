@@ -150,6 +150,16 @@ class AdminCog(commands.GroupCog, name='admin'):
                 await topic.channel.edit(topic=topic.get_description())
         await interaction.followup.send(content='Finished')
 
+    @app_commands.command(name='calculate_balance', description='Calculate the balance of a user')
+    @commands.has_permissions(administrator=True)
+    async def calculate_balance(self, interaction: discord.Interaction, target: discord.Member):
+        server = self.bot.servers.get(interaction.guild_id)
+        member = server.members.get(target.id)
+        new_bal, old_bal = await member.calculate_balance_from_transactions()
+        await interaction.response.send_message(f'New balance: {new_bal:,}\nOld balance: {old_bal:,}\n'
+                                                f'Change: {new_bal - old_bal:,}', ephemeral=True)
+
+
     @app_commands.command(name='other', description='Other commands')
     @commands.has_permissions(administrator=True)
     async def other(self, interaction: discord.Interaction, command: str, arg: str):
@@ -181,19 +191,6 @@ class AdminCog(commands.GroupCog, name='admin'):
                 description += f'\n**{stat.display_name}**: {value}'
             embed.description = description
             await interaction.followup.send(embed=embed)
-        elif command == 'migrate_ap':
-            await interaction.response.defer(ephemeral=True)
-            tasks = []
-            for server in self.bot.servers.servers.values():
-                for member in server.members.members.values():
-                    ap = member.db_entry.activity_points
-                    if ap > 0:
-                        await member.statistics.voice_time.increment(ap)
-                        member.db_entry.activity_points = 0
-                        tasks.append(member.db_entry.async_save(only=['activity_points']))
-
-            await asyncio.gather(*tasks)
-            await interaction.followup.send('Finished')
 
 
 async def setup(bot: 'HeliosBot'):
