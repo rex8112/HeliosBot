@@ -474,6 +474,8 @@ class HeliosMember(HasFlags):
         old_max = await self.statistics.max_points.value()
         if old_max < self.points:
             await self.statistics.max_points.set_value(self.points)
+        if self.points >= 2147483647:
+            await self.add_points(self.points - 2147483647, 'Helios', 'Cap Hit')
 
     async def transfer_points(self, target: 'HeliosMember', price: int, description: str,
                               receive_description: str = None):
