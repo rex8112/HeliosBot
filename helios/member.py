@@ -28,7 +28,7 @@ from datetime import timezone
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 import discord
-from discord.utils import format_dt
+from discord.utils import format_dt, utcnow
 
 from .abc import HasFlags
 from .colour import Colour
@@ -112,9 +112,9 @@ class HeliosMember(HasFlags):
 
         self._point_mutes_cache = (datetime.datetime(year=2000, month=1, day=1,
                                                      tzinfo=datetime.datetime.now(timezone.utc).tzinfo), 0)
-
         self._temp_mute_data: Optional[tuple['HeliosMember', int]] = None
         self._temp_deafen_data: Optional[tuple['HeliosMember', int]] = None
+        self._afk_information: Optional[tuple['HeliosMember', datetime.datetime]] = None
         self._last_check = get_floor_now()
         self._partial = 0
         self._changed = False
@@ -215,6 +215,14 @@ class HeliosMember(HasFlags):
     @forbidden.setter
     def forbidden(self, value: bool):
         self.set_flag('FORBIDDEN', value)
+
+    @property
+    def afk_information(self):
+        return self._afk_information
+
+    @afk_information.setter
+    def afk_information(self, value: Optional[tuple['HeliosMember', datetime.datetime]]):
+        self._afk_information = value
 
     def has_effect(self, effect: str):
         effects = self.effects
@@ -576,7 +584,7 @@ class HeliosMember(HasFlags):
             except (discord.Forbidden, discord.HTTPException):
                 return False
 
-    async def temp_mute(self, duration: int, muter: 'HeliosMember', price: int):
+    async def temp_mute(self, duration: int, muter: 'HeliosMember', price: int, bad_afk=False):
         async def unmute(m):
             await asyncio.sleep(duration)
             if await self.temp_unmute(duration):
@@ -584,14 +592,24 @@ class HeliosMember(HasFlags):
 
         if self.member.voice:
             try:
-                embed = discord.Embed(
-                    title='Muted',
-                    colour=discord.Colour.orange(),
-                    description=f'Someone spent **{price}** {self.server.points_name.capitalize()} to mute you for '
-                                f'**{duration}** seconds.'
-                )
+                if not bad_afk:
+                    embed = discord.Embed(
+                        title='Muted',
+                        colour=discord.Colour.orange(),
+                        description=f'Someone spent **{price}** {self.server.points_name.capitalize()} to mute you for '
+                                    f'**{duration}** seconds.'
+                    )
+                    reason = f'{muter.member.name} temp muted for {duration} seconds'
+                else:
+                    embed = discord.Embed(
+                        title='AFK Check Failed',
+                        colour=Colour.helios(),
+                        description=f'AFK Check Failed for **{muter.member.name}** and you have been punished '
+                                    f'for **{duration}** seconds.'
+                    )
+                    reason = f'AFK Check Failed for **{muter.member.name}**'
 
-                await self.member.edit(mute=True, reason=f'{muter.member.name} temp muted for {duration} seconds')
+                await self.member.edit(mute=True, reason=reason)
 
                 await self.member.send(embed=embed)
             except discord.Forbidden:
@@ -638,6 +656,27 @@ class HeliosMember(HasFlags):
         else:
             return False
 
+    async def afk_check(self, afker: 'HeliosMember') -> bool:
+        now = utcnow()
+        if self.member.voice and self.member.voice.channel is not self.guild.afk_channel:
+            self._afk_information = (afker, now)
+            await self.member.move_to(self.guild.afk_channel, reason=f'AFK Checked by {afker.member.name}')
+        else:
+            return False
+        self._afk_information = (afker, now)
+        return True
+
+    async def was_afk_checked(self) -> bool:
+        afker = await self.who_afk_checked_audit(duration=10)
+        if afker is None:
+            return False
+        h_afker = self.server.members.get(afker)
+        now = utcnow()
+        if h_afker:
+            self._afk_information = (h_afker, now)
+            return True
+        return False
+
     async def who_unmuted(self, duration: int = 90) -> Optional[Union[discord.Member, discord.User]]:
         after = discord.utils.utcnow() - datetime.timedelta(seconds=duration)
         async for audit in self.guild.audit_logs(action=discord.AuditLogAction.member_update, after=after,
@@ -650,6 +689,19 @@ class HeliosMember(HasFlags):
             except AttributeError:
                 continue
         return None
+
+    async def who_afk_checked_audit(self, duration: int = 10) -> Optional[Union[discord.Member, discord.User]]:
+        after = discord.utils.utcnow() - datetime.timedelta(seconds=duration)
+        afk_channel = self.guild.afk_channel
+        async for audit in self.guild.audit_logs(action=discord.AuditLogAction.member_move, after=after, oldest_first=False):
+            print(audit)
+            try:
+                if audit.extra.channel.id == afk_channel.id:
+                    return audit.user
+            except AttributeError:
+                continue
+        return None
+
 
     async def temp_deafen(self, duration: int, deafener: 'HeliosMember', price: int):
         async def undeafen(m):
