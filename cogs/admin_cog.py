@@ -101,7 +101,7 @@ class AdminCog(commands.GroupCog, name='admin'):
             return
         if channel.members:
             new_channel: Optional[discord.VoiceChannel] = discord.utils.find(lambda x: len(x.channel.members) == 0,
-                                                                             await server.channels.dynamic_voice.get_active())
+                                                                             server.channels.dynamic_voice.get_active())
             for member in channel.members:
                 if new_channel:
                     await member.edit(voice_channel=new_channel)
