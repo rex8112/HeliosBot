@@ -98,9 +98,10 @@ class DynamicVoiceCog(commands.Cog):
             await send_bad_afk_message(h_mem.afk_information[0].member, member)
         elif before.channel is member.guild.afk_channel:
             ago = discord.utils.utcnow() - timedelta(seconds=60)
-            afker = h_mem.afk_information[0]
             if not h_mem.afk_information:
                 return
+
+            afker = h_mem.afk_information[0]
             if h_mem.afk_information[1] > ago and afker.member.voice and afker.member.voice.channel:
                 await afker.temp_mute(60, h_mem, 0, bad_afk=True)
             h_mem.afk_information = None
