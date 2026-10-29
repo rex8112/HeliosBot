@@ -22,13 +22,14 @@
 
 import logging
 import traceback
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import discord
 from discord import app_commands, Interaction
 from discord.ext import commands
 
-from helios import DynamicVoiceGroup, VoiceManager, PaginatorSelectView
+from helios import DynamicVoiceGroup, VoiceManager, PaginatorSelectView, Colour
 
 if TYPE_CHECKING:
     from helios import HeliosBot
@@ -36,12 +37,73 @@ if TYPE_CHECKING:
 logger = logging.getLogger('Helios.DynamicVoiceCog')
 
 
+async def send_bad_afk_message(member: discord.Member, target: discord.Member):
+    img = discord.File('./helios/resources/help/AFKAppMenu.png', filename='afk.png')
+    embed = discord.Embed(title='Improper AFK',
+                          description=f'You AFKed {target.name} using moderator abilities. Please use the bot '
+                                      f'commands by right clicking them.',
+                          colour=Colour.error())
+    embed.set_image(url='attachment://afk.png')
+    await member.send(file=img, embed=embed)
+
+
 class DynamicVoiceCog(commands.Cog):
     def __init__(self, bot: 'HeliosBot'):
         self.bot = bot
 
+        self.afk_context = app_commands.ContextMenu(
+            name='AFK Check',
+            callback=self.afk_check,
+        )
+        self.bot.tree.add_command(self.afk_context)
+
     async def cog_unload(self) -> None:
         ...
+
+    async def afk_check(self, interaction: discord.Interaction, member: discord.Member):
+        if not interaction.user.voice or not interaction.user.voice.channel:
+            return await interaction.response.send_message(message='You must be in a voice channel to use this feature.', ephemeral=True)
+        if not member.voice or not member.voice.channel:
+            return await interaction.response.send_message(message='This person is not in a voice channel.', ephemeral=True)
+        if member.voice and member.voice.channel is member.guild.afk_channel:
+            return await interaction.response.send_message(message='This person is already in the AFK Channel.', ephemeral=True)
+
+        server = self.bot.servers.get(interaction.guild_id)
+        h_afker = server.members.get(interaction.user.id)
+        h_mem = server.members.get(member.id)
+        if server.cooldowns.on_cooldown('afk_check', h_mem):
+            return await interaction.response.send_message('This person has already been AFK checked recently.', ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
+        if await h_mem.afk_check(h_afker):
+            server.cooldowns.set_duration('afk_check', h_mem, 1 * 60 * 60)
+            return await interaction.followup.send(f'{h_mem} successfully AFKed.')
+        else:
+            return await interaction.followup.send(f'{h_mem} not AFKed.')
+
+    @commands.Cog.listener()
+    async def on_voice_state_update(self,
+                                    member: discord.Member,
+                                    before: discord.VoiceState,
+                                    after: discord.VoiceState
+                                    ):
+        if before.channel is None or after.channel is None:
+            return
+        server = self.bot.servers.get(member.guild.id)
+        h_mem = server.members.get(member.id)
+        if after.channel is member.guild.afk_channel:
+            if h_mem.afk_information:
+                return
+            if not await h_mem.was_afk_checked(): # Check if h_mem was put into the AFK channel with moderator powers.
+                return
+            await send_bad_afk_message(h_mem.afk_information[0].member, member)
+        elif before.channel is member.guild.afk_channel:
+            ago = discord.utils.utcnow() - timedelta(seconds=60)
+            afker = h_mem.afk_information[0]
+            if not h_mem.afk_information:
+                return
+            if h_mem.afk_information[1] > ago and afker.member.voice and afker.member.voice.channel:
+                await afker.temp_mute(60, h_mem, 0, bad_afk=True)
+            h_mem.afk_information = None
 
     @app_commands.command(name='groups', description='Manage all dynamic voice groups.')
     @app_commands.guild_only()
