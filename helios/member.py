@@ -823,6 +823,14 @@ class HeliosMember(HasFlags):
         res = await TransactionModel.get_24hr_transfers_out(self.db_entry)
         return res if res else 0
 
+    async def calculate_balance_from_transactions(self):
+        new_bal = await TransactionModel.calculate_balance(self.db_entry)
+        old_bal = self._points
+        self._points = new_bal
+        self._changed = True
+        await self.save()
+        return new_bal, old_bal
+
 
 def get_floor_now() -> datetime.datetime:
     now = datetime.datetime.now().astimezone()
