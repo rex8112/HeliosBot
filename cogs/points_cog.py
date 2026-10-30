@@ -251,6 +251,7 @@ class PointsCog(commands.Cog):
     @app_commands.describe(song='Must be a full youtube URL, including the https://')
     @app_commands.guild_only()
     async def play_command(self, interaction: discord.Interaction, song: str):
+        return await interaction.response.send_message('This command is currently disabled.', ephemeral=True)
         server = self.bot.servers.get(interaction.guild_id)
         await server.voice_controller.play_music(interaction, song)
 

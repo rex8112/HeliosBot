@@ -142,7 +142,7 @@ class BaseActionRow(ui.ActionRow['BaseDynamicVoiceView']):
         view = SplitPrepView(self.voice)
         await interaction.response.send_message(content='Splitting Channel', view=view, ephemeral=True)
 
-    @ui.button(label='Music', style=ButtonStyle.blurple)
+    @ui.button(label='Music', style=ButtonStyle.blurple, disabled=True)
     async def dynamic_music(self, interaction: Interaction, button: ui.Button):
         member = self.voice.server.members.get(interaction.user.id)
         if member.member not in self.voice.channel.members:
