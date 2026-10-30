@@ -649,7 +649,7 @@ class AllowlistSelector(ui.ActionRow):
         super().__init__()
         self.voice = voice
 
-    @ui.select(cls=ui.UserSelect, placeholder='Add to Allowed')
+    @ui.select(cls=ui.UserSelect, placeholder='Add to Allowed', max_values=10)
     async def allow_user(self, interaction: discord.Interaction, select: ui.UserSelect):
         voice: 'DynamicVoiceChannel' = self.voice
         if voice.owner != interaction.user:
@@ -658,14 +658,17 @@ class AllowlistSelector(ui.ActionRow):
                 ephemeral=True
             )
             return
-        member = select.values[0]
         await interaction.response.defer(thinking=True, ephemeral=True)
         template = self.voice.template
-        template.allow(member)
+        added_str = ''
+        for member in select.values:
+            template.allow(member)
+            added_str += f'{member.mention} '
+
         await self.voice.apply_template(template)
         await template.save()
         await self.voice.update_control_message(force=True)
-        await interaction.followup.send(f'{member.mention} Allowed in '
+        await interaction.followup.send(f'{added_str}Allowed in '
                                         f'{self.voice.channel.mention}.')
 
 
@@ -674,7 +677,7 @@ class DenylistSelector(ui.ActionRow):
         super().__init__()
         self.voice = voice
 
-    @ui.select(cls=ui.UserSelect, placeholder='Add to Denied')
+    @ui.select(cls=ui.UserSelect, placeholder='Add to Denied', max_values=10)
     async def deny_user(self, interaction: discord.Interaction, select: ui.UserSelect):
         voice: 'DynamicVoiceChannel' = self.voice
         if voice.owner != interaction.user:
@@ -683,14 +686,16 @@ class DenylistSelector(ui.ActionRow):
                 ephemeral=True
             )
             return
-        member = select.values[0]
         await interaction.response.defer(thinking=True, ephemeral=True)
         template = self.voice.template
-        template.deny(member)
+        denied_str = ''
+        for member in select.values:
+            template.deny(member)
+            denied_str += f'{member.mention} '
         await self.voice.apply_template(template)
         await template.save()
         await self.voice.update_control_message(force=True)
-        await interaction.followup.send(f'{member.mention} Denied in '
+        await interaction.followup.send(f'{denied_str}Denied in '
                                         f'{self.voice.channel.mention}.')
 
 
