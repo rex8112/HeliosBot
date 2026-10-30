@@ -153,7 +153,6 @@ class BaseActionRow(ui.ActionRow['BaseDynamicVoiceView']):
 
 
 class BaseDynamicVoiceView(ui.LayoutView):
-    game_container = ui.Container(accent_color=Color.light_gray())
     container = ui.Container(accent_color=Colour.dynamic_voice())
 
     def __init__(self, voice: 'DynamicVoiceChannel'):
@@ -162,6 +161,19 @@ class BaseDynamicVoiceView(ui.LayoutView):
         self.waiting = False
 
     async def setup(self):
+        if self.voice.majority_game:
+            game = await self.voice.server.games.get_game(self.voice.majority_game)
+            play_time = timedelta(minutes=game.play_time)
+            play_time_str = f'`{play_time.days:02}:{play_time.seconds // 3600:02}:{(play_time.seconds // 60) % 60:02}`'
+            self.container.add_item(ui.TextDisplay(f'### {game.name}'))
+            self.container.add_item(ui.Section(
+                ui.TextDisplay(
+                    f'Total Server Playtime: {play_time_str}'
+                ),
+                accessory=GameChangeNameButton(label='Change Name')
+            ))
+            self.container.add_item(ui.Separator(spacing=discord.SeparatorSpacing.large))
+
         self.container.add_item(ui.TextDisplay(f'### {self.voice.channel.name}'))
         self.container.add_item(ui.Section(
             ui.TextDisplay(
@@ -170,8 +182,6 @@ class BaseDynamicVoiceView(ui.LayoutView):
             accessory=HelpButton(label='Help', style=discord.ButtonStyle.grey)
         ))
         self.container.add_item(BaseActionRow())
-        if not self.voice.majority_game:
-            self.remove_item(self.game_container)
 
         return self
 

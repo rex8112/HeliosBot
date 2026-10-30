@@ -75,7 +75,7 @@ class DynamicVoiceChannel:
         self.settings = VoiceSettings(self.bot)
 
         self.prefix = ''
-        self.majority_game = None
+        self.majority_game: Optional[str] = None
 
         self.free = True
 
@@ -320,7 +320,7 @@ class DynamicVoiceChannel:
             logger.debug(f'{self.server.name}: Dynamic Voice: Deleted {len(deleted)} messages in {self.channel.name}')
 
     async def get_majority_game(self):
-        games = {None: 0}
+        games: dict[Optional[str], int] = {None: 0}
         for member in self.channel.members:
             h_member = self.server.members.get(member.id)
             if member.bot:
