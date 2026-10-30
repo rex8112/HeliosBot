@@ -20,14 +20,16 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Any
 
 import discord
 from discord import ui, ButtonStyle, Interaction, Color, Embed
+from discord._types import ClientT
 
 from .action_views import ActionView
 from .generic_views import VoteView, YesNoView
 from .voice_view import VoiceControllerView
+from ..colour import Colour
 from ..modals import VoiceNameChange
 from ..tools.modals import get_simple_modal
 from ..tools.settings import PrimalModal
@@ -40,42 +42,52 @@ if TYPE_CHECKING:
 __all__ = ('DynamicVoiceView', 'PrivateVoiceView')
 
 
-class DynamicVoiceView(ui.View):
-    def __init__(self, voice: 'DynamicVoiceChannel'):
-        super().__init__(timeout=None)
-        self.voice = voice
-        self.waiting = False
-        if self.voice.majority_game is None:
-            self.remove_item(self.change_game_name)
-
-    async def get_embeds(self):
-        embeds = []
-        embed = Embed(
-            title=f'{self.voice.channel.name}',
-            color=Color.blurple()
+class HelpButton(ui.Button['BaseDynamicVoiceView']):
+    async def callback(self, interaction: Interaction) -> Any:
+        data = self.view.get_help_data()
+        embed = discord.Embed(
+            title='Help',
+            colour=Colour.helios()
         )
-        embed.add_field(name='Actions', value='Opens the Action Shop')
-        embed.add_field(name='Store', value='Opens the Store')
-        embed.add_field(name='Game Controller', value='Open a Game Controller to control mutes for in game voice chat.')
-        embed.add_field(name='Split', value='Split the channel into two separate channels.')
-        embed.add_field(name='Music', value='Play music in the channel.')
-        embed.add_field(name='Private', value='Make the channel private.')
-        embed.add_field(name='PUG', value='Create a PUG Group to invite temporary members.')
-        embeds.append(embed)
+        for title, short, long in data:
+            embed.add_field(name=title, value=short)
 
-        game = self.voice.majority_game
-        if game:
-            game = await self.voice.server.games.get_game(game)
-            play_time = timedelta(minutes=game.play_time)
-            play_time_str = f'`{play_time.days:02}:{play_time.seconds // 3600:02}:{(play_time.seconds // 60) % 60:02}`'
-            embed2 = Embed(
-                title=f'{game.name}',
-                color=Color.light_gray(),
-                description=f'Total Server Playtime: {play_time_str}'
-            )
-            embeds.insert(0, embed2)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
-        return embeds
+
+class GameChangeNameButton(ui.Button['BaseDynamicVoiceView']):
+    async def callback(self, interaction: Interaction) -> Any:
+        member = self.view.voice.server.members.get(interaction.user.id)
+        if member.member not in self.view.voice.channel.members:
+            await interaction.response.send_message(content='You are not in the channel.', ephemeral=True)
+            return
+        if not self.view.voice.channel.permissions_for(member.member).manage_channels:
+            await interaction.response.send_message(content='You do not have permission to change the name.', ephemeral=True)
+            return
+        game = self.view.voice.majority_game
+        if not game:
+            await interaction.response.send_message(content='No game detected.', ephemeral=True)
+            return
+
+        modal = PrimalModal('Change Game Name', str, max_length=52)
+        await interaction.response.send_modal(modal)
+        if await modal.wait():
+            return
+
+        name = modal.value
+        game = await self.view.voice.server.games.get_game(game)
+        game.display_name = name
+        await game.save()
+        await self.view.voice.update_control_message(force=True)
+
+
+class BaseActionRow(ui.ActionRow['BaseDynamicVoiceView']):
+    def __init__(self):
+        super().__init__()
+
+    @property
+    def voice(self):
+        return self.view.voice
 
     @ui.button(label='Actions', style=ButtonStyle.blurple)
     async def dynamic_actions(self, interaction: Interaction, button: ui.Button):
@@ -94,7 +106,7 @@ class DynamicVoiceView(ui.View):
         embed = store.get_embed()
         await interaction.response.send_message(embed=embed, view=view)
 
-    @ui.button(label='Game Controller', style=ButtonStyle.blurple)
+    @ui.button(label='VOIP', style=ButtonStyle.blurple)
     async def dynamic_game_controller(self, interaction: Interaction, button: ui.Button):
         if interaction.user not in self.voice.channel.members:
             await interaction.response.send_message(content='You are not in the channel.', ephemeral=True)
@@ -138,6 +150,63 @@ class DynamicVoiceView(ui.View):
             return
 
         await self.voice.server.voice_controller.play_music(interaction)
+
+
+class BaseDynamicVoiceView(ui.LayoutView):
+    game_container = ui.Container(accent_color=Color.light_gray())
+    container = ui.Container(accent_color=Colour.dynamic_voice())
+
+    def __init__(self, voice: 'DynamicVoiceChannel'):
+        super().__init__(timeout=None)
+        self.voice = voice
+        self.waiting = False
+
+    async def setup(self):
+        self.container.add_item(ui.TextDisplay(f'### {self.voice.channel.name}'))
+        self.container.add_item(ui.Section(
+            ui.TextDisplay(
+                '-# Click help to learn what these buttons do.'
+            ),
+            accessory=HelpButton(label='Help', style=discord.ButtonStyle.grey)
+        ))
+        self.container.add_item(BaseActionRow())
+        if not self.voice.majority_game:
+            self.remove_item(self.game_container)
+
+        return self
+
+    def get_help_data(self) -> list[tuple[str, str, str]]:
+        l = [(
+            'Actions',
+            'Opens the Action Shop',
+            'WIP'
+        ), (
+            'Store',
+            'Opens the Store',
+            'WIP'
+        ), (
+            'VOIP',
+            'Open a VOIP Enforcer to control mutes for in game voice chat.',
+            'WIP'
+        ), (
+            'Split',
+            'Split the channel into two separate channels.',
+            'WIP'
+        ), (
+            'Music',
+            'Play music in the channel.',
+            'WIP'
+        )]
+        return l
+
+
+class MainActionRow(ui.ActionRow['DynamicVoiceView']):
+    def __init__(self):
+        super().__init__()
+
+    @property
+    def voice(self):
+        return self.view.voice
 
     @ui.button(label='Private', style=ButtonStyle.red)
     async def dynamic_private(self, interaction: Interaction, button: ui.Button):
@@ -185,10 +254,10 @@ class DynamicVoiceView(ui.View):
                 await member.statistics.private_channels.increment()
             else:
                 # Vote Process
-                if self.waiting:
+                if self.view.waiting:
                     await interaction.edit_original_response(content='Vote already in progress.', embed=None, view=None)
                     return
-                self.waiting = True
+                self.view.waiting = True
                 try:
                     embed = Embed(title='Vote to Make Channel Private',
                                   description='Would you like to make this channel private?\n'
@@ -207,7 +276,7 @@ class DynamicVoiceView(ui.View):
                     else:
                         await message.edit(content='Vote Failed', view=None, embed=None, delete_after=10)
                 finally:
-                    self.waiting = False
+                    self.view.waiting = False
         else:
             temp_view = GetTemplateView(member)
             embed = temp_view.get_embed()
@@ -236,30 +305,26 @@ class DynamicVoiceView(ui.View):
         await self.voice.manager.pug_manager.create_pug(modal.value, member, self.voice)
         await member.statistics.pugs.increment()
 
-    @ui.button(label='Change Game Name', style=ButtonStyle.gray)
-    async def change_game_name(self, interaction: Interaction, button: ui.Button):
-        member = self.voice.server.members.get(interaction.user.id)
-        if member.member not in self.voice.channel.members:
-            await interaction.response.send_message(content='You are not in the channel.', ephemeral=True)
-            return
-        if not self.voice.channel.permissions_for(member.member).manage_channels:
-            await interaction.response.send_message(content='You do not have permission to change the name.', ephemeral=True)
-            return
-        game = self.voice.majority_game
-        if not game:
-            await interaction.response.send_message(content='No game detected.', ephemeral=True)
-            return
 
-        modal = PrimalModal('Change Game Name', str, max_length=52)
-        await interaction.response.send_modal(modal)
-        if await modal.wait():
-            return
+class DynamicVoiceView(BaseDynamicVoiceView):
 
-        name = modal.value
-        game = await self.voice.server.games.get_game(game)
-        game.display_name = name
-        await game.save()
-        await self.voice.update_control_message(force=True)
+    async def setup(self):
+        await super().setup()
+        self.container.add_item(MainActionRow())
+        return self
+
+    def get_help_data(self) -> list[tuple[str, str, str]]:
+        data = super().get_help_data()
+        data += [(
+            'Private',
+            'Make the channel private.',
+            'WIP'
+        ), (
+            'PUG',
+            'Create a PUG Group to invite temporary members.',
+            'WIP'
+        )]
+        return data
 
 
 class SplitPrepView(ui.View):
@@ -433,63 +498,14 @@ class GameControllerModal(ui.Modal, title='Game Controller Settings'):
         self.stop()
 
 
-class PrivateVoiceView(DynamicVoiceView):
+class PrivateRevertButton(ui.Button['PrivateVoiceView']):
     def __init__(self, voice: 'DynamicVoiceChannel'):
-        super().__init__(voice)
-        self.remove_item(self.dynamic_private)
-        self.remove_item(self.pug)
+        super().__init__()
+        self.voice = voice
+        self.label = 'Revert'
+        self.style = discord.ButtonStyle.red
 
-        self.update_buttons()
-
-    def update_buttons(self):
-        if self.voice.template.private:
-            self.whitelist.disabled = True
-        else:
-            self.blacklist.disabled = True
-
-        if self.voice.template.nsfw:
-            self.nsfw.label = 'NSFW'
-            self.nsfw.style = ButtonStyle.red
-        else:
-            self.nsfw.label = 'SFW'
-            self.nsfw.style = ButtonStyle.green
-
-    async def get_embeds(self) -> list[discord.Embed]:
-        owner = self.voice.h_owner
-        template = self.voice.template
-        owner_string = ''
-        if owner:
-            owner_string = f'Owner: {owner.member.mention}'
-        private_string = ('This channel **is** visible to everyone except '
-                          'those in Denied')
-        if template.private:
-            private_string = ('This channel **is __not__** visible to anyone '
-                              'except admins and those in Allowed')
-        embed = discord.Embed(
-            title=f'{template.name if template else self.voice.channel.name} Menu',
-            description=('Any and all settings are controlled from this '
-                         'message.\n'
-                         f'{owner_string}\n\n'
-                         f'Revert will make the channel public and release control back to Helios.'
-                         f'\n\n{private_string}'),
-            colour=discord.Colour.blurple()
-        )
-        allowed_string = '\n'.join(x.mention
-                                   for x in template.allowed.values())
-        denied_string = '\n'.join(x.mention
-                                  for x in template.denied.values())
-        embed.add_field(
-            name='Allowed',
-            value=allowed_string if allowed_string else 'None'
-        )
-        embed.add_field(
-            name='Denied',
-            value=denied_string if denied_string else 'None'
-        )
-        return [embed]
-
-    @ui.button(label='Revert', style=ButtonStyle.red, row=0)
-    async def dynamic_public(self, interaction: Interaction, _: ui.Button):
+    async def callback(self, interaction: Interaction) -> Any:
         member = self.voice.server.members.get(interaction.user.id)
         if member.member not in self.voice.channel.members:
             await interaction.response.send_message(content='You are not in the channel.', ephemeral=True)
@@ -525,8 +541,25 @@ class PrivateVoiceView(DynamicVoiceView):
         else:
             await message.edit(content='Vote Failed', view=None, embed=None, delete_after=10)
 
-    @ui.button(label='Change Name', style=discord.ButtonStyle.gray,
-               custom_id='voice:name', row=1)
+
+class PrivateActionRow(ui.ActionRow['PrivateVoiceView']):
+    def __init__(self, voice: 'DynamicVoiceChannel'):
+        super().__init__()
+        self.voice = voice
+
+        if self.voice.template.private:
+            self.whitelist.disabled = True
+        else:
+            self.blacklist.disabled = True
+
+        if self.voice.template.nsfw:
+            self.nsfw.label = 'NSFW'
+            self.nsfw.style = ButtonStyle.red
+        else:
+            self.nsfw.label = 'SFW'
+            self.nsfw.style = ButtonStyle.green
+
+    @ui.button(label='Change Name', style=discord.ButtonStyle.gray)
     async def change_name(self, interaction: discord.Interaction,
                           _: ui.Button):
         voice: 'DynamicVoiceChannel' = self.voice
@@ -539,7 +572,7 @@ class PrivateVoiceView(DynamicVoiceView):
         now = datetime.now().astimezone()
         await interaction.response.send_modal(VoiceNameChange(voice))
 
-    @ui.button(label='Make Private', style=discord.ButtonStyle.green, row=1)
+    @ui.button(label='Make Private', style=discord.ButtonStyle.green)
     async def whitelist(self, interaction: discord.Interaction,
                         _: ui.Button):
         voice: 'DynamicVoiceChannel' = self.voice
@@ -556,7 +589,7 @@ class PrivateVoiceView(DynamicVoiceView):
         await voice.update_control_message(force=True)
         await template.save()
 
-    @ui.button(label='Make Public', style=discord.ButtonStyle.red, row=1)
+    @ui.button(label='Make Public', style=discord.ButtonStyle.red)
     async def blacklist(self, interaction: discord.Interaction,
                         _: ui.Button):
         voice: 'DynamicVoiceChannel' = self.voice
@@ -573,7 +606,7 @@ class PrivateVoiceView(DynamicVoiceView):
         await voice.update_control_message(force=True)
         await template.save()
 
-    @ui.button(label='Templates', row=1)
+    @ui.button(label='Templates')
     async def templates(self, interaction: discord.Interaction, _: ui.Button):
         if self.voice.owner != interaction.user:
             await interaction.response.send_message(
@@ -584,7 +617,7 @@ class PrivateVoiceView(DynamicVoiceView):
         view = TemplateView(self.voice)
         await interaction.response.send_message(content='Templates', view=view, ephemeral=True)
 
-    @ui.button(label='NSFW', style=discord.ButtonStyle.red, row=2)
+    @ui.button(label='NSFW', style=discord.ButtonStyle.red)
     async def nsfw(self, interaction: discord.Interaction, button: ui.Button):
         voice: 'DynamicVoiceChannel' = self.voice
         if voice.owner != interaction.user:
@@ -599,6 +632,12 @@ class PrivateVoiceView(DynamicVoiceView):
         await voice.apply_template(template)
         await voice.update_control_message(force=True)
         await template.save()
+
+
+class AllowlistSelector(ui.ActionRow):
+    def __init__(self, voice: 'DynamicVoiceChannel'):
+        super().__init__()
+        self.voice = voice
 
     @ui.select(cls=ui.UserSelect, placeholder='Add to Allowed')
     async def allow_user(self, interaction: discord.Interaction, select: ui.UserSelect):
@@ -619,6 +658,12 @@ class PrivateVoiceView(DynamicVoiceView):
         await interaction.followup.send(f'{member.mention} Allowed in '
                                         f'{self.voice.channel.mention}.')
 
+
+class DenylistSelector(ui.ActionRow):
+    def __init__(self, voice: 'DynamicVoiceChannel'):
+        super().__init__()
+        self.voice = voice
+
     @ui.select(cls=ui.UserSelect, placeholder='Add to Denied')
     async def deny_user(self, interaction: discord.Interaction, select: ui.UserSelect):
         voice: 'DynamicVoiceChannel' = self.voice
@@ -637,6 +682,52 @@ class PrivateVoiceView(DynamicVoiceView):
         await self.voice.update_control_message(force=True)
         await interaction.followup.send(f'{member.mention} Denied in '
                                         f'{self.voice.channel.mention}.')
+
+
+class PrivateVoiceView(BaseDynamicVoiceView):
+    def __init__(self, voice: 'DynamicVoiceChannel'):
+        super().__init__(voice)
+
+    async def setup(self):
+        await super().setup()
+        self.container.add_item(ui.Separator(spacing=discord.SeparatorSpacing.large))
+
+        owner = self.voice.h_owner
+        template = self.voice.template
+
+        if owner:
+            self.container.add_item(ui.TextDisplay(
+                f'Owner: {owner.member.mention}'
+            ))
+
+        if template.private:
+            private = ui.TextDisplay(
+                'This channel **is* visible to everyone except those in Denied.'
+            )
+        else:
+            private = ui.TextDisplay(
+                'This channel **is __not__** visible to anyone excepts admins and those in Allowed.'
+            )
+        self.container.add_item(ui.Section(
+            private,
+            accessory=PrivateRevertButton(self.voice)
+        ))
+
+        allowed_string = '\n'.join(x.mention
+                                   for x in template.allowed.values())
+        denied_string = '\n'.join(x.mention
+                                  for x in template.denied.values())
+        self.container.add_item(ui.TextDisplay(
+            '### Allowed\n'
+            f'{allowed_string}'
+        ))
+        self.container.add_item(AllowlistSelector(self.voice))
+        self.container.add_item(ui.TextDisplay(
+            '### Denied\n'
+            f'{denied_string}'
+        ))
+        self.container.add_item(DenylistSelector(self.voice))
+        return self
 
 
 class TemplateView(ui.View):

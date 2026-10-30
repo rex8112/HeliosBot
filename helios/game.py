@@ -138,7 +138,7 @@ class Game:
         else:
             data = self.to_dict()
             del data['alias']
-            await self.db_entry.update_from_dict(data)
+            await self.db_entry.update_from_dict(data).save()
 
     async def convert_to_alias_of(self, game: 'Game'):
         await self.db_entry.delete_game()

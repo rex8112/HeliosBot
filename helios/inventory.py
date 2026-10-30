@@ -106,7 +106,7 @@ class Inventory:
             if self._model:
                 d = self.to_dict()
                 del d['member']
-                await self._model.update_from_dict(d)
+                await self._model.update_from_dict(d).save()
                 self._unsaved = False
             else:
                 self._model = await InventoryModel.create(**self.to_dict())

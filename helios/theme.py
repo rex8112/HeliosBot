@@ -257,7 +257,7 @@ class Theme:
         if self.db_entry:
             data = self.to_dict()
             del data['owner']  # prevent synchronous access to owner
-            await self.db_entry.update_from_dict(data)
+            await self.db_entry.update_from_dict(data).save()
         else:
             d = self.to_dict()
             self.db_entry = await ThemeModel.create(server=self.server.db_entry,

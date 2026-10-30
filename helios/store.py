@@ -84,7 +84,7 @@ class Store:
                 next_refresh=self.next_refresh,
             )
         else:
-            await self.db_entry.update_from_dict(self.to_dict())
+            await self.db_entry.update_from_dict(self.to_dict()).save()
 
     def start(self):
         self.refresh_loop.start()

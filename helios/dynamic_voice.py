@@ -245,7 +245,7 @@ class DynamicVoiceChannel:
     # Database Methods
     async def save(self):
         if self.db_entry and self._unsaved:
-            await self.db_entry.update_from_dict(self.serialize())
+            await self.db_entry.update_from_dict(self.serialize()).save()
 
     async def delete(self):
         await self.db_entry.delete()
@@ -274,12 +274,12 @@ class DynamicVoiceChannel:
             except (discord.NotFound, discord.HTTPException):
                 ...
         if self.state == DynamicVoiceState.PRIVATE:
-            view = PrivateVoiceView(self)
+            view = await PrivateVoiceView(self).setup()
         elif self.state == DynamicVoiceState.CONTROLLED:
             view = self._custom_view_type(self)
         else:
-            view = DynamicVoiceView(self)
-        message = await self.channel.send(embeds=await view.get_embeds(), view=view)
+            view = await DynamicVoiceView(self).setup()
+        message = await self.channel.send(view=view, allowed_mentions=discord.AllowedMentions.none())
         self._control_message = message
         self._last_message_update = datetime.now().astimezone()
         await self.save()
@@ -656,7 +656,7 @@ class DynamicVoiceGroup:
 
     async def save(self):
         if self.db_entry:
-            await self.db_entry.update_from_dict(self.to_dict())
+            await self.db_entry.update_from_dict(self.to_dict()).save()
 
 
 def need_sorting(all_channels):
