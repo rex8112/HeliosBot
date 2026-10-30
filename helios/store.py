@@ -41,7 +41,7 @@ class Store:
         self.items: list['StoreItem'] = []
         self.next_refresh = datetime.datetime.now(datetime.timezone.utc)
 
-        self.db_entry = None
+        self.db_entry: Optional['StoreModel'] = None
 
     def to_dict(self):
         return {
@@ -78,13 +78,15 @@ class Store:
 
     async def save(self):
         if self.db_entry is None:
-            self.db_entry = await StoreModel.create(
+            self.db_entry = await StoreModel.create_store(
                 server=self.server.db_entry,
                 items=[item.to_dict() for item in self.items],
                 next_refresh=self.next_refresh,
             )
         else:
-            await self.db_entry.update_from_dict(self.to_dict())
+            data = self.to_dict()
+            await self.db_entry.update_from_dict(data)
+            await self.db_entry.save(update_fields=data.keys())
 
     def start(self):
         self.refresh_loop.start()

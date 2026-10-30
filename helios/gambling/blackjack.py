@@ -220,24 +220,24 @@ class Blackjack:
         # Draw Initial Cards
         self.deck.draw_to_hand(self.dealer_hand)
         await self.update_message('Drawing Cards')
-        await self.db_entry.update_from_dict(self.to_dict())
+        await self.db_entry.update_from_dict(self.to_dict()).save()
         await asyncio.sleep(0.5)
 
         for hand in self.hands:
             self.deck.draw_to_hand(hand[0])
             await self.update_message('Drawing Cards')
-            await self.db_entry.update_from_dict(self.to_dict())
+            await self.db_entry.update_from_dict(self.to_dict()).save()
             await asyncio.sleep(0.5)
 
         self.deck.draw_to_hand(self.dealer_hand, hidden=True)
         await self.update_message('Drawing Cards')
-        await self.db_entry.update_from_dict(self.to_dict())
+        await self.db_entry.update_from_dict(self.to_dict()).save()
         await asyncio.sleep(0.5)
 
         for hand in self.hands:
             self.deck.draw_to_hand(hand[0])
             await self.update_message('Drawing Cards')
-            await self.db_entry.update_from_dict(self.to_dict())
+            await self.db_entry.update_from_dict(self.to_dict()).save()
             await asyncio.sleep(0.5)
 
         if self.dealer_hand.get_hand_bj_values(False) in [11, 10]:
@@ -268,13 +268,13 @@ class Blackjack:
                     self.view.stop()
                     await self.stand()
                     continue
-            await self.db_entry.update_from_dict(self.to_dict())
+            await self.db_entry.update_from_dict(self.to_dict()).save()
             self.view = None
 
             await self.dealer_play()
 
             await self.update_message('Calculating Winnings')
-            await self.db_entry.update_from_dict(self.to_dict())
+            await self.db_entry.update_from_dict(self.to_dict()).save()
             await asyncio.sleep(1)
 
         self.calculate_winnings()

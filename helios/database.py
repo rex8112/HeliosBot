@@ -680,7 +680,7 @@ class StoreModel(BaseModel):
     @classmethod
     async def get_by_server(cls, server: ServerModel) -> Optional['StoreModel']:
         try:
-            q = await cls.filter(server=server).first()
+            q = await cls.filter(server=server).prefetch_related('server').first()
             return q
         except DoesNotExist:
             return None

@@ -75,7 +75,7 @@ class DynamicVoiceChannel:
         self.settings = VoiceSettings(self.bot)
 
         self.prefix = ''
-        self.majority_game = None
+        self.majority_game: Optional[str] = None
 
         self.free = True
 
@@ -245,7 +245,7 @@ class DynamicVoiceChannel:
     # Database Methods
     async def save(self):
         if self.db_entry and self._unsaved:
-            await self.db_entry.update_from_dict(self.serialize())
+            await self.db_entry.update_from_dict(self.serialize()).save()
 
     async def delete(self):
         await self.db_entry.delete()
@@ -267,19 +267,25 @@ class DynamicVoiceChannel:
                 return self._fetched_control_message
         return None
 
-    async def send_control_message(self):
+    async def send_control_message(self, update=False):
         if self._control_message:
-            try:
-                await self._control_message.delete()
-            except (discord.NotFound, discord.HTTPException):
-                ...
+            if not update:
+                try:
+                    await self._control_message.delete()
+                except (discord.NotFound, discord.HTTPException):
+                    ...
+        else:
+            update = False
         if self.state == DynamicVoiceState.PRIVATE:
-            view = PrivateVoiceView(self)
+            view = await PrivateVoiceView(self).setup()
         elif self.state == DynamicVoiceState.CONTROLLED:
             view = self._custom_view_type(self)
         else:
-            view = DynamicVoiceView(self)
-        message = await self.channel.send(embeds=await view.get_embeds(), view=view)
+            view = await DynamicVoiceView(self).setup()
+        if update:
+            message = await self._control_message.edit(view=view, allowed_mentions=discord.AllowedMentions.none())
+        else:
+            message = await self.channel.send(view=view, allowed_mentions=discord.AllowedMentions.none())
         self._control_message = message
         self._last_message_update = datetime.now().astimezone()
         await self.save()
@@ -301,12 +307,15 @@ class DynamicVoiceChannel:
 
     async def update_control_message(self, force=False):
         message = await self.get_control_message()
-        if force or message is None or self._should_update or not await self.is_visible(message):
+        visible = False
+        if message:
+            visible = await self.is_visible(message)
+        if force or message is None or self._should_update or not visible:
             if self.message_on_cooldown():
                 self._should_update = True
                 return
             self._should_update = False
-            await self.send_control_message()
+            await self.send_control_message(update=visible)
 
     async def trim_messages(self):
         if len(self.channel.members) == 0 and self.state != DynamicVoiceState.CONTROLLED and await self.check_if_old_messages():
@@ -320,7 +329,7 @@ class DynamicVoiceChannel:
             logger.debug(f'{self.server.name}: Dynamic Voice: Deleted {len(deleted)} messages in {self.channel.name}')
 
     async def get_majority_game(self):
-        games = {None: 0}
+        games: dict[Optional[str], int] = {None: 0}
         for member in self.channel.members:
             h_member = self.server.members.get(member.id)
             if member.bot:
@@ -656,7 +665,7 @@ class DynamicVoiceGroup:
 
     async def save(self):
         if self.db_entry:
-            await self.db_entry.update_from_dict(self.to_dict())
+            await self.db_entry.update_from_dict(self.to_dict()).save()
 
 
 def need_sorting(all_channels):

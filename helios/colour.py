@@ -77,5 +77,9 @@ class Colour:
         return discord.Colour.blurple()
 
     @staticmethod
+    def dynamic_voice():
+        return discord.Colour.blurple()
+
+    @staticmethod
     def inventory():
         return Colour.helios()

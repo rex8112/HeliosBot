@@ -145,7 +145,7 @@ class TopicChannel:
             data = self.serialize()
             del data['channel_id']
             del data['creator']
-            await self.db_entry.update_from_dict(data)
+            await self.db_entry.update_from_dict(data).save()
 
     # noinspection PyUnresolvedReferences
     @classmethod
