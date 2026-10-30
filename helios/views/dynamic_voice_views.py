@@ -302,7 +302,7 @@ class MainActionRow(ui.ActionRow['DynamicVoiceView']):
             await interaction.edit_original_response(content=f'{channel.channel.mention} created and set to private.', embed=None, view=None)
             await member.statistics.private_channels.increment()
 
-    @ui.button(label='PUG', style=ButtonStyle.red)
+    @ui.button(label='PUG', style=ButtonStyle.red, disabled=True)
     async def pug(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user not in self.voice.channel.members:
             await interaction.response.send_message(content='You are not in the channel.', ephemeral=True)
@@ -569,7 +569,7 @@ class PrivateActionRow(ui.ActionRow['PrivateVoiceView']):
             self.nsfw.label = 'SFW'
             self.nsfw.style = ButtonStyle.green
 
-    @ui.button(label='Change Name', style=discord.ButtonStyle.gray)
+    @ui.button(label='Name', style=discord.ButtonStyle.gray)
     async def change_name(self, interaction: discord.Interaction,
                           _: ui.Button):
         voice: 'DynamicVoiceChannel' = self.voice
@@ -582,7 +582,7 @@ class PrivateActionRow(ui.ActionRow['PrivateVoiceView']):
         now = datetime.now().astimezone()
         await interaction.response.send_modal(VoiceNameChange(voice))
 
-    @ui.button(label='Make Private', style=discord.ButtonStyle.green)
+    @ui.button(label='Private', style=discord.ButtonStyle.green)
     async def whitelist(self, interaction: discord.Interaction,
                         _: ui.Button):
         voice: 'DynamicVoiceChannel' = self.voice
@@ -599,7 +599,7 @@ class PrivateActionRow(ui.ActionRow['PrivateVoiceView']):
         await voice.update_control_message(force=True)
         await template.save()
 
-    @ui.button(label='Make Public', style=discord.ButtonStyle.red)
+    @ui.button(label='Public', style=discord.ButtonStyle.blurple)
     async def blacklist(self, interaction: discord.Interaction,
                         _: ui.Button):
         voice: 'DynamicVoiceChannel' = self.voice
@@ -712,7 +712,7 @@ class PrivateVoiceView(BaseDynamicVoiceView):
 
         if template.private:
             private = ui.TextDisplay(
-                'This channel **is* visible to everyone except those in Denied.'
+                'This channel **is** visible to everyone except those in Denied.'
             )
         else:
             private = ui.TextDisplay(
@@ -722,10 +722,11 @@ class PrivateVoiceView(BaseDynamicVoiceView):
             private,
             accessory=PrivateRevertButton(self.voice)
         ))
+        self.container.add_item(PrivateActionRow(self.voice))
 
-        allowed_string = '\n'.join(x.mention
+        allowed_string = ' '.join(x.mention
                                    for x in template.allowed.values())
-        denied_string = '\n'.join(x.mention
+        denied_string = ' '.join(x.mention
                                   for x in template.denied.values())
         self.container.add_item(ui.TextDisplay(
             '### Allowed\n'
