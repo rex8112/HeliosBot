@@ -277,7 +277,11 @@ class MusicPlayer:
         if self._control_message is None:
             return
         self._control_view.update_buttons()
-        await self._control_message.edit(embeds=self.get_embeds(), view=self._control_view)
+        try:
+            await self._control_message.edit(embeds=self.get_embeds(), view=self._control_view)
+        except discord.NotFound:
+            self._control_message = None
+            await self.refresh_message()
 
     async def refresh_message(self):
         if self._control_message:

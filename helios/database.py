@@ -661,7 +661,7 @@ class InventoryModel(BaseModel):
 
 
 class StoreModel(BaseModel):
-    server = fields.ForeignKeyField(ServerModel, primary_key=True, backref='store')
+    server = fields.OneToOneField(ServerModel, primary_key=True, backref='store')
     items = fields.JSONField(default=[])
     next_refresh = fields.DatetimeField(auto_now_add=True)
 
