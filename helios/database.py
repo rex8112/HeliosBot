@@ -710,12 +710,12 @@ class TopicSubscriptionModel(BaseModel):
 
     @classmethod
     async def get_all_by_member(cls, member: MemberModel) -> list['TopicSubscriptionModel']:
-        q = await cls.filter(member=member)
+        q = await cls.filter(member=member).prefetch_related('member', 'topic')
         return q
 
     @classmethod
     async def get_all_by_topic(cls, topic: TopicModel) -> list['TopicSubscriptionModel']:
-        q = await cls.filter(topic=topic)
+        q = await cls.filter(topic=topic).prefetch_related('member', 'topic')
         return q
 
 
