@@ -102,7 +102,7 @@ class HeliosVoiceController:
             return False
         assert isinstance(channel, discord.VoiceChannel)
 
-        interaction: discord.Interaction = slot.data['interaction']
+        interaction: Optional[discord.Interaction] = slot.data.get('interaction')
         start_url = slot.data.get('url')
         requester_id = slot.data.get('requester_id')
         requester = self.server.members.get(requester_id)
@@ -178,6 +178,8 @@ class HeliosVoiceController:
                 except ConnectionError:
                     if self.schedule.current_slot():
                         self.schedule.current_slot().end = datetime.now().astimezone()
+                except Exception as e:
+                    logger.critical(f'Error connecting to voice channel: {type(e).__name__}: {e}')
 
             else:
                 self.voice_client = None

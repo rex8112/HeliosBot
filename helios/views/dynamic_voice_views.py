@@ -149,7 +149,7 @@ class BaseActionRow(ui.ActionRow['BaseDynamicVoiceView']):
             await interaction.response.send_message(content='You are not in the channel.', ephemeral=True)
             return
 
-        await self.voice.server.voice_controller.play_music(interaction)
+        await self.voice.server.voice_controller.play_music(interaction, dont_start_music=True)
 
 
 class BaseDynamicVoiceView(ui.LayoutView):
