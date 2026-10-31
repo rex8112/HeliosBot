@@ -100,7 +100,9 @@ class HeliosVoiceController:
         channel = self.bot.get_channel(channel_id)
         if not channel:
             return False
-        interaction = slot.data.get('interaction')
+        assert isinstance(channel, discord.VoiceChannel)
+
+        interaction: discord.Interaction = slot.data['interaction']
         start_url = slot.data.get('url')
         requester_id = slot.data.get('requester_id')
         requester = self.server.members.get(requester_id)
@@ -110,6 +112,7 @@ class HeliosVoiceController:
         music_player.start()
         if start_url and interaction:
             await music_player.member_play(interaction, start_url)
+        return True
 
     async def stop_music(self, slot: TimeSlot):
         self.release()
@@ -126,6 +129,7 @@ class HeliosVoiceController:
                 if self.voice_client and self.voice_client.is_connected():
                     await self.voice_client.move_to(channel)
                 else:
+                    # noinspection bad-assignment
                     self.voice_client: discord.VoiceClient = await channel.connect()
             except (asyncio.TimeoutError, discord.ClientException):
                 attempts += 1

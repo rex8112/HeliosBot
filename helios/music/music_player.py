@@ -24,7 +24,7 @@ import logging
 import math
 import re
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Self
 
 import discord
 from discord import Interaction
@@ -116,6 +116,8 @@ class MusicPlayer:
         else:
             if not interaction.response.is_done():
                 await interaction.response.defer(ephemeral=True)
+
+        assert interaction
 
         matches = self.verify_url(url)
         is_playlist = self.is_playlist(url)
@@ -220,7 +222,7 @@ class MusicPlayer:
         return True
 
     def is_connected(self) -> bool:
-        return self.vc.voice_client and self.vc.voice_client.is_connected()
+        return bool(self.vc.voice_client and self.vc.voice_client.is_connected())
 
     def skip_song(self):
         self._skipping = True
@@ -388,11 +390,11 @@ class MusicPlayerView(discord.ui.View):
         self.play.label = 'Enqueue' if self.mp.currently_playing else 'Play'
 
     @discord.ui.button(label='Play', style=discord.ButtonStyle.green)
-    async def play(self, interaction: discord.Interaction, _: discord.ui.Button):
+    async def play(self: Self, interaction: discord.Interaction, _: discord.ui.Button):
         await self.mp.member_play(interaction)
 
     @discord.ui.button(label='Skip', style=discord.ButtonStyle.red, disabled=True)
-    async def skip(self, interaction: discord.Interaction, _: discord.ui.Button):
+    async def skip(self: Self, interaction: discord.Interaction, _: discord.ui.Button):
         update = False
         if interaction.user not in self.voted_to_skip:
             self.voted_to_skip.add(interaction.user)
@@ -414,13 +416,13 @@ class MusicPlayerView(discord.ui.View):
             await message.edit(view=self)
 
     @discord.ui.button(label='Show Queue')
-    async def show_queue(self, interaction: discord.Interaction, _: discord.ui.Button):
+    async def show_queue(self: Self, interaction: discord.Interaction, _: discord.ui.Button):
         view = self.mp.playlist.get_paginator_view()
         await interaction.response.send_message(embeds=view.get_embeds(view.get_paged_values()), view=view,
                                                 ephemeral=True)
 
     @discord.ui.button(label='Tip', style=discord.ButtonStyle.green, row=1, disabled=True)
-    async def tip_button(self, interaction: discord.Interaction, _: discord.ui.Button):
+    async def tip_button(self: Self, interaction: discord.Interaction, _: discord.ui.Button):
         if self.mp.currently_playing is None:
             return
         await interaction.response.defer(ephemeral=True, thinking=True)
@@ -438,7 +440,7 @@ class MusicPlayerView(discord.ui.View):
             await interaction.followup.send(content=f'Not enough {self.mp.server.points_name.capitalize()}')
 
     @discord.ui.button(label='Skip Playlist', style=discord.ButtonStyle.red, row=1)
-    async def skip_playlist(self, interaction: discord.Interaction, _: discord.ui.Button):
+    async def skip_playlist(self: Self, interaction: discord.Interaction, _: discord.ui.Button):
         update = False
         if interaction.user not in self.voted_to_skip_playlist:
             self.voted_to_skip_playlist.add(interaction.user)
@@ -460,7 +462,7 @@ class MusicPlayerView(discord.ui.View):
             await message.edit(view=self)
 
     @discord.ui.button(label='Refresh', row=1)
-    async def refresh_message(self, interaction: discord.Interaction, _):
+    async def refresh_message(self: Self, interaction: discord.Interaction, _):
         await interaction.response.defer()
         await self.mp.refresh_message()
 
