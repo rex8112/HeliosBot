@@ -302,7 +302,7 @@ class MainActionRow(ui.ActionRow['DynamicVoiceView']):
             await interaction.edit_original_response(content=f'{channel.channel.mention} created and set to private.', embed=None, view=None)
             await member.statistics.private_channels.increment()
 
-    @ui.button(label='PUG', style=ButtonStyle.red, disabled=True)
+    @ui.button(label='PUG', style=ButtonStyle.red)
     async def pug(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user not in self.voice.channel.members:
             await interaction.response.send_message(content='You are not in the channel.', ephemeral=True)

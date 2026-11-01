@@ -182,7 +182,7 @@ class PUGChannel:
         await self.invite.delete()
         if self.effect:
             await self.voice.bot.effects.remove_effect(self.effect)
-        await self.db_entry.async_delete()
+        await self.db_entry.delete()
         if self.voice.channel.members:
             asyncio.create_task(self.voice.make_active(list(self.voice.manager.groups.values())[0]))
         else:

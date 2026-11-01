@@ -610,7 +610,7 @@ class PugModel(BaseModel):
     temporary_members = fields.JSONField(default=[])
     invite = fields.CharField(max_length=25)
     role = fields.BigIntField()
-    effect = fields.ForeignKeyField(EffectModel, related_name='pugs', null=True)
+    effect = fields.ForeignKeyField(EffectModel, related_name='pugs', null=True, on_delete=fields.SET_NULL)
 
     class Meta:
         table = 'pugs'
