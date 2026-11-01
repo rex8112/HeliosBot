@@ -82,6 +82,17 @@ class MusicPlayer:
         return matches is not None
 
     @staticmethod
+    def get_start_time(url: str) -> int:
+        pattern = re.compile(r'&t=(\d+)')
+        matches = pattern.search(url)
+        if matches:
+            try:
+                return int(matches.groups()[0])
+            except ValueError:
+                return 0
+        return 0
+
+    @staticmethod
     def is_playlist(url: str) -> bool:
         return 'playlist' in url
 
@@ -104,22 +115,29 @@ class MusicPlayer:
             return
 
         if len(args) > 0:
-            url = args[0]
+            url: Optional[str] = args[0]
         else:
             url = None
+        shuffle = False
+        late_start = False
         if not url:
             modal = NewSongModal()
             await interaction.response.send_modal(modal)
             await modal.wait()
-            url = modal.url.value
+            url = modal.url_value
+            shuffle = modal.shuffle_value or False
+            late_start = modal.late_start_value or False
             interaction = modal.interaction
         else:
             if not interaction.response.is_done():
                 await interaction.response.defer(ephemeral=True)
 
         assert interaction
+        if url is None:
+            return
 
         matches = self.verify_url(url)
+        timestamp = self.get_start_time(url)
         is_playlist = self.is_playlist(url)
         if matches:
             if is_playlist:
@@ -133,21 +151,21 @@ class MusicPlayer:
                                                             f' playlist. Cost: {cost} '
                                                             f'{server.points_name.capitalize()}')
                     return
-                view = YesNoView(interaction.user)
-                message = await interaction.followup.send(content=f'Would you like to shuffle this playlist?', view=view)
-                await view.wait()
-                shuffle = view.value if view.value is not None else False
                 if shuffle:
                     playlist.shuffle()
                 if await self.add_playlist(playlist):
-                    await message.edit(content=f'Added {len(playlist)} songs to the queue', view=None)
+                    await interaction.followup.send(content=f'Added {len(playlist)} songs to the queue')
                 else:
-                    await message.edit(content='Failed to add playlist to queue, not enough available time', view=None)
+                    await interaction.followup.send(content='Failed to add playlist to queue, not enough available time')
             else:
                 song = await self.fetch_song(url, requester=member)
                 if song is None:
                     await interaction.followup.send('Sorry, I could not get that, is it private or typed wrong?')
                     return
+
+                if late_start:
+                    song.start_time = timestamp
+
                 if await self.add_song(song):
                     await interaction.followup.send(content=f'Added {song.title} to the queue')
                 else:
@@ -194,7 +212,7 @@ class MusicPlayer:
         await self.update_message()
 
         duration = song.duration
-        start = 0
+        start = song.start_time
         finished = False
         while not finished:
             try:
@@ -502,13 +520,45 @@ class MusicPlayerView(ui.LayoutView):
 
 
 class NewSongModal(discord.ui.Modal):
-    url = discord.ui.TextInput(label='Youtube URL')
+    url = discord.ui.Label(
+        text='Youtube URL',
+        component=discord.ui.TextInput()
+    )
+    shuffle = discord.ui.Label(
+        text='Shuffle if Playlist?',
+        component=discord.ui.Select(
+            options=[
+                discord.SelectOption(label='True', value='True'),
+                discord.SelectOption(label='False', value='False', default=True)
+            ],
+        )
+    )
+    late_start = discord.ui.Label['NewSongModal'](
+        text='Start at time prompt if applicable',
+        component=discord.ui.Select['NewSongModal'](
+            options=[
+                discord.SelectOption(label='True', value='True'),
+                discord.SelectOption(label='False', value='False', default=True)
+            ]
+        )
+    )
 
     def __init__(self):
         super().__init__(title='Queue Song')
         self.interaction: Optional[discord.Interaction] = None
+        self.url_value: Optional[str] = None
+        self.shuffle_value: Optional[bool] = None
+        self.late_start_value: Optional[bool] = None
 
     async def on_submit(self, interaction: Interaction, /) -> None:
+        assert isinstance(self.url.component, discord.ui.TextInput)
+        assert isinstance(self.shuffle.component, discord.ui.Select)
+        assert isinstance(self.late_start.component, discord.ui.Select)
+
+        self.url_value = self.url.component.value
+        self.shuffle_value = self.shuffle.component.values[0] == 'True'
+        self.late_start_value = self.late_start.component.values[0] == 'True'
+
         self.interaction = interaction
         await interaction.response.defer(ephemeral=True, thinking=True)
         self.stop()
