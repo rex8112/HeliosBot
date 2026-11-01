@@ -279,7 +279,10 @@ class DynamicVoiceChannel:
         if self.state == DynamicVoiceState.PRIVATE:
             view = await PrivateVoiceView(self).setup()
         elif self.state == DynamicVoiceState.CONTROLLED:
-            view = self._custom_view_type(self)
+            if self._custom_view_type:
+                view = self._custom_view_type(self)
+            else:
+                return
         else:
             view = await DynamicVoiceView(self).setup()
         if update:
@@ -503,6 +506,7 @@ class DynamicVoiceChannel:
         if self.state == DynamicVoiceState.CONTROLLED:
             self._custom_view_type = None
             self.custom_name = None
+            self.template = None
 
     async def make_inactive(self, force=False):
         """Make the channel inactive."""
