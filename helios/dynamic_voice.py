@@ -304,6 +304,8 @@ class DynamicVoiceChannel:
                     return False # If there are any embeds in the last few messages, the message is probably not visible
                 elif m.attachments:
                     return False
+                elif m.components:
+                    return False
         except TimeoutError:
             ...
         return False
