@@ -84,7 +84,7 @@ class DynamicVoiceChannel:
         self._last_name_change = discord.utils.utcnow() - self.NAME_COOLDOWN
         self._last_message_update = discord.utils.utcnow() - self.MESSAGE_UPDATE_COOLDOWN
         self._private_on = datetime.now().astimezone()
-        self._custom_view_type = None
+        self._custom_view_type: Optional[type[discord.ui.LayoutView]] = None
         self._fetched_control_message = None
         self._should_update = False
 
@@ -280,7 +280,7 @@ class DynamicVoiceChannel:
             view = await PrivateVoiceView(self).setup()
         elif self.state == DynamicVoiceState.CONTROLLED:
             if self._custom_view_type:
-                view = self._custom_view_type(self)
+                view = await self._custom_view_type(self).setup()
             else:
                 return
         else:
