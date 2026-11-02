@@ -216,7 +216,9 @@ class MusicPlayer:
         finished = False
         while not finished:
             try:
-                await self.vc.play(await song.audio_source(start=start))
+                source = await song.audio_source(start=start)
+                if source is not None:
+                    await self.vc.play(source)
             except Exception as e:
                 logger.error(f'{self.server.name}: Music Player: Failed to play song: {e}')
                 pass

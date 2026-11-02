@@ -22,6 +22,7 @@
 
 import asyncio
 import functools
+import logging
 from typing import Union
 
 import yt_dlp
@@ -56,6 +57,8 @@ ffmpeg_options = {
 # noinspection bad-argument-type
 ytdl = yt_dlp.YoutubeDL(ytdlopts)
 
+logger = logging.getLogger('HeliosLogger.Music')
+
 
 def extract_info_wrapper(*args, **kwargs):
     data = ytdl.extract_info(*args, **kwargs)
@@ -83,4 +86,5 @@ async def get_audio_source(url: str, *, start: Union[int, float] = 0):
             options['before_options'] += f' -ss {start}'
         return discord.FFmpegPCMAudio(source=data['url'], **options, executable='ffmpeg')
     except Exception as e:
+        logger.error(f'Music Processor: Failed to process song: {e}', exc_info=e)
         return None
