@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from .dynamic_voice import DynamicVoiceChannel
     from .member import HeliosMember
     from .helios_bot import HeliosBot
+    from .server import Server
 
 
 logger = logging.getLogger('HeliosLogger.effects')
@@ -99,7 +100,7 @@ class EffectsManager:
             self.effects[target].remove(effect)
             if effect.db_entry is not None:
                 self._id_effects.pop(effect.db_entry.id, None)
-                await effect.db_entry.async_delete()
+                await effect.db_entry.delete()
         except (ValueError, KeyError):
             pass
 
@@ -120,7 +121,7 @@ class Effect:
         self.target = target
         self.duration = duration
         self.applied = False
-        self.db_entry = None
+        self.db_entry: Optional['EffectModel'] = None
 
         self._applied_at: Optional[datetime] = None
 

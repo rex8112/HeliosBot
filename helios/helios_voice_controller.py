@@ -100,7 +100,9 @@ class HeliosVoiceController:
         channel = self.bot.get_channel(channel_id)
         if not channel:
             return False
-        interaction = slot.data.get('interaction')
+        assert isinstance(channel, discord.VoiceChannel)
+
+        interaction: Optional[discord.Interaction] = slot.data.get('interaction')
         start_url = slot.data.get('url')
         requester_id = slot.data.get('requester_id')
         requester = self.server.members.get(requester_id)
@@ -110,6 +112,7 @@ class HeliosVoiceController:
         music_player.start()
         if start_url and interaction:
             await music_player.member_play(interaction, start_url)
+        return True
 
     async def stop_music(self, slot: TimeSlot):
         self.release()
@@ -126,6 +129,7 @@ class HeliosVoiceController:
                 if self.voice_client and self.voice_client.is_connected():
                     await self.voice_client.move_to(channel)
                 else:
+                    # noinspection bad-assignment
                     self.voice_client: discord.VoiceClient = await channel.connect()
             except (asyncio.TimeoutError, discord.ClientException):
                 attempts += 1
@@ -174,6 +178,8 @@ class HeliosVoiceController:
                 except ConnectionError:
                     if self.schedule.current_slot():
                         self.schedule.current_slot().end = datetime.now().astimezone()
+                except Exception as e:
+                    logger.critical(f'Error connecting to voice channel: {type(e).__name__}: {e}')
 
             else:
                 self.voice_client = None
@@ -183,6 +189,8 @@ class HeliosVoiceController:
     async def check_vc(self):
         if self.schedule.current_slot():
             channel = self.bot.get_channel(self.schedule.current_slot().data.get('channel_id'))
+            if channel is None:
+                return
             if self.voice_client and self.voice_client.guild.me in channel.members and len(channel.members) <= 1:
                 self.schedule.current_slot().end = datetime.now().astimezone()
 

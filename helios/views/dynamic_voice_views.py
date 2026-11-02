@@ -142,14 +142,14 @@ class BaseActionRow(ui.ActionRow['BaseDynamicVoiceView']):
         view = SplitPrepView(self.voice)
         await interaction.response.send_message(content='Splitting Channel', view=view, ephemeral=True)
 
-    @ui.button(label='Music', style=ButtonStyle.blurple, disabled=True)
+    @ui.button(label='Music', style=ButtonStyle.blurple)
     async def dynamic_music(self, interaction: Interaction, button: ui.Button):
         member = self.voice.server.members.get(interaction.user.id)
         if member.member not in self.voice.channel.members:
             await interaction.response.send_message(content='You are not in the channel.', ephemeral=True)
             return
 
-        await self.voice.server.voice_controller.play_music(interaction)
+        await self.voice.server.voice_controller.play_music(interaction, dont_start_music=True)
 
 
 class BaseDynamicVoiceView(ui.LayoutView):
@@ -302,7 +302,7 @@ class MainActionRow(ui.ActionRow['DynamicVoiceView']):
             await interaction.edit_original_response(content=f'{channel.channel.mention} created and set to private.', embed=None, view=None)
             await member.statistics.private_channels.increment()
 
-    @ui.button(label='PUG', style=ButtonStyle.red, disabled=True)
+    @ui.button(label='PUG', style=ButtonStyle.red)
     async def pug(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user not in self.voice.channel.members:
             await interaction.response.send_message(content='You are not in the channel.', ephemeral=True)

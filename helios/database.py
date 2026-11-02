@@ -349,7 +349,7 @@ class DynamicVoiceModel(BaseModel):
         return q
 
     @staticmethod
-    async def get_by_channel(channel: int) -> 'DynamicVoiceModel':
+    async def get_by_channel(channel: int) -> Optional['DynamicVoiceModel']:
         """Get a model by channel ID."""
         q = await DynamicVoiceModel.filter(channel=channel).first()
         return q
@@ -386,7 +386,7 @@ class TopicModel(BaseModel):
         return q
 
     @staticmethod
-    async def get_by_channel(channel_id: int) -> 'TopicModel':
+    async def get_by_channel(channel_id: int) -> Optional['TopicModel']:
         q = await TopicModel.filter(channel_id=channel_id).prefetch_related('server', 'creator').first()
         return q
 
@@ -410,7 +410,7 @@ class EffectModel(BaseModel):
 
     @classmethod
     async def new(cls, type: str, target: str, duration: int,
-                  applied: bool, applied_at: datetime.datetime, extra: dict = None):
+                  applied: bool, applied_at: datetime.datetime, extra: Optional[dict] = None):
         if extra is None:
             extra = dict()
         q = await cls.create(type=type, target=target, duration=duration, applied=applied,
@@ -452,7 +452,7 @@ class ThemeModel(BaseModel):
         return q
 
     @classmethod
-    async def get_themes(cls, server: ServerModel, owner: MemberModel = None):
+    async def get_themes(cls, server: ServerModel, owner: Optional[MemberModel] = None):
         """Get all themes for a server, optionally filtered by owner."""
         if owner:
             q = await cls.filter(server=server, owner=owner).prefetch_related('server', 'owner')
@@ -610,7 +610,7 @@ class PugModel(BaseModel):
     temporary_members = fields.JSONField(default=[])
     invite = fields.CharField(max_length=25)
     role = fields.BigIntField()
-    effect = fields.ForeignKeyField(EffectModel, related_name='pugs', null=True)
+    effect = fields.ForeignKeyField(EffectModel, related_name='pugs', null=True, on_delete=fields.SET_NULL)
 
     class Meta:
         table = 'pugs'
@@ -621,7 +621,7 @@ class PugModel(BaseModel):
         return q
 
     @classmethod
-    async def get_by_channel(cls, channel_id: int) -> 'PugModel':
+    async def get_by_channel(cls, channel_id: int) -> Optional['PugModel']:
         q = await cls.filter(channel_id=channel_id).first()
         return q
 
@@ -661,7 +661,7 @@ class InventoryModel(BaseModel):
 
 
 class StoreModel(BaseModel):
-    server = fields.ForeignKeyField(ServerModel, primary_key=True, backref='store')
+    server = fields.OneToOneField(ServerModel, primary_key=True, backref='store')
     items = fields.JSONField(default=[])
     next_refresh = fields.DatetimeField(auto_now_add=True)
 
@@ -669,7 +669,7 @@ class StoreModel(BaseModel):
         table = 'stores'
 
     @classmethod
-    async def create_store(cls, server: ServerModel, items: list = None, next_refresh: datetime.datetime = None) -> 'StoreModel':
+    async def create_store(cls, server: ServerModel, items: Optional[list] = None, next_refresh: Optional[datetime.datetime] = None) -> 'StoreModel':
         if items is None:
             items = []
         if next_refresh is None:
@@ -687,8 +687,8 @@ class StoreModel(BaseModel):
 
 class TopicSubscriptionModel(BaseModel):
     id = fields.IntField(primary_key=True)
-    member = fields.ForeignKeyField(MemberModel, related_name='topic_subscriptions', on_delete='CASCADE')
-    topic = fields.ForeignKeyField(TopicModel, related_name='subscriptions', on_delete='CASCADE')
+    member = fields.ForeignKeyField(MemberModel, related_name='topic_subscriptions', on_delete=fields.CASCADE)
+    topic = fields.ForeignKeyField(TopicModel, related_name='subscriptions', on_delete=fields.CASCADE)
     created = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
@@ -757,7 +757,7 @@ class StatisticModel(BaseModel):
             return 0
 
     @classmethod
-    async def get_all(cls, server_id: int, member_id: Optional[int], *, stats: list[str] = None) -> list['StatisticModel']:
+    async def get_all(cls, server_id: int, member_id: Optional[int], *, stats: Optional[list[str]] = None) -> list['StatisticModel']:
         if stats:
             q = await cls.filter(server_id=server_id, member_id=member_id, name__in=stats)
         else:

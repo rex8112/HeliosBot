@@ -33,6 +33,7 @@ from .exceptions import IdMismatchError
 from .gambling.manager import GamblingManager
 from .game import GameManager
 from .helios_voice_controller import HeliosVoiceController
+from .hint_system import HintSystem
 from .member import HeliosMember
 from .member_manager import MemberManager
 from .shop import Shop
@@ -141,6 +142,7 @@ class Server:
         self.theme = ThemeManager(self)
         self.gambling = GamblingManager(self)
         self.games = GameManager(self)
+        self.hints = HintSystem(self.voice_controller)
         self.cooldowns = Cooldowns()
         self.flags = []
 

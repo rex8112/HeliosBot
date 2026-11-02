@@ -42,6 +42,7 @@ class Song:
         self.thumbnail = thumbnail
         self.requester = requester
         self.playlist = playlist
+        self.start_time = 0
         self.cost = cost
         self.vote_skip = set()
         self.tips = 0
@@ -90,6 +91,8 @@ class Song:
                    requester=requester, playlist=playlist)
 
     async def audio_source(self, *, start: Union[int, float] = 0):
+        if start == 0:
+            start = self.start_time
         return await get_audio_source(self.url, start=start)
 
     async def wait(self):

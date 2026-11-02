@@ -84,7 +84,7 @@ class DynamicVoiceChannel:
         self._last_name_change = discord.utils.utcnow() - self.NAME_COOLDOWN
         self._last_message_update = discord.utils.utcnow() - self.MESSAGE_UPDATE_COOLDOWN
         self._private_on = datetime.now().astimezone()
-        self._custom_view_type = None
+        self._custom_view_type: Optional[type[discord.ui.LayoutView]] = None
         self._fetched_control_message = None
         self._should_update = False
 
@@ -279,7 +279,10 @@ class DynamicVoiceChannel:
         if self.state == DynamicVoiceState.PRIVATE:
             view = await PrivateVoiceView(self).setup()
         elif self.state == DynamicVoiceState.CONTROLLED:
-            view = self._custom_view_type(self)
+            if self._custom_view_type:
+                view = await self._custom_view_type(self).setup()
+            else:
+                return
         else:
             view = await DynamicVoiceView(self).setup()
         if update:
@@ -300,6 +303,8 @@ class DynamicVoiceChannel:
                 elif m.embeds:
                     return False # If there are any embeds in the last few messages, the message is probably not visible
                 elif m.attachments:
+                    return False
+                elif m.components:
                     return False
         except TimeoutError:
             ...
@@ -503,6 +508,7 @@ class DynamicVoiceChannel:
         if self.state == DynamicVoiceState.CONTROLLED:
             self._custom_view_type = None
             self.custom_name = None
+            self.template = None
 
     async def make_inactive(self, force=False):
         """Make the channel inactive."""
