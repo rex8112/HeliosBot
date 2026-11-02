@@ -189,6 +189,8 @@ class HeliosVoiceController:
     async def check_vc(self):
         if self.schedule.current_slot():
             channel = self.bot.get_channel(self.schedule.current_slot().data.get('channel_id'))
+            if channel is None:
+                return
             if self.voice_client and self.voice_client.guild.me in channel.members and len(channel.members) <= 1:
                 self.schedule.current_slot().end = datetime.now().astimezone()
 

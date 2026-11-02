@@ -22,7 +22,7 @@
 import asyncio
 from datetime import datetime, timedelta
 
-from discord import app_commands
+from discord import app_commands, Interaction
 from discord.ext import commands
 from typing_extensions import Literal
 
@@ -32,6 +32,23 @@ from helios.shop import *
 
 if TYPE_CHECKING:
     from helios import HeliosBot, HeliosMember
+
+
+class TriggerHint(discord.ui.Modal):
+    user = discord.ui.Label(
+        text='Select Target',
+        component=discord.ui.UserSelect()
+    )
+
+    def __init__(self):
+        super().__init__(timeout=60, title='Test Hint System')
+        self.user_value: Optional[discord.Member] = None
+
+    async def on_submit(self, interaction: Interaction, /) -> None:
+        assert isinstance(self.user.component, discord.ui.UserSelect)
+        self.user_value = self.user.component.values[0]
+        await interaction.response.send_message('Target Selected', ephemeral=True)
+
 
 @app_commands.guild_only()
 class AdminToggleCog(commands.GroupCog, name='toggle'):
@@ -191,6 +208,15 @@ class AdminCog(commands.GroupCog, name='admin'):
                 description += f'\n**{stat.display_name}**: {value}'
             embed.description = description
             await interaction.followup.send(embed=embed)
+        elif command == 'testhint':
+            modal = TriggerHint()
+            await interaction.response.send_modal(modal)
+            await modal.wait()
+            if modal.user_value is None:
+                return
+            server = self.bot.servers.get(interaction.guild_id)
+            target = server.members.get(modal.user_value.id)
+            await server.hints.schedule_soonest(target, './helios/resources/hints/heyigotapie.mp3', './helios/resources/hints/testimage.png')
 
 
 async def setup(bot: 'HeliosBot'):
