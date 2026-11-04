@@ -26,19 +26,18 @@ import discord
 
 from discord import ui, Interaction
 
-__all__ = ('TopicView',)
+__all__ = ('TopicSubView',)
 
 from discord.utils import format_dt
 
 if TYPE_CHECKING:
     from ..topics import TopicChannel
-    from ..helios_bot import HeliosBot
     from ..server import Server
 
 
-class TopicSubButton(ui.Button['TopicView']):
+class TopicSubButton(ui.Button['TopicSubView']):
     def __init__(self, topic: 'TopicChannel'):
-        super().__init__(label='Subscribe')
+        super().__init__(label='Subscribe', custom_id=f'{topic.id}')
         self.topic = topic
 
     async def callback(self, interaction: Interaction) -> Any:
@@ -50,11 +49,11 @@ class TopicSubButton(ui.Button['TopicView']):
                                                         ephemeral=True)
             else:
                 await self.topic.subscribe(member)
-                await interaction.response.send_message(f'You have **subscribed** from {self.topic.channel.name}!',
+                await interaction.response.send_message(f'You have **subscribed** to {self.topic.channel.name}!',
                                                         ephemeral=True)
 
 
-class TopicActionRow(ui.ActionRow['TopicView']):
+class TopicActionRow(ui.ActionRow['TopicSubView']):
     @ui.button(label='New', style=discord.ButtonStyle.green)
     async def new_topic(self, interaction: discord.Interaction, button: discord.Button):
         pass
@@ -66,6 +65,31 @@ class TopicActionRow(ui.ActionRow['TopicView']):
     @ui.button(label='Subs')
     async def subs(self, interaction: discord.Interaction, button: discord.Button):
         pass
+
+
+class TopicSubView(ui.LayoutView):
+    container = ui.Container()
+
+    def __init__(self, server: 'Server', topics: Iterable['TopicChannel'], first=True) -> None:
+        super().__init__(timeout=None)
+        self.server = server
+        self.topics = topics
+        self.first = first
+
+    async def setup(self) -> Self:
+        for topic in self.topics:
+            text = f'{topic.channel.name}'
+            if topic.archive_date:
+                text += f'\n-# Archive {format_dt(topic.archive_date, style="R")}'
+            self.container.add_item(ui.Section(
+                ui.TextDisplay['TopicSubView'](text),
+                accessory=TopicSubButton(topic)
+            ))
+
+        #self.container.add_item(ui.Separator())
+
+        #self.container.add_item(TopicActionRow())
+        return self
 
 
 class TopicView(ui.LayoutView):
@@ -80,19 +104,6 @@ class TopicView(ui.LayoutView):
         self.container.add_item(ui.TextDisplay(
             f'## {self.server.guild.name} Topic Channels'
         ))
-
-        self.container.add_item(ui.Separator())
-
-        for topic in self.topics:
-            text = f'{topic.channel.name}'
-            if topic.archive_date:
-                text += f'\n-# Archive {format_dt(topic.archive_date, style="R")}'
-            self.container.add_item(ui.Section(
-                ui.TextDisplay['TopicView'](text),
-                accessory=TopicSubButton(topic)
-            ))
-
-        self.container.add_item(ui.Separator())
 
         self.container.add_item(TopicActionRow())
         return self

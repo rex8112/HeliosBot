@@ -29,7 +29,7 @@ import discord
 from .database import ChannelModel
 from .dynamic_voice import VoiceManager
 from .topics import TopicChannel
-from .views.topic_view import TopicView
+from .views.topic_view import TopicSubView, TopicView
 
 if TYPE_CHECKING:
     from .server import Server
@@ -45,6 +45,8 @@ def need_sorting(all_channels: list[Union[discord.TextChannel, 'TopicChannel']])
         discord_channels = all_channels[0].channel.category.text_channels
 
     for i, channel in enumerate(all_channels):
+        if channel is None:
+            return True
         if isinstance(channel, discord.TextChannel):
             if channel != discord_channels[i]:
                 return True
@@ -61,7 +63,8 @@ class ChannelManager:
         self.topic_channels: dict[int, TopicChannel] = {}
         self.dynamic_voice = VoiceManager(self.server)
 
-        self._topic_control_message: Optional[discord.Message] = None
+        self._topic_control_messages: list[discord.Message] = []
+        self._topic_refreshed_once = False
 
         self._task = None
 
@@ -157,8 +160,12 @@ class ChannelManager:
             await asyncio.gather(*tasks)
 
         topic_channels = pinned + topic_channels
-        con_channel = await self.refresh_topic_control_panel(topic_channels)
+        con_channel = self.server.settings.topic_control_channel.value
+        if need_sorting([con_channel] + topic_channels) or not self._topic_refreshed_once:
+            con_channel = await self.refresh_topic_control_panel(topic_channels)
+
         all_channels = [con_channel] + topic_channels
+
         if need_sorting(all_channels):
             for i, c in enumerate(all_channels):
                 if isinstance(c, discord.TextChannel):
@@ -179,22 +186,47 @@ class ChannelManager:
             self.server.settings.topic_control_channel.value = channel
             await self.server.save()
 
-        if self._topic_control_message is None:
-            self._topic_control_message = None
-            async for message in channel.history():
+        if not self._topic_control_messages:
+            self._topic_control_messages = []
+            async for message in channel.history(oldest_first=True):
                 if message.author == self.server.guild.me and message.components:
-                    self._topic_control_message = message
-                    break
+                    self._topic_control_messages.append(message)
+
+        needed = (len(channels) // 10) + (1 if len(channels) % 10 else 0) + 1
+        delete = [c.delete() for c in self._topic_control_messages[needed:]]
+        if delete:
+            await asyncio.gather(*delete)
+
+        for i in range(needed-1):
+            start = 10 * i
+            end = start + 10
+            view = await TopicSubView(self.server, channels[start:end], first=False).setup()
+            await self.send_topic_control_message(channel, view, i)
 
         view = await TopicView(self.server, channels).setup()
-        if self._topic_control_message:
-            try:
-                await self._topic_control_message.edit(view=view)
-            except discord.NotFound:
-                self._topic_control_message = await channel.send(view=view)
-        else:
-            self._topic_control_message = await channel.send(view=view)
+        await self.send_topic_control_message(channel, view, needed-1)
+
+        self._topic_refreshed_once = True
         return channel
+
+    async def send_topic_control_message(self, channel: discord.TextChannel, view: Union['TopicView', 'TopicSubView'],
+                                         index: int):
+        sent = False
+        while not sent:
+            try:
+                message = self._topic_control_messages[index]
+            except IndexError:
+                message = None
+
+            if message:
+                try:
+                    await message.edit(view=view)
+                    sent = True
+                except discord.NotFound:
+                    self._topic_control_messages.pop(index)
+            else:
+                self._topic_control_messages.append(await channel.send(view=view))
+                sent = True
 
     async def add_topic(self, channel: discord.TextChannel, owner: 'HeliosMember') -> tuple[bool, str]:
         category = self.bot.get_channel(self.server.settings.topic_category.value.id)
