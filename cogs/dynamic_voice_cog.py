@@ -29,7 +29,8 @@ import discord
 from discord import app_commands, Interaction
 from discord.ext import commands
 
-from helios import DynamicVoiceGroup, VoiceManager, PaginatorSelectView, Colour
+from helios import DynamicVoiceGroup, VoiceManager, Colour
+from helios.views import PaginatorSelectView
 
 if TYPE_CHECKING:
     from helios import HeliosBot

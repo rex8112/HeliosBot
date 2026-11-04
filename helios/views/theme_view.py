@@ -26,11 +26,10 @@ from discord import ui
 from tortoise.exceptions import IntegrityError
 
 from ..colour import Colour
-from ..dynamic_voice import DynamicVoiceGroup
-from ..theme import Theme, ThemeRole
 from ..tools.modals import get_simple_modal
 
 if TYPE_CHECKING:
+    from ..theme import Theme, ThemeRole
     from ..server import Server
     from ..member import HeliosMember
 
@@ -39,7 +38,7 @@ __all__ = ('ThemeSelectView', 'ThemeEditView', 'RoleEditView', 'GroupEditView')
 
 # noinspection PyUnresolvedReferences
 class ThemeSelectView(ui.View):
-    def __init__(self, server: 'Server', themes: list[Theme], author: 'HeliosMember', *, timeout: float = 600.0):
+    def __init__(self, server: 'Server', themes: list['Theme'], author: 'HeliosMember', *, timeout: float = 600.0):
         super().__init__(timeout=timeout)
         self.server = server
         self.themes = themes
@@ -268,6 +267,7 @@ class ThemeEditView(ui.View):
 
     @ui.select(placeholder='Add/Edit Channel Settings', min_values=1, max_values=1)
     async def edit_group(self, interaction: discord.Interaction, select: ui.Select):
+        from ..dynamic_voice import DynamicVoiceGroup
         editable = not self.change_name_button.disabled
         if select.values[0] == 'new':
             group = DynamicVoiceGroup(self.server, template='{n}{st} Channel', minimum=3, maximum=10, minimum_empty=2, game_template='{n}. {g}')

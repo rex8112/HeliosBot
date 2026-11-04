@@ -27,7 +27,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from helios import VerifyView
+from helios.views import VerifyView
 
 if TYPE_CHECKING:
     from helios import HeliosBot

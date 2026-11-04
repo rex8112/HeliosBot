@@ -20,51 +20,79 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Iterable, Self, Any
 
 import discord
 
-from ..types import HeliosChannel
+from discord import ui, Interaction
 
 __all__ = ('TopicView',)
 
+from discord.utils import format_dt
+
 if TYPE_CHECKING:
+    from ..topics import TopicChannel
     from ..helios_bot import HeliosBot
+    from ..server import Server
 
 
-class TopicView(discord.ui.View):
-    def __init__(self, bot: 'HeliosBot'):
+class TopicSubButton(ui.Button['TopicView']):
+    def __init__(self, topic: 'TopicChannel'):
+        super().__init__(label='Subscribe')
+        self.topic = topic
+
+    async def callback(self, interaction: Interaction) -> Any:
+        member = self.topic.server.members.get(interaction.user.id)
+        if member:
+            if await self.topic.is_subscribed(member):
+                await self.topic.unsubscribe(member)
+                await interaction.response.send_message(f'You have **unsubscribed** from {self.topic.channel.name}!',
+                                                        ephemeral=True)
+            else:
+                await self.topic.subscribe(member)
+                await interaction.response.send_message(f'You have **subscribed** from {self.topic.channel.name}!',
+                                                        ephemeral=True)
+
+
+class TopicActionRow(ui.ActionRow['TopicView']):
+    @ui.button(label='New', style=discord.ButtonStyle.green)
+    async def new_topic(self, interaction: discord.Interaction, button: discord.Button):
+        pass
+
+    @ui.button(label='Unarchive', style=discord.ButtonStyle.blurple)
+    async def unarchive(self, interaction: discord.Interaction, button: discord.Button):
+        pass
+
+    @ui.button(label='Subs')
+    async def subs(self, interaction: discord.Interaction, button: discord.Button):
+        pass
+
+
+class TopicView(ui.LayoutView):
+    container = ui.Container()
+
+    def __init__(self, server: 'Server', topics: Iterable['TopicChannel']) -> None:
         super().__init__(timeout=None)
-        self.bot = bot
+        self.server = server
+        self.topics = topics
 
-    def get_channel(self, guild_id: int, channel_id: int) -> Optional['HeliosChannel']:
-        server = self.bot.servers.get(guild_id)
-        if server:
-            channel = server.channels.get(channel_id)
-            return channel
-        return None
+    async def setup(self) -> Self:
+        self.container.add_item(ui.TextDisplay(
+            f'## {self.server.guild.name} Topic Channels'
+        ))
 
-    @discord.ui.button(label='Save', style=discord.ButtonStyle.green, custom_id='topic:save')
-    async def save(self, interaction: discord.Interaction, button: discord.ui.Button):
-        channel = self.get_channel(interaction.guild_id, interaction.channel_id)
-        if not channel:
-            await send_bad_response(interaction, 'This channel is no longer managed.')
-            return
-        if channel.channel_type != 'topic':
-            await send_bad_response(interaction, 'This should not be possible')
-            return
-        await channel.save_channel(interaction=interaction)
-        await channel.save()
+        self.container.add_item(ui.Separator())
 
+        for topic in self.topics:
+            text = f'{topic.channel.name}'
+            if topic.archive_date:
+                text += f'\n-# Archive {format_dt(topic.archive_date, style="R")}'
+            self.container.add_item(ui.Section(
+                ui.TextDisplay['TopicView'](text),
+                accessory=TopicSubButton(topic)
+            ))
 
-async def send_bad_response(interaction: discord.Interaction, message: str):
-    embed = discord.Embed(
-        colour=discord.Colour.red(),
-        title='Something went wrong',
-        description=message
-    )
-    # noinspection PyUnresolvedReferences
-    if interaction.response.is_done():
-        await interaction.followup.send(embed=embed)
-    else:
-        interaction.response.send_message(embed=embed, ephemeral=True)
+        self.container.add_item(ui.Separator())
+
+        self.container.add_item(TopicActionRow())
+        return self

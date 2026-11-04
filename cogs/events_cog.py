@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING
 import discord
 from discord.ext import commands
 
-from helios import YesNoView
+from helios.views import YesNoView
 
 if TYPE_CHECKING:
     from helios import HeliosBot

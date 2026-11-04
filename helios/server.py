@@ -61,6 +61,10 @@ class ServerSettings(Settings):
     topic_soft_cap = SettingItem('topic_soft_cap', 10, int,
                                  group='Topic Settings', title='Topic Soft Cap',
                                  description='The number of topics a server can have before it tries to archive.')
+    topic_control_channel = SettingItem('topic_control_channel', None,
+                                        discord.TextChannel, nullable=True,
+                                        group='Topic Settings', title='Topic Control Channel',
+                                        description='The channel to use for the topic control panel.')
     voice_controller = SettingItem('voice_controller', None, discord.Role,
                                    group='Misc', title='In Game Voice Controller Role',
                                    description='The role that signifies a user is in a voice controlled state.')
