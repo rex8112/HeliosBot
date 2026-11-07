@@ -38,11 +38,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger('HeliosLogger')
 
 
-def need_sorting(all_channels: list[Union[discord.TextChannel, 'TopicChannel']]):
-    if isinstance(all_channels[0], discord.TextChannel):
-        discord_channels = all_channels[0].category.text_channels
-    else:
-        discord_channels = all_channels[0].channel.category.text_channels
+def need_sorting(all_channels: list[Union[discord.TextChannel, 'TopicChannel', None]]):
+    try:
+        if isinstance(all_channels[0], discord.TextChannel):
+            discord_channels = all_channels[0].category.text_channels
+        else:
+            discord_channels = all_channels[0].channel.category.text_channels
+    except AttributeError:
+        if isinstance(all_channels[1], discord.TextChannel):
+            discord_channels = all_channels[1].category.text_channels
+        else:
+            discord_channels = all_channels[1].channel.category.text_channels
 
     for i, channel in enumerate(all_channels):
         if channel is None:
@@ -129,9 +135,9 @@ class ChannelManager:
 
     async def manage_topics(self):
         """Get channel points, sort by them and evaluate_state on the lower channels after the tenth channel."""
-        topic_channels = list(filter(lambda x: x.active_only, self.topic_channels.values()))
-        pending_channels = list(filter(lambda x: x.pending, self.topic_channels.values()))
-        pinned = list(filter(lambda x: x.pinned, self.topic_channels.values()))
+        topic_channels: list['TopicChannel'] = list(filter(lambda x: x.active_only, self.topic_channels.values()))
+        pending_channels: list['TopicChannel'] = list(filter(lambda x: x.pending, self.topic_channels.values()))
+        pinned: list['TopicChannel'] = list(filter(lambda x: x.pinned, self.topic_channels.values()))
         if len(topic_channels) == 0:
             return
         e_values = []
@@ -161,10 +167,16 @@ class ChannelManager:
 
         topic_channels = pinned + topic_channels
         con_channel = self.server.settings.topic_control_channel.value
+        if isinstance(con_channel, discord.TextChannel):
+            # noinspection bad-assignment
+            con_channel = self.server.guild.get_channel(con_channel.id) # type: Optional[discord.TextChannel]
         if need_sorting([con_channel] + topic_channels) or not self._topic_refreshed_once:
             con_channel = await self.refresh_topic_control_panel(topic_channels)
 
-        all_channels = [con_channel] + topic_channels
+        if con_channel is None:
+            return
+
+        all_channels: list[Union['TopicChannel', 'discord.TextChannel']] = [con_channel] + topic_channels
 
         if need_sorting(all_channels):
             for i, c in enumerate(all_channels):
@@ -182,7 +194,9 @@ class ChannelManager:
         channel = self.server.settings.topic_control_channel.value
         if channel is None:
             category: discord.CategoryChannel = self.server.settings.topic_category.value
-            channel = await category.create_text_channel('topics')
+            channel = await category.create_text_channel('topics',
+                                                         topic='Control panel for all the topics. '
+                                                               'Recommend muting this channel.')
             self.server.settings.topic_control_channel.value = channel
             await self.server.save()
 
@@ -192,14 +206,15 @@ class ChannelManager:
                 if message.author == self.server.guild.me and message.components:
                     self._topic_control_messages.append(message)
 
-        needed = (len(channels) // 10) + (1 if len(channels) % 10 else 0) + 1
+        max_c = 12
+        needed = (len(channels) // max_c) + (1 if len(channels) % max_c else 0) + 1
         delete = [c.delete() for c in self._topic_control_messages[needed:]]
         if delete:
             await asyncio.gather(*delete)
 
         for i in range(needed-1):
-            start = 10 * i
-            end = start + 10
+            start = max_c * i
+            end = start + max_c
             view = await TopicSubView(self.server, channels[start:end], first=False).setup()
             await self.send_topic_control_message(channel, view, i)
 

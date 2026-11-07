@@ -20,19 +20,45 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 
-from typing import Optional, TYPE_CHECKING, Iterable, Self, Any
+from typing import Optional, TYPE_CHECKING, Iterable, Self, Any, List
 
 import discord
 
 from discord import ui, Interaction
+from discord.utils import format_dt, MISSING
+from .components.generic_selects import FilteredChannelSelect
 
 __all__ = ('TopicSubView',)
 
-from discord.utils import format_dt
 
 if TYPE_CHECKING:
     from ..topics import TopicChannel
     from ..server import Server
+    from ..member import HeliosMember
+
+
+class FilteredChannelsModal(ui.Modal):
+    def __init__(
+            self,
+            channels: List[discord.TextChannel],
+            *,
+            title: str = MISSING,
+            timeout: Optional[float] = None,
+    ):
+        super().__init__(title=title, timeout=timeout)
+        self.select = FilteredChannelSelect(channels)
+        self.add_item(ui.Label(text=title, component=self.select))
+
+
+        self.selected_channels = []
+
+    async def on_submit(self, interaction: Interaction, /) -> None:
+        str_ids = self.select.values
+        channels = [interaction.guild.get_channel(int(i)) for i in str_ids]
+        self.selected_channels = channels
+        await interaction.response.send_message(content=f'Send a message in {channels[0].mention} and I will unarchive it. '
+                                                        f'If you {interaction.guild.me.mention} I will ping the subscription role once I rebuild it.',
+                                                ephemeral=True)
 
 
 class TopicSubButton(ui.Button['TopicSubView']):
@@ -44,8 +70,7 @@ class TopicSubButton(ui.Button['TopicSubView']):
         member = self.topic.server.members.get(interaction.user.id)
         if member:
             if await self.topic.is_subscribed(member):
-                await self.topic.unsubscribe(member)
-                await interaction.response.send_message(f'You have **unsubscribed** from {self.topic.channel.name}!',
+                await interaction.response.send_message(f'You are already subscribed to {self.topic.channel.name}!',
                                                         ephemeral=True)
             else:
                 await self.topic.subscribe(member)
@@ -60,10 +85,16 @@ class TopicActionRow(ui.ActionRow['TopicSubView']):
 
     @ui.button(label='Unarchive', style=discord.ButtonStyle.blurple)
     async def unarchive(self, interaction: discord.Interaction, button: discord.Button):
-        pass
+        archived: list['TopicChannel'] = list(filter(lambda x: not x.active, self.view.server.channels.topic_channels.values()))
+        modal = FilteredChannelsModal([t.channel for t in archived], title='Select Channel to Unarchive', timeout=60)
+        await interaction.response.send_modal(modal)
 
     @ui.button(label='Subs')
     async def subs(self, interaction: discord.Interaction, button: discord.Button):
+        pass
+
+    @ui.button(label='Help', disabled=True)
+    async def help(self, interaction: discord.Interaction, button: discord.Button):
         pass
 
 
