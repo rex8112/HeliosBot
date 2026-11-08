@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Optional, Union
 
 import discord
 
-from .database import ChannelModel
+from .database import ChannelModel, TopicSubscriptionModel
 from .dynamic_voice import VoiceManager
 from .topics import TopicChannel
 from .views.topic_view import TopicSubView, TopicView
@@ -85,6 +85,11 @@ class ChannelManager:
             if channel.channel.name.replace('🛑', '') == name:
                 return channel
         return None
+
+    async def get_subs(self, member: 'HeliosMember') -> list['TopicChannel']:
+        subs = await TopicSubscriptionModel.get_all_by_member(member.db_entry)
+        topics = filter(lambda x: x is not None, [self.get(x.topic.channel_id) for x in subs])
+        return list(topics)
 
     def _add_channel(self, channel: Union['TopicChannel']):
         if self.get(channel.id):
