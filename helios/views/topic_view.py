@@ -207,7 +207,7 @@ class TopicActionRow(ui.ActionRow['TopicSubView']):
 
 
 class TopicSubView(ui.LayoutView):
-    container = ui.Container()
+    container = ui.Container(accent_color=Colour.helios())
 
     def __init__(self, server: 'Server', topics: Iterable['TopicChannel'], first=True) -> None:
         super().__init__(timeout=None)
@@ -232,7 +232,7 @@ class TopicSubView(ui.LayoutView):
 
 
 class TopicView(ui.LayoutView):
-    container = ui.Container()
+    container = ui.Container(accent_color=Colour.choice())
 
     def __init__(self, server: 'Server', topics: Iterable['TopicChannel']) -> None:
         super().__init__(timeout=None)
