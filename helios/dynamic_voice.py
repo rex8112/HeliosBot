@@ -31,7 +31,7 @@ from discord.utils import utcnow
 
 from .database import DynamicVoiceGroupModel, DynamicVoiceModel
 from .pug import PUGManager
-from .tools.settings import Settings, SettingItem, StringSettingItem
+from .settings.dynamic_voice import VoiceSettings, DynamicVoiceGroupSettings
 from .views import DynamicVoiceView, PrivateVoiceView
 from .voice_template import VoiceTemplate
 
@@ -49,18 +49,6 @@ class DynamicVoiceState(Enum):
     INACTIVE = 1
     PRIVATE = 2
     CONTROLLED = 3
-
-
-class VoiceSettings(Settings):
-    number = SettingItem('number', 0, int)
-    group = SettingItem('group', None, int)
-    state = SettingItem('state', 1, int)
-    owner = SettingItem('owner', None, discord.Member)
-    template = StringSettingItem('template', None)
-    control_message = SettingItem('control_message', None, discord.PartialMessage)
-    inactive = SettingItem('inactive', False, bool)
-    custom_name = SettingItem('custom_name', None, str)
-    inactive_on = SettingItem('inactive_on', utcnow(), datetime)
 
 
 class DynamicVoiceChannel:
@@ -529,14 +517,6 @@ class DynamicVoiceChannel:
             self.custom_name = None
             self.settings.inactive_on.value = utcnow()
             await self.save()
-
-
-class DynamicVoiceGroupSettings(Settings):
-    min = SettingItem('min', 1, int)
-    min_empty = SettingItem('min_empty', 1, int)
-    max = SettingItem('max', 0, int)
-    template = StringSettingItem('template', 'Channel {n}', min_length=3, max_length=25)
-    game_template = StringSettingItem('game_template', 'Channel {n} - {g}', min_length=3, max_length=22)
 
 
 class DynamicVoiceGroup:

@@ -27,7 +27,7 @@ from datetime import time, datetime
 from discord import app_commands
 from discord.ext import commands, tasks
 
-from helios import ActionView
+from helios.views import ActionView
 from helios.database import TransactionModel
 from helios.shop import *
 

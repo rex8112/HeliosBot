@@ -61,9 +61,9 @@ class EventManager:
     async def delete_action(self, action: EventModel):
         await action.delete()
 
-    async def clear_actions(self, trigger: EventTrigger, member: Union['HeliosMember', discord.abc.Snowflake] = None):
+    async def clear_actions(self, trigger: EventTrigger, member: Union['HeliosMember'] = None):
         if member is None:
             await EventModel.filter(trigger=trigger).delete()
         else:
             await EventModel.filter(trigger=trigger, target_id=member.id,
-                                    server_id=member.server.db_entry).delete()
+                                    server=member.server.db_entry).delete()

@@ -26,25 +26,39 @@ from typing import TYPE_CHECKING, Optional, Union
 
 import discord
 
-from .channel import Channel_Dict, Channel, VoiceChannel
-from .database import ChannelModel
+from .database import ChannelModel, TopicSubscriptionModel
 from .dynamic_voice import VoiceManager
 from .topics import TopicChannel
+from .views.topic_view import TopicSubView, TopicView
 
 if TYPE_CHECKING:
     from .server import Server
     from .helios_bot import HeliosBot
     from .member import HeliosMember
-    from .types import HeliosChannel
-    from .voice_template import VoiceTemplate
 logger = logging.getLogger('HeliosLogger')
 
 
-def need_sorting(all_channels):
-    discord_channels = all_channels[0].channel.category.text_channels
+def need_sorting(all_channels: list[Union[discord.TextChannel, 'TopicChannel', None]]):
+    try:
+        if isinstance(all_channels[0], discord.TextChannel):
+            discord_channels = all_channels[0].category.text_channels
+        else:
+            discord_channels = all_channels[0].channel.category.text_channels
+    except AttributeError:
+        if isinstance(all_channels[1], discord.TextChannel):
+            discord_channels = all_channels[1].category.text_channels
+        else:
+            discord_channels = all_channels[1].channel.category.text_channels
+
     for i, channel in enumerate(all_channels):
-        if channel.channel != discord_channels[i]:
+        if channel is None:
             return True
+        if isinstance(channel, discord.TextChannel):
+            if channel != discord_channels[i]:
+                return True
+        else:
+            if channel.channel != discord_channels[i]:
+                return True
     return False
 
 
@@ -52,16 +66,16 @@ class ChannelManager:
     def __init__(self, server: 'Server'):
         self.bot: 'HeliosBot' = server.bot
         self.server = server
-        self.channels: dict[int, 'HeliosChannel'] = {}
         self.topic_channels: dict[int, TopicChannel] = {}
         self.dynamic_voice = VoiceManager(self.server)
 
+        self._topic_control_messages: list[discord.Message] = []
+        self._topic_refreshed_once = False
+
         self._task = None
 
-    def get(self, channel_id: int) -> Optional[Union[Channel, TopicChannel]]:
-        channel = self.channels.get(channel_id)
-        if not channel:
-            channel = self.topic_channels.get(channel_id)
+    def get(self, channel_id: int) -> Optional[Union[TopicChannel]]:
+        channel = self.topic_channels.get(channel_id)
         return channel
 
     def get_topic_by_name(self, name: str) -> Optional[TopicChannel]:
@@ -70,31 +84,25 @@ class ChannelManager:
                 return channel
             if channel.channel.name.replace('🛑', '') == name:
                 return channel
-        return
+        return None
 
-    def get_type(self, t: str) -> list['HeliosChannel']:
-        return list(filter(lambda x: x.channel_type == t, self.channels.values()))
+    async def get_subs(self, member: 'HeliosMember') -> list['TopicChannel']:
+        subs = await TopicSubscriptionModel.get_all_by_member(member.db_entry)
+        topics = filter(lambda x: x is not None, [self.get(x.topic.channel_id) for x in subs])
+        return list(topics)
 
-    def _add_channel(self, channel: Union['HeliosChannel', 'TopicChannel']):
+    def _add_channel(self, channel: Union['TopicChannel']):
         if self.get(channel.id):
             raise NotImplemented
         if isinstance(channel, TopicChannel):
             self.topic_channels[channel.id] = channel
         else:
-            self.channels[channel.id] = channel
+            raise NotImplemented
 
     def create_run_task(self):
         # if not self._task:
             # self._task = self.bot.loop.create_task(self.manage_channels(), name=f'{self.server.id}: Channel Manager')
         logger.critical('Channel manager task called incorrectly')
-
-    def is_crowded(self):
-        topics = self.get_type('topic')
-        counter = 0
-        for topic in topics:
-            if 'ARCHIVED' not in topic.flags:
-                counter += 1
-        return counter > 10
 
     async def manage_channels(self):
         await self.bot.wait_until_ready()
@@ -110,10 +118,6 @@ class ChannelManager:
     async def purge_dead_channels(self):
         deletes = []
         deletes_keys = []
-        for k, v in self.channels.items():
-            if v.alive is False:
-                deletes_keys.append(k)
-                deletes.append(v.delete(del_channel=False))
         for k, v in self.topic_channels.items():
             if v.alive is False:
                 deletes_keys.append(k)
@@ -126,10 +130,6 @@ class ChannelManager:
             await asyncio.gather(*deletes)
             for k in deletes_keys:
                 try:
-                    del self.channels[k]
-                except KeyError:
-                    ...
-                try:
                     del self.topic_channels[k]
                 except KeyError:
                     ...
@@ -140,9 +140,9 @@ class ChannelManager:
 
     async def manage_topics(self):
         """Get channel points, sort by them and evaluate_state on the lower channels after the tenth channel."""
-        topic_channels = list(filter(lambda x: x.active_only, self.topic_channels.values()))
-        pending_channels = list(filter(lambda x: x.pending, self.topic_channels.values()))
-        pinned = list(filter(lambda x: x.pinned, self.topic_channels.values()))
+        topic_channels: list['TopicChannel'] = list(filter(lambda x: x.active_only, self.topic_channels.values()))
+        pending_channels: list['TopicChannel'] = list(filter(lambda x: x.pending, self.topic_channels.values()))
+        pinned: list['TopicChannel'] = list(filter(lambda x: x.pinned, self.topic_channels.values()))
         if len(topic_channels) == 0:
             return
         e_values = []
@@ -152,7 +152,7 @@ class ChannelManager:
             e_values.append(c.get_points())
         await asyncio.gather(*e_values)
         topic_channels.sort(key=lambda x: (x.points, x.channel.name), reverse=True)
-        topic_channels = topic_channels + pending_channels
+        topic_channels: list['TopicChannel'] = topic_channels + pending_channels
 
         save = []
         logger.debug(f'{self.server.name}: {topic_channels}')
@@ -171,17 +171,86 @@ class ChannelManager:
             await asyncio.gather(*tasks)
 
         topic_channels = pinned + topic_channels
-        if need_sorting(topic_channels):
-            for i, c in enumerate(topic_channels):
-                if c.channel.position != i:
-                    logger.debug(f'{c.channel.name} is at {c.channel.position} should be at {i}')
-                    await c.channel.edit(position=i)
+        con_channel = self.server.settings.topic_control_channel.value
+        if isinstance(con_channel, discord.TextChannel):
+            # noinspection bad-assignment
+            con_channel = self.server.guild.get_channel(con_channel.id) # type: Optional[discord.TextChannel]
+        if need_sorting([con_channel] + topic_channels) or not self._topic_refreshed_once:
+            con_channel = await self.refresh_topic_control_panel(topic_channels)
+
+        if con_channel is None:
+            return
+
+        all_channels: list[Union['TopicChannel', 'discord.TextChannel']] = [con_channel] + topic_channels
+
+        if need_sorting(all_channels):
+            for i, c in enumerate(all_channels):
+                if isinstance(c, discord.TextChannel):
+                    if c.position != i:
+                        logger.debug(f'{c.name} is at {c.position} should be at {i}')
+                        await c.edit(position=i)
+                else:
+                    if c.channel.position != i:
+                        logger.debug(f'{c.channel.name} is at {c.channel.position} should be at {i}')
+                        await c.channel.edit(position=i)
+
+    # noinspection unreachable-code
+    async def refresh_topic_control_panel(self, channels: list['TopicChannel']):
+        channel = self.server.settings.topic_control_channel.value
+        if channel is None:
+            category: discord.CategoryChannel = self.server.settings.topic_category.value
+            channel = await category.create_text_channel('topics',
+                                                         topic='Control panel for all the topics. '
+                                                               'Recommend muting this channel.')
+            self.server.settings.topic_control_channel.value = channel
+            await self.server.save()
+
+        if not self._topic_control_messages:
+            self._topic_control_messages = []
+            async for message in channel.history(oldest_first=True):
+                if message.author == self.server.guild.me and message.components:
+                    self._topic_control_messages.append(message)
+
+        max_c = 12
+        needed = (len(channels) // max_c) + (1 if len(channels) % max_c else 0) + 1
+        delete = [c.delete() for c in self._topic_control_messages[needed:]]
+        if delete:
+            await asyncio.gather(*delete)
+
+        for i in range(needed-1):
+            start = max_c * i
+            end = start + max_c
+            view = await TopicSubView(self.server, channels[start:end], first=False).setup()
+            await self.send_topic_control_message(channel, view, i)
+
+        view = await TopicView(self.server, channels).setup()
+        await self.send_topic_control_message(channel, view, needed-1)
+
+        self._topic_refreshed_once = True
+        return channel
+
+    async def send_topic_control_message(self, channel: discord.TextChannel, view: Union['TopicView', 'TopicSubView'],
+                                         index: int):
+        sent = False
+        while not sent:
+            try:
+                message = self._topic_control_messages[index]
+            except IndexError:
+                message = None
+
+            if message:
+                try:
+                    await message.edit(view=view)
+                    sent = True
+                except discord.NotFound:
+                    self._topic_control_messages.pop(index)
+            else:
+                self._topic_control_messages.append(await channel.send(view=view))
+                sent = True
 
     async def add_topic(self, channel: discord.TextChannel, owner: 'HeliosMember') -> tuple[bool, str]:
-        if self.channels.get(channel.id):
-            return False, 'This channel is already important.'
         category = self.bot.get_channel(self.server.settings.topic_category.value.id)
-        if category:
+        if isinstance(category, discord.CategoryChannel):
             await channel.edit(category=category, sync_permissions=True)
         ch = TopicChannel(self.server, channel)
         ch.creator = owner
@@ -210,40 +279,11 @@ class ChannelManager:
         else:
             return False, 'This server does not have `Topic Channel Creation` enabled.'
 
-    async def create_private_voice(self, owner: 'HeliosMember', *,
-                                   template: 'VoiceTemplate') -> VoiceChannel:
-        if self.server.private_create_channel:
-            category = self.server.private_create_channel.category
-            channel = await category.create_voice_channel(
-                name=template.name,
-                overwrites=template.overwrites
-            )
-            voice = VoiceChannel.new(self, channel.id)
-            voice.owner = owner
-            voice.template_name = template.name
-            await voice.update_message()
-            self._add_channel(voice)
-
-            return voice
-
-    async def setup(self, channel_data: list[ChannelModel] = None):
+    async def setup(self, channel_data: Optional[list[ChannelModel]] = None):
         await self.dynamic_voice.setup()
-        if not channel_data:
-            data = await ChannelModel.filter(server=self.server.db_entry)
-            channel_data = data
 
         deletes = []
         neutralize = []
-        for data in channel_data:
-            channel_cls = Channel_Dict.get(data.type)
-            c: 'HeliosChannel' = channel_cls(self, data)
-            if c.alive:
-                self.channels[c.id] = c
-                if isinstance(c, VoiceChannel):
-                    if c.can_neutralize():
-                        neutralize.append(c.neutralize())
-            else:
-                deletes.append(c.delete(del_channel=False))
 
         topic_channels = await TopicChannel.get_all(self.server)
         for t in topic_channels:

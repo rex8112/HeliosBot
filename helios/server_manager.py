@@ -67,7 +67,7 @@ class ServerManager:
                 results = await asyncio.gather(*tasks, return_exceptions=True)
                 for result in results:
                     if isinstance(result, Exception):
-                        logger.error(f'{type(result).__name__}: {result}')
+                        logger.error(f'{type(result).__name__}: {result}', exc_info=result)
             await asyncio.sleep(5)
 
     async def setup(self):

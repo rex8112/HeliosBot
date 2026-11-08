@@ -623,9 +623,12 @@ class HeliosMember(HasFlags):
 
     async def temp_unmute(self, duration: int = 90):
         self.allow_on_voice = True
-        muter, cost = self._temp_mute_data  # type: HeliosMember, int
+        if self._temp_mute_data:
+            muter, cost = self._temp_mute_data  # type: HeliosMember, int
+        else:
+            muter, cost = (None, None)
         self._temp_mute_data = None
-        if self.member.voice:
+        if self.member.voice and cost and muter:
             if self.member.voice.mute is False:
                 unmuter = await self.who_unmuted(duration)
                 hel = self.server.me

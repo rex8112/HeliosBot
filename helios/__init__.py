@@ -13,5 +13,4 @@ from .modals import *
 from .server_manager import ServerManager
 from .shop import Shop
 from .topics import TopicChannel
-from .views import *
 from .voice_template import VoiceTemplate
