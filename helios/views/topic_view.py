@@ -76,12 +76,12 @@ class FilteredChannelsModal(ui.Modal):
     ):
         max_select = min(max_select, len(channels))
         super().__init__(title=title, timeout=timeout)
-        self.select = FilteredChannelSelect(channels[:25], max_values=max_select)
+        self.select = FilteredChannelSelect(channels[:25], max_values=max_select, required=False)
         self.select2 = None
         self.add_item(ui.Label(text=title, component=self.select))
 
         if len(channels) > 25:
-            self.select2 = FilteredChannelSelect(channels[25:], max_values=max_select)
+            self.select2 = FilteredChannelSelect(channels[25:], max_values=max_select, required=False)
             self.add_item(ui.Label(text=title, component=self.select2))
 
 
@@ -89,7 +89,8 @@ class FilteredChannelsModal(ui.Modal):
         self.last_interaction: Optional[discord.Interaction] = None
 
     def get_selected(self) -> list[str]:
-        str_ids = self.select.values
+        str_ids = []
+        str_ids += self.select.values
         if self.select2:
             str_ids += self.select2.values
         return str_ids
@@ -167,11 +168,14 @@ class TopicActionRow(ui.ActionRow['TopicSubView']):
             return
         interaction = modal.last_interaction
         if interaction:
-            await interaction.response.send_message(content=f'Send a message in {modal.selected_channels[0].mention} '
-                                                            f'and I will unarchive it. If you put '
-                                                            f'{interaction.guild.me.mention} in the message I will ping the '
-                                                            f'subscription role once I rebuild it.',
-                                                    ephemeral=True)
+            if modal.selected_channels:
+                await interaction.response.send_message(content=f'Send a message in {modal.selected_channels[0].mention} '
+                                                                f'and I will unarchive it. If you put '
+                                                                f'{interaction.guild.me.mention} in the message I will ping the '
+                                                                f'subscription role once I rebuild it.',
+                                                        ephemeral=True)
+            else:
+                await interaction.response.send_message(content='You did not select anything.', ephemeral=True)
 
     @ui.button(label='Subs')
     async def subs(self, interaction: discord.Interaction, button: discord.Button):
