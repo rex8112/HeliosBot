@@ -628,21 +628,7 @@ class HeliosMember(HasFlags):
         else:
             muter, cost = (None, None)
         self._temp_mute_data = None
-        if self.member.voice and cost and muter:
-            if self.member.voice.mute is False:
-                unmuter = await self.who_unmuted(duration)
-                hel = self.server.me
-                if unmuter and unmuter != muter.member and unmuter != hel.member:
-                    member = self.server.members.get(unmuter.id)
-                    embed = discord.Embed(
-                        title='Notice of Refund',
-                        colour=discord.Colour.green(),
-                        description='Due to unexpected interference, your last Shop purchase was invalidated and you '
-                                    f'have been refunded **{cost}** {self.server.points_name.capitalize()}.'
-                    )
-                    await muter.add_points(cost, 'Helios', 'Helios Shop Refund: Temp Mute')
-                    await muter.member.send(embed=embed)
-
+        if self.member.voice:
             embed = discord.Embed(
                 title='Unmuted',
                 colour=discord.Colour.green(),
