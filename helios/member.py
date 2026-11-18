@@ -584,67 +584,6 @@ class HeliosMember(HasFlags):
             except (discord.Forbidden, discord.HTTPException):
                 return False
 
-    async def temp_mute(self, duration: int, muter: 'HeliosMember', price: int, bad_afk=False):
-        async def unmute(m):
-            await asyncio.sleep(duration)
-            if await self.temp_unmute(duration):
-                await self.bot.event_manager.delete_action(m)
-
-        if self.member.voice:
-            try:
-                if not bad_afk:
-                    embed = discord.Embed(
-                        title='Muted',
-                        colour=discord.Colour.orange(),
-                        description=f'Someone spent **{price}** {self.server.points_name.capitalize()} to mute you for '
-                                    f'**{duration}** seconds.'
-                    )
-                    reason = f'{muter.member.name} temp muted for {duration} seconds'
-                else:
-                    embed = discord.Embed(
-                        title='AFK Check Failed',
-                        colour=Colour.helios(),
-                        description=f'AFK Check Failed for **{muter.member.name}** and you have been punished '
-                                    f'for **{duration}** seconds.'
-                    )
-                    reason = f'AFK Check Failed for **{muter.member.name}**'
-
-                await self.member.edit(mute=True, reason=reason)
-
-                await self.member.send(embed=embed)
-            except discord.Forbidden:
-                return False
-            self._temp_mute_data = (muter, price)
-            self.allow_on_voice = False
-            model = await self.bot.event_manager.add_action('on_voice', self, 'unmute')
-            self.bot.loop.create_task(unmute(model))
-            return True
-        return False
-
-    async def temp_unmute(self, duration: int = 90):
-        self.allow_on_voice = True
-        if self._temp_mute_data:
-            muter, cost = self._temp_mute_data  # type: HeliosMember, int
-        else:
-            muter, cost = (None, None)
-        self._temp_mute_data = None
-        if self.member.voice:
-            embed = discord.Embed(
-                title='Unmuted',
-                colour=discord.Colour.green(),
-                description=f'You have been unmuted.'
-            )
-
-            await self.member.edit(mute=False)
-
-            try:
-                await self.member.send(embed=embed)
-            except discord.Forbidden:
-                ...
-            return True
-        else:
-            return False
-
     async def afk_check(self, afker: 'HeliosMember') -> bool:
         now = utcnow()
         if self.member.voice and self.member.voice.channel is not self.guild.afk_channel:
@@ -666,19 +605,6 @@ class HeliosMember(HasFlags):
             return True
         return False
 
-    async def who_unmuted(self, duration: int = 90) -> Optional[Union[discord.Member, discord.User]]:
-        after = discord.utils.utcnow() - datetime.timedelta(seconds=duration)
-        async for audit in self.guild.audit_logs(action=discord.AuditLogAction.member_update, after=after,
-                                                 oldest_first=False):
-            if audit.target != self.member:
-                continue
-            try:
-                if audit.changes.before.mute is True and audit.changes.after.mute is False:
-                    return audit.user
-            except AttributeError:
-                continue
-        return None
-
     async def who_afk_checked_audit(self, duration: int = 10) -> Optional[Union[discord.Member, discord.User]]:
         after = discord.utils.utcnow() - datetime.timedelta(seconds=duration)
         afk_channel = self.guild.afk_channel
@@ -686,69 +612,6 @@ class HeliosMember(HasFlags):
             print(audit)
             try:
                 if audit.extra.channel.id == afk_channel.id:
-                    return audit.user
-            except AttributeError:
-                continue
-        return None
-
-
-    async def temp_deafen(self, duration: int, deafener: 'HeliosMember', price: int):
-        async def undeafen(m):
-            await asyncio.sleep(duration)
-            if await self.temp_undeafen(duration):
-                await self.bot.event_manager.delete_action(m)
-            embed = discord.Embed(
-                title='Deafened',
-                colour=discord.Colour.orange(),
-                description=f'Someone spent **{price}** {self.server.points_name.capitalize()} to deafen you for '
-                            f'**{duration}** seconds.'
-            )
-            await self.member.send(embed=embed)
-
-        if self.member.voice:
-            try:
-                await self.member.edit(deafen=True, reason=f'{deafener.member.name} temp deafened for {duration} seconds')
-            except discord.Forbidden:
-                return False
-            self._temp_deafen_data = (deafener, price)
-            self.allow_on_voice = False
-            model = await self.bot.event_manager.add_action('on_voice', self, 'undeafen')
-            self.bot.loop.create_task(undeafen(model))
-            return True
-        return False
-
-    async def temp_undeafen(self, duration: int = 90):
-        self.allow_on_voice = True
-        muter, cost = self._temp_deafen_data  # type: HeliosMember, int
-        self._temp_deafen_data = None
-        if self.member.voice:
-            if self.member.voice.mute is False:
-                unmuter = await self.who_undeafened(duration)
-                hel = self.server.me
-                if unmuter and unmuter != muter.member and unmuter != hel.member:
-                    member = self.server.members.get(unmuter.id)
-                    embed = discord.Embed(
-                        title='Notice of Refund',
-                        colour=discord.Colour.green(),
-                        description='Due to unexpected interference, your last Shop purchase was invalidated and you '
-                                    f'have been refunded **{cost}** {self.server.points_name.capitalize()}.'
-                    )
-                    await muter.add_points(cost, 'Helios', 'Helios Shop Refund: Temp Deafen')
-                    await muter.member.send(embed=embed)
-
-            await self.member.edit(deafen=False)
-            return True
-        else:
-            return False
-
-    async def who_undeafened(self, duration: int = 90) -> Optional[Union[discord.Member, discord.User]]:
-        after = discord.utils.utcnow() - datetime.timedelta(seconds=duration)
-        async for audit in self.guild.audit_logs(action=discord.AuditLogAction.member_update, after=after,
-                                                 oldest_first=False):
-            if audit.target != self.member:
-                continue
-            try:
-                if audit.changes.before.deaf is True and audit.changes.after.deaf is False:
                     return audit.user
             except AttributeError:
                 continue

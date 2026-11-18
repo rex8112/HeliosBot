@@ -221,13 +221,14 @@ class Effect:
 
 class MuteEffect(Effect):
     def __init__(self, target: 'HeliosMember', duration: int, *, cost: int = 0, muter: 'HeliosMember' = None,
-                 force: bool = False, reason: str = None, embed: discord.Embed = None):
+                 force: bool = False, reason: str = None, embed: discord.Embed = None, afk: bool = False):
         super().__init__(target, duration)
         self.cost = cost
         self.muter = muter
         self.force = force
         self.reason = reason
         self.embed = embed
+        self.afk = afk
 
     def to_dict_extras(self):
         return {
@@ -235,7 +236,8 @@ class MuteEffect(Effect):
             'muter': self.muter.id if self.muter else None,
             'force': self.force,
             'reason': self.reason,
-            'embed': self.embed.to_dict() if self.embed else None
+            'embed': self.embed.to_dict() if self.embed else None,
+            'afk': self.afk
         }
 
     def load_extras(self, data: dict):
@@ -243,7 +245,9 @@ class MuteEffect(Effect):
         self.muter = self.target.server.members.get(data.get('muter'))
         self.force = data.get('force', self.force)
         self.reason = data.get('reason', self.reason)
-        self.embed = discord.Embed.from_dict(data.get('embed')) if data.get('embed') else None
+        embed = data.get('embed')
+        self.embed = discord.Embed.from_dict(embed) if embed else None
+        self.afk = data.get('afk')
 
     def get_mute_embed(self):
         if self.embed is not None:

@@ -30,6 +30,7 @@ from discord import app_commands, Interaction
 from discord.ext import commands
 
 from helios import DynamicVoiceGroup, VoiceManager, Colour
+from helios.effects import MuteEffect
 from helios.views import PaginatorSelectView
 
 if TYPE_CHECKING:
@@ -104,7 +105,15 @@ class DynamicVoiceCog(commands.Cog):
 
             afker = h_mem.afk_information[0]
             if h_mem.afk_information[1] > ago and afker.member.voice and afker.member.voice.channel:
-                await afker.temp_mute(60, h_mem, 0, bad_afk=True)
+                embed = discord.Embed(
+                    title='AFK Check Failed',
+                    colour=Colour.helios(),
+                    description=f'AFK Check Failed for **{h_mem.member.name}** and you have been punished '
+                                f'for **60** seconds.'
+                )
+                effect = MuteEffect(afker, 60, force=True, reason=f'AFK Check Failed for **{h_mem.member.name}**',
+                                    afk=True, embed=embed)
+                await server.bot.effects.add_effect(effect)
             h_mem.afk_information = None
 
     @app_commands.command(name='groups', description='Manage all dynamic voice groups.')
